@@ -1,0 +1,65 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              Int      @id @default(autoincrement())
+  email           String   @unique
+  name            String
+  identification  String   @unique
+  birthDate       DateTime
+  interests       String?  // The ? makes this field optional
+  phone           String
+  passwordHash    String   // We will store an encrypted password, not the original
+  createdAt       DateTime @default(now())
+}
+
+model Professional {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String
+  profession String
+  phone     String
+  passwordHash String
+  cvUrl     String?
+  coverLetterUrl String?
+  isApproved Boolean  @default(false) // For the admin approval process
+  createdAt DateTime @default(now())
+
+  // A professional can have many services and posts
+  services  Service[]
+  posts     Post[]
+}
+
+model Service {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  price       Float
+  imageUrl    String
+
+  // Relation to the professional who offers it
+  professional    Professional @relation(fields: [professionalId], references: [id])
+  professionalId  Int
+}
+
+model Post {
+  id        Int      @id @default(autoincrement())
+  slug      String   @unique
+  title     String
+  excerpt   String
+  imageUrl  String
+  createdAt DateTime @default(now())
+
+  // Relation to the professional who wrote it
+  author    Professional @relation(fields: [authorId], references: [id])
+  authorId  Int
+}

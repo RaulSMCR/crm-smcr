@@ -1,16 +1,33 @@
-// src/app/page.js
-import HeroSection from "@/components/HeroSection";
-import CategorySection from "@/components/CategorySection";
-import ProfessionalCtaSection from "@/components/ProfessionalCtaSection";
-import ColorPaletteGuide from "@/components/ColorPaletteGuide"; // <-- 1. Importar
+// src/app/cuenta/page.js
+import Link from 'next/link';
 
-export default function HomePage() {
+export default function CuentaPage() {
   return (
-    <div>
-      <HeroSection />
-      <CategorySection />
-      <ProfessionalCtaSection />
-      <ColorPaletteGuide /> {/* <-- 2. Añadir */}
+    <div className="bg-gray-50 py-12">
+      <div className="container mx-auto px-6">
+        <h1 className="text-4xl font-bold text-center text-gray-800 mb-10">
+          Accede a tu Cuenta
+        </h1>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          {/* Login Card */}
+          <div className="bg-white p-8 rounded-lg shadow-md text-center">
+            <h2 className="text-2xl font-semibold mb-4">Ya tengo una cuenta</h2>
+            <p className="text-gray-600 mb-6">Ingresa para ver tu historial y agendar nuevas citas.</p>
+            <Link href="/login" className="w-full inline-block bg-brand-primary text-white px-6 py-3 rounded-md font-semibold hover:bg-opacity-90">
+              Iniciar Sesión
+            </Link>
+          </div>
+
+          {/* Register Card */}
+          <div className="bg-white p-8 rounded-lg shadow-md text-center">
+            <h2 className="text-2xl font-semibold mb-4">Soy un nuevo usuario</h2>
+            <p className="text-gray-600 mb-6">Crea una cuenta para empezar tu camino hacia el bienestar.</p>
+            <Link href="/registro" className="w-full inline-block bg-gray-700 text-white px-6 py-3 rounded-md font-semibold hover:bg-gray-800">
+              Registrarme
+            </Link>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

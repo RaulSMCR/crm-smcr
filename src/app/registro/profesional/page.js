@@ -1,4 +1,3 @@
-// src/app/registro/profesional/page.js
 import ProfessionalRegisterForm from "@/components/ProfessionalRegisterForm";
 
 export default function RegistroProfesionalPage() {

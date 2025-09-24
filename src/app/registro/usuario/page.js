@@ -1,4 +1,3 @@
-// src/app/registro/usuario/page.js
 import UserRegisterForm from "@/components/UserRegisterForm";
 
 export default function RegistroUsuarioPage() {

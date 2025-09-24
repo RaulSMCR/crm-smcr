@@ -11,7 +11,7 @@ export default function ProfessionalCtaSection() {
         <p className="max-w-2xl mx-auto mb-8">
           Únete a nuestra creciente red de especialistas en bienestar y expande tu alcance...
         </p>
-        <Link href="/registro-profesional" className="bg-white text-brand-primary font-bold px-8 py-3 rounded-md text-lg hover:bg-gray-100 transition duration-300">
+        <Link href="/registro/profesional" className="bg-white text-brand-primary font-bold px-8 py-3 rounded-md text-lg hover:bg-gray-100 transition duration-300">
           Únete a nuestra red
         </Link>
       </div>
