@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Your Next.js config, like images, goes here
   images: {
     remotePatterns: [
       {
@@ -9,5 +10,4 @@ const nextConfig = {
     ],
   },
 };
-
 export default nextConfig;

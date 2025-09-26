@@ -1,3 +1,5 @@
+// tailwind.config.mjs
+
 /** @type {import('tailwindcss').Config} */
 const config = {
   content: [
@@ -8,11 +10,13 @@ const config = {
   theme: {
     extend: {
       colors: {
+        // --- NUEVA PALETA DE COLORES BASADA EN TU LOGO ---
         'brand': {
-          'primary': '#58BDAB',   // Teal Green
-          'background': '#F5F3F0', // Light Cream
-          'accent': '#F4A261',     // Soft Orange/Peach
-          'dark': '#2D2D2D',      // Dark Gray for text
+          'primary': '#2F5F68',      // Verde oscuro/azulado (Monstera)
+          'secondary': '#F08080',   // Coral/Salmón (Punto de acento)
+          'background': '#EAF0EB',   // Fondo claro/menta
+          'text': '#3A3A3A',         // Gris oscuro para texto
+          'light-gray': '#F5F5F5',  // Gris muy claro para fondos sutiles
         }
       },
     },
@@ -20,4 +24,4 @@ const config = {
   plugins: [],
 };
 
-export default config;
+export default config; // Asegurándonos de usar la sintaxis correcta para .mjs

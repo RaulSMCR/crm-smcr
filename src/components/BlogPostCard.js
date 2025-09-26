@@ -4,7 +4,8 @@ import Link from 'next/link';
 
 export default function BlogPostCard({ post }) {
   return (
-    <Link href={post.href} className="block bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300">
+    // El enlace ahora se construye con el slug del post
+    <Link href={`/blog/${post.slug}`} className="block bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300">
       <div className="relative w-full h-48">
         <Image
           src={post.imageUrl}
@@ -15,7 +16,8 @@ export default function BlogPostCard({ post }) {
       </div>
       <div className="p-6">
         <h3 className="text-xl font-bold text-gray-800 mb-2">{post.title}</h3>
-        <p className="text-gray-600 line-clamp-3">{post.excerpt}</p>
+        {/* Usamos 'content' en lugar de 'excerpt' para que coincida con nuestro modelo de base de datos */}
+        <p className="text-gray-600 line-clamp-3">{post.content}</p>
       </div>
     </Link>
   );

@@ -1,12 +1,12 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// Este es tu archivo de esquema de Prisma,
+// aprende más sobre él en la documentación: https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql" // Configurado para tu base de datos de GoDaddy (MySQL/MariaDB)
   url      = env("DATABASE_URL")
 }
 
@@ -16,50 +16,55 @@ model User {
   name            String
   identification  String   @unique
   birthDate       DateTime
-  interests       String?  // The ? makes this field optional
+  gender          String?  // Campo de género opcional
+  interests       String?
   phone           String
-  passwordHash    String   // We will store an encrypted password, not the original
+  passwordHash    String
+  role            String   @default("USER") // Rol para distinguir usuarios y administradores
   createdAt       DateTime @default(now())
 }
 
 model Professional {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String
-  profession String
-  phone     String
-  passwordHash String
-  cvUrl     String?
+  id             Int      @id @default(autoincrement())
+  email          String   @unique
+  name           String
+  profession     String
+  phone          String
+  passwordHash   String
+  cvUrl          String?
   coverLetterUrl String?
-  isApproved Boolean  @default(false) // For the admin approval process
-  createdAt DateTime @default(now())
+  isApproved     Boolean  @default(false)
+  createdAt      DateTime @default(now())
 
-  // A professional can have many services and posts
-  services  Service[]
-  posts     Post[]
+  // Relaciones: Un profesional puede tener muchos servicios y artículos
+  services Service[]
+  posts    Post[]
 }
 
 model Service {
-  id          Int      @id @default(autoincrement())
-  title       String
-  description String
-  price       Float
-  imageUrl    String
+  id             Int     @id @default(autoincrement())
+  title          String
+  description    String  @db.Text
+  price          Float
+  imageUrl       String
+  professionalId Int
 
-  // Relation to the professional who offers it
-  professional    Professional @relation(fields: [professionalId], references: [id])
-  professionalId  Int
+  // Relación con el profesional que ofrece el servicio
+  professional   Professional @relation(fields: [professionalId], references: [id])
 }
 
 model Post {
   id        Int      @id @default(autoincrement())
   slug      String   @unique
   title     String
-  excerpt   String
-  imageUrl  String
+  content   String   @db.Text
+  imageUrl  String?  // La imagen de cabecera es opcional
+  postType  String   @default("text") // Puede ser "text", "video", o "audio"
+  mediaUrl  String?  // Para la URL del video o podcast
+  status    String   @default("PENDING") // PENDING, PUBLISHED, REJECTED
   createdAt DateTime @default(now())
-
-  // Relation to the professional who wrote it
-  author    Professional @relation(fields: [authorId], references: [id])
   authorId  Int
+
+  // Relación con el profesional que escribió el artículo
+  author    Professional @relation(fields: [authorId], references: [id])
 }

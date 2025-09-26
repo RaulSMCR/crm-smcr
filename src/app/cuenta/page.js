@@ -9,7 +9,7 @@ export default function CuentaPage() {
           Accede a tu Cuenta
         </h1>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-          {/* Login Card */}
+          {/* Tarjeta de Login */}
           <div className="bg-white p-8 rounded-lg shadow-md text-center">
             <h2 className="text-2xl font-semibold mb-4">Ya tengo una cuenta</h2>
             <p className="text-gray-600 mb-6">Ingresa para ver tu historial y agendar nuevas citas.</p>
@@ -18,7 +18,7 @@ export default function CuentaPage() {
             </Link>
           </div>
 
-          {/* Register Card */}
+          {/* Tarjeta de Registro */}
           <div className="bg-white p-8 rounded-lg shadow-md text-center">
             <h2 className="text-2xl font-semibold mb-4">Soy un nuevo usuario</h2>
             <p className="text-gray-600 mb-6">Crea una cuenta para empezar tu camino hacia el bienestar.</p>

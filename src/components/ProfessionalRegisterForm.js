@@ -11,22 +11,43 @@ export default function ProfessionalRegisterForm() {
     password: '',
     confirmPassword: '',
   });
-  // NOTA: El manejo de archivos (CV, carta) es más complejo y lo simularemos por ahora.
+  const [message, setMessage] = useState('');
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  // This is the updated function
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setMessage('');
+
     if (formData.password !== formData.confirmPassword) {
-      alert("Las contraseñas no coinciden.");
+      setMessage("Las contraseñas no coinciden.");
       return;
     }
-    console.log('Datos del registro de profesional:', formData);
-    alert('Gracias por tu interés. Hemos recibido tus datos y te contactaremos pronto para una entrevista después de revisar tu CV.');
-    // Aquí iría la lógica para subir los archivos y enviar el email al admin.
+
+    // We ignore file inputs for now
+    try {
+      const response = await fetch('/api/auth/register-professional', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        setMessage('Gracias por tu interés. Hemos recibido tus datos y te contactaremos pronto.');
+      } else {
+        const errorData = await response.json();
+        setMessage(errorData.message || 'Ocurrió un error al enviar la solicitud.');
+      }
+    } catch (error) {
+      console.error('Submission error:', error);
+      setMessage('No se pudo conectar con el servidor.');
+    }
   };
 
   return (
@@ -77,6 +98,8 @@ export default function ProfessionalRegisterForm() {
       <button type="submit" className="w-full bg-gray-700 text-white p-3 rounded-lg font-semibold hover:bg-gray-800">
         Enviar Solicitud
       </button>
+
+      {message && <p className="mt-4 text-center text-sm text-red-600">{message}</p>}
     </form>
   );
 }
