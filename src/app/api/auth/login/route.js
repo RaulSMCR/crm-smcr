@@ -1,54 +1,98 @@
+// src/app/api/auth/login/route.js
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcryptjs';
-import { SignJWT } from 'jose';
-import { serialize } from 'cookie';
+import { prisma } from '@/lib/prisma';
+import { signToken, setSessionCookie } from '@/lib/auth';
 
-const prisma = new PrismaClient();
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
+/** GET de prueba para verificar que la ruta está viva */
+export async function GET() {
+  return NextResponse.json({ ok: true, route: '/api/auth/login' });
+}
+
+/** Lee credenciales SOLO desde JSON */
+async function readJsonCredentials(request) {
+  const ct = request.headers.get('content-type') || '';
+  if (!ct.includes('application/json')) {
+    return { email: '', password: '', roleHint: '' };
+  }
+  try {
+    const body = await request.json();
+    const email = String(body?.email || '').trim().toLowerCase();
+    const password = String(body?.password || '');
+    const roleHint = String(body?.roleHint || '').toUpperCase(); // opcional
+    return { email, password, roleHint };
+  } catch {
+    return { email: '', password: '', roleHint: '' };
+  }
+}
+
+async function comparePasswordBcrypt(plain, hash) {
+  if (!hash) return false;
+  try {
+    const bcrypt = await import('bcryptjs');
+    return await bcrypt.compare(plain, hash);
+  } catch {
+    return false;
+  }
+}
 
 export async function POST(request) {
   try {
-    const body = await request.json();
-    const { email, password } = body;
-
-    let account = await prisma.user.findUnique({ where: { email } });
-    let role = 'USER';
-
-    if (!account) {
-      account = await prisma.professional.findUnique({ where: { email } });
-      role = 'PROFESSIONAL';
+    const { email, password, roleHint } = await readJsonCredentials(request);
+    if (!email || !password) {
+      return NextResponse.json({ message: 'Email y contraseña requeridos' }, { status: 400 });
     }
 
-    if (!account || !(await bcrypt.compare(password, account.passwordHash))) {
-      return NextResponse.json({ message: 'Email o contraseña inválidos.' }, { status: 401 });
-    }
-    
-    if (role === 'PROFESSIONAL' && !account.isApproved) {
-        return NextResponse.json({ message: 'Tu cuenta de profesional aún no ha sido aprobada.' }, { status: 403 });
-    }
+    // Priorizamos PROFESSIONAL por defecto (evita colisiones con User)
+    const tryOrder = roleHint === 'USER' ? ['USER', 'PROFESSIONAL'] : ['PROFESSIONAL', 'USER'];
 
-    const payload = { userId: account.id, name: account.name, role: role };
-    const token = await new SignJWT(payload)
-      .setProtectedHeader({ alg: 'HS256' })
-      .setIssuedAt()
-      .setExpirationTime('1h')
-      .sign(JWT_SECRET);
-    
-    const cookie = serialize('sessionToken', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60,
-      path: '/',
+    const tryUser = async () => {
+      const user = await prisma.user.findUnique({
+        where: { email },
+        select: { id: true, name: true, email: true, role: true, passwordHash: true },
+      });
+      if (!user) return null;
+      const ok = await comparePasswordBcrypt(password, user.passwordHash);
+      if (!ok) throw new Error('INVALID_CREDENTIALS');
+      return { role: user.role || 'USER', id: user.id, name: user.name, email: user.email };
+    };
+
+    const tryProfessional = async () => {
+      const pro = await prisma.professional.findUnique({
+        where: { email },
+        select: { id: true, name: true, email: true, passwordHash: true, isApproved: true },
+      });
+      if (!pro) return null;
+      const ok = await comparePasswordBcrypt(password, pro.passwordHash);
+      if (!ok) throw new Error('INVALID_CREDENTIALS');
+      if (!pro.isApproved) throw new Error('PRO_NOT_APPROVED');
+      return { role: 'PROFESSIONAL', id: pro.id, name: pro.name, email: pro.email };
+    };
+
+    let auth = null;
+    for (const who of tryOrder) {
+      auth = who === 'PROFESSIONAL' ? await tryProfessional() : await tryUser();
+      if (auth) break;
+    }
+    if (!auth) return NextResponse.json({ message: 'Usuario no encontrado' }, { status: 404 });
+
+    const token = await signToken({ userId: auth.id, role: auth.role, email: auth.email });
+    const res = NextResponse.json({
+      ok: true,
+      role: auth.role,
+      userId: auth.id,
+      name: auth.name,
+      email: auth.email,
     });
-
-    const { passwordHash, ...accountWithoutPassword } = account;
-    const response = NextResponse.json({ message: 'Login exitoso', user: accountWithoutPassword, role: role });
-    response.headers.set('Set-Cookie', cookie);
-    return response;
-
-  } catch (error) {
-    console.error('Login Error:', error);
-    return NextResponse.json({ message: 'Ocurrió un error en el servidor.' }, { status: 500 });
+    setSessionCookie(res, token);
+    return res;
+  } catch (e) {
+    if (e?.message === 'INVALID_CREDENTIALS') {
+      return NextResponse.json({ message: 'Credenciales inválidas' }, { status: 401 });
+    }
+    if (e?.message === 'PRO_NOT_APPROVED') {
+      return NextResponse.json({ message: 'Tu cuenta de profesional está en revisión' }, { status: 403 });
+    }
+    console.error('POST /api/auth/login error:', e);
+    return NextResponse.json({ message: 'Error de autenticación' }, { status: 500 });
   }
 }

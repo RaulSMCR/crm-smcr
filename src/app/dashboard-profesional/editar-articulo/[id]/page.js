@@ -1,40 +1,50 @@
 // src/app/dashboard-profesional/editar-articulo/[id]/page.js
-import PostEditor from "@/components/PostEditor";
-import { PrismaClient } from '@prisma/client';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { prisma } from '@/lib/prisma';
+import PostEditor from '@/components/PostEditor';
 
-const prisma = new PrismaClient();
+async function getPostOrNull(idParam) {
+  // Permitimos "new" para crear
+  if (!idParam || idParam === 'new' || idParam === 'nuevo') return null;
 
-// Función para obtener los datos de un único post
-async function getPostData(postId) {
+  const id = Number(idParam);
+  if (!Number.isInteger(id)) return null;
+
   const post = await prisma.post.findUnique({
-    where: { id: parseInt(postId) },
+    where: { id },
+    select: {
+      id: true,
+      title: true,
+      content: true,
+      imageUrl: true,
+      postType: true,
+      mediaUrl: true,
+      serviceId: true,
+      slug: true,
+      status: true,
+      createdAt: true,
+    },
   });
+
   return post;
 }
 
-export default async function EditPostPage({ params }) {
-  const post = await getPostData(params.id);
+export default async function EditarArticuloPage({ params }) {
+  const idParam = params?.id;
+  if (!idParam) notFound();
 
-  // Si el post no existe, mostramos un 404
-  if (!post) {
-    notFound();
-  }
+  const post = await getPostOrNull(idParam);
 
   return (
-    <div className="bg-gray-50 py-12">
-      <div className="container mx-auto px-6">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-800">
-            Editar Artículo
-          </h1>
-          <p className="text-lg text-gray-600 mt-2">
-            Realiza los cambios necesarios y vuelve a enviarlo para revisión.
-          </p>
-        </div>
-        {/* Le pasamos los datos del post al editor para que se rellene */}
-        <PostEditor existingPost={post} />
+    <main className="max-w-3xl mx-auto px-4 py-10">
+      <div className="mb-6">
+        <Link href="/dashboard-profesional" className="text-sm text-blue-600 underline">
+          ← Volver al panel
+        </Link>
       </div>
-    </div>
+
+      <PostEditor initial={post} />
+    </main>
   );
 }

@@ -1,23 +1,21 @@
 // src/app/layout.js
-import './globals.css'; // <-- ESTA LÍNEA ES LA MÁS IMPORTANTE
+import './globals.css';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
 export const metadata = {
-  title: 'Salud Mental Costa Rica',
-  description: 'Profesionales al servicio de tu bienestar',
-}
+  title: 'SMCR',
+  description: 'Salud mental, coaching y recursos',
+};
 
 export default function RootLayout({ children }) {
   return (
     <html lang="es">
-      <body className="flex flex-col min-h-screen bg-brand-background text-brand-dark">
+      <body className="min-h-screen bg-[rgb(var(--app-bg))] text-neutral-900 antialiased">
         <Header />
-        <main className="flex-grow">
-          {children}
-        </main>
+        <main className="container py-8">{children}</main>
         <Footer />
       </body>
     </html>
-  )
+  );
 }

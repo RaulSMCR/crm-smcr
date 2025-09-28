@@ -2,51 +2,40 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { SignJWT } from 'jose'; // Use the same modern library
+import { serialize } from 'cookie';
 
 const prisma = new PrismaClient();
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 
 export async function POST(request) {
   try {
-    const body = await request.json();
-    const { 
-      nombreCompleto, 
-      email, 
-      password, 
-      identificacion, 
-      fechaNacimiento, // This can be an empty string
-      telefono, 
-      intereses 
-    } = body;
-
-    // --- NEW VALIDATION STEP ---
-    if (!fechaNacimiento) {
-      return NextResponse.json({ message: 'La fecha de nacimiento es requerida.' }, { status: 400 });
-    }
-    const birthDateObj = new Date(fechaNacimiento);
-    if (isNaN(birthDateObj.getTime())) {
-      return NextResponse.json({ message: 'El formato de la fecha de nacimiento no es válido.' }, { status: 400 });
-    }
-    // -------------------------
-
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // ... (code to get form data and create the user)
 
     const newUser = await prisma.user.create({
-      data: {
-        name: nombreCompleto,
-        email: email,
-        passwordHash: hashedPassword,
-        identification: identificacion,
-        birthDate: birthDateObj, // Use the validated date object
-        phone: telefono,
-        interests: intereses,
-      },
+      // ... (data for the new user)
     });
 
-    return NextResponse.json(newUser, { status: 201 });
+    // --- NEW LOGIC: LOG THE USER IN AUTOMATICALLY ---
+    const payload = { userId: newUser.id, name: newUser.name, role: 'USER' };
+    const token = await new SignJWT(payload)
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setExpirationTime('1h')
+      .sign(JWT_SECRET);
+
+    const cookie = serialize('sessionToken', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60,
+      path: '/',
+    });
+
+    const response = NextResponse.json(newUser, { status: 201 });
+    response.headers.set('Set-Cookie', cookie); // Attach the session cookie
+    return response;
 
   } catch (error) {
-    console.error('Registration Error:', error);
-    // This will now catch other errors, like if the email is already in use
-    return NextResponse.json({ message: 'Error al crear el usuario. El email o la identificación ya podrían existir.' }, { status: 500 });
+    // ... (error handling)
   }
 }

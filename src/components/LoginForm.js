@@ -1,76 +1,90 @@
+// src/components/LoginForm.js
 'use client';
-import { useState } from 'react';
-import Link from 'next/link';
+
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function LoginForm() {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-  });
-  const [message, setMessage] = useState('');
   const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState(null);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = async (e) => {
+  async function onSubmit(e) {
     e.preventDefault();
-    setMessage('');
+    setError(null);
+
+    const form = new FormData(e.currentTarget);
+    const email = String(form.get('email') || '').trim().toLowerCase();
+    const password = String(form.get('password') || '');
+
+    if (!email || !password) {
+      setError('Ingresá email y contraseña.');
+      return;
+    }
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const res = await fetch('/api/auth/login', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ email, password }),
       });
-      
-      const data = await response.json();
 
-      if (response.ok) {
-        if (data.role === 'USER') {
-          router.push('/dashboard');
-        } else if (data.role === 'PROFESSIONAL') {
-          router.push('/dashboard-profesional');
-        } else if (data.role === 'ADMIN') {
-          router.push('/admin');
-        }
-      } else {
-        setMessage(data.message || 'Ocurrió un error');
-      }
-    } catch (error) {
-      setMessage('No se pudo conectar con el servidor.');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.message || `Error ${res.status}`);
+
+      // Redirección por rol
+      let to = '/';
+      if (data.role === 'ADMIN') to = '/admin';
+      else if (data.role === 'PROFESSIONAL') to = '/dashboard-profesional';
+      else to = '/cuenta';
+
+      startTransition(() => {
+        router.push(to);
+        router.refresh();
+      });
+    } catch (e) {
+      setError(e.message);
     }
-  };
+  }
 
   return (
-    <form onSubmit={handleSubmit} method="POST" className="bg-white p-8 rounded-lg shadow-md border max-w-md mx-auto">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">Iniciar Sesión</h2>
-      
-      <div className="mb-4">
-        <label htmlFor="email" className="block text-gray-700 font-medium mb-2">Email</label>
-        <input type="email" name="email" value={formData.email} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded-md"/>
+    <form onSubmit={onSubmit} className="max-w-sm w-full space-y-4">
+      <div>
+        <label className="block text-sm font-medium mb-1">Email</label>
+        <input
+          type="email"
+          name="email"
+          className="w-full border rounded px-3 py-2"
+          placeholder="tu@email.com"
+          required
+        />
       </div>
-      
-      <div className="mb-6">
-        <label htmlFor="password" className="block text-gray-700 font-medium mb-2">Contraseña</label>
-        <input type="password" name="password" value={formData.password} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded-md"/>
+
+      <div>
+        <label className="block text-sm font-medium mb-1">Contraseña</label>
+        <input
+          type="password"
+          name="password"
+          className="w-full border rounded px-3 py-2"
+          placeholder="••••••••"
+          required
+        />
       </div>
-      
-      <button type="submit" className="w-full bg-brand-primary text-white p-3 rounded-lg font-semibold hover:bg-opacity-90">
-        Entrar
+
+      {error ? (
+        <div className="text-sm text-red-600 border border-red-200 bg-red-50 rounded px-3 py-2">
+          {error}
+        </div>
+      ) : null}
+
+      <button
+        type="submit"
+        disabled={pending}
+        className="w-full px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-70"
+      >
+        {pending ? 'Ingresando…' : 'Ingresar'}
       </button>
-      
-      {message && <p className="mt-4 text-center text-sm text-red-600">{message}</p>}
-      
-      <p className="text-sm text-center text-gray-600 mt-4">
-        ¿No tienes una cuenta?{' '}
-        <Link href="/registro" className="text-brand-primary font-semibold hover:underline">
-          Regístrate aquí
-        </Link>
-      </p>
     </form>
   );
 }

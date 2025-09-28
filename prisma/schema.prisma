@@ -1,56 +1,88 @@
-// Este es tu archivo de esquema de Prisma,
-// aprende más sobre él en la documentación: https://pris.ly/d/prisma-schema
-
+// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
+  // Si te funcionó mejor el engine binario en Windows, descomenta:
+  // engineType = "binary"
 }
 
 datasource db {
-  provider = "mysql" // Configurado para tu base de datos de GoDaddy (MySQL/MariaDB)
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id              Int      @id @default(autoincrement())
-  email           String   @unique
-  name            String
-  identification  String   @unique
-  birthDate       DateTime
-  gender          String?  // Campo de género opcional
-  interests       String?
-  phone           String
-  passwordHash    String
-  role            String   @default("USER") // Rol para distinguir usuarios y administradores
-  createdAt       DateTime @default(now())
-}
-
-model Professional {
   id             Int      @id @default(autoincrement())
   email          String   @unique
   name           String
-  profession     String
+  identification String   @unique
+  birthDate      DateTime
+  gender         String?
+  interests      String?
   phone          String
   passwordHash   String
-  cvUrl          String?
-  coverLetterUrl String?
-  isApproved     Boolean  @default(false)
+  role           String   @default("USER")
   createdAt      DateTime @default(now())
 
-  // Relaciones: Un profesional puede tener muchos servicios y artículos
+  appointments Appointment[]
+}
+
+model Category {
+  id          Int     @id @default(autoincrement())
+  name        String  @unique
+  slug        String  @unique
+  description String?
+  imageUrl    String?
+
   services Service[]
-  posts    Post[]
 }
 
 model Service {
-  id             Int     @id @default(autoincrement())
-  title          String
-  description    String  @db.Text
-  price          Float
-  imageUrl       String
-  professionalId Int
+  id          Int      @id @default(autoincrement())
+  slug        String   @unique
+  title       String
+  description String   @db.Text
+  price       Float
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  // Relación con el profesional que ofrece el servicio
-  professional   Professional @relation(fields: [professionalId], references: [id])
+  // Categoría opcional
+  categoryId Int?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  // Relación M:N con profesionales
+  professionals Professional[] @relation("ServicesOnProfessionals")
+
+  // Posts que referencian este servicio (1:N)
+  posts Post[]
+
+  // Citas que referencian este servicio (nuevo, opcional)
+  appointments Appointment[]
+}
+
+model Professional {
+  id                 Int      @id @default(autoincrement())
+  email              String   @unique
+  name               String
+  profession         String
+  bio                String?
+  avatarUrl          String?
+  introVideoUrl      String?
+  calendarUrl        String?
+  paymentLinkBase    String?
+  passwordHash       String   @default("placeholder_hash")
+  isApproved         Boolean  @default(false)
+  googleRefreshToken String?  @db.Text
+  createdAt          DateTime @default(now())
+
+  // Relación M:N con servicios
+  services Service[] @relation("ServicesOnProfessionals")
+
+  // Contenido
+  posts Post[]
+
+  // Citas
+  appointments Appointment[]
 }
 
 model Post {
@@ -58,13 +90,44 @@ model Post {
   slug      String   @unique
   title     String
   content   String   @db.Text
-  imageUrl  String?  // La imagen de cabecera es opcional
-  postType  String   @default("text") // Puede ser "text", "video", o "audio"
-  mediaUrl  String?  // Para la URL del video o podcast
-  status    String   @default("PENDING") // PENDING, PUBLISHED, REJECTED
+  imageUrl  String?
+  postType  String   @default("TEXT") // "TEXT" | "VIDEO" | "AUDIO"
+  mediaUrl  String?
+  status    String   @default("PENDING") // "PENDING" | "PUBLISHED"
   createdAt DateTime @default(now())
-  authorId  Int
 
-  // Relación con el profesional que escribió el artículo
-  author    Professional @relation(fields: [authorId], references: [id])
+  // Autor (profesional)
+  authorId Int
+  author   Professional @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  // Servicio opcional asociado
+  serviceId Int?
+  service   Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([serviceId])
+}
+
+model Appointment {
+  id        Int      @id @default(autoincrement())
+  startTime DateTime
+  endTime   DateTime
+  status    String   @default("CONFIRMED")
+  createdAt DateTime @default(now())
+
+  // Quien reserva
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Con quién reserva (profesional)
+  professionalId Int
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  // NUEVO: servicio opcional del turno
+  serviceId Int?
+  service   Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@index([professionalId, startTime])
+  @@index([userId, startTime])
+  @@index([serviceId])
 }

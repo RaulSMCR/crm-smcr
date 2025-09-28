@@ -1,45 +1,62 @@
 // src/app/servicios/page.js
-import ServiceCard from "@/components/ServiceCard";
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import ServiceCard from '@/components/ServiceCard';
 
-const prisma = new PrismaClient();
+export const metadata = {
+  title: 'Servicios',
+  description: 'Listado de servicios disponibles',
+};
 
-// Esta función especial le dice a Next.js que obtenga los datos
-// de la base de datos antes de construir la página.
-async function getServicesFromDb() {
+export default async function ServiciosPage() {
+  // Solo usamos la relación many-to-many "professionals"
   const services = await prisma.service.findMany({
-    include: {
-      professional: true, // También trae la información del profesional asociado
+    orderBy: { title: 'asc' },
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      description: true,
+      price: true,
+      imageUrl: true,
+      category: {
+        select: { id: true, name: true, slug: true },
+      },
+      professionals: {
+        select: { id: true, name: true },
+      },
     },
   });
-  return services;
-}
-
-// Convertimos el componente de la página en una función 'async'
-export default async function ServiciosPage() {
-  // Llamamos a la función para obtener los servicios reales de la BD
-  const services = await getServicesFromDb();
 
   return (
-    <div className="bg-gray-50 py-12">
-      <div className="container mx-auto px-6">
-        <h1 className="text-4xl font-bold text-center text-gray-800 mb-12">
-          Nuestros Servicios
-        </h1>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {services.map((service) => (
-            // Pasamos los datos del servicio a la tarjeta.
-            // ServiceCard espera 'professionalName', así que lo extraemos del objeto anidado.
-            <ServiceCard 
-              key={service.id} 
+    <main className="space-y-6">
+      <header className="flex items-end justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-neutral-900">Servicios</h1>
+          <p className="text-sm text-neutral-600">
+            Elegí el servicio y reservá con un profesional.
+          </p>
+        </div>
+      </header>
+
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {services.map((service) => {
+          const professionalName =
+            service.professionals?.[0]?.name ?? 'Equipo SMCR';
+          return (
+            <ServiceCard
+              key={service.id}
               service={{
                 ...service,
-                professionalName: service.professional.name 
-              }} 
+                professionalName,
+                // Fallback visual si faltara imagen en la BD:
+                imageUrl:
+                  service.imageUrl ||
+                  'https://images.unsplash.com/photo-1552664730-d307ca884978?q=80&w=1600&auto=format&fit=crop',
+              }}
             />
-          ))}
-        </div>
-      </div>
-    </div>
+          );
+        })}
+      </section>
+    </main>
   );
 }

@@ -1,18 +1,23 @@
+// src/components/UserRegisterForm.js
 'use client';
 import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function UserRegisterForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [formData, setFormData] = useState({
     nombreCompleto: '',
     identificacion: '',
     fechaNacimiento: '',
-    intereses: '',
+    gender: '', // Campo para género
+    intereses: '', // Campo para intereses
     email: '',
     telefono: '',
     password: '',
     confirmPassword: '',
   });
-  const [message, setMessage] = useState(''); // For success/error messages
+  const [message, setMessage] = useState('');
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -35,7 +40,13 @@ export default function UserRegisterForm() {
       });
 
       if (response.ok) {
-        setMessage('¡Registro exitoso! Ya puedes iniciar sesión.');
+        // Lógica de redirección inteligente
+        const redirectUrl = searchParams.get('redirect');
+        if (redirectUrl) {
+          router.push(redirectUrl); // Va al calendario del profesional
+        } else {
+          router.push('/dashboard'); // Va al panel de control por defecto
+        }
       } else {
         const errorData = await response.json();
         setMessage(errorData.message || 'Ocurrió un error en el registro.');
@@ -52,40 +63,57 @@ export default function UserRegisterForm() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="mb-4">
           <label htmlFor="nombreCompleto" className="block text-gray-700 font-medium mb-2">Nombre Completo</label>
-          <input type="text" id="nombreCompleto" name="nombreCompleto" value={formData.nombreCompleto} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded-md"/>
+          <input type="text" name="nombreCompleto" value={formData.nombreCompleto} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded-md"/>
         </div>
         <div className="mb-4">
           <label htmlFor="identificacion" className="block text-gray-700 font-medium mb-2">Identificación (Cédula)</label>
-          <input type="text" id="identificacion" name="identificacion" value={formData.identificacion} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded-md"/>
+          <input type="text" name="identificacion" value={formData.identificacion} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded-md"/>
         </div>
         <div className="mb-4">
           <label htmlFor="fechaNacimiento" className="block text-gray-700 font-medium mb-2">Fecha de Nacimiento</label>
-          <input type="date" id="fechaNacimiento" name="fechaNacimiento" value={formData.fechaNacimiento} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded-md"/>
+          <input type="date" name="fechaNacimiento" value={formData.fechaNacimiento} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded-md"/>
         </div>
          <div className="mb-4">
           <label htmlFor="telefono" className="block text-gray-700 font-medium mb-2">Teléfono de Contacto</label>
-          <input type="tel" id="telefono" name="telefono" value={formData.telefono} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded-md"/>
+          <input type="tel" name="telefono" value={formData.telefono} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded-md"/>
+        </div>
+        <div className="mb-4">
+            <label htmlFor="gender" className="block text-gray-700 font-medium mb-2">Género (opcional)</label>
+            <select 
+            name="gender" 
+            id="gender"
+            value={formData.gender} 
+            onChange={handleChange} 
+            className="w-full p-2 border border-gray-300 rounded-md"
+            >
+            <option value="">Seleccionar...</option>
+            <option value="femenino">Femenino</option>
+            <option value="masculino">Masculino</option>
+            <option value="no-binario">No-binario</option>
+            <option value="otro">Otro</option>
+            <option value="prefiero-no-decir">Prefiero no decir</option>
+            </select>
         </div>
       </div>
 
       <div className="mb-4">
         <label htmlFor="intereses" className="block text-gray-700 font-medium mb-2">Intereses en Salud Mental</label>
-        <textarea id="intereses" name="intereses" value={formData.intereses} onChange={handleChange} rows="3" placeholder="Ej: Ansiedad, terapia de pareja, crecimiento personal..." className="w-full p-2 border border-gray-300 rounded-md"></textarea>
+        <textarea name="intereses" value={formData.intereses} onChange={handleChange} rows="3" placeholder="Ej: Ansiedad, terapia de pareja, crecimiento personal..." className="w-full p-2 border border-gray-300 rounded-md"></textarea>
       </div>
 
       <div className="mb-4">
         <label htmlFor="email" className="block text-gray-700 font-medium mb-2">Email</label>
-        <input type="email" id="email" name="email" value={formData.email} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded-md"/>
+        <input type="email" name="email" value={formData.email} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded-md"/>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <div>
           <label htmlFor="password" className="block text-gray-700 font-medium mb-2">Contraseña</label>
-          <input type="password" id="password" name="password" value={formData.password} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded-md"/>
+          <input type="password" name="password" value={formData.password} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded-md"/>
         </div>
         <div>
           <label htmlFor="confirmPassword" className="block text-gray-700 font-medium mb-2">Confirmar Contraseña</label>
-          <input type="password" id="confirmPassword" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded-md"/>
+          <input type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded-md"/>
         </div>
       </div>
       

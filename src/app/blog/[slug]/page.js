@@ -1,85 +1,160 @@
 // src/app/blog/[slug]/page.js
-import Image from 'next/image';
 import Link from 'next/link';
-import { PrismaClient } from '@prisma/client';
+import { notFound } from 'next/navigation';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
+function formatDate(date) {
+  return new Intl.DateTimeFormat('es-ES', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  }).format(date);
+}
 
-// Función que busca un solo artículo en la BD por su 'slug'
 async function getPost(slug) {
-  const post = await prisma.post.findUnique({
-    where: { slug: slug },
-    include: { author: true }, // También trae los datos del autor
+  const post = await prisma.post.findFirst({
+    where: { slug, status: 'PUBLISHED' }, // mostramos solo publicados
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      content: true,
+      imageUrl: true,
+      mediaUrl: true,
+      postType: true,
+      createdAt: true,
+      author: {
+        select: {
+          id: true,
+          name: true,
+          profession: true,
+          avatarUrl: true,
+        },
+      },
+      service: {
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+        },
+      },
+    },
   });
   return post;
 }
 
-// Componente "ayudante" que decide si mostrar una imagen, video o audio
-function PostMedia({ post }) {
-  if (post.postType === 'video' && post.mediaUrl) {
-    return (
-      <div className="aspect-video my-8">
-        <iframe src={post.mediaUrl} title={post.title} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen className="w-full h-full rounded-lg shadow-lg"></iframe>
-      </div>
-    );
-  }
-  if (post.postType === 'audio' && post.mediaUrl) {
-    return (
-      <div className="my-8">
-        <iframe src={post.mediaUrl} width="100%" height="152" frameBorder="0" allowFullScreen allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" className="rounded-lg shadow-lg"></iframe>
-      </div>
-    );
-  }
-  // ESTA ES LA PARTE QUE MUESTRA LA IMAGEN PARA ARTÍCULOS DE TEXTO
-  if (post.postType === 'text' && post.imageUrl) {
-    return (
-      <div className="relative w-full h-96 rounded-lg overflow-hidden shadow-lg my-8">
-        <Image
-          src={post.imageUrl}
-          alt={`Imagen para ${post.title}`}
-          layout="fill"
-          objectFit="cover"
-        />
-      </div>
-    );
-  }
-  return null; // No muestra nada si no hay medio visual
+async function getPrevNext(createdAt) {
+  // prev: más reciente anterior; next: más antiguo siguiente
+  const [prev, next] = await Promise.all([
+    prisma.post.findFirst({
+      where: { status: 'PUBLISHED', createdAt: { lt: createdAt } },
+      orderBy: { createdAt: 'desc' },
+      select: { slug: true, title: true },
+    }),
+    prisma.post.findFirst({
+      where: { status: 'PUBLISHED', createdAt: { gt: createdAt } },
+      orderBy: { createdAt: 'asc' },
+      select: { slug: true, title: true },
+    }),
+  ]);
+  return { prev, next };
 }
 
-export default async function PostDetailPage({ params }) {
-  const post = await getPost(params.slug);
+export default async function BlogDetailPage({ params }) {
+  const slug = params?.slug;
+  if (!slug) notFound();
 
-  if (!post) {
-    return (
-      <div className="container mx-auto px-6 py-12 text-center">
-        <h1 className="text-4xl font-bold">Artículo no encontrado</h1>
-        <Link href="/blog" className="text-brand-primary mt-4 inline-block">
-          Volver al blog
-        </Link>
-      </div>
-    );
-  }
+  const post = await getPost(slug);
+  if (!post) notFound();
+
+  const { prev, next } = await getPrevNext(post.createdAt);
 
   return (
-    <div className="bg-white py-12">
-      <div className="container mx-auto px-6 max-w-3xl">
-        <h1 className="text-4xl font-bold text-gray-800 mb-2">{post.title}</h1>
-        <div className="mb-4">
-          <span className="text-gray-600">Escrito por: </span>
-          <Link href={`/perfil/${post.author.id}`} className="text-brand-primary font-semibold hover:underline">
-            {post.author.name}
-          </Link>
-        </div>
-
-        {/* ESTA PARTE ES RESPONSABLE DE DIBUJAR LA IMAGEN/VIDEO */}
-        <PostMedia post={post} />
-
-        {/* ESTA PARTE ES RESPONSABLE DE DIBUJAR EL TEXTO */}
-        <div className="prose lg:prose-xl max-w-none">
-          <p>{post.content}</p>
-        </div>
-
+    <main className="max-w-3xl mx-auto px-4 py-10">
+      <div className="mb-6">
+        <Link href="/blog" className="text-sm text-blue-600 underline">
+          ← Volver al blog
+        </Link>
       </div>
-    </div>
+
+      <article>
+        <h1 className="text-3xl font-bold mb-2">{post.title}</h1>
+
+        <div className="text-sm text-gray-500 mb-4">
+          {post.author?.name ? `${post.author.name}` : 'Autor'}
+          {post.author?.profession ? ` · ${post.author.profession}` : ''}
+          {' · '}
+          {formatDate(new Date(post.createdAt))}
+          {' · '}
+          {post.postType}
+          {post.service ? (
+            <>
+              {' · Servicio: '}
+              <Link className="text-blue-600 underline" href={`/servicios/${post.service.slug}`}>
+                {post.service.title}
+              </Link>
+            </>
+          ) : null}
+        </div>
+
+        {post.imageUrl ? (
+          <img
+            src={post.imageUrl}
+            alt={post.title}
+            className="w-full h-64 object-cover rounded-md mb-6"
+          />
+        ) : null}
+
+        {/* Media embebida si aplica */}
+        {post.postType === 'VIDEO' && post.mediaUrl ? (
+          <div className="aspect-video w-full mb-6">
+            <iframe
+              src={post.mediaUrl}
+              className="w-full h-full rounded-md"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              title={post.title}
+            />
+          </div>
+        ) : null}
+
+        {post.postType === 'AUDIO' && post.mediaUrl ? (
+          <div className="mb-6">
+            <iframe
+              src={post.mediaUrl}
+              className="w-full h-28 rounded-md"
+              allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
+              title={post.title}
+            />
+          </div>
+        ) : null}
+
+        <div className="prose max-w-none">
+          <p style={{ whiteSpace: 'pre-wrap' }}>{post.content}</p>
+        </div>
+      </article>
+
+      {/* Navegación anterior / siguiente */}
+      <nav className="flex justify-between items-center mt-10 pt-6 border-t">
+        <div>
+          {prev ? (
+            <Link href={`/blog/${prev.slug}`} className="text-blue-600 underline">
+              ← {prev.title}
+            </Link>
+          ) : (
+            <span className="text-gray-400">No hay anterior</span>
+          )}
+        </div>
+        <div>
+          {next ? (
+            <Link href={`/blog/${next.slug}`} className="text-blue-600 underline">
+              {next.title} →
+            </Link>
+          ) : (
+            <span className="text-gray-400">No hay siguiente</span>
+          )}
+        </div>
+      </nav>
+    </main>
   );
 }

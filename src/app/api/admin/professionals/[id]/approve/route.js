@@ -1,34 +1,54 @@
 // src/app/api/admin/professionals/[id]/approve/route.js
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { verifyToken } from '@/lib/auth';
 
-const prisma = new PrismaClient();
-
-// Esta función maneja las solicitudes PATCH para actualizar a un profesional
-export async function PATCH(request, { params }) {
+export async function POST(request, { params }) {
   try {
-    const professionalId = parseInt(params.id);
+    // 1) Validar sesión y rol
+    const sessionToken = request.cookies.get('sessionToken')?.value;
+    if (!sessionToken) {
+      return NextResponse.json({ message: 'No autorizado' }, { status: 401 });
+    }
+    const payload = await verifyToken(sessionToken);
+    if (payload.role !== 'ADMIN') {
+      return NextResponse.json({ message: 'Acción no permitida' }, { status: 403 });
+    }
+    const adminUserId = Number(payload.userId);
+    if (!Number.isInteger(adminUserId)) {
+      return NextResponse.json({ message: 'Token inválido' }, { status: 400 });
+    }
 
-    // Actualizamos el profesional en la base de datos,
-    // cambiando el campo isApproved a 'true'
-    const updatedProfessional = await prisma.professional.update({
-      where: {
-        id: professionalId,
-      },
+    // 2) ID del profesional
+    const professionalId = Number(params?.id);
+    if (!Number.isInteger(professionalId)) {
+      return NextResponse.json({ message: 'ID inválido' }, { status: 400 });
+    }
+
+    // 3) Aprobar profesional
+    const updated = await prisma.professional.update({
+      where: { id: professionalId },
       data: {
         isApproved: true,
+        approvedAt: new Date(),
+        approvedByUserId: adminUserId,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        isApproved: true,
+        approvedAt: true,
+        approvedByUserId: true,
       },
     });
 
-    // Aquí, más adelante, podríamos añadir la lógica para enviar
-    // un email de bienvenida al profesional aprobado.
-
-    return NextResponse.json(updatedProfessional);
-  } catch (error) {
-    console.error(`Error approving professional ${params.id}:`, error);
-    return NextResponse.json(
-      { message: 'Error al aprobar al profesional' },
-      { status: 500 }
-    );
+    return NextResponse.json(updated);
+  } catch (e) {
+    if (e?.code === 'P2025') {
+      return NextResponse.json({ message: 'Profesional no encontrado' }, { status: 404 });
+    }
+    console.error('ADMIN approve professional error:', e);
+    return NextResponse.json({ message: 'Error al aprobar profesional' }, { status: 500 });
   }
 }

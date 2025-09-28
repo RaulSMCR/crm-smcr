@@ -3,30 +3,49 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 export default function ServiceCard({ service }) {
+  const {
+    id,
+    slug,
+    title,
+    description,
+    price,
+    imageUrl = 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=1600&q=80&auto=format&fit=crop',
+    professionalName,
+  } = service || {};
+
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300">
-      <div className="relative w-full h-48">
+    <article className="rounded-2xl overflow-hidden border bg-white hover:shadow-lg transition-shadow">
+      <div className="relative aspect-[16/9]">
         <Image
-          src={service.imageUrl}
-          alt={`Imagen de ${service.title}`}
-          layout="fill"
-          objectFit="cover"
+          src={imageUrl}
+          alt={title || 'Servicio'}
+          fill
+          sizes="(max-width: 768px) 100vw, 33vw"
+          className="object-cover"
         />
       </div>
-      <div className="p-6">
-        <h3 className="text-xl font-bold text-gray-800 mb-2">{service.title}</h3>
-        <p className="text-sm text-gray-600 mb-4">Por: {service.professionalName}</p>
-        <p className="text-gray-700 mb-4 line-clamp-2">{service.description}</p>
-        <div className="flex justify-between items-center mt-4">
-          <span className="text-lg font-bold text-brand-primary">${service.price}</span>
 
-          {/* ESTA ES LA PARTE QUE CREA EL BOTÓN */}
-          <Link href={`/servicios/${service.id}`} className="bg-brand-primary text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-opacity-90 transition-transform transform hover:scale-105">
-            Ver Detalles
+      <div className="p-4">
+        <h3 className="text-lg font-semibold">{title}</h3>
+        {professionalName ? (
+          <p className="text-sm text-gray-600">por {professionalName}</p>
+        ) : null}
+        {description ? (
+          <p className="mt-2 text-sm text-gray-600 line-clamp-2">{description}</p>
+        ) : null}
+
+        <div className="mt-3 flex items-center justify-between">
+          {typeof price === 'number' ? (
+            <span className="text-base font-semibold">${price.toFixed(2)}</span>
+          ) : <span />}
+          <Link
+            href={slug ? `/servicios/${encodeURIComponent(slug)}` : '#'}
+            className="text-sm text-blue-600 hover:underline"
+          >
+            Ver detalle
           </Link>
-
         </div>
       </div>
-    </div>
+    </article>
   );
 }

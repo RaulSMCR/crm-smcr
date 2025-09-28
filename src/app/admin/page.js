@@ -1,145 +1,141 @@
 // src/app/admin/page.js
-'use client'; // Esta página es interactiva
+import Link from 'next/link';
+import { prisma } from '@/lib/prisma';
+import AdminApproveButton from '@/components/AdminApproveButton';
 
-import { useState, useEffect } from 'react';
+function formatDate(date) {
+  return new Intl.DateTimeFormat('es-ES', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(date);
+}
 
-export default function AdminPage() {
-  // Un estado para cada lista
-  const [pendingProfessionals, setPendingProfessionals] = useState([]);
-  const [pendingPosts, setPendingPosts] = useState([]);
-  const [message, setMessage] = useState('');
+export const revalidate = 0; // mostrar siempre datos frescos en dev
 
-  // Función para obtener TODOS los datos necesarios para el panel
-  const fetchData = async () => {
-    try {
-      const [profResponse, postResponse] = await Promise.all([
-        fetch('/api/admin/professionals'),
-        fetch('/api/admin/posts')
-      ]);
+export default async function AdminPage() {
+  // Profesionales pendientes (isApproved = false)
+  const pendingProfessionals = await prisma.professional.findMany({
+    where: { isApproved: false },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      profession: true,
+      createdAt: true,
+    },
+  });
 
-      if (profResponse.ok) {
-        setPendingProfessionals(await profResponse.json());
-      }
-      if (postResponse.ok) {
-        setPendingPosts(await postResponse.json());
-      }
-    } catch (error) {
-      console.error("Error al cargar los datos del panel:", error);
-      setMessage('No se pudieron cargar los datos del panel.');
-    }
-  };
-
-  // Se ejecuta una vez cuando la página carga para obtener los datos
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  // Función para aprobar profesionales
-  const handleApproveProfessional = async (professionalId) => {
-    setMessage('');
-    const response = await fetch(`/api/admin/professionals/${professionalId}/approve`, {
-      method: 'PATCH',
-    });
-    if (response.ok) {
-      setMessage('¡Profesional aprobado con éxito!');
-      fetchData(); // Recargamos todos los datos
-    } else {
-      setMessage('Error al aprobar al profesional.');
-    }
-  };
-
-  // Función para aprobar artículos
-  const handleApprovePost = async (postId) => {
-    setMessage('');
-    const response = await fetch(`/api/admin/posts/${postId}/approve`, {
-      method: 'PATCH',
-    });
-    if (response.ok) {
-      setMessage('¡Artículo aprobado y publicado con éxito!');
-      fetchData(); // Recargamos todos los datos
-    } else {
-      setMessage('Error al aprobar el artículo.');
-    }
-  };
+  // Posts pendientes (status = 'PENDING')
+  const pendingPosts = await prisma.post.findMany({
+    where: { status: 'PENDING' },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      createdAt: true,
+      postType: true,
+      author: { select: { id: true, name: true, profession: true } },
+      service: { select: { id: true, slug: true, title: true } },
+    },
+  });
 
   return (
-    <div className="container mx-auto py-12 px-6">
-      <h1 className="text-4xl font-bold mb-8">Panel de Administración</h1>
-      {message && <p className="text-green-600 bg-green-100 p-2 rounded-md mb-4">{message}</p>}
+    <main className="max-w-6xl mx-auto px-4 py-10">
+      <h1 className="text-3xl font-bold mb-6">Panel de Moderación</h1>
 
-      {/* Tabla de Profesionales Pendientes */}
-      <div className="bg-white p-6 rounded-lg shadow-md mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Profesionales Pendientes de Aprobación</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Profesión</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {pendingProfessionals.length > 0 ? (
-                pendingProfessionals.map((prof) => (
-                  <tr key={prof.id}>
-                    <td className="px-6 py-4">{prof.name}</td>
-                    <td className="px-6 py-4">{prof.email}</td>
-                    <td className="px-6 py-4">{prof.profession}</td>
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() => handleApproveProfessional(prof.id)}
-                        className="bg-brand-primary text-white px-4 py-2 rounded-md hover:bg-opacity-90"
-                      >
-                        Aprobar
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr><td colSpan="4" className="px-6 py-4 text-center text-gray-500">No hay profesionales pendientes de aprobación.</td></tr>
-              )}
-            </tbody>
-          </table>
+      {/* Profesionales pendientes */}
+      <section className="mb-10">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-2xl font-semibold">Profesionales en espera</h2>
+          <span className="text-sm text-gray-500">
+            {pendingProfessionals.length} pendiente(s)
+          </span>
         </div>
-      </div>
 
-      {/* Tabla de Artículos Pendientes */}
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-2xl font-semibold mb-4">Artículos Pendientes de Revisión</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Título</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Autor</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {pendingPosts.length > 0 ? (
-                pendingPosts.map((post) => (
-                  <tr key={post.id}>
-                    <td className="px-6 py-4">{post.title}</td>
-                    <td className="px-6 py-4">{post.author ? post.author.name : 'Autor no disponible'}</td>
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() => handleApprovePost(post.id)}
-                        className="bg-brand-primary text-white px-4 py-2 rounded-md hover:bg-opacity-90"
-                      >
-                        Aprobar
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr><td colSpan="3" className="px-6 py-4 text-center text-gray-500">No hay artículos pendientes de revisión.</td></tr>
-              )}
-            </tbody>
-          </table>
+        {pendingProfessionals.length === 0 ? (
+          <p className="text-gray-600">No hay profesionales para aprobar.</p>
+        ) : (
+          <ul className="grid gap-4 md:grid-cols-2">
+            {pendingProfessionals.map((pro) => (
+              <li key={pro.id} className="border rounded-lg p-4 flex items-start justify-between gap-4">
+                <div>
+                  <div className="font-medium">{pro.name}</div>
+                  <div className="text-sm text-gray-600">{pro.profession}</div>
+                  <div className="text-sm text-gray-500">{pro.email}</div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    Alta: {formatDate(new Date(pro.createdAt))}
+                  </div>
+                </div>
+                <AdminApproveButton
+                  label="Aprobar profesional"
+                  endpoint={`/api/admin/professionals/${pro.id}/approve`}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* Posts pendientes */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-2xl font-semibold">Artículos en revisión</h2>
+          <span className="text-sm text-gray-500">
+            {pendingPosts.length} pendiente(s)
+          </span>
         </div>
-      </div>
-    </div>
+
+        {pendingPosts.length === 0 ? (
+          <p className="text-gray-600">No hay artículos para publicar.</p>
+        ) : (
+          <ul className="space-y-4">
+            {pendingPosts.map((p) => (
+              <li key={p.id} className="border rounded-lg p-4">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">{p.title}</div>
+                    <div className="text-sm text-gray-600">
+                      Autor: {p.author?.name ?? '—'}
+                      {p.author?.profession ? ` · ${p.author.profession}` : ''}
+                      {' · '}
+                      {p.postType}
+                      {' · '}
+                      {formatDate(new Date(p.createdAt))}
+                    </div>
+                    {p.service ? (
+                      <div className="text-sm">
+                        Servicio:{' '}
+                        <Link className="text-blue-600 underline" href={`/servicios/${p.service.slug}`}>
+                          {p.service.title}
+                        </Link>
+                      </div>
+                    ) : null}
+                    <div className="text-xs text-gray-500 mt-1">Slug: {p.slug}</div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/blog/${p.slug}`}
+                      className="px-3 py-2 rounded border text-sm hover:bg-gray-50"
+                      prefetch={false}
+                      target="_blank"
+                    >
+                      Previsualizar
+                    </Link>
+                    <AdminApproveButton
+                      label="Publicar"
+                      endpoint={`/api/admin/posts/${p.id}/approve`}
+                    />
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </main>
   );
 }

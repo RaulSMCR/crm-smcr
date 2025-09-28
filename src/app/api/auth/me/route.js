@@ -1,39 +1,48 @@
+// src/app/api/auth/me/route.js
 import { NextResponse } from 'next/server';
-import { jwtVerify } from 'jose';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
+import { prisma } from '@/lib/prisma';
+import { verifyToken } from '@/lib/auth';
 
 export async function GET(request) {
-  const sessionToken = request.cookies.get('sessionToken')?.value;
-
-  if (!sessionToken) {
-    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-  }
-
   try {
-    const { payload } = await jwtVerify(sessionToken, JWT_SECRET);
+    const token = request.cookies.get('sessionToken')?.value;
+    if (!token) return NextResponse.json({ authenticated: false }, { status: 200 });
 
-    let account = null;
-    if (payload.role === 'USER') {
-      account = await prisma.user.findUnique({
-        where: { id: payload.userId },
-        select: { id: true, name: true, email: true, role: true },
+    const payload = await verifyToken(token);
+    const role = payload?.role;
+    const id = Number(payload?.userId);
+
+    if (!role || !Number.isInteger(id)) {
+      return NextResponse.json({ authenticated: false }, { status: 200 });
+    }
+
+    if (role === 'PROFESSIONAL') {
+      const pro = await prisma.professional.findUnique({
+        where: { id },
+        select: { id: true, name: true, email: true, isApproved: true },
       });
-    } else if (payload.role === 'PROFESSIONAL') {
-      account = await prisma.professional.findUnique({
-        where: { id: payload.professionalId },
-        select: { id: true, name: true, email: true },
+      if (!pro) return NextResponse.json({ authenticated: false }, { status: 200 });
+      return NextResponse.json({
+        authenticated: true,
+        role,
+        profile: pro,
       });
     }
 
-    if (!account) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
+    // USER o ADMIN
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, name: true, email: true, role: true },
+    });
+    if (!user) return NextResponse.json({ authenticated: false }, { status: 200 });
 
-    return NextResponse.json(account);
-  } catch (error) {
-    return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    return NextResponse.json({
+      authenticated: true,
+      role: user.role || role,
+      profile: user,
+    });
+  } catch (e) {
+    // Token inválido/expirado => no autenticado
+    return NextResponse.json({ authenticated: false }, { status: 200 });
   }
 }

@@ -1,0 +1,16 @@
+# Normalización de fin de línea
+* text=auto
+
+# Fuerza LF en código fuente
+*.js   text eol=lf
+*.jsx  text eol=lf
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.json text eol=lf
+*.css  text eol=lf
+*.md   text eol=lf
+*.mjs  text eol=lf
+
+# PowerShell / BAT con CRLF
+*.ps1  text eol=crlf
+*.bat  text eol=crlf

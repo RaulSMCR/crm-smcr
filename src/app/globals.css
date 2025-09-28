@@ -1,3 +1,141 @@
+/* src/app/globals.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ===========================
+   PALETA DE MARCA (TU PALETA)
+   ===========================
+
+   Usamos variables CSS con valores RGB (R G B).
+   Cambiando estos números, TODO el sitio se adapta.
+*/
+
+/* Fondo crema del sitio */
+:root {
+  --app-bg: 224 227 213; /* #e0e3d5 */
+
+  /* BRAND: Hoja Monstera (verde azulado) #326d70 => rgb(50,109,112) */
+  /* Escala aproximada alrededor del color base para 50..950 */
+  --brand-50:  232 242 243; /* #e8f2f3 */
+  --brand-100: 213 232 233; /* #d5e8e9 */
+  --brand-200: 170 206 207; /* #aacecf */
+  --brand-300: 127 180 182; /* #7fb4b6 */
+  --brand-400:  92 149 152; /* #5c9598 */
+  --brand-500:  69 126 128; /* #457e80 */
+  --brand-600:  50 109 112; /* #326d70 (DEFAULT) */
+  --brand-700:  43  93  96; /* #2b5d60 */
+  --brand-800:  33  72  75; /* #21484b */
+  --brand-900:  26  59  62; /* #1a3b3e */
+  --brand-950:  15  38  40; /* #0f2628 */
+
+  /* ACCENT: Coral #f47c6b => rgb(244,124,107) */
+  --accent-50:  255 243 241; /* #fff3f1 */
+  --accent-100: 255 227 223; /* #ffe3df */
+  --accent-200: 255 200 192; /* #ffc8c0 */
+  --accent-300: 255 163 154; /* #ffa39a */
+  --accent-400: 255 139 129; /* #ff8b81 */
+  --accent-500: 249 122 110; /* #f97a6e */
+  --accent-600: 244 124 107; /* #f47c6b (DEFAULT) */
+  --accent-700: 220 107  93; /* #dc6b5d */
+  --accent-800: 184  86  76; /* #b8564c */
+  --accent-900: 150  62  55; /* #963e37 */
+  --accent-950:  90  33  29; /* #5a211d */
+
+  /* NEUTRAL (texto y grises) — anclado en tu texto #2f3133 */
+  --neutral-50:  245 246 242; /* #f5f6f2 */
+  --neutral-100: 236 238 232; /* #eceee8 */
+  --neutral-200: 217 219 212; /* #d9dbd4 */
+  --neutral-300: 197 200 192; /* #c5c8c0 */
+  --neutral-400: 160 163 160; /* #a0a3a0 */
+  --neutral-500: 122 125 127; /* #7a7d7f */
+  --neutral-600:  92  95  97; /* #5c5f61 */
+  --neutral-700:  71  74  76; /* #474a4c */
+  --neutral-800:  56  58  60; /* #383a3c */
+  --neutral-900:  47  49  51; /* #2f3133 (DEFAULT text) */
+  --neutral-950:  26  27  28; /* #1a1b1c */
+
+  /* Estados (pueden ajustarse luego si querés que sigan tu branding) */
+  --success-600:  22 163  74; /* green-600 */
+  --warning-600: 217 119   6; /* amber-600 */
+  --danger-600:  220  38  38; /* red-600 */
+}
+
+/* Modo oscuro opcional (si activás .dark en <html>) */
+.dark {
+  --neutral-50:  9  9 11;
+  --neutral-100:  24 24 27;
+  --neutral-200: 39 39 42;
+  --neutral-300: 63 63 70;
+  --neutral-400: 113 113 122;
+  --neutral-500: 161 161 170;
+  --neutral-600: 212 212 216;
+  --neutral-700: 228 228 231;
+  --neutral-800: 240 240 242;
+  --neutral-900: 249 249 251;
+  --neutral-950: 255 255 255;
+}
+
+/* ================
+   BASE STYLING
+   ================ */
+@layer base {
+  html, body {
+    background: rgb(var(--app-bg));
+    color: rgb(var(--neutral-900));
+  }
+
+  a {
+    @apply text-brand-700 hover:text-brand-600 underline-offset-2 hover:underline;
+  }
+
+  h1,h2,h3,h4,h5,h6 {
+    @apply text-neutral-900;
+  }
+
+  /* Tipografía “prose” coherente con la marca */
+  .prose {
+    --tw-prose-body: rgb(var(--neutral-800));
+    --tw-prose-headings: rgb(var(--neutral-900));
+    --tw-prose-links: rgb(var(--brand-700));
+    --tw-prose-links-hover: rgb(var(--brand-600));
+    --tw-prose-bold: rgb(var(--neutral-900));
+    --tw-prose-counters: rgb(var(--neutral-600));
+    --tw-prose-bullets: rgb(var(--neutral-400));
+    --tw-prose-hr: rgb(var(--neutral-300));
+    --tw-prose-quotes: rgb(var(--neutral-900));
+    --tw-prose-quote-borders: rgb(var(--brand-300));
+    --tw-prose-captions: rgb(var(--neutral-600));
+    --tw-prose-code: rgb(var(--neutral-900));
+    --tw-prose-th-borders: rgb(var(--neutral-300));
+    --tw-prose-td-borders: rgb(var(--neutral-200));
+  }
+}
+
+/* ==================
+   COMPONENT STYLES
+   ================== */
+@layer components {
+  .card { @apply rounded-2xl border bg-white shadow-card; }
+
+  .btn { @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition; }
+
+  .btn-primary {
+    @apply btn bg-brand-600 text-white hover:bg-brand-700 focus:ring-2 focus:ring-brand-300;
+  }
+  .btn-accent {
+    @apply btn bg-accent-600 text-white hover:bg-accent-700 focus:ring-2 focus:ring-accent-300;
+  }
+  .btn-outline {
+    @apply btn border border-brand-600 text-brand-700 hover:bg-brand-50;
+  }
+  .btn-ghost {
+    @apply btn text-brand-700 hover:bg-brand-50;
+  }
+
+  .input {
+    @apply block w-full rounded-lg border-neutral-300 focus:border-brand-500 focus:ring-brand-500;
+  }
+  .label { @apply block text-sm font-medium text-neutral-700; }
+  .help  { @apply text-xs text-neutral-500; }
+}
