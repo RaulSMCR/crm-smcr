@@ -68,7 +68,7 @@ export default async function BlogPage() {
                     <Link
                       className="text-blue-600 underline"
                       href={`/servicios/${p.service.slug}`}
-                      onClick={(e) => e.stopPropagation()}
+                      
                     >
                       {p.service.title}
                     </Link>
@@ -82,3 +82,5 @@ export default async function BlogPage() {
     </main>
   );
 }
+
+
