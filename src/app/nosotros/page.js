@@ -16,17 +16,17 @@ export default async function NosotrosPage() {
   const teamMembers = await getTeamMembers();
 
   return (
-    <div className="bg-white py-12">
+    <div className="bg-neutral-250 py-12">
       <div className="container mx-auto px-6">
         <div className="text-center max-w-3xl mx-auto">
-          <h1 className="text-4xl font-bold text-gray-800 mb-4">Sobre Nosotros</h1>
-          <p className="text-lg text-gray-600">
+          <h1 className="text-4xl font-bold text-brand-600 mb-4">Sobre Nosotros</h1>
+          <p className="text-lg text-brand-300">
             Nuestra misión es conectar a las personas con profesionales de la salud mental y el bienestar de Costa Rica, ofreciendo un espacio seguro y accesible para el crecimiento personal.
           </p>
         </div>
 
         <div className="mt-16">
-          <h2 className="text-3xl font-bold text-center text-gray-800 mb-10">Nuestro Equipo</h2>
+          <h2 className="text-3xl font-bold text-center text-brand-600 mb-10">Nuestro Equipo</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
             {teamMembers.map((member) => (
               <TeamMemberCard

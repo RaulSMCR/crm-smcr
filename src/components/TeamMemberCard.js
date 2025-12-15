@@ -14,8 +14,8 @@ export default function TeamMemberCard({ name, role, imageUrl, id }) {
           objectFit="cover"
         />
       </div>
-      <h3 className="text-xl font-bold text-gray-800">{name}</h3>
-      <p className="text-brand-primary">{role}</p>
+      <h3 className="text-xl font-bold text-brand-600">{name}</h3>
+      <p className="text-brand-600">{role}</p>
     </Link>
   );
 }

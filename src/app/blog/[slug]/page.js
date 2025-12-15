@@ -80,7 +80,7 @@ export default async function BlogDetailPage({ params }) {
       <article>
         <h1 className="text-3xl font-bold mb-2">{post.title}</h1>
 
-        <div className="text-sm text-gray-500 mb-4">
+        <div className="text-sm text-brand-300 mb-4">
           {post.author?.name ? `${post.author.name}` : 'Autor'}
           {post.author?.profession ? ` · ${post.author.profession}` : ''}
           {' · '}

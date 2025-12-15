@@ -14,7 +14,7 @@ export default function ServiceCard({ service }) {
   } = service || {};
 
   return (
-    <article className="rounded-2xl overflow-hidden border bg-white hover:shadow-lg transition-shadow">
+    <article className="rounded-2xl overflow-hidden border bg-neutral-250 hover:shadow-lg transition-shadow">
       <div className="relative aspect-[16/9]">
         <Image
           src={imageUrl}
@@ -28,10 +28,10 @@ export default function ServiceCard({ service }) {
       <div className="p-4">
         <h3 className="text-lg font-semibold">{title}</h3>
         {professionalName ? (
-          <p className="text-sm text-gray-600">por {professionalName}</p>
+          <p className="text-sm text-brand-600">por {professionalName}</p>
         ) : null}
         {description ? (
-          <p className="mt-2 text-sm text-gray-600 line-clamp-2">{description}</p>
+          <p className="mt-2 text-sm text-brand-600 line-clamp-2">{description}</p>
         ) : null}
 
         <div className="mt-3 flex items-center justify-between">
@@ -40,7 +40,7 @@ export default function ServiceCard({ service }) {
           ) : <span />}
           <Link
             href={slug ? `/servicios/${encodeURIComponent(slug)}` : '#'}
-            className="text-sm text-blue-600 hover:underline"
+            className="text-sm text-brand-600 hover:underline"
           >
             Ver detalle
           </Link>

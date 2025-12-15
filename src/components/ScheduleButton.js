@@ -1,46 +1,37 @@
-// src/components/ScheduleButton.js
-'use client'; // Este componente necesita saber si el usuario ha iniciado sesión en el navegador
+// src/components/SmartScheduleButton.js
+'use client';
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import Cookies from 'js-cookie'; // Usamos esta librería para leer la cookie de sesión
+import Cookies from 'js-cookie';
 
-export default function ScheduleButton({ professionalId, isPrimary = true }) {
+export default function SmartScheduleButton({ professionalId }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    // Al cargar el componente, revisa si la cookie 'sessionToken' existe
     const token = Cookies.get('sessionToken');
     if (token) {
       setIsLoggedIn(true);
     }
   }, []);
 
-  // Si el usuario ha iniciado sesión, el botón lleva directamente a la página de agendamiento
+  // Si el usuario está logueado → ir directo al calendario del profesional
   if (isLoggedIn) {
     return (
-      <Link 
-        href={`/agendar/${professionalId}`} 
-        className={`font-bold px-8 py-3 rounded-md text-lg transition duration-300 ${
-          isPrimary 
-          ? 'bg-brand-primary text-white hover:bg-opacity-90' 
-          : 'bg-brand-secondary text-white hover:bg-opacity-90'
-        }`}
+      <Link
+        href={`/perfil/${professionalId}/calendar`}
+        className="bg-brand-primary text-white font-bold px-8 py-3 rounded-md text-lg hover:bg-opacity-90 transition-transform transform hover:scale-105"
       >
         Agendar Cita
       </Link>
     );
   }
 
-  // Si el usuario NO ha iniciado sesión, el botón lo lleva a la página de registro
+  // Si NO está logueado → ir a registro de usuario con redirect de vuelta al calendario
   return (
-    <Link 
-      href="/registro" 
-      className={`font-bold px-8 py-3 rounded-md text-lg transition duration-300 ${
-        isPrimary 
-        ? 'bg-brand-primary text-white hover:bg-opacity-90' 
-        : 'bg-brand-secondary text-white hover:bg-opacity-90'
-      }`}
+    <Link
+      href={`/registro/usuario?redirect=/perfil/${professionalId}/calendar`}
+      className="bg-brand-secondary text-white font-bold px-8 py-3 rounded-md text-lg hover:bg-opacity-90 transition-transform transform hover:scale-105"
     >
       Registrarse para Agendar
     </Link>

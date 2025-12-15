@@ -18,7 +18,6 @@ export default function Header() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
-  // Cerrar menú móvil al cambiar de ruta (evita onClick en <Link/>)
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
@@ -29,32 +28,27 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-brand-800/40 bg-brand-700/95 backdrop-blur supports-[backdrop-filter]:bg-brand-700/85 text-white">
       <div className="container flex items-center justify-between py-3">
-        {/* LOGO grande + lockup */}
+        {/* LOGO sin borde + lockup */}
         <Link href="/" className="group flex items-center gap-4">
-          <span
-            className="
-              relative inline-flex items-center justify-center
-              h-14 w-14 sm:h-16 sm:w-16
-              rounded-2xl bg-white shadow-card ring-1 ring-white/40 overflow-hidden
-            "
-            aria-hidden="true"
-          >
-            {/* Nota: Next/Image no optimiza SVG, pero sirve perfecto como contenedor responsivo */}
+          <div className="relative h-16 w-16 sm:h-20 sm:w-20">
             <Image
-              src="/brand/logo-smcr.svg"
-              alt="SMCR Logo"
+              src="/logo.svg"
+              alt="Logo Salud Mental Costa Rica"
               fill
-              sizes="64px"
-              className="object-contain p-2"
+              sizes="80px"
+              className="object-contain drop-shadow-xl"
               priority
             />
-          </span>
-          <span className="flex flex-col">
-            <span className="text-xl sm:text-2xl font-semibold tracking-wide">
-              SMCR
+          </div>
+
+          <span className="flex flex-col leading-tight">
+            <span className="text-xl sm:text-2xl font-bold tracking-wide text-neutral-200">
+              Salud Mental
+              <br />
+              Costa Rica
             </span>
-            <span className="text-xs sm:text-sm text-accent-200/90">
-              Salud, Mentoría & Coaching
+            <span className="mt-1 text-xs sm:text-sm text-accent-200/90">
+              Divulgación y atención interdisciplinaria para la salud mental
             </span>
           </span>
         </Link>
@@ -126,7 +120,6 @@ export default function Header() {
                   </Link>
                 );
               })}
-
               <Link href="/login" className="btn btn-accent mt-2">
                 Ingresar
               </Link>

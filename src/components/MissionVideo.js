@@ -4,10 +4,10 @@ export default function MissionVideo() {
   const videoUrl = "https://www.youtube.com/embed/dQw4w9WgXcQ"; 
 
   return (
-    <section className="bg-white py-16"> {/* Menos espaciado vertical */}
+    <section className="neutral-300 py-16"> {/* Menos espaciado vertical */}
       <div className="container mx-auto px-6 text-center">
-        <h2 className="text-3xl font-bold text-brand-text mb-8">
-          Nuestra Misión y Cómo Usar la Plataforma
+        <h2 className="text-3xl font-bold text-brand-600 mb-8">
+          Guía para el usuario.
         </h2>
         {/* max-w-2xl hace el video más pequeño */}
         <div className="aspect-video max-w-2xl mx-auto rounded-lg shadow-xl overflow-hidden">

@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 
 /** Config de agenda (puedes ajustar a tus reglas reales) */
 const BUSINESS_START_HOUR = 9;   // 09:00
-const BUSINESS_END_HOUR = 17;    // 17:00 (último turno empieza a las 16:00 si dura 60m)
+const BUSINESS_END_HOUR = 17;    // 17:00
 const SLOT_MINUTES = 60;         // duración del turno en minutos
 
 /** Util: YYYY-MM-DD seguro */
@@ -44,8 +44,6 @@ function formatDate(date) {
 
 /** Genera slots (horarios candidatos) de un día local */
 function generateSlotsForDay(dateOnly) {
-  // Interpretamos `${dateOnly}T..` como hora local del servidor
-  const dayStart = new Date(`${dateOnly}T00:00:00`);
   const slots = [];
   for (let h = BUSINESS_START_HOUR; h < BUSINESS_END_HOUR; h++) {
     const start = new Date(`${dateOnly}T${String(h).padStart(2, '0')}:00:00`);
@@ -62,7 +60,6 @@ function rangesOverlap(aStart, aEnd, bStart, bEnd) {
 
 /** Obtiene profesional + servicios + turnos disponibles para una fecha */
 async function getCalendarData(professionalId, dateOnly) {
-  // 1) Profesional y servicios ofrecidos (M:N)
   const pro = await prisma.professional.findUnique({
     where: { id: professionalId },
     select: {
@@ -79,15 +76,12 @@ async function getCalendarData(professionalId, dateOnly) {
   });
   if (!pro) return null;
 
-  // 2) Citas existentes de ese día (bloquean los slots)
   const dayStart = new Date(`${dateOnly}T00:00:00`);
   const dayEnd = new Date(`${dateOnly}T23:59:59.999`);
   const appointments = await prisma.appointment.findMany({
     where: {
       professionalId,
-      // bloqueamos TODO lo que no esté cancelado
       NOT: { status: 'CANCELLED' },
-      // rango del día (start dentro del día; si tuvieras rangos cruzados, amplía esta lógica)
       startTime: { gte: dayStart, lte: dayEnd },
     },
     select: {
@@ -99,7 +93,6 @@ async function getCalendarData(professionalId, dateOnly) {
     orderBy: { startTime: 'asc' },
   });
 
-  // 3) Generar slots candidatos y filtrar los ocupados
   const candidates = generateSlotsForDay(dateOnly);
   const available = candidates.filter(({ start, end }) => {
     return !appointments.some(a => rangesOverlap(start, end, a.startTime, a.endTime));
@@ -120,7 +113,6 @@ export default async function ProfessionalCalendarPage({ params, searchParams })
 
   const { professional, available, appointments, dateOnly } = data;
 
-  // Para selector de días rápidos (hoy y próximos 6 días)
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() + i);
@@ -145,7 +137,7 @@ export default async function ProfessionalCalendarPage({ params, searchParams })
         ) : null}
       </header>
 
-      {/* Selector de fecha (GET hacia la misma página) */}
+      {/* Selector de fecha */}
       <section className="mb-6">
         <form method="GET" className="flex items-center gap-3">
           <label className="text-sm text-gray-700">Seleccionar fecha:</label>
@@ -178,7 +170,7 @@ export default async function ProfessionalCalendarPage({ params, searchParams })
         </div>
       </section>
 
-      {/* Lista de turnos disponibles */}
+      {/* Turnos disponibles */}
       <section>
         <h2 className="text-xl font-semibold mb-3">
           Disponibilidad para {formatDate(new Date(`${dateOnly}T00:00:00`))}
@@ -191,7 +183,6 @@ export default async function ProfessionalCalendarPage({ params, searchParams })
         ) : (
           <ul className="grid md:grid-cols-2 gap-4">
             {available.map(({ start, end }) => {
-              // Mostramos hora local (asumiendo server y usuario en misma zona; si no, ajustar)
               const startLabel = formatTime(start);
               const endLabel = formatTime(end);
 
@@ -207,17 +198,14 @@ export default async function ProfessionalCalendarPage({ params, searchParams })
                       </div>
                     </div>
 
-                    {/* Form de reserva: POST directo al endpoint existente */}
                     <form
                       method="POST"
                       action={`/api/calendar/${professional.id}/book`}
                       className="flex items-center gap-2"
                     >
-                      {/* Campos requeridos por el API de booking */}
                       <input type="hidden" name="startTime" value={start.toISOString()} />
                       <input type="hidden" name="endTime" value={end.toISOString()} />
 
-                      {/* Servicio opcional */}
                       {professional.services.length > 0 ? (
                         <select
                           name="serviceId"
@@ -239,7 +227,6 @@ export default async function ProfessionalCalendarPage({ params, searchParams })
                       <button
                         type="submit"
                         className="px-3 py-2 rounded bg-green-600 text-white text-sm hover:bg-green-700"
-                        title="Reservar turno"
                       >
                         Reservar
                       </button>
@@ -251,7 +238,6 @@ export default async function ProfessionalCalendarPage({ params, searchParams })
           </ul>
         )}
 
-        {/* Turnos ocupados (para referencia) */}
         {appointments.length > 0 ? (
           <div className="mt-8">
             <h3 className="font-semibold mb-2 text-gray-700">Turnos ocupados</h3>
@@ -266,12 +252,11 @@ export default async function ProfessionalCalendarPage({ params, searchParams })
         ) : null}
       </section>
 
-      {/* Info útil */}
       <section className="mt-8 text-sm text-gray-500">
         <p>
-          Al hacer clic en <strong>Reservar</strong>, se envía una solicitud al servidor. Si ves
-          una respuesta en formato JSON, utilizá el botón <em>Atrás</em> del navegador para volver a esta
-          página. Más adelante podemos ajustar el flujo para mostrar una página de confirmación.
+          Al hacer clic en <strong>Reservar</strong>, se envía una solicitud al servidor.
+          Más adelante podemos mejorar este flujo para mostrar una página de confirmación
+          o un mensaje dentro de la misma vista.
         </p>
       </section>
     </main>

@@ -12,14 +12,14 @@ export default function ServiceDetailTabs({ service }) {
   return (
     <div>
       {/* 2. Contenedor de los botones de las pestañas */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-neutral-250">
         <nav className="-mb-px flex space-x-8" aria-label="Tabs">
           <button
             onClick={() => setActiveTab('descripcion')}
             className={`${
               activeTab === 'descripcion'
-                ? 'border-brand-primary text-brand-primary'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? 'border-brand-primary text-brand-300'
+                : 'border-transparent text-brand-300 hover:text-accent-300 hover:border-brand-600'
             } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
           >
             Descripción
@@ -29,8 +29,8 @@ export default function ServiceDetailTabs({ service }) {
             onClick={() => setActiveTab('ficha')}
             className={`${
               activeTab === 'ficha'
-                ? 'border-brand-primary text-brand-primary'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? 'border-brand-primary text-neutral-250'
+                : 'border-transparent text-brand-300 hover:text-accent-300 hover:border-brand-600'
             } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
           >
             Ficha Profesional
@@ -41,7 +41,7 @@ export default function ServiceDetailTabs({ service }) {
             className={`${
               activeTab === 'valoraciones'
                 ? 'border-brand-primary text-brand-primary'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                : 'border-transparent text-brand-600 hover:text-accent-300 hover:border-brand-600'
             } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
           >
             Valoraciones
@@ -53,12 +53,12 @@ export default function ServiceDetailTabs({ service }) {
       <div className="mt-6">
         {activeTab === 'descripcion' && (
           <div>
-            <p className="text-gray-700">{service.description}</p>
+            <p className="text-brand-300">{service.description}</p>
           </div>
         )}
         {activeTab === 'ficha' && (
           <div>
-            <h3 className="font-bold text-lg">Ficha Profesional</h3>
+            <h3 className="font-bold text-lg text-brand-600">Ficha Profesional</h3>
             <p className="mt-2">Nombre: {service.professionalName}</p>
             <p>Especialidad: {service.title}</p>
             {/* Aquí iría más información del profesional */}

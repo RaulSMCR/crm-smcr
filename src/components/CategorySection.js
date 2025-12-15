@@ -33,11 +33,11 @@ const fallbackCategories = [
   },
 ];
 
-export default function CategorySection({ categories = fallbackCategories, title = 'Categorías' }) {
+export default function CategorySection({ categories = fallbackCategories, title = 'Servicios' }) {
   return (
-    <section className="py-8">
+    <section className="text-brand-600 py-8">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-bold">{title}</h2>
+        <h2 className="text-brand-600 text-3xl font-bold">{title}</h2>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

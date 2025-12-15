@@ -99,7 +99,7 @@ export default async function ServiceDetailPage({ params }) {
   return (
     <main className="max-w-5xl mx-auto px-4 py-10">
       <div className="mb-4">
-        <Link href="/servicios" className="text-sm text-blue-600 underline">
+        <Link href="/servicios" className="text-sm text-brand-600 underline">
           ← Volver a servicios
         </Link>
       </div>
@@ -107,12 +107,12 @@ export default async function ServiceDetailPage({ params }) {
       <section className="mb-8">
         <h1 className="text-3xl font-bold mb-2">{service.title}</h1>
 
-        <div className="text-sm text-gray-500 mb-4">
+        <div className="text-sm text-brand-600 mb-4">
           {service.category ? (
             <>
               Categoría:{' '}
               <Link
-                className="text-blue-600 underline"
+                className="text-brand-600 underline"
                 href={`/servicios?categoria=${service.category.slug}`}
               >
                 {service.category.name}
@@ -138,22 +138,22 @@ export default async function ServiceDetailPage({ params }) {
         </div>
 
         <div className="mt-6">
-          <span className="inline-flex items-center rounded-lg border px-3 py-1 text-sm">
-            Tarifa de referencia: <span className="font-semibold ml-2">{formatPrice(service.price)}</span>
+          <span className="inline-flex items-center rounded-lg border bg-neutral-300 px-3 py-1 text-sm text-bg-brand-600">
+            Tarifa de referencia: <span className="text-bg-brand-600 font-semibold ml-2">{formatPrice(service.price)}</span>
           </span>
         </div>
       </section>
 
       {/* Profesionales que brindan este servicio */}
       <section className="mb-10">
-        <h2 className="text-2xl font-semibold mb-4">Profesionales</h2>
+        <h2 className="text-2xl text-bg-brand-600 font-semibold mb-4">Profesionales</h2>
         {service.professionals.length === 0 ? (
-          <p className="text-gray-600">Aún no hay profesionales vinculados.</p>
+          <p className="text-brand-600">Aún no hay profesionales vinculados.</p>
         ) : (
           <ul className="grid gap-4 md:grid-cols-2">
             {service.professionals.map((pro) => (
-              <li key={pro.id} className="border rounded-lg p-4 flex items-center gap-4">
-                <div className="w-14 h-14 rounded-full bg-gray-100 overflow-hidden">
+              <li key={pro.id} className="border bg-neutral-300 rounded-lg p-4 flex items-center gap-4">
+                <div className="w-14 h-14 rounded-full bg-neutral-300 overflow-hidden">
                   {pro.avatarUrl ? (
                     <img
                       src={pro.avatarUrl}
@@ -161,24 +161,24 @@ export default async function ServiceDetailPage({ params }) {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400">
+                    <div className="w-full h-full flex items-center justify-center text-brand-600">
                       {pro.name.slice(0, 1)}
                     </div>
                   )}
                 </div>
                 <div className="flex-1">
                   <h3 className="font-medium">{pro.name}</h3>
-                  <p className="text-sm text-gray-500">{pro.profession}</p>
+                  <p className="text-sm text-brand-600">{pro.profession}</p>
                   <div className="mt-2 flex gap-3">
                     <Link
                       href={`/perfil/${pro.id}`}
-                      className="text-blue-600 underline text-sm"
+                      className="text-brand-600 underline text-sm"
                     >
                       Ver perfil
                     </Link>
                     <Link
                       href={`/perfil/${pro.id}/calendar`}
-                      className="text-blue-600 underline text-sm"
+                      className="text-bg-brand-600 underline text-sm"
                     >
                       Agendar cita
                     </Link>
@@ -192,13 +192,13 @@ export default async function ServiceDetailPage({ params }) {
 
       {/* Artículos publicados relacionados a este servicio */}
       <section className="mb-12">
-        <h2 className="text-2xl font-semibold mb-4">Artículos del servicio</h2>
+        <h2 className="border border-neutral-300 text-2xl font-semibold mb-4">Artículos del servicio</h2>
         {service.posts.length === 0 ? (
-          <p className="text-gray-600">Aún no hay artículos publicados para este servicio.</p>
+          <p className="text-brand-600">Aún no hay artículos publicados para este servicio.</p>
         ) : (
           <ul className="grid gap-6 md:grid-cols-2">
             {service.posts.map((p) => (
-              <li key={p.id} className="border rounded-lg p-4 hover:shadow">
+              <li key={p.id} className="border bg-neutral-300 rounded-lg p-4 hover:shadow">
                 <Link href={`/blog/${p.slug}`} className="block">
                   {p.imageUrl ? (
                     <img
@@ -208,7 +208,7 @@ export default async function ServiceDetailPage({ params }) {
                     />
                   ) : null}
                   <h3 className="text-lg font-semibold">{p.title}</h3>
-                  <div className="text-sm text-gray-500 mt-1">
+                  <div className="text-sm text-brand-600 mt-1">
                     {p.author?.name ?? 'Autor'} · {formatDate(new Date(p.createdAt))} · {p.postType}
                   </div>
                 </Link>
@@ -225,7 +225,7 @@ export default async function ServiceDetailPage({ params }) {
           <ul className="grid gap-4 md:grid-cols-2">
             {related.map((s) => (
               <li key={s.id} className="border rounded-lg p-4 flex gap-4 items-center">
-                <div className="w-24 h-16 bg-gray-100 rounded overflow-hidden">
+                <div className="w-24 h-16 border bg-neutral-300 rounded overflow-hidden">
                   {s.imageUrl ? (
                     <img src={s.imageUrl} alt={s.title} className="w-full h-full object-cover" />
                   ) : null}
@@ -234,7 +234,7 @@ export default async function ServiceDetailPage({ params }) {
                   <Link href={`/servicios/${s.slug}`} className="font-medium hover:underline">
                     {s.title}
                   </Link>
-                  <div className="text-sm text-gray-500 mt-1">{formatPrice(s.price)}</div>
+                  <div className="text-sm text-brand-600 mt-1">{formatPrice(s.price)}</div>
                 </div>
               </li>
             ))}

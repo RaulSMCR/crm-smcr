@@ -31,14 +31,14 @@ export default async function ServiciosPage() {
     <main className="space-y-6">
       <header className="flex items-end justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Servicios</h1>
-          <p className="text-sm text-neutral-600">
+          <h1 className="text-2xl font-bold text-brand-600">Servicios</h1>
+          <p className="text-sm text-brand-300">
             Elegí el servicio y reservá con un profesional.
           </p>
         </div>
       </header>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="neutral-300 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {services.map((service) => {
           const professionalName =
             service.professionals?.[0]?.name ?? 'Equipo SMCR';

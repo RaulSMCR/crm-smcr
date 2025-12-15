@@ -13,9 +13,9 @@ export default function CategoryCard({ category }) {
   return (
     <Link
       href={`/servicios/${encodeURIComponent(slug || '')}`}
-      className="group block rounded-2xl overflow-hidden border bg-white hover:shadow-lg transition-shadow"
+      className="group block rounded-2xl overflow-hidden border neutral-300 hover:shadow-lg transition-shadow"
     >
-      <div className="relative aspect-[16/9]">
+      <div className="text-brand-600 relative aspect-[16/9]">
         <Image
           src={imageUrl}
           alt={name || 'Categoría'}
@@ -26,12 +26,12 @@ export default function CategoryCard({ category }) {
         />
       </div>
 
-      <div className="p-4">
-        <h3 className="text-lg font-semibold">{name}</h3>
+      <div className="text-brand-600 p-4">
+        <h3 className="text-brand-600 text-2xl font-semibold">{name}</h3>
         {description ? (
           <p className="mt-1 text-sm text-gray-600 line-clamp-2">{description}</p>
         ) : null}
-        <p className="mt-3 text-sm text-blue-600 group-hover:underline">Ver servicios</p>
+        <p className="mt-3 text-sm text-brand-600 group-hover:underline">Ver servicios</p>
       </div>
     </Link>
   );

@@ -1,11 +1,75 @@
-import UserRegisterForm from "@/components/UserRegisterForm";
+// src/app/registro/usuario/page.jsx
+'use client';
+
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 export default function RegistroUsuarioPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // Si no viene redirect, manda a un lugar genérico
+  const redirectTo = searchParams.get('redirect') || '/panel';
+
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      // TODO: acá va tu lógica real de registro/login
+      // await fetch('/api/registro-usuario', { ... });
+
+      // cuando termina bien:
+      router.push(redirectTo);
+    } catch (err) {
+      console.error(err);
+      setLoading(false);
+      // manejar errores en UI si hace falta
+    }
+  };
+
   return (
-    <div className="bg-gray-50 py-12">
-      <div className="container mx-auto px-6">
-        <UserRegisterForm />
-      </div>
-    </div>
+    <main className="max-w-md mx-auto py-16 px-6">
+      <h1 className="text-2xl font-bold text-brand-700 mb-6">
+        Registro de usuario
+      </h1>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Campos de ejemplo */}
+        <div>
+          <label className="block text-sm font-medium text-neutral-700">
+            Nombre completo
+          </label>
+          <input
+            type="text"
+            className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-200"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-neutral-700">
+            Correo electrónico
+          </label>
+          <input
+            type="email"
+            className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-200"
+            required
+          />
+        </div>
+
+        {/* etc: contraseña, confirmación, etc. */}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full rounded-md bg-brand-700 px-4 py-2 text-sm font-semibold text-neutral-100 hover:bg-brand-600 transition"
+        >
+          {loading ? 'Creando cuenta…' : 'Crear cuenta'}
+        </button>
+      </form>
+    </main>
   );
 }

@@ -50,22 +50,22 @@ export default async function AdminPage() {
       <section className="mb-10">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-2xl font-semibold">Profesionales en espera</h2>
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-brand-300">
             {pendingProfessionals.length} pendiente(s)
           </span>
         </div>
 
         {pendingProfessionals.length === 0 ? (
-          <p className="text-gray-600">No hay profesionales para aprobar.</p>
+          <p className="text-brand-600">No hay profesionales para aprobar.</p>
         ) : (
           <ul className="grid gap-4 md:grid-cols-2">
             {pendingProfessionals.map((pro) => (
               <li key={pro.id} className="border rounded-lg p-4 flex items-start justify-between gap-4">
                 <div>
                   <div className="font-medium">{pro.name}</div>
-                  <div className="text-sm text-gray-600">{pro.profession}</div>
-                  <div className="text-sm text-gray-500">{pro.email}</div>
-                  <div className="text-xs text-gray-400 mt-1">
+                  <div className="text-sm text-brand-600">{pro.profession}</div>
+                  <div className="text-sm text-brand-300">{pro.email}</div>
+                  <div className="text-xs text-brand-300 mt-1">
                     Alta: {formatDate(new Date(pro.createdAt))}
                   </div>
                 </div>
@@ -83,13 +83,13 @@ export default async function AdminPage() {
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-2xl font-semibold">Artículos en revisión</h2>
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-brand-300">
             {pendingPosts.length} pendiente(s)
           </span>
         </div>
 
         {pendingPosts.length === 0 ? (
-          <p className="text-gray-600">No hay artículos para publicar.</p>
+          <p className="text-brand-600">No hay artículos para publicar.</p>
         ) : (
           <ul className="space-y-4">
             {pendingPosts.map((p) => (
@@ -97,7 +97,7 @@ export default async function AdminPage() {
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="font-medium truncate">{p.title}</div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm text-brand-600">
                       Autor: {p.author?.name ?? '—'}
                       {p.author?.profession ? ` · ${p.author.profession}` : ''}
                       {' · '}
@@ -108,18 +108,18 @@ export default async function AdminPage() {
                     {p.service ? (
                       <div className="text-sm">
                         Servicio:{' '}
-                        <Link className="text-blue-600 underline" href={`/servicios/${p.service.slug}`}>
+                        <Link className="text-brand-600 underline" href={`/servicios/${p.service.slug}`}>
                           {p.service.title}
                         </Link>
                       </div>
                     ) : null}
-                    <div className="text-xs text-gray-500 mt-1">Slug: {p.slug}</div>
+                    <div className="text-xs text-brand-600 mt-1">Slug: {p.slug}</div>
                   </div>
 
                   <div className="flex items-center gap-2">
                     <Link
                       href={`/blog/${p.slug}`}
-                      className="px-3 py-2 rounded border text-sm hover:bg-gray-50"
+                      className="px-3 py-2 rounded border text-sm hover:bg-accent-300"
                       prefetch={false}
                       target="_blank"
                     >
