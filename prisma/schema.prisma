@@ -1,4 +1,5 @@
-/generator client {
+// prisma/schema.prisma
+generator client {
   provider = "prisma-client-js"
 }
 
@@ -39,8 +40,13 @@ model Professional {
   googleRefreshToken String?  @db.Text
   createdAt          DateTime @default(now())
 
-  services     Service[]
-  posts        Post[]
+  // Relación M:N con servicios (nombre de relación explícito)
+  services Service[] @relation("ServicesOnProfessionals")
+
+  // Contenido
+  posts Post[]
+
+  // Citas
   appointments Appointment[]
 }
 
@@ -64,10 +70,17 @@ model Service {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  categoryId   Int?
-  category     Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  professionals Professional[]
-  posts        Post[]
+  // Categoría opcional
+  categoryId Int?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  // Relación M:N con profesionales (nombre de relación explícito)
+  professionals Professional[] @relation("ServicesOnProfessionals")
+
+  // Posts que referencian este servicio (1:N)
+  posts Post[]
+
+  // Citas que referencian este servicio (opcional)
   appointments Appointment[]
 }
 
@@ -77,16 +90,21 @@ model Post {
   title     String
   content   String   @db.Text
   imageUrl  String?
-  postType  String   @default("TEXT")
+  postType  String   @default("TEXT") // "TEXT" | "VIDEO" | "AUDIO"
   mediaUrl  String?
-  status    String   @default("PENDING")
+  status    String   @default("PENDING") // "PENDING" | "PUBLISHED"
   createdAt DateTime @default(now())
 
+  // Autor (profesional)
   authorId Int
   author   Professional @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
+  // Servicio opcional asociado
   serviceId Int?
   service   Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([serviceId])
 }
 
 model Appointment {
@@ -96,12 +114,19 @@ model Appointment {
   status    String   @default("CONFIRMED")
   createdAt DateTime @default(now())
 
+  // Quien reserva
   userId Int
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // Con quién reserva (profesional)
   professionalId Int
   professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
 
+  // Servicio opcional del turno
   serviceId Int?
   service   Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@index([professionalId, startTime])
+  @@index([userId, startTime])
+  @@index([serviceId])
 }
