@@ -97,7 +97,7 @@ export default function LoginPage() {
             type="button"
             onClick={doLogin}
             disabled={pending}
-            className="w-full px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-70"
+            className="w-full px-4 py-2 rounded bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-70"
           >
             {pending ? 'Ingresando…' : 'Ingresar'}
           </button>

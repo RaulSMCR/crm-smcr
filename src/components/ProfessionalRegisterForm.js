@@ -1,202 +1,334 @@
 // src/components/ProfessionalRegisterForm.js
-'use client';
-import { useState } from 'react';
+"use client";
+
+import { useMemo, useState } from "react";
 
 export default function ProfessionalRegisterForm() {
   const [formData, setFormData] = useState({
-    nombreCompleto: '',
-    profesion: '',
-    email: '',
-    telefono: '',
-    password: '',
-    confirmPassword: '',
+    nombreCompleto: "",
+    profesion: "",
+    email: "",
+    telefono: "",
+    password: "",
+    confirmPassword: "",
+    cv: null,
+    carta: null,
   });
-  const [message, setMessage] = useState('');
+
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState({ type: "", text: "" });
+
+  const passwordChecks = useMemo(() => {
+    const pwd = formData.password ?? "";
+    const emailLocal = (formData.email ?? "").split("@")[0]?.toLowerCase() ?? "";
+
+    const lengthOk = pwd.length >= 12;
+    const lowerOk = /[a-z]/.test(pwd);
+    const upperOk = /[A-Z]/.test(pwd);
+    const numberOk = /[0-9]/.test(pwd);
+    const symbolOk = /[^A-Za-z0-9]/.test(pwd);
+    const noEmailOk =
+      emailLocal.length < 3 ? true : !pwd.toLowerCase().includes(emailLocal);
+
+    const allOk =
+      lengthOk && lowerOk && upperOk && numberOk && symbolOk && noEmailOk;
+
+    return { lengthOk, lowerOk, upperOk, numberOk, symbolOk, noEmailOk, allOk };
+  }, [formData.password, formData.email]);
+
+  const passwordsMatch =
+    formData.password.length > 0 &&
+    formData.confirmPassword.length > 0 &&
+    formData.password === formData.confirmPassword;
+
+  const canSubmit =
+    formData.nombreCompleto.trim() &&
+    formData.profesion.trim() &&
+    formData.email.trim() &&
+    passwordChecks.allOk &&
+    passwordsMatch &&
+    !loading;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleFileChange = (e) => {
+    const { name, files } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: files?.[0] ?? null }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setMessage('');
+    setMessage({ type: "", text: "" });
 
-    if (formData.password !== formData.confirmPassword) {
-      setMessage('Las contraseñas no coinciden.');
+    if (!canSubmit) {
+      setMessage({
+        type: "error",
+        text: "Revisá los campos y los requisitos de contraseña.",
+      });
       return;
     }
 
+    setLoading(true);
+
     try {
-      const response = await fetch('/api/auth/register-professional', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
+      // ⚠️ Por ahora NO enviamos CV/Carta (el backend recibe JSON).
+      // Cuando quieras upload real, lo pasamos a FormData + storage.
+      const payload = {
+        nombreCompleto: formData.nombreCompleto,
+        profesion: formData.profesion,
+        email: formData.email,
+        telefono: formData.telefono,
+        password: formData.password,
+      };
+
+      const response = await fetch("/api/auth/register-professional", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
-      if (response.ok) {
-        setMessage('Gracias por tu interés. Hemos recibido tus datos y te contactaremos pronto.');
-      } else {
-        const errorData = await response.json();
-        setMessage(errorData.message || 'Ocurrió un error al enviar la solicitud.');
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage({
+          type: "error",
+          text: data?.message ?? "Error al enviar solicitud.",
+        });
+        setLoading(false);
+        return;
       }
+
+      setMessage({
+        type: "success",
+        text:
+          "Solicitud enviada. Un administrador revisará tu perfil antes de aprobarlo.",
+      });
+
+      setFormData({
+        nombreCompleto: "",
+        profesion: "",
+        email: "",
+        telefono: "",
+        password: "",
+        confirmPassword: "",
+        cv: null,
+        carta: null,
+      });
     } catch (error) {
-      console.error('Submission error:', error);
-      setMessage('No se pudo conectar con el servidor.');
+      setMessage({
+        type: "error",
+        text: "Error de red o servidor. Intentalo de nuevo.",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="bg-white p-8 rounded-lg shadow-md border max-w-2xl mx-auto"
-    >
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">
-        Registro para Profesionales
-      </h2>
+    <div className="mx-auto max-w-2xl rounded-2xl bg-white p-8 shadow-sm">
+      <h1 className="mb-2 text-2xl font-bold text-brand-800">
+        Registro de Profesionales
+      </h1>
+      <p className="mb-6 text-sm text-neutral-600">
+        Completá el formulario para que el equipo pueda revisar y aprobar tu
+        perfil.
+      </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="mb-4">
-          <label
-            htmlFor="nombreCompleto"
-            className="block text-gray-700 font-medium mb-2"
-          >
-            Nombre Completo
-          </label>
-          <input
-            type="text"
-            name="nombreCompleto"
-            value={formData.nombreCompleto}
-            onChange={handleChange}
-            required
-            className="w-full p-2 border border-gray-300 rounded-md"
-          />
+      {message.text ? (
+        <div
+          className={
+            "mb-4 rounded-lg border p-3 text-sm " +
+            (message.type === "success"
+              ? "border-green-200 bg-green-50 text-green-800"
+              : "border-red-200 bg-red-50 text-red-800")
+          }
+        >
+          {message.text}
+        </div>
+      ) : null}
+
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1 sm:col-span-2">
+            <label className="text-sm font-medium">Nombre completo</label>
+            <input
+              type="text"
+              name="nombreCompleto"
+              value={formData.nombreCompleto}
+              onChange={handleChange}
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
+              placeholder="Ej: Dra. Ana Pérez"
+              required
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium">Profesión</label>
+            <input
+              type="text"
+              name="profesion"
+              value={formData.profesion}
+              onChange={handleChange}
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
+              placeholder="Ej: Psicóloga Clínica"
+              required
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium">Teléfono (opcional)</label>
+            <input
+              type="tel"
+              name="telefono"
+              value={formData.telefono}
+              onChange={handleChange}
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
+              placeholder="Ej: +506 8888 8888"
+              autoComplete="tel"
+            />
+          </div>
+
+          <div className="space-y-1 sm:col-span-2">
+            <label className="text-sm font-medium">Email</label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
+              placeholder="tu@email.com"
+              autoComplete="email"
+              required
+            />
+          </div>
         </div>
 
-        <div className="mb-4">
-          <label
-            htmlFor="profesion"
-            className="block text-gray-700 font-medium mb-2"
-          >
-            Profesión
-          </label>
-          <input
-            type="text"
-            name="profesion"
-            value={formData.profesion}
-            onChange={handleChange}
-            required
-            className="w-full p-2 border border-gray-300 rounded-md"
-          />
-        </div>
-
-        <div className="mb-4">
-          <label
-            htmlFor="email"
-            className="block text-gray-700 font-medium mb-2"
-          >
-            Email
-          </label>
-          <input
-            type="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            required
-            className="w-full p-2 border border-gray-300 rounded-md"
-          />
-        </div>
-
-        <div className="mb-4">
-          <label
-            htmlFor="telefono"
-            className="block text-gray-700 font-medium mb-2"
-          >
-            Teléfono
-          </label>
-          <input
-            type="tel"
-            name="telefono"
-            value={formData.telefono}
-            onChange={handleChange}
-            required
-            className="w-full p-2 border border-gray-300 rounded-md"
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-        <div>
-          <label
-            htmlFor="cv"
-            className="block text-gray-700 font-medium mb-2"
-          >
-            Subir CV (PDF)
-          </label>
-          <input
-            type="file"
-            name="cv"
-            accept=".pdf"
-            className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-primary/10 file:text-brand-primary hover:file:bg-brand-primary/20"
-          />
-        </div>
-
-        <div>
-          <label
-            htmlFor="carta"
-            className="block text-gray-700 font-medium mb-2"
-          >
-            Subir Carta de Presentación (PDF)
-          </label>
-          <input
-            type="file"
-            name="carta"
-            accept=".pdf"
-            className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-primary/10 file:text-brand-primary hover:file:bg-brand-primary/20"
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <div>
-          <label htmlFor="password">Contraseña</label>
+        <div className="space-y-1">
+          <label className="text-sm font-medium">Contraseña</label>
           <input
             type="password"
             name="password"
             value={formData.password}
             onChange={handleChange}
+            className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
+            placeholder="Mínimo 12 caracteres"
+            autoComplete="new-password"
             required
-            className="w-full p-2 border border-gray-300 rounded-md"
           />
+
+          <div className="mt-2 rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+            <p className="mb-2 text-xs font-medium text-neutral-700">
+              Requisitos de seguridad
+            </p>
+            <ul className="space-y-1 text-xs">
+              <li className={passwordChecks.lengthOk ? "text-green-700" : "text-neutral-600"}>
+                • Mínimo 12 caracteres
+              </li>
+              <li className={passwordChecks.lowerOk ? "text-green-700" : "text-neutral-600"}>
+                • Al menos 1 letra minúscula
+              </li>
+              <li className={passwordChecks.upperOk ? "text-green-700" : "text-neutral-600"}>
+                • Al menos 1 letra mayúscula
+              </li>
+              <li className={passwordChecks.numberOk ? "text-green-700" : "text-neutral-600"}>
+                • Al menos 1 número
+              </li>
+              <li className={passwordChecks.symbolOk ? "text-green-700" : "text-neutral-600"}>
+                • Al menos 1 símbolo (ej: !@#$)
+              </li>
+              <li className={passwordChecks.noEmailOk ? "text-green-700" : "text-neutral-600"}>
+                • No debe contener tu email
+              </li>
+            </ul>
+          </div>
         </div>
 
-        <div>
-          <label htmlFor="confirmPassword">Confirmar Contraseña</label>
+        <div className="space-y-1">
+          <label className="text-sm font-medium">Confirmar contraseña</label>
           <input
             type="password"
             name="confirmPassword"
             value={formData.confirmPassword}
             onChange={handleChange}
+            className={
+              "w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-1 " +
+              (formData.confirmPassword.length === 0
+                ? "border-neutral-300 focus:border-brand-600 focus:ring-brand-600"
+                : passwordsMatch
+                ? "border-green-400 focus:border-green-500 focus:ring-green-500"
+                : "border-red-300 focus:border-red-500 focus:ring-red-500")
+            }
+            placeholder="Repetí la contraseña"
+            autoComplete="new-password"
             required
-            className="w-full p-2 border border-gray-300 rounded-md"
           />
+          {formData.confirmPassword.length > 0 && !passwordsMatch ? (
+            <p className="text-xs text-red-600">La confirmación no coincide.</p>
+          ) : null}
         </div>
-      </div>
 
-      <button
-        type="submit"
-        className="w-full btn btn-primary mt-2"
-      >
-        Enviar Solicitud
-      </button>
+        <hr className="my-2" />
 
-      {message && (
-        <p className="mt-4 text-center text-sm text-red-600">
-          {message}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1">
+            <label className="text-sm font-medium">
+              CV (PDF) <span className="text-xs text-neutral-500">(próximamente)</span>
+            </label>
+            <input
+              type="file"
+              name="cv"
+              accept=".pdf"
+              onChange={handleFileChange}
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium">
+              Carta de presentación (PDF){" "}
+              <span className="text-xs text-neutral-500">(próximamente)</span>
+            </label>
+            <input
+              type="file"
+              name="carta"
+              accept=".pdf"
+              onChange={handleFileChange}
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2"
+            />
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          disabled={!canSubmit}
+          className="
+            w-full
+            rounded-lg
+            bg-brand-600
+            px-4
+            py-2
+            font-semibold
+            text-white
+            transition
+            hover:bg-brand-700
+            focus:outline-none
+            focus:ring-2
+            focus:ring-brand-600
+            focus:ring-offset-2
+            disabled:cursor-not-allowed
+            disabled:opacity-60
+          "
+        >
+          {loading ? "Enviando..." : "Enviar solicitud"}
+        </button>
+
+        <p className="text-xs text-neutral-500">
+          Tu perfil quedará en estado <b>Pendiente</b> hasta que el equipo lo apruebe.
         </p>
-      )}
-    </form>
+      </form>
+    </div>
   );
 }
