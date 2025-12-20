@@ -24,7 +24,7 @@
     "prisma:reset": "prisma migrate reset --force --skip-seed",
     "prisma:studio": "prisma studio",
 
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate --schema=prisma/schema.prisma"
   },
 
   "dependencies": {
