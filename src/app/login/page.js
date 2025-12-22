@@ -105,9 +105,9 @@ export default function LoginPage() {
 
         <p className="text-center text-sm text-gray-600 mt-4">
           ¿No tenés cuenta?{' '}
-          <a className="text-blue-600 underline" href="/registro/usuario">Crear cuenta usuario</a>
+          <a className="text-accent-300 underline" href="/registro/usuario">Crear cuenta usuario</a>
           {' '}|{' '}
-          <a className="text-blue-600 underline" href="/registro/profesional">Quiero ser profesional</a>
+          <a className="text-accent-300 underline" href="/registro/profesional">Quiero ser profesional</a>
         </p>
       </div>
     </main>
