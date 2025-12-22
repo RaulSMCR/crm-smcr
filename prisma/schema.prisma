@@ -7,56 +7,95 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id             Int      @id @default(autoincrement())
-  email          String   @unique
-  name           String
-  identification String   @unique
-  birthDate      DateTime
-  gender         String?
-  interests      String?  @db.Text
-  phone          String
-  passwordHash   String
-  role           String   @default("USER")
-  createdAt      DateTime @default(now())
+// --------------------------------------
+// ENUMS (Mejor control y autocompletado)
+// --------------------------------------
 
-  appointments Appointment[]
+enum Role {
+  USER
+  ADMIN
+  PROFESSIONAL // Si decides unificar modelos en el futuro
+}
+
+enum PostType {
+  TEXT
+  VIDEO
+  AUDIO
+}
+
+enum PostStatus {
+  PENDING
+  PUBLISHED
+  ARCHIVED
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+// --------------------------------------
+// MODELOS
+// --------------------------------------
+
+model User {
+  id             Int       @id @default(autoincrement())
+  email          String    @unique
+  name           String
+  passwordHash   String
+  role           Role      @default(USER) // Uso del Enum
+  
+  // CAMPOS OPCIONALES (Para evitar errores en registro rápido)
+  identification String?   @unique // DNI/Cédula: Opcional al inicio, único si existe
+  birthDate      DateTime? 
+  phone          String?
+  gender         String?
+  interests      String?   @db.Text
+  
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  appointments   Appointment[]
 }
 
 model Professional {
-  id                 Int      @id @default(autoincrement())
-  email              String   @unique
+  id                 Int       @id @default(autoincrement())
+  email              String    @unique
   name               String
   profession         String
+  passwordHash       String
+  isApproved         Boolean   @default(false)
+  
+  // Perfil público
   phone              String?
-  bio                String?
+  bio                String?   @db.Text // @db.Text para bios largas
   avatarUrl          String?
   introVideoUrl      String?
   calendarUrl        String?
   paymentLinkBase    String?
-  passwordHash       String
-  isApproved         Boolean  @default(false)
-  googleRefreshToken String?  @db.Text
-  createdAt          DateTime @default(now())
+  
+  // Integraciones
+  googleRefreshToken String?   @db.Text
+  
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  // Relación M:N con servicios (nombre de relación explícito)
-  services Service[] @relation("ServicesOnProfessionals")
-
-  // Contenido
-  posts Post[]
-
-  // Citas
-  appointments Appointment[]
+  // Relaciones
+  services           Service[] @relation("ServicesOnProfessionals")
+  posts              Post[]
+  appointments       Appointment[]
 }
 
 model Category {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique
-  slug        String  @unique
-  description String?
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  slug        String    @unique
+  description String?   @db.Text
   imageUrl    String?
 
-  services Service[]
+  services    Service[]
 }
 
 model Service {
@@ -64,66 +103,65 @@ model Service {
   slug        String   @unique
   title       String
   description String   @db.Text
-  price       Float
+  
+  // CORRECCIÓN CRÍTICA: Decimal para dinero, nunca Float
+  price       Decimal  @db.Decimal(10, 2) 
+  
   imageUrl    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Categoría opcional
-  categoryId Int?
-  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-
-  // Relación M:N con profesionales (nombre de relación explícito)
+  // Relaciones
+  categoryId    Int?
+  category      Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   professionals Professional[] @relation("ServicesOnProfessionals")
-
-  // Posts que referencian este servicio (1:N)
-  posts Post[]
-
-  // Citas que referencian este servicio (opcional)
-  appointments Appointment[]
+  posts         Post[]
+  appointments  Appointment[]
 }
 
 model Post {
-  id        Int      @id @default(autoincrement())
-  slug      String   @unique
+  id        Int        @id @default(autoincrement())
+  slug      String     @unique
   title     String
-  content   String   @db.Text
+  content   String     @db.Text
   imageUrl  String?
-  postType  String   @default("TEXT") // "TEXT" | "VIDEO" | "AUDIO"
   mediaUrl  String?
-  status    String   @default("PENDING") // "PENDING" | "PUBLISHED"
-  createdAt DateTime @default(now())
+  
+  // Uso de Enums
+  postType  PostType   @default(TEXT)
+  status    PostStatus @default(PENDING)
+  
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 
-  // Autor (profesional)
-  authorId Int
-  author   Professional @relation(fields: [authorId], references: [id], onDelete: Cascade)
-
-  // Servicio opcional asociado
+  // Relaciones
+  authorId  Int
+  author    Professional @relation(fields: [authorId], references: [id], onDelete: Cascade)
   serviceId Int?
-  service   Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  service   Service?     @relation(fields: [serviceId], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt])
   @@index([serviceId])
 }
 
 model Appointment {
-  id        Int      @id @default(autoincrement())
-  startTime DateTime
-  endTime   DateTime
-  status    String   @default("CONFIRMED")
-  createdAt DateTime @default(now())
+  id             Int               @id @default(autoincrement())
+  startTime      DateTime
+  endTime        DateTime
+  
+  // Uso de Enum
+  status         AppointmentStatus @default(CONFIRMED)
+  
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
-  // Quien reserva
-  userId Int
-  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Con quién reserva (profesional)
+  // Relaciones
+  userId         Int
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   professionalId Int
-  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
-
-  // Servicio opcional del turno
-  serviceId Int?
-  service   Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  professional   Professional      @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  serviceId      Int?
+  service        Service?          @relation(fields: [serviceId], references: [id], onDelete: SetNull)
 
   @@index([professionalId, startTime])
   @@index([userId, startTime])

@@ -19,17 +19,18 @@
     "postinstall": "prisma generate --schema=prisma/schema.prisma"
   },
   "dependencies": {
+    "@prisma/client": "5.22.0",
     "bcryptjs": "2.4.3",
     "cookie": "^1.1.1",
     "date-fns": "^4.1.0",
+    "dotenv": "^17.2.3",
     "googleapis": "^169.0.0",
     "jose": "5.9.6",
     "js-cookie": "^3.0.5",
     "next": "14.2.35",
     "react": "18.2.0",
     "react-day-picker": "^9.12.0",
-    "react-dom": "18.2.0",
-    "@prisma/client": "5.22.0"
+    "react-dom": "18.2.0"
   },
   "devDependencies": {
     "@tailwindcss/forms": "0.5.9",
@@ -37,7 +38,7 @@
     "@types/js-cookie": "^3.0.6",
     "autoprefixer": "10.4.20",
     "eslint": "8.57.0",
-    "eslint-config-next": "14.2.7",
+    "eslint-config-next": "^16.1.1",
     "is-number": "7.0.0",
     "postcss": "8.4.47",
     "prisma": "5.22.0",
