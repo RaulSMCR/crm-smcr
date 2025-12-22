@@ -5,7 +5,12 @@ import bcrypt from "bcryptjs";
 import { SignJWT } from "jose";
 import { serialize } from "cookie";
 
-const prisma = new PrismaClient();
+// ------------------------------------------------------------------
+// FIX: Patrón Singleton para evitar "Too many connections" en GoDaddy
+// ------------------------------------------------------------------
+const globalForPrisma = global;
+const prisma = globalForPrisma.prisma || new PrismaClient();
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
 export async function POST(request) {
   try {
@@ -18,10 +23,11 @@ export async function POST(request) {
 
     const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 
-    // Leer body JSON enviado desde el formulario
+    // Leer body JSON
     const body = await request.json();
 
-    const { name, email, password, age, gender, interests } = body ?? {};
+    // Nota: Eliminamos 'age' de aquí porque no existe en tu base de datos
+    const { name, email, password, gender, interests } = body ?? {};
 
     // Validaciones mínimas
     if (!name || !email || !password) {
@@ -32,19 +38,6 @@ export async function POST(request) {
     }
 
     const normalizedEmail = String(email).trim().toLowerCase();
-
-    // Edad opcional (si viene, validarla)
-    const parsedAge =
-      age !== undefined && age !== null && String(age).trim() !== ""
-        ? Number(age)
-        : null;
-
-    if (
-      parsedAge !== null &&
-      (!Number.isFinite(parsedAge) || parsedAge < 0 || parsedAge > 120)
-    ) {
-      return NextResponse.json({ error: "Edad inválida" }, { status: 400 });
-    }
 
     // Evitar duplicados
     const existing = await prisma.user.findUnique({
@@ -62,30 +55,37 @@ export async function POST(request) {
     // Hash password
     const hashedPassword = await bcrypt.hash(String(password), 12);
 
-    // Crear usuario (ajusta estos campos según tu schema.prisma)
+    // -------------------------------------------------------
+    // CORRECCIÓN CRÍTICA AQUÍ ABAJO
+    // -------------------------------------------------------
     const newUser = await prisma.user.create({
       data: {
         name: String(name).trim(),
         email: normalizedEmail,
-        password: hashedPassword,
+        
+        // FIX 1: Tu schema usa 'passwordHash', no 'password'
+        passwordHash: hashedPassword, 
 
-        // ✅ nuevos campos (opcionales, texto libre)
-        age: parsedAge,
+        // FIX 2: Eliminé 'age' porque tu schema no tiene ese campo.
+        // Si quieres guardar edad, debes agregar el campo al schema.prisma primero.
+        
+        // Estos son opcionales y existen en tu schema:
         gender: gender ? String(gender).trim() : null,
         interests: interests ? String(interests).trim() : null,
+        
+        // Nota: 'role' se pone en "USER" automáticamente por defecto según tu schema
       },
-      // No devolver password
       select: {
         id: true,
         name: true,
         email: true,
-        age: true,
         gender: true,
         interests: true,
+        // Eliminé 'age' del select también
       },
     });
 
-    // Login automático (cookie con JWT)
+    // Login automático (JWT)
     const payload = { userId: newUser.id, name: newUser.name, role: "USER" };
 
     const token = await new SignJWT(payload)
@@ -105,10 +105,14 @@ export async function POST(request) {
     const response = NextResponse.json(newUser, { status: 201 });
     response.headers.set("Set-Cookie", cookie);
     return response;
+
   } catch (error) {
+    // Imprimir el error completo es vital para debuggear
     console.error("REGISTER_ERROR:", error);
+    
     return NextResponse.json(
-      { error: "Error interno al registrar usuario" },
+      // Enviamos el mensaje del error para que lo veas en el frontend temporalmente
+      { error: `Error interno: ${error.message}` }, 
       { status: 500 }
     );
   }
