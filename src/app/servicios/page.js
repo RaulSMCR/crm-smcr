@@ -8,7 +8,6 @@ export const metadata = {
 };
 
 export default async function ServiciosPage() {
-  // Solo usamos la relación many-to-many "professionals"
   const services = await prisma.service.findMany({
     orderBy: { title: 'asc' },
     select: {
@@ -21,8 +20,25 @@ export default async function ServiciosPage() {
       category: {
         select: { id: true, name: true, slug: true },
       },
+
+      // Ahora "professionals" es el pivot ServicesOnProfessionals
       professionals: {
-        select: { id: true, name: true },
+        where: { status: 'ACTIVE' },
+        orderBy: { createdAt: 'asc' }, // opcional: primero el más antiguo (desde cuándo)
+        select: {
+          id: true, // id del vínculo (pivot)
+          createdAt: true,
+          status: true,
+          priceOverride: true,
+          professional: {
+            select: {
+              id: true,
+              name: true,
+              profession: true,
+              avatarUrl: true,
+            },
+          },
+        },
       },
     },
   });
@@ -40,15 +56,21 @@ export default async function ServiciosPage() {
 
       <section className="neutral-300 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {services.map((service) => {
-          const professionalName =
-            service.professionals?.[0]?.name ?? 'Equipo SMCR';
+          // Tomamos el primer vínculo activo (si existe)
+          const firstLink = service.professionals?.[0];
+
+          const professionalName = firstLink?.professional?.name ?? 'Equipo SMCR';
+
+          // Si querés mostrar precio real del primer profesional:
+          // const displayedPrice = firstLink?.priceOverride ?? service.price;
+
           return (
             <ServiceCard
               key={service.id}
               service={{
                 ...service,
                 professionalName,
-                // Fallback visual si faltara imagen en la BD:
+                // displayedPrice, // <- si tu ServiceCard soporta mostrarlo
                 imageUrl:
                   service.imageUrl ||
                   'https://images.unsplash.com/photo-1552664730-d307ca884978?q=80&w=1600&auto=format&fit=crop',
