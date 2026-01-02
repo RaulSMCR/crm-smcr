@@ -15,22 +15,22 @@ importers:
         specifier: 2.4.3
         version: 2.4.3
       cookie:
-        specifier: ^1.1.1
+        specifier: 1.1.1
         version: 1.1.1
       date-fns:
-        specifier: ^4.1.0
+        specifier: 4.1.0
         version: 4.1.0
       dotenv:
-        specifier: ^17.2.3
+        specifier: 17.2.3
         version: 17.2.3
       googleapis:
-        specifier: ^169.0.0
+        specifier: 169.0.0
         version: 169.0.0
       jose:
         specifier: 5.9.6
         version: 5.9.6
       js-cookie:
-        specifier: ^3.0.5
+        specifier: 3.0.5
         version: 3.0.5
       next:
         specifier: 14.2.35
@@ -39,7 +39,7 @@ importers:
         specifier: 18.2.0
         version: 18.2.0
       react-day-picker:
-        specifier: ^9.12.0
+        specifier: 9.13.0
         version: 9.13.0(react@18.2.0)
       react-dom:
         specifier: 18.2.0
@@ -52,7 +52,7 @@ importers:
         specifier: 0.5.15
         version: 0.5.15(tailwindcss@3.4.14)
       '@types/js-cookie':
-        specifier: ^3.0.6
+        specifier: 3.0.6
         version: 3.0.6
       autoprefixer:
         specifier: 10.4.20
@@ -61,7 +61,7 @@ importers:
         specifier: 8.57.0
         version: 8.57.0
       eslint-config-next:
-        specifier: ^14.2.35
+        specifier: 14.2.35
         version: 14.2.35(eslint@8.57.0)(typescript@5.9.3)
       is-number:
         specifier: 7.0.0

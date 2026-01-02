@@ -13,7 +13,7 @@ export default function CuentaPage() {
           <div className="bg-white p-8 rounded-lg shadow-md text-center">
             <h2 className="text-2xl font-semibold mb-4">Ya tengo una cuenta</h2>
             <p className="text-gray-600 mb-6">Ingresa para ver tu historial y agendar nuevas citas.</p>
-            <Link href="/login" className="w-full inline-block bg-brand-primary text-white px-6 py-3 rounded-md font-semibold hover:bg-opacity-90">
+            <Link href="/login" className="w-full inline-block bg-brand-primary text-brand-600 px-6 py-3 rounded-md font-semibold hover:bg-opacity-90">
               Iniciar Sesión
             </Link>
           </div>

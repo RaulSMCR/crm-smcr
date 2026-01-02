@@ -6,39 +6,51 @@
   "engines": {
     "node": ">=18.18.0"
   },
+
+  "prisma": {
+    "schema": "apps/web/prisma/schema.prisma"
+  },
+
   "scripts": {
     "dev": "next dev -p 3000",
-    "build": "prisma generate && next build",
+    "build": "pnpm prisma:generate && next build",
     "start": "next start -p 3000",
     "lint": "next lint",
+
     "seed": "prisma db seed",
+
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
+    "prisma:migrate:dev": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:reset": "prisma migrate reset --force --skip-seed",
     "prisma:studio": "prisma studio",
-    "postinstall": "prisma generate --schema=prisma/schema.prisma"
+
+    "postinstall": "prisma generate"
   },
+
   "dependencies": {
     "@prisma/client": "5.22.0",
     "bcryptjs": "2.4.3",
-    "cookie": "^1.1.1",
-    "date-fns": "^4.1.0",
-    "dotenv": "^17.2.3",
-    "googleapis": "^169.0.0",
+    "cookie": "1.1.1",
+    "date-fns": "4.1.0",
+    "dotenv": "17.2.3",
+    "googleapis": "169.0.0",
     "jose": "5.9.6",
-    "js-cookie": "^3.0.5",
+    "js-cookie": "3.0.5",
     "next": "14.2.35",
     "react": "18.2.0",
-    "react-day-picker": "^9.12.0",
+    "react-day-picker": "9.13.0",
     "react-dom": "18.2.0"
   },
+
   "devDependencies": {
     "@tailwindcss/forms": "0.5.9",
     "@tailwindcss/typography": "0.5.15",
-    "@types/js-cookie": "^3.0.6",
+    "@types/js-cookie": "3.0.6",
     "autoprefixer": "10.4.20",
     "eslint": "8.57.0",
-    "eslint-config-next": "^14.2.35",
+    "eslint-config-next": "14.2.35",
     "is-number": "7.0.0",
     "postcss": "8.4.47",
     "prisma": "5.22.0",
