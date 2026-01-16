@@ -1,7 +1,6 @@
-// src/app/api/auth/register/route.js
+// src/app/api/auth/resend-verification/route.js
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { Resend } from "resend";
 
@@ -46,14 +45,12 @@ async function sendVerifyEmail({ to, name, verifyUrl }) {
     </div>
   `;
 
-  // ✅ Resend (producción)
   if (apiKey && from) {
     const resend = new Resend(apiKey);
     await resend.emails.send({ from, to, subject, html });
     return;
   }
 
-  // ✅ Modo consola (desarrollo)
   console.warn("EMAIL_NOT_CONFIGURED: faltan RESEND_API_KEY o EMAIL_FROM.");
   console.log("VERIFY_EMAIL_LINK:", verifyUrl);
 }
@@ -63,75 +60,67 @@ export async function POST(request) {
     const APP_URL = mustEnv("APP_URL").replace(/\/$/, "");
 
     const body = await request.json().catch(() => ({}));
-    const { name, email, password, gender, interests } = body ?? {};
+    const email = String(body?.email || "").trim().toLowerCase();
 
-    if (!name || !email || !password) {
-      return NextResponse.json(
-        { error: "Faltan campos requeridos: name, email, password" },
-        { status: 400 }
-      );
+    if (!email) {
+      return NextResponse.json({ message: "Email requerido" }, { status: 400 });
     }
 
-    const normalizedEmail = String(email).trim().toLowerCase();
+    // Buscar primero en User, luego Professional (sin revelar cuál existe)
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, name: true, email: true, emailVerified: true },
+    });
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(String(password), 12);
+    const pro = !user
+      ? await prisma.professional.findUnique({
+          where: { email },
+          select: { id: true, name: true, email: true, emailVerified: true },
+        })
+      : null;
 
-    // Token + exp
+    const acct = user || pro;
+
+    // Respuesta “genérica” para no filtrar si el email existe
+    if (!acct) {
+      return NextResponse.json({
+        ok: true,
+        message:
+          "Si ese correo existe en nuestro sistema, te enviaremos un email de verificación.",
+      });
+    }
+
+    // Si ya está verificado, devolvemos OK (idempotente)
+    if (acct.emailVerified) {
+      return NextResponse.json({ ok: true, message: "Tu correo ya está verificado." });
+    }
+
     const { token, tokenHash } = makeVerifyToken();
     const exp = new Date(Date.now() + 1000 * 60 * 60 * 24);
 
-    // ✅ Transacción: user + token
-    const newUser = await prisma.$transaction(async (tx) => {
-      const created = await tx.user.create({
-        data: {
-          name: String(name).trim(),
-          email: normalizedEmail,
-          passwordHash: hashedPassword,
-          gender: gender ? String(gender).trim() : null,
-          interests: interests ? String(interests).trim() : null,
-
-          emailVerified: false,
-          verifyTokenHash: tokenHash,
-          verifyTokenExp: exp,
-        },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          emailVerified: true,
-        },
+    if (user) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { verifyTokenHash: tokenHash, verifyTokenExp: exp },
+        select: { id: true },
       });
-
-      return created;
-    });
-
-    const verifyUrl = `${APP_URL}/verificar-email?token=${encodeURIComponent(token)}`;
-    await sendVerifyEmail({ to: newUser.email, name: newUser.name, verifyUrl });
-
-    return NextResponse.json(
-      {
-        ok: true,
-        message:
-          "Cuenta creada. Te enviamos un correo para confirmar tu email antes de iniciar sesión.",
-        user: newUser,
-      },
-      { status: 201 }
-    );
-  } catch (error) {
-    console.error("REGISTER_ERROR:", error);
-
-    // Prisma unique constraint (email duplicado)
-    if (error?.code === "P2002") {
-      return NextResponse.json(
-        { error: "Ya existe un usuario con ese email" },
-        { status: 409 }
-      );
+    } else {
+      await prisma.professional.update({
+        where: { id: pro.id },
+        data: { verifyTokenHash: tokenHash, verifyTokenExp: exp },
+        select: { id: true },
+      });
     }
 
-    return NextResponse.json(
-      { error: "Error interno" },
-      { status: 500 }
-    );
+    const verifyUrl = `${APP_URL}/verificar-email?token=${encodeURIComponent(token)}`;
+    await sendVerifyEmail({ to: acct.email, name: acct.name, verifyUrl });
+
+    return NextResponse.json({
+      ok: true,
+      message: "Listo. Si el correo está registrado, te enviamos un nuevo enlace.",
+    });
+  } catch (e) {
+    console.error("RESEND_VERIFICATION_ERROR:", e);
+    return NextResponse.json({ message: "Error interno" }, { status: 500 });
   }
 }

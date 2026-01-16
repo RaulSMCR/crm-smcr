@@ -10,13 +10,14 @@ export default function LoginClient() {
 
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState(null);
+  const [info, setInfo] = useState(null);
+  const [needsVerify, setNeedsVerify] = useState(false);
+  const [resendPending, setResendPending] = useState(false);
 
-  // Leer directo del DOM (evita problemas con autocompletar que no disparan onChange)
   const emailRef = useRef(null);
   const passwordRef = useRef(null);
 
   function safeNextPath(raw) {
-    // Solo permitimos rutas internas (evita open-redirect)
     if (!raw) return null;
     const s = String(raw).trim();
     if (!s.startsWith("/")) return null;
@@ -24,12 +25,43 @@ export default function LoginClient() {
     return s;
   }
 
+  async function resendVerificationEmail() {
+    setError(null);
+    setInfo(null);
+
+    const email = String(emailRef.current?.value || "").trim().toLowerCase();
+    if (!email) {
+      setError("Ingresá tu email para reenviar la verificación.");
+      return;
+    }
+
+    try {
+      setResendPending(true);
+      const res = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.message || "No se pudo reenviar.");
+
+      setInfo(
+        data?.message ||
+          "Si ese correo existe en el sistema, te enviamos un nuevo enlace."
+      );
+    } catch (e) {
+      setError(e?.message || "Error al reenviar verificación");
+    } finally {
+      setResendPending(false);
+    }
+  }
+
   async function doLogin() {
     setError(null);
+    setInfo(null);
+    setNeedsVerify(false);
 
-    const email = String(emailRef.current?.value || "")
-      .trim()
-      .toLowerCase();
+    const email = String(emailRef.current?.value || "").trim().toLowerCase();
     const password = String(passwordRef.current?.value || "");
 
     if (!email || !password) {
@@ -46,13 +78,18 @@ export default function LoginClient() {
       });
 
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.message || `Error ${res.status}`);
 
-      // ✅ next (si viene) tiene prioridad, pero solo si es ruta interna segura
+      if (!res.ok) {
+        // Caso especial: email no verificado
+        if (res.status === 403 && String(data?.message || "").includes("confirmar tu correo")) {
+          setNeedsVerify(true);
+        }
+        throw new Error(data?.message || `Error ${res.status}`);
+      }
+
       const nextParam = safeNextPath(searchParams?.get("next"));
       let to = nextParam || "/";
 
-      // Si no hay next, usamos el dashboard correcto según rol
       if (!nextParam) {
         if (data.role === "ADMIN") to = "/admin";
         else if (data.role === "PROFESSIONAL") to = "/dashboard-profesional";
@@ -68,7 +105,6 @@ export default function LoginClient() {
     }
   }
 
-  // Permite Enter en los inputs
   function onKeyDown(e) {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -77,14 +113,11 @@ export default function LoginClient() {
   }
 
   return (
-    <main
-      className="min-h-[70vh] flex items-center justify-center px-4"
-      onKeyDown={onKeyDown}
-    >
+    <main className="min-h-[70vh] flex items-center justify-center px-4" onKeyDown={onKeyDown}>
       <div className="w-full max-w-md">
         <h1 className="text-2xl font-bold mb-6 text-center">Ingresar</h1>
 
-        <div className="max-w-sm w-full space-y-4">
+        <div className="max-w-sm w-full space-y-4 mx-auto">
           <div>
             <label htmlFor="email" className="block text-sm font-medium mb-1">
               Email
@@ -100,10 +133,7 @@ export default function LoginClient() {
           </div>
 
           <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium mb-1"
-            >
+            <label htmlFor="password" className="block text-sm font-medium mb-1">
               Contraseña
             </label>
             <input
@@ -119,6 +149,28 @@ export default function LoginClient() {
           {error ? (
             <div className="text-sm text-red-600 border border-red-200 bg-red-50 rounded px-3 py-2">
               {error}
+            </div>
+          ) : null}
+
+          {info ? (
+            <div className="text-sm text-green-700 border border-green-200 bg-green-50 rounded px-3 py-2">
+              {info}
+            </div>
+          ) : null}
+
+          {needsVerify ? (
+            <div className="rounded border bg-neutral-50 px-3 py-2 text-sm">
+              <div className="mb-2">
+                ¿No te llegó el correo? Podés reenviar el enlace de verificación.
+              </div>
+              <button
+                type="button"
+                onClick={resendVerificationEmail}
+                disabled={resendPending}
+                className="w-full px-4 py-2 rounded bg-neutral-800 text-white hover:bg-neutral-900 disabled:opacity-70"
+              >
+                {resendPending ? "Reenviando…" : "Reenviar verificación"}
+              </button>
             </div>
           ) : null}
 
@@ -146,3 +198,4 @@ export default function LoginClient() {
     </main>
   );
 }
+
