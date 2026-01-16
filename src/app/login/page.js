@@ -1,11 +1,13 @@
 // src/app/login/page.js
-'use client';
+"use client";
 
-import { useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRef, useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState(null);
 
@@ -13,58 +15,80 @@ export default function LoginPage() {
   const emailRef = useRef(null);
   const passwordRef = useRef(null);
 
+  function safeNextPath(raw) {
+    // Solo permitimos rutas internas (evita open-redirect)
+    if (!raw) return null;
+    const s = String(raw).trim();
+    if (!s.startsWith("/")) return null;
+    if (s.startsWith("//")) return null;
+    return s;
+  }
+
   async function doLogin() {
     setError(null);
 
-    const email = String(emailRef.current?.value || '').trim().toLowerCase();
-    const password = String(passwordRef.current?.value || '');
+    const email = String(emailRef.current?.value || "")
+      .trim()
+      .toLowerCase();
+    const password = String(passwordRef.current?.value || "");
 
     if (!email || !password) {
-      setError('Ingresá email y contraseña.');
+      setError("Ingresá email y contraseña.");
       return;
     }
 
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.message || `Error ${res.status}`);
 
-      let to = '/';
-      if (data.role === 'ADMIN') to = '/admin';
-      else if (data.role === 'PROFESSIONAL') to = '/dashboard-profesional';
-      else to = '/dashboard';
+      // ✅ next (si viene) tiene prioridad, pero solo si es ruta interna segura
+      const nextParam = safeNextPath(searchParams?.get("next"));
+      let to = nextParam || "/";
+
+      // Si no hay next, usamos el dashboard correcto según rol
+      if (!nextParam) {
+        if (data.role === "ADMIN") to = "/admin";
+        else if (data.role === "PROFESSIONAL") to = "/dashboard-profesional";
+        else to = "/dashboard";
+      }
 
       startTransition(() => {
         router.push(to);
         router.refresh();
       });
     } catch (e) {
-      setError(e.message);
+      setError(e?.message || "Error al iniciar sesión");
     }
   }
 
   // Permite Enter en los inputs
   function onKeyDown(e) {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       e.preventDefault();
       doLogin();
     }
   }
 
   return (
-    <main className="min-h-[70vh] flex items-center justify-center px-4" onKeyDown={onKeyDown}>
+    <main
+      className="min-h-[70vh] flex items-center justify-center px-4"
+      onKeyDown={onKeyDown}
+    >
       <div className="w-full max-w-md">
         <h1 className="text-2xl font-bold mb-6 text-center">Ingresar</h1>
 
         <div className="max-w-sm w-full space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium mb-1">Email</label>
+            <label htmlFor="email" className="block text-sm font-medium mb-1">
+              Email
+            </label>
             <input
               id="email"
               type="email"
@@ -76,7 +100,12 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium mb-1">Contraseña</label>
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium mb-1"
+            >
+              Contraseña
+            </label>
             <input
               id="password"
               type="password"
@@ -99,15 +128,19 @@ export default function LoginPage() {
             disabled={pending}
             className="w-full px-4 py-2 rounded bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-70"
           >
-            {pending ? 'Ingresando…' : 'Ingresar'}
+            {pending ? "Ingresando…" : "Ingresar"}
           </button>
         </div>
 
         <p className="text-center text-sm text-gray-600 mt-4">
-          ¿No tenés cuenta?{' '}
-          <a className="text-accent-300 underline" href="/registro/usuario">Crear cuenta usuario</a>
-          {' '}|{' '}
-          <a className="text-accent-300 underline" href="/registro/profesional">Quiero ser profesional</a>
+          ¿No tenés cuenta?{" "}
+          <a className="text-accent-300 underline" href="/registro/usuario">
+            Crear cuenta usuario
+          </a>{" "}
+          |{" "}
+          <a className="text-accent-300 underline" href="/registro/profesional">
+            Quiero ser profesional
+          </a>
         </p>
       </div>
     </main>
