@@ -38,7 +38,7 @@ export default function LoginPage() {
       let to = '/';
       if (data.role === 'ADMIN') to = '/admin';
       else if (data.role === 'PROFESSIONAL') to = '/dashboard-profesional';
-      else to = '/cuenta';
+      else to = '/dashboard';
 
       startTransition(() => {
         router.push(to);
