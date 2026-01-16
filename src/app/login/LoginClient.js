@@ -9,15 +9,19 @@ export default function LoginClient() {
   const searchParams = useSearchParams();
 
   const [pending, startTransition] = useTransition();
+
   const [error, setError] = useState(null);
   const [info, setInfo] = useState(null);
+
   const [needsVerify, setNeedsVerify] = useState(false);
   const [resendPending, setResendPending] = useState(false);
 
+  // Leer directo del DOM (evita problemas con autocompletar que no disparan onChange)
   const emailRef = useRef(null);
   const passwordRef = useRef(null);
 
   function safeNextPath(raw) {
+    // Solo permitimos rutas internas (evita open-redirect)
     if (!raw) return null;
     const s = String(raw).trim();
     if (!s.startsWith("/")) return null;
@@ -37,11 +41,13 @@ export default function LoginClient() {
 
     try {
       setResendPending(true);
+
       const res = await fetch("/api/auth/resend-verification", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
+
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.message || "No se pudo reenviar.");
 
@@ -81,15 +87,20 @@ export default function LoginClient() {
 
       if (!res.ok) {
         // Caso especial: email no verificado
-        if (res.status === 403 && String(data?.message || "").includes("confirmar tu correo")) {
+        if (
+          res.status === 403 &&
+          String(data?.message || "").includes("confirmar tu correo")
+        ) {
           setNeedsVerify(true);
         }
         throw new Error(data?.message || `Error ${res.status}`);
       }
 
+      // ✅ next (si viene) tiene prioridad, pero solo si es ruta interna segura
       const nextParam = safeNextPath(searchParams?.get("next"));
       let to = nextParam || "/";
 
+      // Si no hay next, usamos el dashboard correcto según rol
       if (!nextParam) {
         if (data.role === "ADMIN") to = "/admin";
         else if (data.role === "PROFESSIONAL") to = "/dashboard-profesional";
@@ -105,6 +116,7 @@ export default function LoginClient() {
     }
   }
 
+  // Permite Enter en los inputs
   function onKeyDown(e) {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -113,7 +125,10 @@ export default function LoginClient() {
   }
 
   return (
-    <main className="min-h-[70vh] flex items-center justify-center px-4" onKeyDown={onKeyDown}>
+    <main
+      className="min-h-[70vh] flex items-center justify-center px-4"
+      onKeyDown={onKeyDown}
+    >
       <div className="w-full max-w-md">
         <h1 className="text-2xl font-bold mb-6 text-center">Ingresar</h1>
 
@@ -133,7 +148,10 @@ export default function LoginClient() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium mb-1">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium mb-1"
+            >
               Contraseña
             </label>
             <input
@@ -182,6 +200,13 @@ export default function LoginClient() {
           >
             {pending ? "Ingresando…" : "Ingresar"}
           </button>
+
+          {/* Paso 5: link a recuperar contraseña */}
+          <p className="text-center text-sm mt-2">
+            <a className="text-accent-300 underline" href="/recuperar">
+              Olvidé mi contraseña
+            </a>
+          </p>
         </div>
 
         <p className="text-center text-sm text-gray-600 mt-4">
@@ -198,4 +223,3 @@ export default function LoginClient() {
     </main>
   );
 }
-
