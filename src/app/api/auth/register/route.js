@@ -46,14 +46,12 @@ async function sendVerifyEmail({ to, name, verifyUrl }) {
     </div>
   `;
 
-  // ✅ Resend (producción)
   if (apiKey && from) {
     const resend = new Resend(apiKey);
     await resend.emails.send({ from, to, subject, html });
     return;
   }
 
-  // ✅ Modo consola (desarrollo)
   console.warn("EMAIL_NOT_CONFIGURED: faltan RESEND_API_KEY o EMAIL_FROM.");
   console.log("VERIFY_EMAIL_LINK:", verifyUrl);
 }
@@ -79,26 +77,36 @@ export async function POST(request) {
 
     // Token + exp
     const { token, tokenHash } = makeVerifyToken();
-    const exp = new Date(Date.now() + 1000 * 60 * 60 * 24);
+    const exp = new Date(Date.now() + 1000 * 60 * 60 * 24); // 24h
 
-    // ✅ Transacción: user + token
+    // ✅ Guardamos también el momento del envío (rate limit DB)
+    const now = new Date();
+
+    // ✅ Transacción: crear user con token+exp+lastSent (todo junto)
     const newUser = await prisma.$transaction(async (tx) => {
       const created = await tx.user.create({
         data: {
           name: String(name).trim(),
           email: normalizedEmail,
           passwordHash: hashedPassword,
+
           gender: gender ? String(gender).trim() : null,
           interests: interests ? String(interests).trim() : null,
 
+          // Email verification
           emailVerified: false,
           verifyTokenHash: tokenHash,
           verifyTokenExp: exp,
+
+          // ✅ Paso D (opcional): para rate limit desde el primer email
+          verifyEmailLastSentAt: now,
         },
         select: {
           id: true,
           name: true,
           email: true,
+          gender: true,
+          interests: true,
           emailVerified: true,
         },
       });
@@ -106,6 +114,7 @@ export async function POST(request) {
       return created;
     });
 
+    // Enviar email
     const verifyUrl = `${APP_URL}/verificar-email?token=${encodeURIComponent(token)}`;
     await sendVerifyEmail({ to: newUser.email, name: newUser.name, verifyUrl });
 
@@ -114,7 +123,12 @@ export async function POST(request) {
         ok: true,
         message:
           "Cuenta creada. Te enviamos un correo para confirmar tu email antes de iniciar sesión.",
-        user: newUser,
+        user: {
+          id: newUser.id,
+          name: newUser.name,
+          email: newUser.email,
+          emailVerified: newUser.emailVerified,
+        },
       },
       { status: 201 }
     );
@@ -129,9 +143,6 @@ export async function POST(request) {
       );
     }
 
-    return NextResponse.json(
-      { error: "Error interno" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
 }

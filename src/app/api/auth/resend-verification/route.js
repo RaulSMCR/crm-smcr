@@ -4,16 +4,10 @@ import { PrismaClient } from "@prisma/client";
 import crypto from "crypto";
 import { Resend } from "resend";
 
-// ------------------------------------------------------------------
-// Prisma Singleton
-// ------------------------------------------------------------------
 const globalForPrisma = global;
 const prisma = globalForPrisma.prisma || new PrismaClient();
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
-// ------------------------------------------------------------------
-// Helpers
-// ------------------------------------------------------------------
 function mustEnv(name) {
   const v = process.env[name];
   if (!v) throw new Error("Server misconfigured");
@@ -55,6 +49,15 @@ async function sendVerifyEmail({ to, name, verifyUrl }) {
   console.log("VERIFY_EMAIL_LINK:", verifyUrl);
 }
 
+function okGeneric() {
+  // No filtra si el email existe
+  return NextResponse.json({
+    ok: true,
+    message:
+      "Si ese correo existe en nuestro sistema, te enviaremos un email de verificación.",
+  });
+}
+
 export async function POST(request) {
   try {
     const APP_URL = mustEnv("APP_URL").replace(/\/$/, "");
@@ -66,33 +69,45 @@ export async function POST(request) {
       return NextResponse.json({ message: "Email requerido" }, { status: 400 });
     }
 
-    // Buscar primero en User, luego Professional (sin revelar cuál existe)
     const user = await prisma.user.findUnique({
       where: { email },
-      select: { id: true, name: true, email: true, emailVerified: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        emailVerified: true,
+        verifyEmailLastSentAt: true,
+      },
     });
 
     const pro = !user
       ? await prisma.professional.findUnique({
           where: { email },
-          select: { id: true, name: true, email: true, emailVerified: true },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            emailVerified: true,
+            verifyEmailLastSentAt: true,
+          },
         })
       : null;
 
     const acct = user || pro;
+    if (!acct) return okGeneric();
+    if (acct.emailVerified) return NextResponse.json({ ok: true, message: "Tu correo ya está verificado." });
 
-    // Respuesta “genérica” para no filtrar si el email existe
-    if (!acct) {
-      return NextResponse.json({
-        ok: true,
-        message:
-          "Si ese correo existe en nuestro sistema, te enviaremos un email de verificación.",
-      });
-    }
+    // ✅ Rate limit: 1 envío cada 60 segundos por cuenta
+    const now = Date.now();
+    const last = acct.verifyEmailLastSentAt ? new Date(acct.verifyEmailLastSentAt).getTime() : 0;
+    const cooldownMs = 60 * 1000;
 
-    // Si ya está verificado, devolvemos OK (idempotente)
-    if (acct.emailVerified) {
-      return NextResponse.json({ ok: true, message: "Tu correo ya está verificado." });
+    if (last && now - last < cooldownMs) {
+      const secs = Math.ceil((cooldownMs - (now - last)) / 1000);
+      return NextResponse.json(
+        { ok: false, message: `Esperá ${secs}s antes de reenviar.` },
+        { status: 429 }
+      );
     }
 
     const { token, tokenHash } = makeVerifyToken();
@@ -101,13 +116,21 @@ export async function POST(request) {
     if (user) {
       await prisma.user.update({
         where: { id: user.id },
-        data: { verifyTokenHash: tokenHash, verifyTokenExp: exp },
+        data: {
+          verifyTokenHash: tokenHash,
+          verifyTokenExp: exp,
+          verifyEmailLastSentAt: new Date(),
+        },
         select: { id: true },
       });
     } else {
       await prisma.professional.update({
         where: { id: pro.id },
-        data: { verifyTokenHash: tokenHash, verifyTokenExp: exp },
+        data: {
+          verifyTokenHash: tokenHash,
+          verifyTokenExp: exp,
+          verifyEmailLastSentAt: new Date(),
+        },
         select: { id: true },
       });
     }
@@ -115,10 +138,8 @@ export async function POST(request) {
     const verifyUrl = `${APP_URL}/verificar-email?token=${encodeURIComponent(token)}`;
     await sendVerifyEmail({ to: acct.email, name: acct.name, verifyUrl });
 
-    return NextResponse.json({
-      ok: true,
-      message: "Listo. Si el correo está registrado, te enviamos un nuevo enlace.",
-    });
+    // Respondemos genérico igual (no filtra nada)
+    return okGeneric();
   } catch (e) {
     console.error("RESEND_VERIFICATION_ERROR:", e);
     return NextResponse.json({ message: "Error interno" }, { status: 500 });

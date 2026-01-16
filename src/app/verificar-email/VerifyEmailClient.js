@@ -12,6 +12,10 @@ export default function VerifyEmailClient() {
   const [status, setStatus] = useState("loading"); // loading | ok | error
   const [message, setMessage] = useState("Verificando…");
 
+  const [emailForResend, setEmailForResend] = useState("");
+  const [resendPending, setResendPending] = useState(false);
+  const [resendMsg, setResendMsg] = useState(null);
+
   useEffect(() => {
     async function run() {
       if (!token) {
@@ -36,9 +40,7 @@ export default function VerifyEmailClient() {
         setStatus("ok");
         setMessage("¡Correo verificado! Ya podés iniciar sesión.");
 
-        setTimeout(() => {
-          router.push("/login");
-        }, 1200);
+        setTimeout(() => router.push("/login"), 1200);
       } catch (e) {
         setStatus("error");
         setMessage(e?.message || "Token inválido o expirado.");
@@ -47,6 +49,39 @@ export default function VerifyEmailClient() {
 
     run();
   }, [token, router]);
+
+  async function resend() {
+    setResendMsg(null);
+
+    const email = String(emailForResend || "").trim().toLowerCase();
+    if (!email) {
+      setResendMsg({ kind: "error", text: "Ingresá tu email para reenviar." });
+      return;
+    }
+
+    try {
+      setResendPending(true);
+      const res = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.message || "No se pudo reenviar.");
+
+      setResendMsg({
+        kind: "ok",
+        text:
+          data?.message ||
+          "Si ese correo existe en el sistema, te enviamos un nuevo enlace.",
+      });
+    } catch (e) {
+      setResendMsg({ kind: "error", text: e?.message || "Error al reenviar." });
+    } finally {
+      setResendPending(false);
+    }
+  }
 
   return (
     <main className="min-h-[70vh] flex items-center justify-center px-4">
@@ -58,9 +93,41 @@ export default function VerifyEmailClient() {
         </p>
 
         {status === "error" ? (
-          <div className="mt-4 text-sm text-gray-600">
-            Podés intentar registrarte de nuevo o pedir reenvío del correo
-            (lo agregamos en el próximo paso).
+          <div className="mt-4 rounded border bg-neutral-50 p-3">
+            <div className="text-sm mb-2">
+              Si el enlace venció, podés pedir uno nuevo:
+            </div>
+
+            <input
+              type="email"
+              value={emailForResend}
+              onChange={(e) => setEmailForResend(e.target.value)}
+              placeholder="tu@email.com"
+              className="w-full border rounded px-3 py-2"
+              autoComplete="email"
+            />
+
+            <button
+              type="button"
+              onClick={resend}
+              disabled={resendPending}
+              className="mt-3 w-full px-4 py-2 rounded bg-neutral-800 text-white hover:bg-neutral-900 disabled:opacity-70"
+            >
+              {resendPending ? "Reenviando…" : "Reenviar verificación"}
+            </button>
+
+            {resendMsg ? (
+              <div
+                className={
+                  "mt-3 text-sm rounded px-3 py-2 " +
+                  (resendMsg.kind === "ok"
+                    ? "text-green-700 border border-green-200 bg-green-50"
+                    : "text-red-600 border border-red-200 bg-red-50")
+                }
+              >
+                {resendMsg.text}
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>
