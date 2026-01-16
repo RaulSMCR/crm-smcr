@@ -100,7 +100,7 @@ export default function UserAppointmentsPanel() {
 
         <div className="flex gap-2 flex-wrap">
           <Link
-            href="/agendar"
+            href="/servicios"
             className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-brand-600 text-white hover:bg-brand-700"
           >
             Agendar nueva cita
