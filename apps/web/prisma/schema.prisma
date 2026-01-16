@@ -47,6 +47,11 @@ model User {
   passwordHash String
   role         Role   @default(USER)
 
+  // ✅ Email verification
+  emailVerified   Boolean   @default(false)
+  verifyTokenHash String?   @db.Text
+  verifyTokenExp  DateTime?
+
   identification String?   @unique
   birthDate      DateTime?
   phone          String?
@@ -60,6 +65,8 @@ model User {
   appointments Appointment[]
 
   @@index([email])
+  @@index([emailVerified])
+  @@index([verifyTokenExp])
 }
 
 model Professional {
@@ -69,6 +76,11 @@ model Professional {
   profession   String
   passwordHash String
   isApproved   Boolean @default(false)
+
+  // ✅ Email verification (para profesionales también)
+  emailVerified   Boolean   @default(false)
+  verifyTokenHash String?   @db.Text
+  verifyTokenExp  DateTime?
 
   phone           String?
   bio             String? @db.Text
@@ -91,6 +103,8 @@ model Professional {
   @@index([email])
   @@index([profession])
   @@index([isApproved])
+  @@index([emailVerified])
+  @@index([verifyTokenExp])
 }
 
 model Category {
@@ -199,7 +213,12 @@ model Appointment {
 
   // vínculo exacto Professional<->Service usado en esa cita
   professionalServiceId Int?
-  professionalService   ServicesOnProfessionals? @relation("AppointmentProfessionalService", fields: [professionalServiceId], references: [id], onDelete: SetNull)
+  professionalService   ServicesOnProfessionals? @relation(
+    "AppointmentProfessionalService",
+    fields: [professionalServiceId],
+    references: [id],
+    onDelete: SetNull
+  )
 
   @@index([professionalId, startTime])
   @@index([userId, startTime])
