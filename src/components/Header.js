@@ -1,29 +1,79 @@
 // src/components/Header.js
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { usePathname } from "next/navigation";
 
 const NAV = [
-  { label: 'Inicio', href: '/' },
-  { label: 'Servicios', href: '/servicios' },
-  { label: 'Blog', href: '/blog' },
-  { label: 'Nosotros', href: '/nosotros' },
-  { label: 'Contacto', href: '/contacto' },
+  { label: "Inicio", href: "/" },
+  { label: "Servicios", href: "/servicios" },
+  { label: "Blog", href: "/blog" },
+  { label: "Nosotros", href: "/nosotros" },
+  { label: "Contacto", href: "/contacto" },
 ];
 
 export default function Header() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
+  // auth state (null = no autenticado)
+  const [me, setMe] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
 
-  const isActive = (href) =>
-    href === '/' ? pathname === '/' : pathname.startsWith(href);
+  const isActive = (href) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+
+  // Cargar sesión para cambiar "Ingresar" -> "Perfil"
+  useEffect(() => {
+    let alive = true;
+
+    async function loadMe() {
+      setAuthLoading(true);
+      try {
+        const res = await fetch("/api/auth/me", {
+          method: "GET",
+          credentials: "include",
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        });
+
+        if (!alive) return;
+
+        if (res.ok) {
+          const data = await res.json().catch(() => ({}));
+          if (data?.ok && data?.role) setMe(data);
+          else setMe(null);
+        } else {
+          setMe(null);
+        }
+      } catch {
+        if (!alive) return;
+        setMe(null);
+      } finally {
+        if (!alive) return;
+        setAuthLoading(false);
+      }
+    }
+
+    loadMe();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const profileHref = useMemo(() => {
+    if (!me?.role) return "/login";
+    if (me.role === "ADMIN") return "/admin";
+    if (me.role === "PROFESSIONAL") return "/dashboard-profesional";
+    return "/dashboard"; // USER
+  }, [me]);
+
+  const authLabel = me?.role ? "Perfil" : "Ingresar";
 
   return (
     <header className="sticky top-0 z-50 border-b border-brand-800/40 bg-brand-700/95 backdrop-blur supports-[backdrop-filter]:bg-brand-700/85 text-white">
@@ -62,23 +112,25 @@ export default function Header() {
                 key={item.href}
                 href={item.href}
                 className={[
-                  'group relative text-sm transition-colors',
-                  active ? 'text-accent-200' : 'text-white/90 hover:text-accent-200',
-                ].join(' ')}
+                  "group relative text-sm transition-colors",
+                  active ? "text-accent-200" : "text-white/90 hover:text-accent-200",
+                ].join(" ")}
               >
                 <span>{item.label}</span>
                 <span
                   className={[
-                    'absolute -bottom-2 left-0 h-0.5 bg-accent-500 transition-all',
-                    active ? 'w-full' : 'w-0 group-hover:w-full',
-                  ].join(' ')}
+                    "absolute -bottom-2 left-0 h-0.5 bg-accent-500 transition-all",
+                    active ? "w-full" : "w-0 group-hover:w-full",
+                  ].join(" ")}
                 />
               </Link>
             );
           })}
 
-          <Link href="/login" className="btn btn-accent ml-2">
-            Ingresar
+          {/* Botón auth: Ingresar/Perfil */}
+          {/* Mientras carga auth, mostramos Ingresar para evitar flicker raro */}
+          <Link href={authLoading ? "/login" : profileHref} className="btn btn-accent ml-2">
+            {authLoading ? "Ingresar" : authLabel}
           </Link>
         </nav>
 
@@ -110,18 +162,20 @@ export default function Header() {
                     key={item.href}
                     href={item.href}
                     className={[
-                      'px-2 py-3 rounded-lg transition-colors',
+                      "px-2 py-3 rounded-lg transition-colors",
                       active
-                        ? 'bg-brand-600/70 text-accent-100'
-                        : 'text-white/90 hover:bg-brand-600/60 hover:text-accent-100',
-                    ].join(' ')}
+                        ? "bg-brand-600/70 text-accent-100"
+                        : "text-white/90 hover:bg-brand-600/60 hover:text-accent-100",
+                    ].join(" ")}
                   >
                     {item.label}
                   </Link>
                 );
               })}
-              <Link href="/login" className="btn btn-accent mt-2">
-                Ingresar
+
+              {/* Botón auth móvil */}
+              <Link href={authLoading ? "/login" : profileHref} className="btn btn-accent mt-2">
+                {authLoading ? "Ingresar" : authLabel}
               </Link>
             </div>
           </div>
