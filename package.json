@@ -4,24 +4,28 @@
   "private": true,
   "packageManager": "pnpm@9.12.3",
   "engines": {
-    "node": ">=18.18.0"
+    "node": "20.x"
   },
   "prisma": {
     "schema": "prisma/schema.prisma"
   },
   "scripts": {
     "dev": "next dev -p 3000",
-    "build": "pnpm prisma:generate && next build",
+    "build": "next build",
     "start": "next start -p 3000",
     "lint": "next lint",
+
+    "postinstall": "prisma generate",
     "seed": "prisma db seed",
+
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:reset": "prisma migrate reset --force --skip-seed",
     "prisma:studio": "prisma studio",
-    "postinstall": "prisma generate"
+
+    "vercel-build": "pnpm prisma:generate && pnpm prisma:migrate:deploy && pnpm build"
   },
   "dependencies": {
     "@prisma/client": "5.22.0",
@@ -36,7 +40,7 @@
     "react": "18.2.0",
     "react-day-picker": "9.13.0",
     "react-dom": "18.2.0",
-    "resend": "^6.7.0"
+    "resend": "6.7.0"
   },
   "devDependencies": {
     "@tailwindcss/forms": "0.5.9",
