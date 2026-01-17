@@ -59,6 +59,7 @@ model User {
 
   appointments Appointment[]
 
+  // Auditoría admin
   approvedProfessionals Professional[] @relation("ProfessionalApprovedBy")
   approvedPosts         Post[]         @relation("PostApprovedBy")
 
@@ -85,6 +86,7 @@ model Professional {
   googleRefreshToken String? @db.Text
   googleCalendarId   String?
 
+  // Auditoría de aprobación
   approvedAt       DateTime?
   approvedByUserId Int?
   approvedByUser   User?     @relation("ProfessionalApprovedBy", fields: [approvedByUserId], references: [id])
@@ -169,6 +171,7 @@ model Post {
   postType PostType   @default(TEXT)
   status   PostStatus @default(PENDING)
 
+  // Auditoría de moderación
   approvedAt       DateTime?
   approvedByUserId Int?
   approvedByUser   User?     @relation("PostApprovedBy", fields: [approvedByUserId], references: [id])
