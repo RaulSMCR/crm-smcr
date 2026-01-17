@@ -1,270 +1,178 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import AdminApproveButton from "@/components/AdminApproveButton";
 
-function Badge({ ok, text }) {
+export const revalidate = 0;
+
+function formatDateTime(date) {
+  return new Intl.DateTimeFormat("es-ES", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+export default async function AdminProfessionalDetailPage({ params }) {
+  const id = Number(params?.id);
+
+  if (!Number.isInteger(id)) {
+    return (
+      <main className="mx-auto max-w-4xl px-4 py-10">
+        <p className="text-red-700">ID inválido.</p>
+        <Link className="underline" href="/admin/professionals">
+          Volver
+        </Link>
+      </main>
+    );
+  }
+
+  const p = await prisma.professional.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      profession: true,
+      phone: true,
+      bio: true,
+      avatarUrl: true,
+      introVideoUrl: true,
+      calendarUrl: true,
+      paymentLinkBase: true,
+      emailVerified: true,
+      isApproved: true,
+      createdAt: true,
+      approvedAt: true,
+      approvedByUser: { select: { id: true, name: true, email: true } },
+    },
+  });
+
+  if (!p) {
+    return (
+      <main className="mx-auto max-w-4xl px-4 py-10">
+        <p className="text-red-700">Profesional no encontrado.</p>
+        <Link className="underline" href="/admin/professionals">
+          Volver
+        </Link>
+      </main>
+    );
+  }
+
   return (
-    <span
-      className={
-        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium " +
-        (ok ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800")
-      }
-    >
-      {text}
-    </span>
+    <main className="mx-auto max-w-4xl px-4 py-10 space-y-6">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-3xl font-bold truncate">{p.name}</h1>
+          <p className="text-sm text-neutral-700">{p.email}</p>
+          <p className="text-sm text-neutral-600">{p.profession}</p>
+
+          <div className="mt-3 flex flex-wrap gap-2 text-xs">
+            <span
+              className={
+                "rounded-full px-2 py-1 border " +
+                (p.emailVerified
+                  ? "border-green-200 bg-green-50 text-green-800"
+                  : "border-amber-200 bg-amber-50 text-amber-800")
+              }
+            >
+              Email: {p.emailVerified ? "verificado" : "pendiente"}
+            </span>
+
+            <span
+              className={
+                "rounded-full px-2 py-1 border " +
+                (p.isApproved
+                  ? "border-green-200 bg-green-50 text-green-800"
+                  : "border-red-200 bg-red-50 text-red-800")
+              }
+            >
+              {p.isApproved ? "Aprobado" : "Sin aprobar"}
+            </span>
+
+            <span className="rounded-full px-2 py-1 border border-neutral-200 bg-neutral-50 text-neutral-700">
+              Alta: {formatDateTime(new Date(p.createdAt))}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2 shrink-0">
+          <Link
+            href="/admin/professionals"
+            className="rounded-md border px-3 py-2 text-sm hover:bg-neutral-50"
+          >
+            Volver
+          </Link>
+
+          {!p.isApproved ? (
+            <AdminApproveButton
+              label="Aprobar profesional"
+              endpoint={`/api/admin/professionals/${p.id}/approve`}
+            />
+          ) : null}
+        </div>
+      </header>
+
+      <section className="rounded-2xl border bg-white p-5 space-y-5">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Teléfono" value={p.phone ?? "—"} />
+          <Field label="Bio" value={p.bio ?? "—"} className="sm:col-span-2" />
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <LinkField label="Avatar URL" href={p.avatarUrl} />
+          <LinkField label="Intro video URL" href={p.introVideoUrl} />
+          <LinkField label="Calendario URL" href={p.calendarUrl} />
+          <LinkField label="Payment link base" href={p.paymentLinkBase} />
+        </div>
+
+        {p.isApproved ? (
+          <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-900">
+            Aprobado el{" "}
+            <b>{p.approvedAt ? formatDateTime(new Date(p.approvedAt)) : "—"}</b>
+            {p.approvedByUser ? (
+              <>
+                {" "}
+                por <b>{p.approvedByUser.name}</b> ({p.approvedByUser.email})
+              </>
+            ) : null}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            Pendiente de aprobación.
+          </div>
+        )}
+      </section>
+    </main>
   );
 }
 
-function Row({ label, children }) {
+function Field({ label, value, className = "" }) {
   return (
-    <div className="grid gap-1 sm:grid-cols-[200px_1fr] sm:items-start">
-      <div className="text-sm font-medium text-neutral-700">{label}</div>
-      <div className="text-sm text-neutral-900 break-words">{children}</div>
+    <div className={className}>
+      <div className="text-xs text-neutral-500">{label}</div>
+      <div className="text-sm text-neutral-800 whitespace-pre-wrap">{value}</div>
     </div>
   );
 }
 
-export default function AdminProfessionalDetailPage() {
-  const { id } = useParams();
-  const router = useRouter();
-
-  const [prof, setProf] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState("");
-  const [approving, setApproving] = useState(false);
-
-  async function load() {
-    setLoading(true);
-    setErr("");
-
-    try {
-      const res = await fetch(`/api/admin/professionals/${id}`);
-      const data = await res.json();
-
-      if (!res.ok) throw new Error(data?.error || "No se pudo cargar el profesional.");
-
-      setProf(data);
-    } catch (e) {
-      setErr(e.message);
-      setProf(null);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
-
-  async function approve() {
-    if (!confirm("¿Aprobar este profesional?")) return;
-
-    setApproving(true);
-    try {
-      const res = await fetch(`/api/admin/professionals/${id}/approve`, {
-        method: "POST",
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Error al aprobar.");
-
-      // recargar detalle para ver auditoría
-      await load();
-      alert("Aprobado ✅");
-    } catch (e) {
-      alert(e.message);
-    } finally {
-      setApproving(false);
-    }
-  }
-
+function LinkField({ label, href }) {
   return (
-    <section className="mx-auto max-w-4xl p-6 space-y-6">
-      <header className="space-y-2">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold text-brand-800">Detalle del profesional</h1>
-
-          <Link
-            href="/admin/professionals"
-            className="text-sm text-brand-700 underline"
-          >
-            ← Volver a pendientes
-          </Link>
-        </div>
-
-        <p className="text-sm text-neutral-600">
-          Revisá información, links y estado antes de aprobar.
-        </p>
-      </header>
-
-      {loading && <p>Cargando…</p>}
-
-      {err && (
-        <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {err}
-        </div>
+    <div>
+      <div className="text-xs text-neutral-500">{label}</div>
+      {href ? (
+        <a
+          className="text-sm text-brand-700 underline break-all"
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+        >
+          {href}
+        </a>
+      ) : (
+        <div className="text-sm text-neutral-800">—</div>
       )}
-
-      {!loading && prof && (
-        <div className="rounded-2xl border bg-white p-6 space-y-5">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-lg font-semibold">{prof.name}</p>
-              <p className="text-sm text-neutral-600">{prof.profession}</p>
-              <p className="text-sm">{prof.email}</p>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Badge ok={prof.emailVerified} text={prof.emailVerified ? "Email verificado" : "Email NO verificado"} />
-              <Badge ok={prof.isApproved} text={prof.isApproved ? "Aprobado" : "Pendiente"} />
-            </div>
-          </div>
-
-          {prof.avatarUrl ? (
-            <div className="flex items-center gap-4">
-              <img
-                src={prof.avatarUrl}
-                alt="Avatar"
-                className="h-16 w-16 rounded-full object-cover border"
-              />
-              <a
-                href={prof.avatarUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-sm text-brand-700 underline"
-              >
-                Ver foto en nueva pestaña
-              </a>
-            </div>
-          ) : (
-            <p className="text-sm text-neutral-600">Sin foto.</p>
-          )}
-
-          <div className="space-y-3">
-            <Row label="Teléfono">{prof.phone || "—"}</Row>
-            <Row label="Bio">{prof.bio || "—"}</Row>
-            <Row label="Time zone">{prof.timeZone || "—"}</Row>
-
-            <Row label="CV/Resume">
-              {prof.resumeUrl ? (
-                <a
-                  href={prof.resumeUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-brand-700 underline"
-                >
-                  Abrir CV
-                </a>
-              ) : (
-                "—"
-              )}
-            </Row>
-
-            <Row label="Video intro">
-              {prof.introVideoUrl ? (
-                <a
-                  href={prof.introVideoUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-brand-700 underline"
-                >
-                  Abrir link
-                </a>
-              ) : (
-                "—"
-              )}
-            </Row>
-
-            <Row label="Calendario">
-              {prof.calendarUrl ? (
-                <a
-                  href={prof.calendarUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-brand-700 underline"
-                >
-                  Abrir link
-                </a>
-              ) : (
-                "—"
-              )}
-            </Row>
-
-            <Row label="Pago base">
-              {prof.paymentLinkBase ? (
-                <a
-                  href={prof.paymentLinkBase}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-brand-700 underline"
-                >
-                  Abrir link
-                </a>
-              ) : (
-                "—"
-              )}
-            </Row>
-          </div>
-
-          <hr />
-
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-neutral-800">Auditoría</p>
-
-            <div className="grid gap-2 text-sm text-neutral-700">
-              <div>
-                <span className="font-medium">Creado:</span>{" "}
-                {new Date(prof.createdAt).toLocaleString()}
-              </div>
-
-              <div>
-                <span className="font-medium">Última actualización:</span>{" "}
-                {new Date(prof.updatedAt).toLocaleString()}
-              </div>
-
-              <div>
-                <span className="font-medium">Aprobado en:</span>{" "}
-                {prof.approvedAt ? new Date(prof.approvedAt).toLocaleString() : "—"}
-              </div>
-
-              <div>
-                <span className="font-medium">Aprobado por userId:</span>{" "}
-                {prof.approvedByUserId ?? "—"}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              onClick={() => router.refresh?.()}
-              className="rounded-lg border px-4 py-2 text-sm"
-            >
-              Refrescar
-            </button>
-
-            <button
-              type="button"
-              onClick={approve}
-              disabled={approving || prof.isApproved || !prof.emailVerified}
-              className="
-                rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white
-                hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed
-              "
-            >
-              {approving ? "Aprobando…" : prof.isApproved ? "Ya aprobado" : "Aprobar"}
-            </button>
-          </div>
-
-          {!prof.emailVerified && (
-            <p className="text-xs text-yellow-800 bg-yellow-50 border border-yellow-200 rounded p-2">
-              No se puede aprobar hasta que verifique su email.
-            </p>
-          )}
-        </div>
-      )}
-    </section>
+    </div>
   );
 }
