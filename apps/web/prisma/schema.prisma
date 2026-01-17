@@ -47,7 +47,7 @@ model User {
   passwordHash String
   role         Role   @default(USER)
 
-  // ✅ Email verification
+  // Email verification
   emailVerified   Boolean   @default(false)
   verifyTokenHash String?   @db.Text
   verifyTokenExp  DateTime?
@@ -77,7 +77,7 @@ model Professional {
   passwordHash String
   isApproved   Boolean @default(false)
 
-  // ✅ Email verification (para profesionales también)
+  // Email verification (para profesionales también)
   emailVerified   Boolean   @default(false)
   verifyTokenHash String?   @db.Text
   verifyTokenExp  DateTime?
@@ -153,7 +153,7 @@ model ServicesOnProfessionals {
   priceOverride Decimal?                  @db.Decimal(10, 2)
   notes         String?                   @db.Text
 
-  // ✅ Lado opuesto de Appointment.professionalService
+  // Lado opuesto de Appointment.professionalService
   appointments Appointment[] @relation("AppointmentProfessionalService")
 
   @@unique([professionalId, serviceId])
@@ -213,12 +213,7 @@ model Appointment {
 
   // vínculo exacto Professional<->Service usado en esa cita
   professionalServiceId Int?
-  professionalService   ServicesOnProfessionals? @relation(
-    "AppointmentProfessionalService",
-    fields: [professionalServiceId],
-    references: [id],
-    onDelete: SetNull
-  )
+  professionalService   ServicesOnProfessionals? @relation("AppointmentProfessionalService", fields: [professionalServiceId], references: [id], onDelete: SetNull)
 
   @@index([professionalId, startTime])
   @@index([userId, startTime])
