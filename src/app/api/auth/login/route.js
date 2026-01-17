@@ -1,14 +1,11 @@
-// src/app/api/auth/login/route.js
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { signToken, setSessionCookie } from "@/lib/auth";
 
-/** GET de prueba para verificar que la ruta está viva */
 export async function GET() {
   return NextResponse.json({ ok: true, route: "/api/auth/login" });
 }
 
-/** Lee credenciales SOLO desde JSON */
 async function readJsonCredentials(request) {
   const ct = request.headers.get("content-type") || "";
   if (!ct.includes("application/json")) {
@@ -18,7 +15,7 @@ async function readJsonCredentials(request) {
     const body = await request.json();
     const email = String(body?.email || "").trim().toLowerCase();
     const password = String(body?.password || "");
-    const roleHint = String(body?.roleHint || "").toUpperCase(); // opcional
+    const roleHint = String(body?.roleHint || "").toUpperCase();
     return { email, password, roleHint };
   } catch {
     return { email: "", password: "", roleHint: "" };
@@ -35,6 +32,14 @@ async function comparePasswordBcrypt(plain, hash) {
   }
 }
 
+class AuthError extends Error {
+  constructor(code, extra = {}) {
+    super(code);
+    this.code = code;
+    this.extra = extra;
+  }
+}
+
 export async function POST(request) {
   try {
     const { email, password, roleHint } = await readJsonCredentials(request);
@@ -45,7 +50,6 @@ export async function POST(request) {
       );
     }
 
-    // Priorizamos PROFESSIONAL por defecto (evita colisiones con User)
     const tryOrder =
       roleHint === "USER" ? ["USER", "PROFESSIONAL"] : ["PROFESSIONAL", "USER"];
 
@@ -58,16 +62,17 @@ export async function POST(request) {
           email: true,
           role: true,
           passwordHash: true,
-          emailVerified: true, // ✅
+          emailVerified: true,
         },
       });
       if (!user) return null;
 
       const ok = await comparePasswordBcrypt(password, user.passwordHash);
-      if (!ok) throw new Error("INVALID_CREDENTIALS");
+      if (!ok) throw new AuthError("INVALID_CREDENTIALS");
 
-      // ✅ Bloqueo por email no verificado
-      if (!user.emailVerified) throw new Error("EMAIL_NOT_VERIFIED");
+      if (!user.emailVerified) {
+        throw new AuthError("EMAIL_NOT_VERIFIED", { entity: "USER" });
+      }
 
       return {
         role: user.role || "USER",
@@ -86,19 +91,21 @@ export async function POST(request) {
           email: true,
           passwordHash: true,
           isApproved: true,
-          emailVerified: true, // ✅
+          emailVerified: true,
         },
       });
       if (!pro) return null;
 
       const ok = await comparePasswordBcrypt(password, pro.passwordHash);
-      if (!ok) throw new Error("INVALID_CREDENTIALS");
+      if (!ok) throw new AuthError("INVALID_CREDENTIALS");
 
-      // ✅ Bloqueo por email no verificado
-      if (!pro.emailVerified) throw new Error("EMAIL_NOT_VERIFIED");
+      if (!pro.emailVerified) {
+        throw new AuthError("EMAIL_NOT_VERIFIED", { entity: "PROFESSIONAL" });
+      }
 
-      // Mantener tu regla de aprobación
-      if (!pro.isApproved) throw new Error("PRO_NOT_APPROVED");
+      if (!pro.isApproved) {
+        throw new AuthError("PRO_NOT_APPROVED");
+      }
 
       return { role: "PROFESSIONAL", id: pro.id, name: pro.name, email: pro.email };
     };
@@ -126,16 +133,22 @@ export async function POST(request) {
     setSessionCookie(res, token);
     return res;
   } catch (e) {
-    if (e?.message === "INVALID_CREDENTIALS") {
+    if (e instanceof AuthError && e.code === "INVALID_CREDENTIALS") {
       return NextResponse.json({ message: "Credenciales inválidas" }, { status: 401 });
     }
-    if (e?.message === "EMAIL_NOT_VERIFIED") {
+
+    if (e instanceof AuthError && e.code === "EMAIL_NOT_VERIFIED") {
       return NextResponse.json(
-        { message: "Tenés que confirmar tu correo antes de iniciar sesión." },
+        {
+          message: "Tenés que confirmar tu correo antes de iniciar sesión.",
+          error: "EMAIL_NOT_VERIFIED",
+          entity: e.extra?.entity || null,
+        },
         { status: 403 }
       );
     }
-    if (e?.message === "PRO_NOT_APPROVED") {
+
+    if (e instanceof AuthError && e.code === "PRO_NOT_APPROVED") {
       return NextResponse.json(
         { message: "Tu cuenta de profesional está en revisión" },
         { status: 403 }

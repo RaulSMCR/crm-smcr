@@ -1,69 +1,66 @@
-// src/app/api/auth/verify-email/route.js
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
 import crypto from "crypto";
-
-// ------------------------------------------------------------------
-// Prisma Singleton
-// ------------------------------------------------------------------
-const globalForPrisma = global;
-const prisma = globalForPrisma.prisma || new PrismaClient();
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+import { prisma } from "@/lib/prisma";
 
 function sha256Hex(input) {
   return crypto.createHash("sha256").update(input).digest("hex");
 }
 
-export async function POST(request) {
+export async function POST(req) {
   try {
-    const body = await request.json().catch(() => ({}));
-    const token = body?.token ? String(body.token) : "";
+    const { token } = await req.json();
+    if (!token) return NextResponse.json({ error: "Token faltante." }, { status: 400 });
 
-    if (!token) {
-      return NextResponse.json(
-        { ok: false, message: "Token faltante" },
-        { status: 400 }
-      );
-    }
-
+    const now = new Date();
     const tokenHash = sha256Hex(token);
 
-    const user = await prisma.user.findFirst({
+    // Primero Professional
+    const prof = await prisma.professional.findFirst({
       where: {
         verifyTokenHash: tokenHash,
-        verifyTokenExp: { gt: new Date() },
-      },
-      select: { id: true, emailVerified: true },
-    });
-
-    if (!user) {
-      return NextResponse.json(
-        { ok: false, message: "Token inválido o expirado" },
-        { status: 400 }
-      );
-    }
-
-    // Si ya estaba verificado, respondemos OK igual (idempotente)
-    if (user.emailVerified) {
-      return NextResponse.json({ ok: true });
-    }
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        emailVerified: true,
-        verifyTokenHash: null,
-        verifyTokenExp: null,
+        verifyTokenExp: { gt: now },
+        emailVerified: false,
       },
       select: { id: true },
     });
 
-    return NextResponse.json({ ok: true });
-  } catch (error) {
-    console.error("VERIFY_EMAIL_ERROR:", error);
-    return NextResponse.json(
-      { ok: false, message: error?.message || "Error interno" },
-      { status: 500 }
-    );
+    if (prof) {
+      await prisma.professional.update({
+        where: { id: prof.id },
+        data: {
+          emailVerified: true,
+          verifyTokenHash: null,
+          verifyTokenExp: null,
+        },
+      });
+      return NextResponse.json({ ok: true, entity: "PROFESSIONAL" });
+    }
+
+    // Luego User
+    const user = await prisma.user.findFirst({
+      where: {
+        verifyTokenHash: tokenHash,
+        verifyTokenExp: { gt: now },
+        emailVerified: false,
+      },
+      select: { id: true },
+    });
+
+    if (user) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          emailVerified: true,
+          verifyTokenHash: null,
+          verifyTokenExp: null,
+        },
+      });
+      return NextResponse.json({ ok: true, entity: "USER" });
+    }
+
+    return NextResponse.json({ error: "Token inválido o expirado." }, { status: 400 });
+  } catch (err) {
+    console.error("verify-email error:", err);
+    return NextResponse.json({ error: "Error interno." }, { status: 500 });
   }
 }

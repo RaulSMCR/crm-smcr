@@ -4,16 +4,18 @@ import VerifyEmailClient from "./VerifyEmailClient";
 
 export default function VerifyEmailPage() {
   return (
-    <Suspense
-      fallback={
-        <main className="min-h-[70vh] flex items-center justify-center px-4">
+    <main className="min-h-[70vh] flex items-center justify-center px-4">
+      <Suspense
+        fallback={
           <div className="w-full max-w-md rounded border bg-white p-6">
             Verificando…
           </div>
-        </main>
-      }
-    >
-      <VerifyEmailClient />
-    </Suspense>
+        }
+      >
+        <div className="w-full max-w-md">
+          <VerifyEmailClient />
+        </div>
+      </Suspense>
+    </main>
   );
 }

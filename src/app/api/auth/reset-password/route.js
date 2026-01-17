@@ -1,75 +1,59 @@
-// src/app/api/auth/reset-password/route.js
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
-
-const globalForPrisma = global;
-const prisma = globalForPrisma.prisma || new PrismaClient();
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+import { prisma } from "@/lib/prisma";
 
 function sha256Hex(input) {
   return crypto.createHash("sha256").update(input).digest("hex");
 }
 
-export async function POST(request) {
+export async function POST(req) {
   try {
-    const body = await request.json().catch(() => ({}));
-    const token = String(body?.token || "");
-    const password = String(body?.password || "");
+    const { token, newPassword } = await req.json();
 
-    if (!token || !password) {
-      return NextResponse.json({ message: "Token y contraseña requeridos" }, { status: 400 });
+    if (!token || !newPassword) {
+      return NextResponse.json({ error: "Faltan datos." }, { status: 400 });
     }
-    if (password.length < 8) {
-      return NextResponse.json({ message: "La contraseña debe tener al menos 8 caracteres" }, { status: 400 });
+    if (String(newPassword).length < 8) {
+      return NextResponse.json(
+        { error: "La contraseña debe tener al menos 8 caracteres." },
+        { status: 400 }
+      );
     }
 
+    const now = new Date();
     const tokenHash = sha256Hex(token);
+    const passwordHash = await bcrypt.hash(newPassword, 12);
 
-    // Buscar en User
-    const user = await prisma.user.findFirst({
-      where: { resetTokenHash: tokenHash, resetTokenExp: { gt: new Date() } },
+    const prof = await prisma.professional.findFirst({
+      where: { resetTokenHash: tokenHash, resetTokenExp: { gt: now } },
       select: { id: true },
     });
 
-    // Si no es User, buscar en Professional
-    const pro = !user
-      ? await prisma.professional.findFirst({
-          where: { resetTokenHash: tokenHash, resetTokenExp: { gt: new Date() } },
-          select: { id: true },
-        })
-      : null;
-
-    if (!user && !pro) {
-      return NextResponse.json({ message: "Token inválido o expirado" }, { status: 400 });
+    if (prof) {
+      await prisma.professional.update({
+        where: { id: prof.id },
+        data: { passwordHash, resetTokenHash: null, resetTokenExp: null },
+      });
+      return NextResponse.json({ ok: true, entity: "PROFESSIONAL" });
     }
 
-    const passwordHash = await bcrypt.hash(password, 12);
+    const user = await prisma.user.findFirst({
+      where: { resetTokenHash: tokenHash, resetTokenExp: { gt: now } },
+      select: { id: true },
+    });
 
     if (user) {
       await prisma.user.update({
         where: { id: user.id },
-        data: {
-          passwordHash,
-          resetTokenHash: null,
-          resetTokenExp: null,
-        },
+        data: { passwordHash, resetTokenHash: null, resetTokenExp: null },
       });
-    } else {
-      await prisma.professional.update({
-        where: { id: pro.id },
-        data: {
-          passwordHash,
-          resetTokenHash: null,
-          resetTokenExp: null,
-        },
-      });
+      return NextResponse.json({ ok: true, entity: "USER" });
     }
 
-    return NextResponse.json({ ok: true, message: "Contraseña actualizada. Ya podés iniciar sesión." });
-  } catch (e) {
-    console.error("RESET_PASSWORD_ERROR:", e);
-    return NextResponse.json({ message: "Error interno" }, { status: 500 });
+    return NextResponse.json({ error: "Token inválido o expirado." }, { status: 400 });
+  } catch (err) {
+    console.error("reset-password error:", err);
+    return NextResponse.json({ error: "Error interno." }, { status: 500 });
   }
 }
