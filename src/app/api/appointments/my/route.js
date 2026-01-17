@@ -2,21 +2,33 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyToken } from "@/lib/auth";
 
+// ESTA LÍNEA ES LA SOLUCIÓN:
+// Fuerza a Next.js a no intentar generar esta página estáticamente (HTML) en el build.
+export const dynamic = 'force-dynamic';
+
 export async function GET(request) {
   try {
     const token = request.cookies?.get("sessionToken")?.value;
-    if (!token) return NextResponse.json({ message: "No autenticado" }, { status: 401 });
+    
+    // Si no hay token, 401 inmediato.
+    if (!token) {
+        return NextResponse.json({ message: "No autenticado" }, { status: 401 });
+    }
 
     const payload = await verifyToken(token);
+    // Verificación de seguridad adicional: parsear a entero seguro.
     const userId = Number(payload.userId);
-    if (!userId) return NextResponse.json({ message: "Sesión inválida" }, { status: 401 });
+    
+    if (!userId) {
+        return NextResponse.json({ message: "Sesión inválida" }, { status: 401 });
+    }
 
     const appointments = await prisma.appointment.findMany({
       where: { userId },
       orderBy: [{ startTime: "asc" }],
       select: {
         id: true,
-        startTime: true,
+        startTime: true, // Prisma devuelve objetos Date
         endTime: true,
         status: true,
         priceFinal: true,
