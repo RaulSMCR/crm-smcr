@@ -3,24 +3,30 @@
 
 import { useMemo, useState } from "react";
 
-export default function ProfessionalRegisterForm() {
-  const [formData, setFormData] = useState({
-    nombreCompleto: "",
-    profesion: "",
-    email: "",
-    telefono: "",
-    password: "",
-    confirmPassword: "",
-    cv: null,
-    carta: null,
-  });
+const INITIAL_FORM = {
+  nombreCompleto: "",
+  profesion: "",
+  email: "",
+  telefono: "",
+  password: "",
+  confirmPassword: "",
+  cv: null,
+  carta: null,
+};
 
+export default function ProfessionalRegisterForm() {
+  const [formData, setFormData] = useState(INITIAL_FORM);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
 
+  /* --------------------------------------------------
+     PASSWORD VALIDATION (UX fuerte, backend manda igual)
+  -------------------------------------------------- */
+
   const passwordChecks = useMemo(() => {
     const pwd = formData.password ?? "";
-    const emailLocal = (formData.email ?? "").split("@")[0]?.toLowerCase() ?? "";
+    const emailLocal =
+      (formData.email ?? "").split("@")[0]?.toLowerCase() ?? "";
 
     const lengthOk = pwd.length >= 12;
     const lowerOk = /[a-z]/.test(pwd);
@@ -28,12 +34,27 @@ export default function ProfessionalRegisterForm() {
     const numberOk = /[0-9]/.test(pwd);
     const symbolOk = /[^A-Za-z0-9]/.test(pwd);
     const noEmailOk =
-      emailLocal.length < 3 ? true : !pwd.toLowerCase().includes(emailLocal);
+      emailLocal.length < 3
+        ? true
+        : !pwd.toLowerCase().includes(emailLocal);
 
     const allOk =
-      lengthOk && lowerOk && upperOk && numberOk && symbolOk && noEmailOk;
+      lengthOk &&
+      lowerOk &&
+      upperOk &&
+      numberOk &&
+      symbolOk &&
+      noEmailOk;
 
-    return { lengthOk, lowerOk, upperOk, numberOk, symbolOk, noEmailOk, allOk };
+    return {
+      lengthOk,
+      lowerOk,
+      upperOk,
+      numberOk,
+      symbolOk,
+      noEmailOk,
+      allOk,
+    };
   }, [formData.password, formData.email]);
 
   const passwordsMatch =
@@ -49,17 +70,21 @@ export default function ProfessionalRegisterForm() {
     passwordsMatch &&
     !loading;
 
-  const handleChange = (e) => {
+  /* --------------------------------------------------
+     HANDLERS
+  -------------------------------------------------- */
+
+  function handleChange(e) {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
+    setFormData((p) => ({ ...p, [name]: value }));
+  }
 
-  const handleFileChange = (e) => {
+  function handleFileChange(e) {
     const { name, files } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: files?.[0] ?? null }));
-  };
+    setFormData((p) => ({ ...p, [name]: files?.[0] ?? null }));
+  }
 
-  const handleSubmit = async (e) => {
+  async function handleSubmit(e) {
     e.preventDefault();
     setMessage({ type: "", text: "" });
 
@@ -74,13 +99,13 @@ export default function ProfessionalRegisterForm() {
     setLoading(true);
 
     try {
-      // ⚠️ Por ahora NO enviamos CV/Carta (el backend recibe JSON).
-      // Cuando quieras upload real, lo pasamos a FormData + storage.
+      // ⚠️ Backend hoy recibe JSON
+      // 👉 Cuando haya upload real: FormData + storage
       const payload = {
-        nombreCompleto: formData.nombreCompleto,
-        profesion: formData.profesion,
-        email: formData.email,
-        telefono: formData.telefono,
+        nombreCompleto: formData.nombreCompleto.trim(),
+        profesion: formData.profesion.trim(),
+        email: formData.email.trim().toLowerCase(),
+        telefono: formData.telefono.trim() || "",
         password: formData.password,
       };
 
@@ -90,42 +115,52 @@ export default function ProfessionalRegisterForm() {
         body: JSON.stringify(payload),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
+        if (response.status === 409) {
+          setMessage({
+            type: "error",
+            text: "Este email ya está registrado.",
+          });
+          return;
+        }
+
+        if (response.status === 422 && data?.error) {
+          setMessage({
+            type: "error",
+            text: data.error,
+          });
+          return;
+        }
+
         setMessage({
           type: "error",
-          text: data?.message ?? "Error al enviar solicitud.",
+          text: data?.error || "No se pudo enviar la solicitud.",
         });
-        setLoading(false);
         return;
       }
 
       setMessage({
         type: "success",
         text:
-          "Solicitud enviada. Un administrador revisará tu perfil antes de aprobarlo.",
+          "Solicitud enviada. Verificá tu email. Un administrador te contactará para continuar el proceso.",
       });
 
-      setFormData({
-        nombreCompleto: "",
-        profesion: "",
-        email: "",
-        telefono: "",
-        password: "",
-        confirmPassword: "",
-        cv: null,
-        carta: null,
-      });
-    } catch (error) {
+      setFormData(INITIAL_FORM);
+    } catch {
       setMessage({
         type: "error",
-        text: "Error de red o servidor. Intentalo de nuevo.",
+        text: "Error de red o servidor. Intentalo nuevamente.",
       });
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  /* --------------------------------------------------
+     UI
+  -------------------------------------------------- */
 
   return (
     <div className="mx-auto max-w-2xl rounded-2xl bg-white p-8 shadow-sm">
@@ -137,7 +172,7 @@ export default function ProfessionalRegisterForm() {
         perfil.
       </p>
 
-      {message.text ? (
+      {message.text && (
         <div
           className={
             "mb-4 rounded-lg border p-3 text-sm " +
@@ -148,7 +183,7 @@ export default function ProfessionalRegisterForm() {
         >
           {message.text}
         </div>
-      ) : null}
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="grid gap-4 sm:grid-cols-2">
@@ -159,9 +194,9 @@ export default function ProfessionalRegisterForm() {
               name="nombreCompleto"
               value={formData.nombreCompleto}
               onChange={handleChange}
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
-              placeholder="Ej: Dra. Ana Pérez"
               required
+              autoComplete="name"
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-600 focus:ring-1 focus:ring-brand-600"
             />
           </div>
 
@@ -172,9 +207,8 @@ export default function ProfessionalRegisterForm() {
               name="profesion"
               value={formData.profesion}
               onChange={handleChange}
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
-              placeholder="Ej: Psicóloga Clínica"
               required
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-600 focus:ring-1 focus:ring-brand-600"
             />
           </div>
 
@@ -185,9 +219,8 @@ export default function ProfessionalRegisterForm() {
               name="telefono"
               value={formData.telefono}
               onChange={handleChange}
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
-              placeholder="Ej: +506 8888 8888"
               autoComplete="tel"
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-600 focus:ring-1 focus:ring-brand-600"
             />
           </div>
 
@@ -198,10 +231,9 @@ export default function ProfessionalRegisterForm() {
               name="email"
               value={formData.email}
               onChange={handleChange}
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
-              placeholder="tu@email.com"
-              autoComplete="email"
               required
+              autoComplete="email"
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-600 focus:ring-1 focus:ring-brand-600"
             />
           </div>
         </div>
@@ -213,10 +245,9 @@ export default function ProfessionalRegisterForm() {
             name="password"
             value={formData.password}
             onChange={handleChange}
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
-            placeholder="Mínimo 12 caracteres"
-            autoComplete="new-password"
             required
+            autoComplete="new-password"
+            className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-600 focus:ring-1 focus:ring-brand-600"
           />
 
           <div className="mt-2 rounded-lg border border-neutral-200 bg-neutral-50 p-3">
@@ -224,24 +255,12 @@ export default function ProfessionalRegisterForm() {
               Requisitos de seguridad
             </p>
             <ul className="space-y-1 text-xs">
-              <li className={passwordChecks.lengthOk ? "text-green-700" : "text-neutral-600"}>
-                • Mínimo 12 caracteres
-              </li>
-              <li className={passwordChecks.lowerOk ? "text-green-700" : "text-neutral-600"}>
-                • Al menos 1 letra minúscula
-              </li>
-              <li className={passwordChecks.upperOk ? "text-green-700" : "text-neutral-600"}>
-                • Al menos 1 letra mayúscula
-              </li>
-              <li className={passwordChecks.numberOk ? "text-green-700" : "text-neutral-600"}>
-                • Al menos 1 número
-              </li>
-              <li className={passwordChecks.symbolOk ? "text-green-700" : "text-neutral-600"}>
-                • Al menos 1 símbolo (ej: !@#$)
-              </li>
-              <li className={passwordChecks.noEmailOk ? "text-green-700" : "text-neutral-600"}>
-                • No debe contener tu email
-              </li>
+              <PasswordItem ok={passwordChecks.lengthOk} text="Mínimo 12 caracteres" />
+              <PasswordItem ok={passwordChecks.lowerOk} text="Al menos 1 minúscula" />
+              <PasswordItem ok={passwordChecks.upperOk} text="Al menos 1 mayúscula" />
+              <PasswordItem ok={passwordChecks.numberOk} text="Al menos 1 número" />
+              <PasswordItem ok={passwordChecks.symbolOk} text="Al menos 1 símbolo" />
+              <PasswordItem ok={passwordChecks.noEmailOk} text="No contener el email" />
             </ul>
           </div>
         </div>
@@ -253,82 +272,79 @@ export default function ProfessionalRegisterForm() {
             name="confirmPassword"
             value={formData.confirmPassword}
             onChange={handleChange}
+            required
+            autoComplete="new-password"
             className={
-              "w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-1 " +
+              "w-full rounded-lg border px-3 py-2 focus:ring-1 " +
               (formData.confirmPassword.length === 0
                 ? "border-neutral-300 focus:border-brand-600 focus:ring-brand-600"
                 : passwordsMatch
                 ? "border-green-400 focus:border-green-500 focus:ring-green-500"
                 : "border-red-300 focus:border-red-500 focus:ring-red-500")
             }
-            placeholder="Repetí la contraseña"
-            autoComplete="new-password"
-            required
           />
-          {formData.confirmPassword.length > 0 && !passwordsMatch ? (
+          {formData.confirmPassword && !passwordsMatch && (
             <p className="text-xs text-red-600">La confirmación no coincide.</p>
-          ) : null}
+          )}
         </div>
 
-        <hr className="my-2" />
+        <hr />
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1">
-            <label className="text-sm font-medium">
-              CV (PDF) <span className="text-xs text-neutral-500">(próximamente)</span>
-            </label>
-            <input
-              type="file"
-              name="cv"
-              accept=".pdf"
-              onChange={handleFileChange}
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-sm font-medium">
-              Carta de presentación (PDF){" "}
-              <span className="text-xs text-neutral-500">(próximamente)</span>
-            </label>
-            <input
-              type="file"
-              name="carta"
-              accept=".pdf"
-              onChange={handleFileChange}
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2"
-            />
-          </div>
+          <FileInput
+            label="CV (PDF)"
+            name="cv"
+            onChange={handleFileChange}
+          />
+          <FileInput
+            label="Carta de presentación (PDF)"
+            name="carta"
+            onChange={handleFileChange}
+          />
         </div>
 
         <button
           type="submit"
           disabled={!canSubmit}
-          className="
-            w-full
-            rounded-lg
-            bg-brand-600
-            px-4
-            py-2
-            font-semibold
-            text-white
-            transition
-            hover:bg-brand-700
-            focus:outline-none
-            focus:ring-2
-            focus:ring-brand-600
-            focus:ring-offset-2
-            disabled:cursor-not-allowed
-            disabled:opacity-60
-          "
+          className="w-full rounded-lg bg-brand-600 px-4 py-2 font-semibold text-white transition hover:bg-brand-700 disabled:opacity-60"
         >
           {loading ? "Enviando..." : "Enviar solicitud"}
         </button>
 
         <p className="text-xs text-neutral-500">
-          Tu perfil quedará en estado <b>Pendiente</b> hasta que el equipo lo apruebe.
+          Tu perfil quedará en estado <b>Pendiente</b> hasta aprobación.
         </p>
       </form>
+    </div>
+  );
+}
+
+/* --------------------------------------------------
+   SUBCOMPONENTES
+-------------------------------------------------- */
+
+function PasswordItem({ ok, text }) {
+  return (
+    <li className={ok ? "text-green-700" : "text-neutral-600"}>
+      • {text}
+    </li>
+  );
+}
+
+function FileInput({ label, name, onChange }) {
+  return (
+    <div className="space-y-1">
+      <label className="text-sm font-medium">
+        {label}{" "}
+        <span className="text-xs text-neutral-500">(próximamente)</span>
+      </label>
+      <input
+        type="file"
+        name={name}
+        accept=".pdf"
+        onChange={onChange}
+        className="w-full rounded-lg border border-neutral-300 px-3 py-2"
+      />
     </div>
   );
 }
