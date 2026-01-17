@@ -4,6 +4,7 @@ import { verifyToken } from "@/lib/auth";
 
 export async function GET(request, { params }) {
   try {
+    // 1) Validar sesión y rol ADMIN
     const sessionToken = request.cookies.get("sessionToken")?.value;
     if (!sessionToken) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -14,17 +15,19 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: "Acción no permitida" }, { status: 403 });
     }
 
+    // 2) Validar ID
     const professionalId = Number(params?.id);
     if (!Number.isInteger(professionalId)) {
       return NextResponse.json({ error: "ID inválido" }, { status: 400 });
     }
 
+    // 3) Leer profesional
     const prof = await prisma.professional.findUnique({
       where: { id: professionalId },
       select: {
         id: true,
-        email: true,
         name: true,
+        email: true,
         profession: true,
         phone: true,
         bio: true,
@@ -37,11 +40,12 @@ export async function GET(request, { params }) {
 
         emailVerified: true,
         isApproved: true,
-        approvedAt: true,
-        approvedByUserId: true,
 
         createdAt: true,
         updatedAt: true,
+
+        approvedAt: true,
+        approvedByUserId: true,
       },
     });
 
@@ -49,12 +53,9 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: "Profesional no encontrado" }, { status: 404 });
     }
 
-    return NextResponse.json(prof);
+    return NextResponse.json(prof, { status: 200 });
   } catch (e) {
-    console.error("ADMIN professional detail error:", e);
-    return NextResponse.json(
-      { error: "Error al cargar el profesional" },
-      { status: 500 }
-    );
+    console.error("ADMIN get professional detail error:", e);
+    return NextResponse.json({ error: "Error al cargar profesional" }, { status: 500 });
   }
 }
