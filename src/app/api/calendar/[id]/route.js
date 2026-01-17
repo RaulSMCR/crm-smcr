@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getCalendarClient } from "@/lib/google";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET(request, { params }) {
   const professionalId = Number(params.id);

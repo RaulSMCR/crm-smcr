@@ -4,6 +4,7 @@ import { getOAuth2Client } from "@/lib/google";
 
 // Evita que Next intente tratar esta ruta como estática
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 // Los "scopes" son los permisos que solicitamos
 const SCOPES = [
