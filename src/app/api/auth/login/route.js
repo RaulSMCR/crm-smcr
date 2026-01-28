@@ -1,6 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { signToken, setSessionCookie } from "@/lib/auth";
+import bcrypt from "bcryptjs"; // <--- Importación ESTÁNDAR (Clave para que funcione en Vercel)
+
+// Clase de error personalizada para manejar lógica de negocio
+class AuthError extends Error {
+  constructor(code, extra = {}) {
+    super(code);
+    this.code = code;
+    this.extra = extra;
+  }
+}
 
 export async function GET() {
   return NextResponse.json({ ok: true, route: "/api/auth/login" });
@@ -22,27 +32,10 @@ async function readJsonCredentials(request) {
   }
 }
 
-async function comparePasswordBcrypt(plain, hash) {
-  if (!hash) return false;
-  try {
-    const bcrypt = await import("bcryptjs");
-    return await bcrypt.compare(plain, hash);
-  } catch {
-    return false;
-  }
-}
-
-class AuthError extends Error {
-  constructor(code, extra = {}) {
-    super(code);
-    this.code = code;
-    this.extra = extra;
-  }
-}
-
 export async function POST(request) {
   try {
     const { email, password, roleHint } = await readJsonCredentials(request);
+
     if (!email || !password) {
       return NextResponse.json(
         { message: "Email y contraseña requeridos" },
@@ -50,25 +43,19 @@ export async function POST(request) {
       );
     }
 
-    const tryOrder =
-      roleHint === "USER" ? ["USER", "PROFESSIONAL"] : ["PROFESSIONAL", "USER"];
+    // Definir orden de búsqueda
+    const tryOrder = roleHint === "USER" ? ["USER", "PROFESSIONAL"] : ["PROFESSIONAL", "USER"];
 
+    // Función para buscar Usuario
     const tryUser = async () => {
       const user = await prisma.user.findUnique({
         where: { email },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-          passwordHash: true,
-          emailVerified: true,
-        },
       });
       if (!user) return null;
 
-      const ok = await comparePasswordBcrypt(password, user.passwordHash);
-      if (!ok) throw new AuthError("INVALID_CREDENTIALS");
+      // Usamos la librería importada arriba
+      const isValid = await bcrypt.compare(password, user.passwordHash);
+      if (!isValid) throw new AuthError("INVALID_CREDENTIALS");
 
       if (!user.emailVerified) {
         throw new AuthError("EMAIL_NOT_VERIFIED", { entity: "USER" });
@@ -82,24 +69,18 @@ export async function POST(request) {
       };
     };
 
+    // Función para buscar Profesional
     const tryProfessional = async () => {
       const pro = await prisma.professional.findUnique({
         where: { email },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          passwordHash: true,
-          isApproved: true,
-          emailVerified: true,
-        },
       });
       if (!pro) return null;
 
-      const ok = await comparePasswordBcrypt(password, pro.passwordHash);
-      if (!ok) throw new AuthError("INVALID_CREDENTIALS");
+      const isValid = await bcrypt.compare(password, pro.passwordHash);
+      if (!isValid) throw new AuthError("INVALID_CREDENTIALS");
 
       if (!pro.emailVerified) {
+        // NOTA: Como creaste el Admin con seed, verifica que tenga emailVerified=true
         throw new AuthError("EMAIL_NOT_VERIFIED", { entity: "PROFESSIONAL" });
       }
 
@@ -110,17 +91,30 @@ export async function POST(request) {
       return { role: "PROFESSIONAL", id: pro.id, name: pro.name, email: pro.email };
     };
 
+    // Ejecutar lógica de búsqueda
     let auth = null;
     for (const who of tryOrder) {
-      auth = who === "PROFESSIONAL" ? await tryProfessional() : await tryUser();
-      if (auth) break;
+      // Atrapamos errores específicos dentro del bucle para no romper el flujo si uno falla por credenciales
+      try {
+        auth = who === "PROFESSIONAL" ? await tryProfessional() : await tryUser();
+        if (auth) break; 
+      } catch (innerError) {
+        if (innerError instanceof AuthError) throw innerError; // Si es error de validación, lo lanzamos arriba
+        // Si no encontró usuario, simplemente seguimos al siguiente
+      }
     }
 
     if (!auth) {
+      // Si llegamos aquí y auth es null, es que no existe el email
       return NextResponse.json({ message: "Usuario no encontrado" }, { status: 404 });
     }
 
-    const token = await signToken({ userId: auth.id, role: auth.role, email: auth.email });
+    // Firmar Token
+    const token = await signToken({ 
+      userId: auth.id, 
+      role: auth.role, 
+      email: auth.email 
+    });
 
     const res = NextResponse.json({
       ok: true,
@@ -132,30 +126,36 @@ export async function POST(request) {
 
     setSessionCookie(res, token);
     return res;
+
   } catch (e) {
-    if (e instanceof AuthError && e.code === "INVALID_CREDENTIALS") {
-      return NextResponse.json({ message: "Credenciales inválidas" }, { status: 401 });
+    // --- Manejo de Errores Controlados ---
+    if (e instanceof AuthError) {
+      if (e.code === "INVALID_CREDENTIALS") {
+        return NextResponse.json({ message: "Contraseña incorrecta" }, { status: 401 });
+      }
+      if (e.code === "EMAIL_NOT_VERIFIED") {
+        return NextResponse.json(
+          { message: "Debes verificar tu email primero.", error: "EMAIL_NOT_VERIFIED" },
+          { status: 403 }
+        );
+      }
+      if (e.code === "PRO_NOT_APPROVED") {
+        return NextResponse.json(
+          { message: "Cuenta en revisión por administración." },
+          { status: 403 }
+        );
+      }
     }
 
-    if (e instanceof AuthError && e.code === "EMAIL_NOT_VERIFIED") {
-      return NextResponse.json(
-        {
-          message: "Tenés que confirmar tu correo antes de iniciar sesión.",
-          error: "EMAIL_NOT_VERIFIED",
-          entity: e.extra?.entity || null,
-        },
-        { status: 403 }
-      );
-    }
-
-    if (e instanceof AuthError && e.code === "PRO_NOT_APPROVED") {
-      return NextResponse.json(
-        { message: "Tu cuenta de profesional está en revisión" },
-        { status: 403 }
-      );
-    }
-
-    console.error("POST /api/auth/login error:", e);
-    return NextResponse.json({ message: "usuario o contraseña incorrectos" }, { status: 500 });
+    // --- Manejo de Errores INESPERADOS (El famoso 500) ---
+    console.error("❌ ERROR FATAL EN LOGIN:", e); // Esto aparecerá en los logs de Vercel
+    
+    return NextResponse.json(
+      { 
+        message: "Error interno del servidor", 
+        detail: e.message // Solo para debug, puedes quitarlo en prod
+      }, 
+      { status: 500 }
+    );
   }
 }
