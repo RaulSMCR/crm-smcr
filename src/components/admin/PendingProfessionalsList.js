@@ -16,14 +16,21 @@ export default function PendingProfessionalsList({ initialData }) {
         method: 'POST',
       });
 
-      if (!res.ok) throw new Error('Falló la aprobación');
+      // 1. Leemos la respuesta del servidor (aquí viene el error real)
+      const data = await res.json();
+
+      // 2. Si falló, lanzamos el mensaje específico que mandó el servidor
+      if (!res.ok) {
+        throw new Error(data.message || data.error || 'Falló la aprobación (Error desconocido)');
+      }
 
       alert(`✅ ${proName} ha sido aprobado.`);
       
-      // Recargamos la página para que la lista se actualice (el aprobado desaparecerá)
+      // Recargamos la página para que la lista se actualice
       router.refresh(); 
       
     } catch (error) {
+      // 3. Ahora la alerta mostrará la causa real (ej: "No autorizado", "Token inválido")
       alert('❌ Error: ' + error.message);
     } finally {
       setIsProcessing(false);
