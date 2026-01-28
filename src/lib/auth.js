@@ -1,66 +1,49 @@
+// src/lib/auth.js
 import { SignJWT, jwtVerify } from "jose";
-import { cookies } from "next/headers";
 
-const SESSION_COOKIE = "smcr_session";
+// Clave secreta (usa una variable de entorno en prod, o un fallback para dev)
+const secretKey = new TextEncoder().encode(
+  process.env.JWT_SECRET || "default-secret-key-change-it"
+);
 
-function getJwtKey() {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) throw new Error("JWT_SECRET is missing");
-  return new TextEncoder().encode(secret);
+// 1. Firmar Token (Crear sesión)
+export async function signToken(payload) {
+  return await new SignJWT(payload)
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("24h") // La sesión dura 24 horas
+    .sign(secretKey);
 }
 
-export function getSessionToken() {
-  return cookies().get(SESSION_COOKIE)?.value || null;
+// 2. Verificar Token (Leer sesión)
+export async function verifyToken(token) {
+  try {
+    const { payload } = await jwtVerify(token, secretKey);
+    return payload;
+  } catch (error) {
+    throw new Error("Token inválido o expirado");
+  }
 }
 
-export function setSessionCookie(token) {
-  cookies().set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,
+// 3. Guardar Cookie en la Respuesta (Para el Login)
+export function setSessionCookie(response, token) {
+  response.cookies.set({
+    name: "sessionToken", // <--- Nombre estandarizado
+    value: token,
+    httpOnly: true,       // JavaScript no puede leerla (seguridad)
+    secure: process.env.NODE_ENV === "production", // Solo HTTPS en producción
+    sameSite: "lax",      // Permite navegación normal
+    path: "/",            // Disponible en toda la app
+    maxAge: 60 * 60 * 24, // 1 día en segundos
   });
 }
 
-export function clearSessionCookie() {
-  cookies().set(SESSION_COOKIE, "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+// 4. Borrar Cookie (Para Logout)
+export function removeSessionCookie(response) {
+  response.cookies.set({
+    name: "sessionToken",
+    value: "",
     path: "/",
     maxAge: 0,
   });
-}
-
-export async function signToken(payload, expiresInSeconds = 60 * 60 * 24 * 7) {
-  const key = getJwtKey();
-  const now = Math.floor(Date.now() / 1000);
-
-  return await new SignJWT(payload)
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt(now)
-    .setExpirationTime(now + expiresInSeconds)
-    .sign(key);
-}
-
-export async function verifyToken(token) {
-  const key = getJwtKey();
-  const { payload } = await jwtVerify(token, key);
-  return payload;
-}
-
-export async function requireAdmin() {
-  const token = getSessionToken();
-  if (!token) throw new Error("UNAUTHORIZED");
-
-  let payload;
-  try {
-    payload = await verifyToken(token);
-  } catch {
-    throw new Error("UNAUTHORIZED");
-  }
-
-  if (payload?.role !== "ADMIN") throw new Error("FORBIDDEN");
-  return payload;
 }
