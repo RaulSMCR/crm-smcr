@@ -2,6 +2,41 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+// --- CONTENIDO MARKDOWN PARA PRUEBAS ---
+const RICH_ARTICLE_CONTENT = `
+La terapia no es solo "hablar de problemas", es un proceso activo de reestructuración cognitiva. A continuación, desmitificamos los puntos más comunes.
+
+## 1. "La terapia es para gente 'loca'"
+Falso. La terapia es para **cualquier persona** que quiera mejorar su calidad de vida.
+
+> "La vulnerabilidad no es ganar o perder; es tener el coraje de presentarse y ser visto cuando no tenemos control sobre el resultado."
+> — *Brené Brown*
+
+## 2. El proceso lógico del cambio
+En la Terapia Cognitivo-Conductual (TCC), analizamos los patrones de pensamiento. Observa este ejemplo lógico de cómo procesamos un pensamiento automático:
+
+\`\`\`javascript
+// Ejemplo: Reestructuración Cognitiva
+const pensamientoAutomatico = "Seguro les caigo mal a todos";
+
+function analizarEvidencia(pensamiento) {
+  if (pensamiento.esRealista === false) {
+    return "Es una distorsión cognitiva (Lectura de mente)";
+  }
+  return "Es un hecho";
+}
+
+console.log(analizarEvidencia(pensamientoAutomatico));
+\`\`\`
+
+## 3. Herramientas que usamos
+* **Diario de gratitud:** Para cambiar el foco atencional.
+* **Exposición gradual:** Para tratar fobias.
+* **Mindfulness:** Para el control de la ansiedad.
+
+![Paisaje relajante](https://images.unsplash.com/photo-1506126613408-eca07ce68773?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80)
+`;
+
 async function hashPassword(plain) {
   const bcrypt = require('bcryptjs');
   const saltRounds = 10;
@@ -11,11 +46,11 @@ async function hashPassword(plain) {
 async function main() {
   console.log('— Start seeding...');
 
-  // 1) Password de DEV (cámbiala cuando quieras)
+  // 1) Password de DEV
   const DEV_PASSWORD = 'smcr1234';
   const passwordHash = await hashPassword(DEV_PASSWORD);
 
-  // 2) Profesionales (upsert + approved + hash real)
+  // 2) Profesionales
   const prosData = [
     { email: 'ana.perez@example.com', name: 'Dra. Ana Pérez', profession: 'Psicóloga Clínica', introVideoUrl: 'https://www.youtube.com/embed/O-6f5wQXSu8' },
     { email: 'carlos.rojas@example.com', name: 'Lic. Carlos Rojas', profession: 'Nutricionista' },
@@ -31,15 +66,15 @@ async function main() {
         name: p.name,
         profession: p.profession,
         introVideoUrl: p.introVideoUrl ?? null,
-        passwordHash,          // ← bcrypt real
-        isApproved: true,      // ← aprobado
+        passwordHash,
+        isApproved: true,
       },
       create: {
         email: p.email,
         name: p.name,
         profession: p.profession,
         introVideoUrl: p.introVideoUrl ?? null,
-        passwordHash,          // ← bcrypt real
+        passwordHash,
         isApproved: true,
       },
       select: { id: true, email: true, name: true },
@@ -47,7 +82,7 @@ async function main() {
     pros[p.email] = pro;
   }
 
-  // 3) Servicios (upsert por slug)
+  // 3) Servicios
   const servicesData = [
     {
       slug: 'terapia-cognitivo-conductual',
@@ -85,7 +120,6 @@ async function main() {
 
   const services = {};
   for (const s of servicesData) {
-    // upsert básico
     const svc = await prisma.service.upsert({
       where: { slug: s.slug },
       update: { title: s.title, description: s.description, price: s.price, imageUrl: s.imageUrl },
@@ -94,7 +128,6 @@ async function main() {
     });
     services[s.slug] = svc;
 
-    // conectar profesionales (many-to-many), sin duplicar
     const connects = (s.professionalEmails || [])
       .map((email) => pros[email]?.id)
       .filter(Boolean)
@@ -108,14 +141,14 @@ async function main() {
     }
   }
 
-  // 4) Posts (upsert por slug)
+  // 4) Posts (Con contenido Markdown enriquecido)
   const postsData = [
     {
       slug: 'mitos-terapia',
       title: '5 Mitos Comunes sobre la Terapia',
-      content: 'Desmentimos algunas de las ideas erróneas más frecuentes sobre lo que significa ir a terapia...',
-      imageUrl: 'https://images.unsplash.com/photo-1552664730-d307ca884978?q=80&w=2070',
-      postType: 'TEXT',
+      content: RICH_ARTICLE_CONTENT, // <--- USO DEL MARKDOWN RICO AQUÍ
+      imageUrl: 'https://images.unsplash.com/photo-1527137342181-19aab11a8ee8?q=80&w=2070',
+      postType: 'ARTICLE', // Cambiado a ARTICLE para semántica correcta
       authorEmail: 'ana.perez@example.com',
       serviceSlug: 'terapia-cognitivo-conductual',
       status: 'PUBLISHED',
@@ -123,9 +156,9 @@ async function main() {
     {
       slug: 'video-mindfulness',
       title: 'Video: Guía de 5 minutos de Mindfulness',
-      content: 'Sigue esta guía en video para una sesión rápida...',
+      content: 'Sigue esta guía en video para una sesión rápida de relajación y reconexión.',
       postType: 'VIDEO',
-      mediaUrl: 'https://www.youtube.com/embed/O-6f5wQXSu8',
+      mediaUrl: 'https://www.youtube.com/embed/inpok4MKVLM', // Video real de mindfulness
       authorEmail: 'ana.perez@example.com',
       serviceSlug: 'terapia-cognitivo-conductual',
       status: 'PUBLISHED',
@@ -133,9 +166,9 @@ async function main() {
     {
       slug: 'podcast-nutricion',
       title: 'Podcast: Nutrición y Estado de Ánimo',
-      content: 'Escucha nuestro último podcast...',
+      content: 'Escucha nuestro último episodio sobre cómo los alimentos afectan tu química cerebral.',
       postType: 'AUDIO',
-      mediaUrl: 'https://open.spotify.com/embed/episode/06V21n84i8i0a3n3x1c3yC',
+      mediaUrl: 'https://open.spotify.com/embed/episode/43d8s7g8s9s?theme=0', // URL embed ejemplo
       authorEmail: 'carlos.rojas@example.com',
       serviceSlug: 'asesoria-nutricional',
       status: 'PUBLISHED',
@@ -172,7 +205,7 @@ async function main() {
     });
   }
 
-  console.log('— Seeding finished.');
+  console.log('— Seeding finished successfully.');
 }
 
 main()
@@ -182,4 +215,4 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect();
-  });
+  })

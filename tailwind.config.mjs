@@ -9,7 +9,7 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
-      // Paletas basadas en variables CSS (definidas en src/app/globals.css)
+      // --- TUS COLORES (Sin cambios) ---
       colors: {
         brand: {
           50:  'rgb(var(--brand-50) / <alpha-value>)',
@@ -49,11 +49,10 @@ export default {
           600: 'rgb(var(--neutral-600) / <alpha-value>)',
           700: 'rgb(var(--neutral-700) / <alpha-value>)',
           800: 'rgb(var(--neutral-800) / <alpha-value>)',
-          900: 'rgb(var(--neutral-900) / <alpha-value>)', // texto base
+          900: 'rgb(var(--neutral-900) / <alpha-value>)', 
           950: 'rgb(var(--neutral-950) / <alpha-value>)',
           DEFAULT: 'rgb(var(--neutral-900) / <alpha-value>)',
         },
-        // Atajo para el fondo crema del sitio
         appbg: 'rgb(var(--app-bg) / <alpha-value>)',
         success: 'rgb(var(--success-600) / <alpha-value>)',
         warning: 'rgb(var(--warning-600) / <alpha-value>)',
@@ -86,6 +85,35 @@ export default {
       boxShadow: {
         card: '0 8px 24px rgba(0,0,0,0.08)',
       },
+
+      // --- NUEVA CONFIGURACIÓN DE TIPOGRAFÍA ---
+      typography: ({ theme }) => ({
+        DEFAULT: {
+          css: {
+            // Elimina las comillas invertidas (backticks) en el código inline
+            'code::before': {
+              content: '""',
+            },
+            'code::after': {
+              content: '""',
+            },
+            // Estilo para código inline (opcional: fondo suave y texto destacado)
+            code: {
+              color: theme('colors.brand.600'),
+              backgroundColor: theme('colors.neutral.100'),
+              padding: '0.2em 0.4em',
+              borderRadius: '0.25rem',
+              fontWeight: '500',
+            },
+            // Aseguramos que los bloques de código (pre) respeten el tema oscuro del plugin
+            'pre code': {
+              backgroundColor: 'transparent', // El fondo lo pondrá el tema de highlight.js
+              color: 'inherit',
+              padding: '0',
+            },
+          },
+        },
+      }),
     },
   },
   plugins: [

@@ -1,246 +1,183 @@
-// src/app/servicios/[slug]/page.js
-import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
+import { notFound } from 'next/navigation';
+import Image from 'next/image';
+import Link from 'next/link';
 
-function formatPrice(value) {
-  try {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS',
-      maximumFractionDigits: 0,
-    }).format(Number(value));
-  } catch {
-    return `$ ${value}`;
-  }
+// Generar metadata dinámica para SEO
+export async function generateMetadata({ params }) {
+  const service = await prisma.service.findUnique({
+    where: { slug: params.slug },
+    select: { title: true, description: true },
+  });
+
+  if (!service) return { title: 'Servicio no encontrado' };
+
+  return {
+    title: `${service.title} | SMCR`,
+    description: service.description,
+  };
 }
 
-function formatDate(date) {
-  return new Intl.DateTimeFormat('es-ES', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(date);
-}
+export default async function ServiceDetailPage({ params }) {
+  const { slug } = params;
 
-async function getService(slug) {
+  // 1. QUERY ADAPTADA AL ESQUEMA RESTAURADO
   const service = await prisma.service.findUnique({
     where: { slug },
-    select: {
-      id: true,
-      slug: true,
-      title: true,
-      description: true,
-      price: true,
-      imageUrl: true,
-      createdAt: true,
-      updatedAt: true,
-      category: {
-        select: { id: true, name: true, slug: true },
-      },
+    include: {
+      category: true,
       professionals: {
-        select: {
-          id: true,
-          name: true,
-          profession: true,
-          avatarUrl: true,
-        },
-        orderBy: { name: 'asc' },
-      },
-      posts: {
-        where: { status: 'PUBLISHED' }, // schema de transición: string
-        orderBy: { createdAt: 'desc' },
-        take: 8,
-        select: {
-          id: true,
-          slug: true,
-          title: true,
-          imageUrl: true,
-          postType: true,
-          createdAt: true,
-          author: {
-            select: { id: true, name: true },
+        where: { status: 'ACTIVE' },
+        include: {
+          // Relación directa a la tabla Professional
+          professional: {
+            select: {
+              id: true,
+              name: true,
+              profession: true,
+              avatarUrl: true,
+              bio: true,
+              calendarUrl: true, // Útil para el botón de reservar
+            },
           },
         },
       },
     },
   });
 
-  if (!service) return null;
-
-  let related = [];
-  if (service.category?.id) {
-    related = await prisma.service.findMany({
-      where: { categoryId: service.category.id, id: { not: service.id } },
-      orderBy: { title: 'asc' },
-      take: 6,
-      select: {
-        id: true,
-        slug: true,
-        title: true,
-        imageUrl: true,
-        price: true,
-      },
-    });
+  if (!service) {
+    return notFound();
   }
 
-  return { service, related };
-}
-
-export default async function ServiceDetailPage({ params }) {
-  const slug = params?.slug;
-  if (!slug) notFound();
-
-  const data = await getService(slug);
-  if (!data?.service) notFound();
-
-  const { service, related } = data;
+  // 2. SANITIZACIÓN (Decimal a String)
+  // Convertimos el precio base para evitar errores de serialización
+  const basePriceString = service.price ? service.price.toString() : "0";
 
   return (
-    <main className="max-w-5xl mx-auto px-4 py-10">
-      <div className="mb-4">
-        <Link href="/servicios" className="text-sm text-brand-600 underline">
-          ← Volver a servicios
-        </Link>
+    <main className="container mx-auto py-10 px-4 space-y-8">
+      {/* --- ENCABEZADO DEL SERVICIO --- */}
+      <div className="max-w-3xl">
+        <div className="flex items-center gap-2 text-sm font-medium text-brand-600 mb-2">
+          <Link href="/servicios" className="hover:underline">
+            ← Volver a Servicios
+          </Link>
+          {service.category && (
+            <>
+              <span className="text-gray-300">•</span>
+              <span className="uppercase tracking-wider">{service.category.name}</span>
+            </>
+          )}
+        </div>
+
+        <h1 className="text-4xl font-extrabold text-gray-900 mb-4">
+          {service.title}
+        </h1>
+        
+        <p className="text-xl text-gray-600 leading-relaxed mb-6">
+          {service.description}
+        </p>
+
+        <div className="inline-flex items-center px-4 py-2 bg-gray-100 rounded-lg">
+          <span className="text-gray-500 mr-2 text-sm">Precio base:</span>
+          <span className="text-2xl font-bold text-gray-900">${basePriceString}</span>
+        </div>
       </div>
 
-      <section className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">{service.title}</h1>
+      <hr className="border-gray-200" />
 
-        <div className="text-sm text-brand-600 mb-4">
-          {service.category ? (
-            <>
-              Categoría:{' '}
-              <Link
-                className="text-brand-600 underline"
-                href={`/servicios?categoria=${service.category.slug}`}
-              >
-                {service.category.name}
-              </Link>
-              {' · '}
-            </>
-          ) : null}
-          Creado: {formatDate(new Date(service.createdAt))}
-          {' · '}
-          Actualizado: {formatDate(new Date(service.updatedAt))}
-        </div>
+      {/* --- LISTA DE PROFESIONALES --- */}
+      <section>
+        <h2 className="text-2xl font-bold text-gray-800 mb-6">
+          Especialistas disponibles ({service.professionals.length})
+        </h2>
 
-        {service.imageUrl ? (
-          <img
-            src={service.imageUrl}
-            alt={service.title}
-            className="w-full h-72 object-cover rounded-xl mb-6"
-          />
-        ) : null}
-
-        <div className="prose max-w-none">
-          <p style={{ whiteSpace: 'pre-wrap' }}>{service.description}</p>
-        </div>
-
-        <div className="mt-6">
-          <span className="inline-flex items-center rounded-lg border bg-neutral-300 px-3 py-1 text-sm text-bg-brand-600">
-            Tarifa de referencia: <span className="text-bg-brand-600 font-semibold ml-2">{formatPrice(service.price)}</span>
-          </span>
-        </div>
-      </section>
-
-      {/* Profesionales que brindan este servicio */}
-      <section className="mb-10">
-        <h2 className="text-2xl text-bg-brand-600 font-semibold mb-4">Profesionales</h2>
         {service.professionals.length === 0 ? (
-          <p className="text-brand-600">Aún no hay profesionales vinculados.</p>
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-yellow-800">
+            <p>Actualmente no hay profesionales asignados a este servicio. Por favor consulta más tarde.</p>
+          </div>
         ) : (
-          <ul className="grid gap-4 md:grid-cols-2">
-            {service.professionals.map((pro) => (
-              <li key={pro.id} className="border bg-neutral-300 rounded-lg p-4 flex items-center gap-4">
-                <div className="w-14 h-14 rounded-full bg-neutral-300 overflow-hidden">
-                  {pro.avatarUrl ? (
-                    <img
-                      src={pro.avatarUrl}
-                      alt={pro.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-brand-600">
-                      {pro.name.slice(0, 1)}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {service.professionals.map((proLink) => {
+              const { professional } = proLink;
+              
+              // 3. CÁLCULO DE PRECIO FINAL
+              // Si el profesional tiene un precio especial (override), usamos ese.
+              // Si no, usamos el precio base del servicio.
+              const finalPrice = proLink.priceOverride 
+                ? proLink.priceOverride.toString() 
+                : basePriceString;
+
+              return (
+                <article 
+                  key={proLink.id} 
+                  className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-shadow duration-300 flex flex-col"
+                >
+                  <div className="p-6 flex-1">
+                    <div className="flex items-start gap-4">
+                      {/* Avatar */}
+                      <div className="relative w-16 h-16 flex-shrink-0">
+                        {professional.avatarUrl ? (
+                          <Image
+                            src={professional.avatarUrl}
+                            alt={professional.name}
+                            fill
+                            className="object-cover rounded-full border border-gray-100"
+                          />
+                        ) : (
+                          <div className="w-full h-full rounded-full bg-brand-100 flex items-center justify-center text-brand-600 font-bold text-xl border border-brand-200">
+                            {professional.name.charAt(0)}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Info Básica */}
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900 leading-tight">
+                          {professional.name}
+                        </h3>
+                        <p className="text-sm text-brand-600 font-medium">
+                          {professional.profession}
+                        </p>
+                        {professional.bio && (
+                          <p className="text-sm text-gray-500 mt-2 line-clamp-2">
+                            {professional.bio}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-medium">{pro.name}</h3>
-                  <p className="text-sm text-brand-600">{pro.profession}</p>
-                  <div className="mt-2 flex gap-3">
-                    <Link
-                      href={`/perfil/${pro.id}`}
-                      className="text-brand-600 underline text-sm"
-                    >
-                      Ver perfil
-                    </Link>
-                    <Link
-                      href={`/perfil/${pro.id}/calendar`}
-                      className="text-bg-brand-600 underline text-sm"
-                    >
-                      Agendar cita
-                    </Link>
                   </div>
-                </div>
-              </li>
-            ))}
-          </ul>
+
+                  {/* Footer de la tarjeta: Precio y Botón */}
+                  <div className="bg-gray-50 px-6 py-4 border-t border-gray-100 flex items-center justify-between">
+                    <div className="flex flex-col">
+                      <span className="text-xs text-gray-400 font-medium uppercase">Valor sesión</span>
+                      <span className="text-xl font-bold text-gray-900">
+                        ${finalPrice}
+                      </span>
+                    </div>
+
+                    {/* Botón de Acción */}
+                    {professional.calendarUrl ? (
+                      <a 
+                        href={professional.calendarUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-black text-white px-5 py-2 rounded-full text-sm font-medium hover:bg-gray-800 transition-colors"
+                      >
+                        Reservar
+                      </a>
+                    ) : (
+                      <button disabled className="bg-gray-200 text-gray-400 px-5 py-2 rounded-full text-sm font-medium cursor-not-allowed">
+                        No disponible
+                      </button>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
         )}
       </section>
-
-      {/* Artículos publicados relacionados a este servicio */}
-      <section className="mb-12">
-        <h2 className="border border-neutral-300 text-2xl font-semibold mb-4">Artículos del servicio</h2>
-        {service.posts.length === 0 ? (
-          <p className="text-brand-600">Aún no hay artículos publicados para este servicio.</p>
-        ) : (
-          <ul className="grid gap-6 md:grid-cols-2">
-            {service.posts.map((p) => (
-              <li key={p.id} className="border bg-neutral-300 rounded-lg p-4 hover:shadow">
-                <Link href={`/blog/${p.slug}`} className="block">
-                  {p.imageUrl ? (
-                    <img
-                      src={p.imageUrl}
-                      alt={p.title}
-                      className="w-full h-44 object-cover rounded-md mb-3"
-                    />
-                  ) : null}
-                  <h3 className="text-lg font-semibold">{p.title}</h3>
-                  <div className="text-sm text-brand-600 mt-1">
-                    {p.author?.name ?? 'Autor'} · {formatDate(new Date(p.createdAt))} · {p.postType}
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {/* Otros servicios relacionados por categoría */}
-      {related?.length ? (
-        <section className="mb-4">
-          <h2 className="text-2xl font-semibold mb-4">Servicios relacionados</h2>
-          <ul className="grid gap-4 md:grid-cols-2">
-            {related.map((s) => (
-              <li key={s.id} className="border rounded-lg p-4 flex gap-4 items-center">
-                <div className="w-24 h-16 border bg-neutral-300 rounded overflow-hidden">
-                  {s.imageUrl ? (
-                    <img src={s.imageUrl} alt={s.title} className="w-full h-full object-cover" />
-                  ) : null}
-                </div>
-                <div className="flex-1">
-                  <Link href={`/servicios/${s.slug}`} className="font-medium hover:underline">
-                    {s.title}
-                  </Link>
-                  <div className="text-sm text-brand-600 mt-1">{formatPrice(s.price)}</div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
     </main>
   );
 }

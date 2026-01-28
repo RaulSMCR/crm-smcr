@@ -7,24 +7,22 @@
     "node": "20.x"
   },
   "prisma": {
-    "schema": "prisma/schema.prisma"
+    "schema": "prisma/schema.prisma",
+    "seed": "node prisma/seed.js"
   },
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "next lint",
-
     "postinstall": "prisma generate",
     "seed": "prisma db seed",
-
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:reset": "prisma migrate reset --force --skip-seed",
     "prisma:studio": "prisma studio",
-
     "vercel-build": "pnpm prisma:generate && pnpm prisma:migrate:deploy && pnpm build"
   },
   "dependencies": {
@@ -40,11 +38,14 @@
     "react": "18.2.0",
     "react-day-picker": "9.13.0",
     "react-dom": "18.2.0",
+    "react-markdown": "^10.1.0",
+    "rehype-highlight": "^7.0.2",
+    "remark-gfm": "^4.0.1",
     "resend": "6.7.0"
   },
   "devDependencies": {
     "@tailwindcss/forms": "0.5.9",
-    "@tailwindcss/typography": "0.5.15",
+    "@tailwindcss/typography": "^0.5.15",
     "@types/js-cookie": "3.0.6",
     "autoprefixer": "10.4.20",
     "eslint": "8.57.0",

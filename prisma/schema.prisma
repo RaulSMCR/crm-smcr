@@ -1,5 +1,3 @@
-// schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,28 +9,10 @@ datasource db {
 }
 
 // --- ENUMS ---
-
 enum Role {
   USER
   ADMIN
-}
-
-enum DayOfWeek {
-  MONDAY
-  TUESDAY
-  WEDNESDAY
-  THURSDAY
-  FRIDAY
-  SATURDAY
-  SUNDAY
-}
-
-enum AppointmentStatus {
-  PENDING
-  CONFIRMED
-  CANCELLED
-  COMPLETED
-  NO_SHOW
+  PROFESSIONAL
 }
 
 enum PostType {
@@ -47,114 +27,84 @@ enum PostStatus {
   ARCHIVED
 }
 
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
 enum ProfessionalServiceStatus {
   ACTIVE
   PAUSED
   REMOVED
 }
 
-// --- MODELOS DE IDENTIDAD ---
+// --- MODELOS ---
 
 model User {
   id           Int    @id @default(autoincrement())
   email        String @unique
-  passwordHash String
   name         String
+  passwordHash String
   role         Role   @default(USER)
 
-  // Datos Personales
-  phone     String?
-  avatarUrl String?
-  birthDate DateTime?
-  gender    String?
-  timeZone  String    @default("UTC") // Crucial para conversiones de hora
-
-  // Relación 1:1 Opcional - Solo si decide ser profesional
-  professionalProfile ProfessionalProfile?
-
-  // Actividad como Cliente (Paciente)
-  appointmentsAsClient Appointment[] @relation("ClientAppointments")
-
-  // Auditoría
-  approvedPosts Post[] @relation("PostApprover")
+  identification String?   @unique
+  birthDate      DateTime?
+  phone          String?
+  gender         String?
+  interests      String?   @db.Text
+  timeZone       String    @default("UTC")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  appointments Appointment[]
+
+  // Auditoría admin
+  approvedProfessionals Professional[] @relation("ProfessionalApprovedBy")
+  approvedPosts         Post[]         @relation("PostApprovedBy")
 
   @@index([email])
 }
 
-model ProfessionalProfile {
-  id Int @id @default(autoincrement())
+model Professional {
+  id            Int     @id @default(autoincrement())
+  email         String  @unique
+  name          String
+  profession    String
+  passwordHash  String
+  isApproved    Boolean @default(false)
+  emailVerified Boolean @default(false)
 
-  // Vinculación estricta al User
-  userId Int  @unique
-  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone           String?
+  bio             String? @db.Text
+  avatarUrl       String?
+  introVideoUrl   String?
+  calendarUrl     String?
+  paymentLinkBase String?
+  timeZone        String  @default("UTC")
 
-  // Datos Públicos del Profesional
-  title          String // Ej: "Psicólogo Clínico"
-  slug           String  @unique // Para url amigable: /pro/juan-perez
-  bio            String? @db.Text
-  registrationId String? // Matrícula
-  isApproved     Boolean @default(false)
-
-  // Configuración
-  paymentLinkBase    String?
   googleRefreshToken String? @db.Text
+  googleCalendarId   String?
 
-  // Relaciones de Negocio
-  services ServicesOnProfessionals[]
-  posts    Post[]
-
-  // Agenda y Tiempo
-  availability Availability[] // Su horario base semanal
-  timeOffs     TimeOff[] // Sus excepciones (vacaciones, bloqueos)
-
-  // Actividad como Proveedor (Doctor)
-  appointmentsAsProvider Appointment[] @relation("ProviderAppointments")
+  // Auditoría de aprobación
+  approvedAt       DateTime?
+  approvedByUserId Int?
+  approvedByUser   User?     @relation("ProfessionalApprovedBy", fields: [approvedByUserId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  services     ServicesOnProfessionals[]
+  posts        Post[]
+  appointments Appointment[]
+
+  @@index([email])
+  @@index([profession])
   @@index([isApproved])
-  @@index([slug])
 }
-
-// --- MODELOS DE GESTIÓN DE TIEMPO ---
-
-model Availability {
-  id                    Int                 @id @default(autoincrement())
-  professionalProfileId Int
-  profile               ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
-
-  dayOfWeek DayOfWeek
-
-  // Usamos DateTime pero solo nos importará la HORA (Ej: 1970-01-01 09:00:00)
-  startTime DateTime
-  endTime   DateTime
-
-  // Opcional: Pausa automática (Ej: 13:00 a 14:00)
-  breakStart DateTime?
-  breakEnd   DateTime?
-
-  @@index([professionalProfileId])
-}
-
-model TimeOff {
-  id                    Int                 @id @default(autoincrement())
-  professionalProfileId Int
-  profile               ProfessionalProfile @relation(fields: [professionalProfileId], references: [id], onDelete: Cascade)
-
-  // Bloqueo específico (Ej: 2024-12-25 00:00 a 2024-12-25 23:59)
-  startDate DateTime
-  endDate   DateTime
-  reason    String?
-
-  @@index([professionalProfileId])
-  @@index([startDate, endDate])
-}
-
-// --- MODELOS DE NEGOCIO ---
 
 model Category {
   id          Int     @id @default(autoincrement())
@@ -168,82 +118,46 @@ model Category {
 
 model Service {
   id          Int    @id @default(autoincrement())
-  title       String
   slug        String @unique
+  title       String
   description String @db.Text
 
-  // Duración Base (Puede ser sobreescrita por el profesional si la lógica lo permite, 
-  // pero generalmente el servicio define el bloque de tiempo)
-  durationMin Int @default(60)
+  price       Decimal @db.Decimal(10, 2) // Volvemos a "price" (no priceBase)
+  durationMin Int     @default(60)
 
-  // Precio Base (Referencia)
-  priceBase Decimal @db.Decimal(10, 2)
+  imageUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   categoryId Int?
   category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
   professionals ServicesOnProfessionals[]
+  posts         Post[]
   appointments  Appointment[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  @@index([categoryId])
 }
 
 model ServicesOnProfessionals {
   id Int @id @default(autoincrement())
 
   professionalId Int
-  profile        ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  serviceId      Int
 
-  serviceId Int
-  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  service      Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
-  // Personalización del profesional para este servicio
-  price            Decimal?                  @db.Decimal(10, 2) // Si es null, usa el precio base del servicio
-  durationOverride Int? // Si quiere tardar más o menos que el estándar
-  status           ProfessionalServiceStatus @default(ACTIVE)
+  createdAt     DateTime                  @default(now())
+  status        ProfessionalServiceStatus @default(ACTIVE)
+  priceOverride Decimal?                  @db.Decimal(10, 2)
+  notes         String?                   @db.Text
 
-  appointments Appointment[]
-
-  createdAt DateTime @default(now())
+  appointments Appointment[] @relation("AppointmentProfessionalService")
 
   @@unique([professionalId, serviceId])
-}
-
-model Appointment {
-  id Int @id @default(autoincrement())
-
-  startTime DateTime
-  endTime   DateTime // Calculado: startTime + serviceDuration
-
-  status AppointmentStatus @default(PENDING)
-
-  priceFinal Decimal @db.Decimal(10, 2) // Precio congelado al momento de la reserva
-
-  // Relaciones
-  clientId Int
-  client   User @relation("ClientAppointments", fields: [clientId], references: [id])
-
-  providerId Int
-  provider   ProfessionalProfile @relation("ProviderAppointments", fields: [providerId], references: [id])
-
-  serviceId Int
-  service   Service @relation(fields: [serviceId], references: [id])
-
-  // Opcional: link al registro específico de la relación pro-servicio
-  professionalServiceId Int?
-  professionalService   ServicesOnProfessionals? @relation(fields: [professionalServiceId], references: [id])
-
-  // Datos externos
-  googleEventId String? @unique
-  cancelReason  String? @db.Text
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([providerId, startTime])
-  @@index([clientId])
-  @@index([status])
+  @@index([serviceId])
+  @@index([professionalId])
 }
 
 model Post {
@@ -257,15 +171,53 @@ model Post {
   postType PostType   @default(TEXT)
   status   PostStatus @default(PENDING)
 
-  authorId Int
-  author   ProfessionalProfile @relation(fields: [authorId], references: [id], onDelete: Cascade)
-
-  // Moderación
+  // Auditoría
+  approvedAt       DateTime?
   approvedByUserId Int?
-  approvedByUser   User? @relation("PostApprover", fields: [approvedByUserId], references: [id])
+  approvedByUser   User?     @relation("PostApprovedBy", fields: [approvedByUserId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  authorId Int
+  author   Professional @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  serviceId Int?
+  service   Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
   @@index([status, createdAt])
+  @@index([serviceId])
+}
+
+model Appointment {
+  id        Int      @id @default(autoincrement())
+  startTime DateTime
+  endTime   DateTime
+
+  status AppointmentStatus @default(CONFIRMED)
+
+  googleEventId String? @unique
+
+  priceFinal   Decimal?  @db.Decimal(10, 2)
+  canceledAt   DateTime?
+  cancelReason String?   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  professionalId Int
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  serviceId Int?
+  service   Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  professionalServiceId Int?
+  professionalService   ServicesOnProfessionals? @relation("AppointmentProfessionalService", fields: [professionalServiceId], references: [id], onDelete: SetNull)
+
+  @@index([professionalId, startTime])
+  @@index([userId, startTime])
+  @@index([status])
 }
