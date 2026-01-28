@@ -156,6 +156,6 @@ export async function POST(request) {
     }
 
     console.error("POST /api/auth/login error:", e);
-    return NextResponse.json({ message: "Error de autenticación" }, { status: 500 });
+    return NextResponse.json({ message: "usuario o contraseña incorrectos" }, { status: 500 });
   }
 }
