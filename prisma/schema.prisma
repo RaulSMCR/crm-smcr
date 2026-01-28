@@ -1,14 +1,16 @@
+// prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql" // O "mysql" si usas PlanetScale, pero para Vercel/Neon suele ser postgresql
+  url      = env("DATABASE_URL")
 }
 
 // --- ENUMS ---
+
 enum Role {
   USER
   ADMIN
@@ -16,208 +18,130 @@ enum Role {
 }
 
 enum PostType {
-  TEXT
+  ARTICLE
   VIDEO
   AUDIO
+  TEXT
 }
 
 enum PostStatus {
+  DRAFT
   PENDING
   PUBLISHED
   ARCHIVED
 }
 
-enum AppointmentStatus {
-  PENDING
-  CONFIRMED
-  CANCELLED
-  COMPLETED
-  NO_SHOW
-}
-
-enum ProfessionalServiceStatus {
-  ACTIVE
-  PAUSED
-  REMOVED
-}
-
 // --- MODELOS ---
 
 model User {
-  id           Int    @id @default(autoincrement())
-  email        String @unique
-  name         String
-  passwordHash String
-  role         Role   @default(USER)
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  passwordHash  String
+  
+  // Perfilamiento
+  gender        String?
+  interests     String?   // Podría ser JSON si usas Postgres, pero String está bien por ahora
+  phone         String?
+  identification String?
+  birthDate     DateTime?
+  timeZone      String?   @default("UTC")
+  
+  // Auth & Verificación (LOS CAMPOS QUE FALTABAN)
+  role                  Role      @default(USER)
+  emailVerified         Boolean   @default(false)
+  verifyTokenHash       String?
+  verifyTokenExp        DateTime?
+  verifyEmailLastSentAt DateTime?
 
-  identification String?   @unique
-  birthDate      DateTime?
-  phone          String?
-  gender         String?
-  interests      String?   @db.Text
-  timeZone       String    @default("UTC")
+  // Relaciones
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  appointments          Appointment[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  appointments Appointment[]
-
-  // Auditoría admin
-  approvedProfessionals Professional[] @relation("ProfessionalApprovedBy")
-  approvedPosts         Post[]         @relation("PostApprovedBy")
-
-  @@index([email])
+  // Relaciones de Administración (Si el usuario es ADMIN)
+  approvedProfessionals Professional[] @relation("AdminApprovesPro")
+  approvedPosts         Post[]         @relation("AdminApprovesPost")
 }
 
 model Professional {
-  id            Int     @id @default(autoincrement())
-  email         String  @unique
+  id            String   @id @default(cuid())
+  email         String   @unique
   name          String
   profession    String
-  passwordHash  String
-  isApproved    Boolean @default(false)
-  emailVerified Boolean @default(false)
+  introVideoUrl String?
+  passwordHash  String?  // Opcional si se registran distinto, pero útil si tienen login
+  isApproved    Boolean  @default(false)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  phone           String?
-  bio             String? @db.Text
-  avatarUrl       String?
-  introVideoUrl   String?
-  calendarUrl     String?
-  paymentLinkBase String?
-  timeZone        String  @default("UTC")
-
-  googleRefreshToken String? @db.Text
-  googleCalendarId   String?
-
-  // Auditoría de aprobación
-  approvedAt       DateTime?
-  approvedByUserId Int?
-  approvedByUser   User?     @relation("ProfessionalApprovedBy", fields: [approvedByUserId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  services     ServicesOnProfessionals[]
-  posts        Post[]
-  appointments Appointment[]
-
-  @@index([email])
-  @@index([profession])
-  @@index([isApproved])
-}
-
-model Category {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique
-  slug        String  @unique
-  description String? @db.Text
-  imageUrl    String?
-
-  services Service[]
+  // Relaciones
+  services      Service[]
+  posts         Post[]
+  appointments  Appointment[]
+  
+  // Relación con quien lo aprobó (Admin)
+  approvedById  String?
+  approvedBy    User?    @relation("AdminApprovesPro", fields: [approvedById], references: [id])
 }
 
 model Service {
-  id          Int    @id @default(autoincrement())
-  slug        String @unique
-  title       String
-  description String @db.Text
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  title         String
+  description   String   @db.Text
+  price         Decimal  @default(0.0)
+  imageUrl      String?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  price       Decimal @db.Decimal(10, 2) // Volvemos a "price" (no priceBase)
-  durationMin Int     @default(60)
-
-  imageUrl  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  categoryId Int?
-  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-
-  professionals ServicesOnProfessionals[]
+  // Relaciones
+  professionals Professional[]
   posts         Post[]
-  appointments  Appointment[]
-
-  @@index([categoryId])
-}
-
-model ServicesOnProfessionals {
-  id Int @id @default(autoincrement())
-
-  professionalId Int
-  serviceId      Int
-
-  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
-  service      Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-
-  createdAt     DateTime                  @default(now())
-  status        ProfessionalServiceStatus @default(ACTIVE)
-  priceOverride Decimal?                  @db.Decimal(10, 2)
-  notes         String?                   @db.Text
-
-  appointments Appointment[] @relation("AppointmentProfessionalService")
-
-  @@unique([professionalId, serviceId])
-  @@index([serviceId])
-  @@index([professionalId])
 }
 
 model Post {
-  id       Int     @id @default(autoincrement())
-  slug     String  @unique
-  title    String
-  content  String  @db.Text
-  imageUrl String?
-  mediaUrl String?
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  title       String
+  content     String     @db.Text
+  imageUrl    String?
+  
+  // Multimedia específica
+  postType    PostType   @default(ARTICLE)
+  mediaUrl    String?    // Para YouTube (Video) o Spotify (Audio)
+  
+  status      PostStatus @default(PENDING)
+  
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
-  postType PostType   @default(TEXT)
-  status   PostStatus @default(PENDING)
+  // Relaciones
+  authorId    String?
+  author      Professional? @relation(fields: [authorId], references: [id])
+  
+  serviceId   String?
+  service     Service?      @relation(fields: [serviceId], references: [id])
 
-  // Auditoría
-  approvedAt       DateTime?
-  approvedByUserId Int?
-  approvedByUser   User?     @relation("PostApprovedBy", fields: [approvedByUserId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  authorId Int
-  author   Professional @relation(fields: [authorId], references: [id], onDelete: Cascade)
-
-  serviceId Int?
-  service   Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
-
-  @@index([status, createdAt])
-  @@index([serviceId])
+  // Aprobación
+  approvedById String?
+  approvedBy   User?        @relation("AdminApprovesPost", fields: [approvedById], references: [id])
 }
 
 model Appointment {
-  id        Int      @id @default(autoincrement())
-  startTime DateTime
-  endTime   DateTime
+  id             String   @id @default(cuid())
+  date           DateTime
+  status         String   @default("PENDING") // PENDING, CONFIRMED, CANCELLED
+  
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  
+  professionalId String
+  professional   Professional @relation(fields: [professionalId], references: [id])
 
-  status AppointmentStatus @default(CONFIRMED)
-
-  googleEventId String? @unique
-
-  priceFinal   Decimal?  @db.Decimal(10, 2)
-  canceledAt   DateTime?
-  cancelReason String?   @db.Text
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  userId Int
-  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  professionalId Int
-  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
-
-  serviceId Int?
-  service   Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
-
-  professionalServiceId Int?
-  professionalService   ServicesOnProfessionals? @relation("AppointmentProfessionalService", fields: [professionalServiceId], references: [id], onDelete: SetNull)
-
-  @@index([professionalId, startTime])
-  @@index([userId, startTime])
-  @@index([status])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
