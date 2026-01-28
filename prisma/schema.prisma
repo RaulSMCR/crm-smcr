@@ -5,8 +5,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql" // O "mysql" si usas PlanetScale, pero para Vercel/Neon suele ser postgresql
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL") // Recomendado para Vercel/Supabase si lo configuras
 }
 
 // --- ENUMS ---
@@ -41,26 +42,27 @@ model User {
   
   // Perfilamiento
   gender        String?
-  interests     String?   // Podría ser JSON si usas Postgres, pero String está bien por ahora
+  interests     String?
   phone         String?
   identification String?
   birthDate     DateTime?
   timeZone      String?   @default("UTC")
   
-  // Auth & Verificación (LOS CAMPOS QUE FALTABAN)
+  // Auth & Verificación
   role                  Role      @default(USER)
   emailVerified         Boolean   @default(false)
   verifyTokenHash       String?
   verifyTokenExp        DateTime?
   verifyEmailLastSentAt DateTime?
 
-  // Relaciones
+  // Timestamps
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   
+  // Relaciones
   appointments          Appointment[]
 
-  // Relaciones de Administración (Si el usuario es ADMIN)
+  // Relaciones de Administración
   approvedProfessionals Professional[] @relation("AdminApprovesPro")
   approvedPosts         Post[]         @relation("AdminApprovesPost")
 }
@@ -70,10 +72,28 @@ model Professional {
   email         String   @unique
   name          String
   profession    String
-  introVideoUrl String?
-  passwordHash  String?  // Opcional si se registran distinto, pero útil si tienen login
-  isApproved    Boolean  @default(false)
+  passwordHash  String?  
   
+  // --- CAMPOS AGREGADOS PARA EL REGISTRO COMPLETO ---
+  phone           String?
+  avatarUrl       String?
+  resumeUrl       String?   // Para el CV (PDF)
+  bio             String?   @db.Text
+  introVideoUrl   String?
+  calendarUrl     String?
+  paymentLinkBase String?
+
+  // --- AUTH & VERIFICACIÓN PROFESIONAL ---
+  isApproved            Boolean   @default(false)
+  emailVerified         Boolean   @default(false)
+  verifyTokenHash       String?
+  verifyTokenExp        DateTime?
+  verifyEmailLastSentAt DateTime?
+  resetTokenHash        String?
+  resetTokenExp         DateTime?
+  resetLastSentAt       DateTime?
+
+  // Timestamps
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -82,7 +102,7 @@ model Professional {
   posts         Post[]
   appointments  Appointment[]
   
-  // Relación con quien lo aprobó (Admin)
+  // Relación con Admin (Aprobación)
   approvedById  String?
   approvedBy    User?    @relation("AdminApprovesPro", fields: [approvedById], references: [id])
 }
@@ -108,11 +128,11 @@ model Post {
   slug        String     @unique
   title       String
   content     String     @db.Text
+  excerpt     String?    @db.Text // Agregado para SEO
   imageUrl    String?
   
-  // Multimedia específica
   postType    PostType   @default(ARTICLE)
-  mediaUrl    String?    // Para YouTube (Video) o Spotify (Audio)
+  mediaUrl    String?    
   
   status      PostStatus @default(PENDING)
   
@@ -126,7 +146,7 @@ model Post {
   serviceId   String?
   service     Service?      @relation(fields: [serviceId], references: [id])
 
-  // Aprobación
+  // Aprobación Admin
   approvedById String?
   approvedBy   User?        @relation("AdminApprovesPost", fields: [approvedById], references: [id])
 }
@@ -134,7 +154,7 @@ model Post {
 model Appointment {
   id             String   @id @default(cuid())
   date           DateTime
-  status         String   @default("PENDING") // PENDING, CONFIRMED, CANCELLED
+  status         String   @default("PENDING") 
   
   userId         String
   user           User     @relation(fields: [userId], references: [id])
