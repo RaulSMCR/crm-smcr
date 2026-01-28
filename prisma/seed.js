@@ -38,7 +38,8 @@ console.log(analizarEvidencia(pensamientoAutomatico));
 `;
 
 async function hashPassword(plain) {
-  const bcrypt = require('bcryptjs');
+  // NOTA: Asegúrate de instalar bcryptjs: pnpm add bcryptjs
+  const bcrypt = require('bcryptjs'); 
   const saltRounds = 10;
   return await bcrypt.hash(plain, saltRounds);
 }
@@ -46,11 +47,30 @@ async function hashPassword(plain) {
 async function main() {
   console.log('— Start seeding...');
 
-  // 1) Password de DEV
-  const DEV_PASSWORD = 'smcr1234';
-  const passwordHash = await hashPassword(DEV_PASSWORD);
+  // 1) Generación de contraseñas (Usando Carolina3004!)
+  const GLOBAL_PASSWORD = 'Carolina3004!';
+  const passwordHash = await hashPassword(GLOBAL_PASSWORD);
+  
+  // --- SECCIÓN: SUPER ADMIN ---
+  console.log('🌱 Sembrando Admin...');
+  const adminUser = await prisma.user.upsert({
+    where: { email: 'admin@crm-smcr.com' },
+    update: { 
+        role: 'ADMIN',
+        passwordHash: passwordHash // Actualizamos la pass si ya existía
+    }, 
+    create: {
+      email: 'admin@crm-smcr.com',
+      name: 'Super Admin',
+      passwordHash: passwordHash,
+      role: 'ADMIN',
+      emailVerified: true,
+    },
+  });
+  console.log(`✅ Admin creado: ${adminUser.email} (Pass: ${GLOBAL_PASSWORD})`);
 
   // 2) Profesionales
+  console.log('🌱 Sembrando Profesionales...');
   const prosData = [
     { email: 'ana.perez@example.com', name: 'Dra. Ana Pérez', profession: 'Psicóloga Clínica', introVideoUrl: 'https://www.youtube.com/embed/O-6f5wQXSu8' },
     { email: 'carlos.rojas@example.com', name: 'Lic. Carlos Rojas', profession: 'Nutricionista' },
@@ -66,7 +86,7 @@ async function main() {
         name: p.name,
         profession: p.profession,
         introVideoUrl: p.introVideoUrl ?? null,
-        passwordHash,
+        passwordHash, // Usa Carolina3004!
         isApproved: true,
       },
       create: {
@@ -74,7 +94,7 @@ async function main() {
         name: p.name,
         profession: p.profession,
         introVideoUrl: p.introVideoUrl ?? null,
-        passwordHash,
+        passwordHash, // Usa Carolina3004!
         isApproved: true,
       },
       select: { id: true, email: true, name: true },
@@ -83,6 +103,7 @@ async function main() {
   }
 
   // 3) Servicios
+  console.log('🌱 Sembrando Servicios...');
   const servicesData = [
     {
       slug: 'terapia-cognitivo-conductual',
@@ -142,13 +163,14 @@ async function main() {
   }
 
   // 4) Posts (Con contenido Markdown enriquecido)
+  console.log('🌱 Sembrando Posts...');
   const postsData = [
     {
       slug: 'mitos-terapia',
       title: '5 Mitos Comunes sobre la Terapia',
-      content: RICH_ARTICLE_CONTENT, // <--- USO DEL MARKDOWN RICO AQUÍ
+      content: RICH_ARTICLE_CONTENT,
       imageUrl: 'https://images.unsplash.com/photo-1527137342181-19aab11a8ee8?q=80&w=2070',
-      postType: 'ARTICLE', // Cambiado a ARTICLE para semántica correcta
+      postType: 'ARTICLE',
       authorEmail: 'ana.perez@example.com',
       serviceSlug: 'terapia-cognitivo-conductual',
       status: 'PUBLISHED',
@@ -158,7 +180,7 @@ async function main() {
       title: 'Video: Guía de 5 minutos de Mindfulness',
       content: 'Sigue esta guía en video para una sesión rápida de relajación y reconexión.',
       postType: 'VIDEO',
-      mediaUrl: 'https://www.youtube.com/embed/inpok4MKVLM', // Video real de mindfulness
+      mediaUrl: 'https://www.youtube.com/embed/inpok4MKVLM',
       authorEmail: 'ana.perez@example.com',
       serviceSlug: 'terapia-cognitivo-conductual',
       status: 'PUBLISHED',
@@ -168,7 +190,7 @@ async function main() {
       title: 'Podcast: Nutrición y Estado de Ánimo',
       content: 'Escucha nuestro último episodio sobre cómo los alimentos afectan tu química cerebral.',
       postType: 'AUDIO',
-      mediaUrl: 'https://open.spotify.com/embed/episode/43d8s7g8s9s?theme=0', // URL embed ejemplo
+      mediaUrl: 'https://open.spotify.com/embed/episode/43d8s7g8s9s?theme=0',
       authorEmail: 'carlos.rojas@example.com',
       serviceSlug: 'asesoria-nutricional',
       status: 'PUBLISHED',
@@ -215,4 +237,4 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect();
-  })
+  });
