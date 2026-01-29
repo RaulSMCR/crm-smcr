@@ -7,7 +7,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL") // Recomendado para Vercel/Supabase si lo configuras
+  directUrl = env("DIRECT_URL")
 }
 
 // --- ENUMS ---
@@ -35,9 +35,9 @@ enum PostStatus {
 // --- MODELOS ---
 
 model User {
-  id            String    @id @default(cuid())
+  id            String   @id @default(cuid())
   name          String
-  email         String    @unique
+  email         String   @unique
   passwordHash  String
   
   // Perfilamiento
@@ -51,9 +51,16 @@ model User {
   // Auth & Verificación
   role                  Role      @default(USER)
   emailVerified         Boolean   @default(false)
+  
+  // Tokens de Verificación de Email
   verifyTokenHash       String?
   verifyTokenExp        DateTime?
   verifyEmailLastSentAt DateTime?
+
+  // Tokens de Recuperación de Contraseña (AGREGADOS)
+  resetTokenHash        String?
+  resetTokenExp         DateTime?
+  resetLastSentAt       DateTime?
 
   // Timestamps
   createdAt             DateTime  @default(now())
@@ -86,9 +93,13 @@ model Professional {
   // --- AUTH & VERIFICACIÓN PROFESIONAL ---
   isApproved            Boolean   @default(false)
   emailVerified         Boolean   @default(false)
+  
+  // Tokens de Verificación
   verifyTokenHash       String?
   verifyTokenExp        DateTime?
   verifyEmailLastSentAt DateTime?
+  
+  // Tokens de Recuperación
   resetTokenHash        String?
   resetTokenExp         DateTime?
   resetLastSentAt       DateTime?
@@ -102,9 +113,26 @@ model Professional {
   posts         Post[]
   appointments  Appointment[]
   
+  // --- RELACIÓN: DISPONIBILIDAD ---
+  availabilities Availability[]
+  
   // Relación con Admin (Aprobación)
   approvedById  String?
   approvedBy    User?    @relation("AdminApprovesPro", fields: [approvedById], references: [id])
+}
+
+// --- MODELO: DISPONIBILIDAD ---
+model Availability {
+  id             String       @id @default(cuid())
+  dayOfWeek      Int          // 0=Domingo, 1=Lunes, ..., 6=Sábado
+  startTime      String       // Formato "HH:mm" (ej: "09:00")
+  endTime        String       // Formato "HH:mm" (ej: "17:00")
+  isActive       Boolean      @default(true)
+  
+  professionalId String
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([professionalId])
 }
 
 model Service {
@@ -121,46 +149,51 @@ model Service {
   // Relaciones
   professionals Professional[]
   posts         Post[]
+  appointments  Appointment[] // Agregado para poder relacionar la cita con el servicio
 }
 
 model Post {
-  id          String     @id @default(cuid())
-  slug        String     @unique
-  title       String
-  content     String     @db.Text
-  excerpt     String?    @db.Text // Agregado para SEO
-  imageUrl    String?
+  id            String     @id @default(cuid())
+  slug          String     @unique
+  title         String
+  content       String     @db.Text
+  excerpt       String?    @db.Text
+  imageUrl      String?
   
-  postType    PostType   @default(ARTICLE)
-  mediaUrl    String?    
+  postType      PostType   @default(ARTICLE)
+  mediaUrl      String?    
   
-  status      PostStatus @default(PENDING)
+  status        PostStatus @default(PENDING)
   
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
   // Relaciones
-  authorId    String?
-  author      Professional? @relation(fields: [authorId], references: [id])
+  authorId      String?
+  author        Professional? @relation(fields: [authorId], references: [id])
   
-  serviceId   String?
-  service     Service?      @relation(fields: [serviceId], references: [id])
+  serviceId     String?
+  service       Service?      @relation(fields: [serviceId], references: [id])
 
   // Aprobación Admin
   approvedById String?
-  approvedBy   User?        @relation("AdminApprovesPost", fields: [approvedById], references: [id])
+  approvedBy   User?         @relation("AdminApprovesPost", fields: [approvedById], references: [id])
 }
 
 model Appointment {
-  id             String   @id @default(cuid())
+  id             String       @id @default(cuid())
   date           DateTime
-  status         String   @default("PENDING") 
+  status         String       @default("PENDING") 
   
   userId         String
-  user           User     @relation(fields: [userId], references: [id])
+  user           User         @relation(fields: [userId], references: [id])
   
   professionalId String
   professional   Professional @relation(fields: [professionalId], references: [id])
+
+  // Relación con Servicio (Necesaria para saber qué reservó)
+  serviceId      String?
+  service        Service?     @relation(fields: [serviceId], references: [id])
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
