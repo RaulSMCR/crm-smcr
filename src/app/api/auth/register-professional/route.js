@@ -2,17 +2,8 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { sendEmail } from "@/lib/email";
-
-// Función auxiliar para escapar HTML en correos
-function escaparHtml(str) {
-  return String(str ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
+import { generateSecurityToken } from "@/lib/tokens"; // Usamos tu nuevo generador
+import { sendVerificationEmail } from "@/lib/mail";   // Usamos tu nuevo servicio de mail
 
 export async function POST(request) {
   try {
@@ -37,7 +28,7 @@ export async function POST(request) {
 
     const emailNormalizado = String(email).trim().toLowerCase();
 
-    // 2. Verificar duplicados
+    // 2. Verificar duplicados (Email único)
     const existente = await prisma.professional.findUnique({
       where: { email: emailNormalizado },
     });
@@ -49,59 +40,56 @@ export async function POST(request) {
       );
     }
 
-    // 3. Encriptar contraseña
+    // 3. Preparar seguridad (Password + Token de Verificación)
     const hashedPassword = await bcrypt.hash(password, 12);
+    
+    // Generamos el token para verificar el email inmediatamente
+    const { token, tokenHash, expiresAt } = generateSecurityToken();
 
-    /* 4. Crear Profesional en Base de Datos
-       NOTA: Solo guardamos los campos que EXISTEN en tu schema.prisma actual.
-       He eliminado 'emailVerified', 'tokens', 'bio', 'resumeUrl', etc. para evitar el error 500.
-    */
+    // 4. Crear Profesional en Base de Datos
     const newPro = await prisma.professional.create({
       data: {
         name: String(nombreCompleto).trim(),
         profession: String(profesion).trim(),
         email: emailNormalizado,
-        // Asumiendo que agregaste 'phone' al schema como sugerí antes. Si falla, comenta esta línea:
         phone: telefono ? String(telefono).trim() : null,
-        
         passwordHash: hashedPassword,
         
-        // Campos opcionales válidos
+        // Campos opcionales
         introVideoUrl: introVideoUrl ? String(introVideoUrl) : null,
         
-        // Estado inicial: Pendiente de aprobación
-        isApproved: false, 
+        // ESTADO INICIAL:
+        isApproved: false,       // Requiere aprobación del Admin
+        emailVerified: false,    // Requiere clic en el email
+        
+        // Guardamos el token de verificación
+        verifyTokenHash: tokenHash,
+        verifyTokenExp: expiresAt,
+        verifyEmailLastSentAt: new Date(),
       },
     });
 
-    console.log(`✅ Nueva solicitud de profesional creada: ${emailNormalizado} (ID: ${newPro.id})`);
+    console.log(`✅ Profesional creado: ${emailNormalizado} (ID: ${newPro.id})`);
 
-    // 5. Enviar Email de confirmación (Envuelto en try/catch para no bloquear el registro si falla el correo)
+    // 5. Enviar Email de confirmación
+    // Usamos la función robusta que creamos en lib/mail.js
     try {
-      if (typeof sendEmail === 'function') {
-        await sendEmail({
-          to: emailNormalizado,
-          subject: "Recibimos tu solicitud de profesional",
-          html: `
-            <p>Hola ${escaparHtml(nombreCompleto)}.</p>
-            <p>Hemos recibido tu solicitud para unirte a la plataforma.</p>
-            <p><strong>Tu perfil está en estado PENDIENTE.</strong> Un administrador revisará tus datos y te contactará para una entrevista o validación.</p>
-            <p>Tu perfil no será público hasta que sea aprobado.</p>
-          `,
-        });
-      }
+      await sendVerificationEmail(emailNormalizado, token);
     } catch (emailError) {
-      console.error("⚠️ Advertencia: No se pudo enviar el email de confirmación, pero el usuario se creó.", emailError);
+      console.error("⚠️ El usuario se creó, pero falló el envío del email:", emailError);
+      // No retornamos error 500 para no bloquear el registro, pero el usuario deberá pedir reenvío.
     }
 
-    return NextResponse.json({ ok: true, id: newPro.id }, { status: 201 });
+    return NextResponse.json({ 
+      ok: true, 
+      id: newPro.id,
+      message: "Registro exitoso. Por favor revisa tu correo para verificar la cuenta." 
+    }, { status: 201 });
 
   } catch (error) {
-    console.error("❌ Error CRÍTICO en registro profesional:", error);
-    
-    // Devolvemos el mensaje exacto del error para facilitar el debugging en el frontend
+    console.error("❌ Error en registro profesional:", error);
     return NextResponse.json(
-      { error: "No se pudo crear el profesional. " + (error.message || "") },
+      { error: "Error interno al procesar el registro." },
       { status: 500 }
     );
   }
