@@ -1,3 +1,4 @@
+//src/app/servicios/[slug]/page.js
 import { prisma } from '@/lib/prisma';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
@@ -5,8 +6,9 @@ import Link from 'next/link';
 
 // Generar metadata dinámica para SEO
 export async function generateMetadata({ params }) {
+  const { slug } = await params;
   const service = await prisma.service.findUnique({
-    where: { slug: params.slug },
+    where: { slug },
     select: { title: true, description: true },
   });
 
@@ -19,29 +21,22 @@ export async function generateMetadata({ params }) {
 }
 
 export default async function ServiceDetailPage({ params }) {
-  const { slug } = params;
+  const { slug } = await params;
 
-  // 1. QUERY CORREGIDA
   const service = await prisma.service.findUnique({
     where: { slug },
     include: {
-      // Si tu modelo Service tiene relación con Category, déjalo. Si no, bórralo.
-      // category: true, 
-      
       professionals: {
-        // IMPORTANTE: Ajustado a 'isApproved' según tu seed. 
-        // Si ya migraste a 'status', cambia esto por: { status: 'ACTIVE' }
         where: { isApproved: true }, 
-        
         include: {
           professional: {
             select: {
               id: true,
               name: true,
-              declaredJobTitle: true, // <--- CORRECCIÓN PRINCIPAL
+              declaredJobTitle: true,
               avatarUrl: true,
               bio: true,
-              // calendarUrl: true, // Descomenta si este campo existe en tu schema
+              calendarUrl: true, 
             },
           },
         },
@@ -53,7 +48,7 @@ export default async function ServiceDetailPage({ params }) {
     return notFound();
   }
 
-  // 2. SANITIZACIÓN
+  // Sanitización de precio
   const basePriceString = service.price ? service.price.toString() : "0";
 
   return (
@@ -64,7 +59,6 @@ export default async function ServiceDetailPage({ params }) {
           <Link href="/servicios" className="hover:underline">
             ← Volver a Servicios
           </Link>
-          {/* Validación extra por si service.category es null */}
           {service.category && (
             <>
               <span className="text-gray-300">•</span>
@@ -104,7 +98,7 @@ export default async function ServiceDetailPage({ params }) {
             {service.professionals.map((proLink) => {
               const { professional } = proLink;
               
-              // Lógica de precio: Override o Base
+              // Lógica de precio
               const finalPrice = proLink.priceOverride 
                 ? proLink.priceOverride.toString() 
                 : basePriceString;
@@ -112,10 +106,12 @@ export default async function ServiceDetailPage({ params }) {
               return (
                 <article 
                   key={proLink.id} 
-                  className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-shadow duration-300 flex flex-col"
+                  className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-shadow duration-300 flex flex-col group"
                 >
                   <div className="p-6 flex-1">
-                    <div className="flex items-start gap-4">
+                    {/* ENLACE AL PERFIL: Hacemos clicable la info principal */}
+                    <Link href={`/profesional/${professional.id}`} className="flex items-start gap-4">
+                      
                       {/* Avatar */}
                       <div className="relative w-16 h-16 flex-shrink-0">
                         {professional.avatarUrl ? (
@@ -123,7 +119,7 @@ export default async function ServiceDetailPage({ params }) {
                             src={professional.avatarUrl}
                             alt={professional.name}
                             fill
-                            className="object-cover rounded-full border border-gray-100"
+                            className="object-cover rounded-full border border-gray-100 group-hover:border-brand-300 transition-colors"
                           />
                         ) : (
                           <div className="w-full h-full rounded-full bg-brand-100 flex items-center justify-center text-brand-600 font-bold text-xl border border-brand-200">
@@ -134,20 +130,23 @@ export default async function ServiceDetailPage({ params }) {
 
                       {/* Info Básica */}
                       <div>
-                        <h3 className="text-lg font-bold text-gray-900 leading-tight">
+                        <h3 className="text-lg font-bold text-gray-900 leading-tight group-hover:text-brand-600 transition-colors">
                           {professional.name}
                         </h3>
-                        {/* CORRECCIÓN DE UI: Usamos declaredJobTitle */}
                         <p className="text-sm text-brand-600 font-medium">
                           {professional.declaredJobTitle || "Profesional de Salud"}
                         </p>
-                        {professional.bio && (
-                          <p className="text-sm text-gray-500 mt-2 line-clamp-2">
-                            {professional.bio}
-                          </p>
-                        )}
+                        <p className="text-xs text-gray-400 mt-1 hover:underline">
+                          Ver perfil completo →
+                        </p>
                       </div>
-                    </div>
+                    </Link>
+                    
+                    {professional.bio && (
+                       <p className="text-sm text-gray-500 mt-3 line-clamp-2">
+                         {professional.bio}
+                       </p>
+                    )}
                   </div>
 
                   {/* Footer: Precio y Botón */}
@@ -159,7 +158,7 @@ export default async function ServiceDetailPage({ params }) {
                       </span>
                     </div>
 
-                    {/* Botón de Reservar */}
+                    {/* Botón de Acción */}
                     {professional.calendarUrl ? (
                       <a 
                         href={professional.calendarUrl}
@@ -170,9 +169,13 @@ export default async function ServiceDetailPage({ params }) {
                         Reservar
                       </a>
                     ) : (
-                      <button disabled className="bg-gray-200 text-gray-400 px-5 py-2 rounded-full text-sm font-medium cursor-not-allowed">
-                        No disponible
-                      </button>
+                      // Si no hay calendario, llevamos al perfil
+                      <Link 
+                        href={`/profesional/${professional.id}`}
+                        className="bg-white border border-brand-200 text-brand-700 px-5 py-2 rounded-full text-sm font-medium hover:bg-brand-50 transition-colors"
+                      >
+                        Ver Perfil
+                      </Link>
                     )}
                   </div>
                 </article>
