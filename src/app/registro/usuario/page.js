@@ -2,8 +2,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link"; // Importado para el link de login
 
 export default function RegistroUsuarioPage() {
+  const [isSuccess, setIsSuccess] = useState(false); // Nuevo estado para controlar la vista de éxito
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -27,9 +29,6 @@ export default function RegistroUsuarioPage() {
   }
 
   // Requisitos de contraseña (baseline razonable):
-  // - mínimo 12 caracteres
-  // - al menos 1 mayúscula, 1 minúscula, 1 número y 1 símbolo
-  // - no contener el email (parte local) como string
   const passwordChecks = useMemo(() => {
     const pwd = form.password ?? "";
     const emailLocal = (form.email ?? "").split("@")[0]?.toLowerCase() ?? "";
@@ -95,6 +94,7 @@ export default function RegistroUsuarioPage() {
     setLoading(true);
 
     try {
+      // Preparamos el payload exacto que espera el backend corregido
       const payload = {
         name: form.name,
         email: form.email,
@@ -120,14 +120,48 @@ export default function RegistroUsuarioPage() {
         return;
       }
 
-      // Éxito: ajustá según tu app (ej: /dashboard)
-      window.location.href = "/";
+      // --- CORRECCIÓN PRINCIPAL ---
+      // En lugar de redirigir, mostramos la pantalla de éxito
+      setIsSuccess(true);
+      setLoading(false);
+      
     } catch (err) {
       setErrorMsg("Error de red o del servidor");
       setLoading(false);
     }
   }
 
+  // --- VISTA DE ÉXITO ---
+  if (isSuccess) {
+    return (
+      <main className="mx-auto max-w-xl p-8 text-center bg-white rounded-lg shadow-sm mt-10 border border-neutral-200">
+        <div className="mb-6 flex justify-center">
+          <div className="h-20 w-20 rounded-full bg-green-100 flex items-center justify-center">
+            <svg className="h-10 w-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+        </div>
+        <h1 className="mb-4 text-3xl font-bold text-gray-900">¡Cuenta creada!</h1>
+        <p className="text-gray-600 mb-8 text-lg">
+          Hemos enviado un enlace de confirmación a: <br/>
+          <span className="font-semibold text-gray-900">{form.email}</span>
+        </p>
+        <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg mb-8 text-sm text-blue-800">
+          Por favor revisa tu bandeja de entrada (y la carpeta de spam) para activar tu cuenta.
+        </div>
+        
+        <Link 
+          href="/login" 
+          className="inline-block w-full sm:w-auto rounded-lg bg-brand-600 px-8 py-3 text-white font-medium hover:bg-brand-700 transition shadow-sm"
+        >
+          Ir a Iniciar Sesión
+        </Link>
+      </main>
+    );
+  }
+
+  // --- VISTA DE FORMULARIO (Original) ---
   return (
     <main className="mx-auto max-w-xl p-6">
       <h1 className="mb-4 text-2xl font-bold">Crear usuario</h1>
