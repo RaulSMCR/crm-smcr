@@ -1,5 +1,3 @@
-// prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -35,90 +33,117 @@ enum PostStatus {
 // --- MODELOS ---
 
 model User {
-  id            String   @id @default(cuid())
-  name          String
-  email         String   @unique
-  passwordHash  String
-  
+  id             String    @id @default(cuid())
+  name           String
+  email          String    @unique
+  passwordHash   String
+   
   // Perfilamiento
-  gender        String?
-  interests     String?
-  phone         String?
+  gender         String?
+  interests      String?
+  phone          String?
   identification String?
-  birthDate     DateTime?
-  timeZone      String?   @default("UTC")
-  
+  birthDate      DateTime?
+  timeZone       String?   @default("UTC")
+   
   // Auth & Verificación
-  role                  Role      @default(USER)
-  emailVerified         Boolean   @default(false)
-  
+  role                 Role      @default(USER)
+  emailVerified        Boolean   @default(false)
+   
   // Tokens de Verificación de Email
-  verifyTokenHash       String?
-  verifyTokenExp        DateTime?
-  verifyEmailLastSentAt DateTime?
+  verifyTokenHash        String?
+  verifyTokenExp         DateTime?
+  verifyEmailLastSentAt  DateTime?
 
-  // Tokens de Recuperación de Contraseña (AGREGADOS)
-  resetTokenHash        String?
-  resetTokenExp         DateTime?
-  resetLastSentAt       DateTime?
+  // Tokens de Recuperación de Contraseña
+  resetTokenHash         String?
+  resetTokenExp          DateTime?
+  resetLastSentAt        DateTime?
 
   // Timestamps
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-  
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+   
   // Relaciones
-  appointments          Appointment[]
+  appointments           Appointment[]
 
   // Relaciones de Administración
-  approvedProfessionals Professional[] @relation("AdminApprovesPro")
-  approvedPosts         Post[]         @relation("AdminApprovesPost")
+  approvedProfessionals  Professional[] @relation("AdminApprovesPro")
+  approvedPosts          Post[]         @relation("AdminApprovesPost")
+}
+
+// --- NUEVO MODELO: CATEGORÍAS (Jerárquico) ---
+model Category {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?  @db.Text
+  icon        String?
+  
+  // Jerarquía (Padre/Hijo)
+  parentId    String?
+  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryHierarchy")
+
+  // Relación con Profesionales (N:M)
+  professionals Professional[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Professional {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  name          String
-  profession    String
-  passwordHash  String?  
+  id              String    @id @default(cuid())
+  email           String    @unique
+  name            String
   
-  // --- CAMPOS AGREGADOS PARA EL REGISTRO COMPLETO ---
+  // --- CAMBIO PRINCIPAL: Renombrado de 'profession' ---
+  declaredJobTitle String   // Antes era 'profession'
+  
+  passwordHash    String?   
+   
+  // --- CAMPOS REGISTRO COMPLETO ---
   phone           String?
   avatarUrl       String?
-  resumeUrl       String?   // Para el CV (PDF)
+  resumeUrl       String?   
   bio             String?   @db.Text
   introVideoUrl   String?
   calendarUrl     String?
   paymentLinkBase String?
 
+  // --- NUEVO: Relación con Categorías y Notas Admin ---
+  categories      Category[]
+  adminNotes      String?   @db.Text
+
   // --- AUTH & VERIFICACIÓN PROFESIONAL ---
   isApproved            Boolean   @default(false)
   emailVerified         Boolean   @default(false)
-  
+   
   // Tokens de Verificación
-  verifyTokenHash       String?
-  verifyTokenExp        DateTime?
-  verifyEmailLastSentAt DateTime?
-  
+  verifyTokenHash        String?
+  verifyTokenExp         DateTime?
+  verifyEmailLastSentAt  DateTime?
+   
   // Tokens de Recuperación
-  resetTokenHash        String?
-  resetTokenExp         DateTime?
-  resetLastSentAt       DateTime?
+  resetTokenHash         String?
+  resetTokenExp          DateTime?
+  resetLastSentAt        DateTime?
 
   // Timestamps
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   // Relaciones
-  services      Service[]
-  posts         Post[]
-  appointments  Appointment[]
-  
+  services        Service[]
+  posts           Post[]
+  appointments    Appointment[]
+   
   // --- RELACIÓN: DISPONIBILIDAD ---
-  availabilities Availability[]
-  
+  availabilities  Availability[]
+   
   // Relación con Admin (Aprobación)
-  approvedById  String?
-  approvedBy    User?    @relation("AdminApprovesPro", fields: [approvedById], references: [id])
+  approvedById    String?
+  approvedBy      User?    @relation("AdminApprovesPro", fields: [approvedById], references: [id])
 }
 
 // --- MODELO: DISPONIBILIDAD ---
@@ -128,7 +153,7 @@ model Availability {
   startTime      String       // Formato "HH:mm" (ej: "09:00")
   endTime        String       // Formato "HH:mm" (ej: "17:00")
   isActive       Boolean      @default(true)
-  
+   
   professionalId String
   professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
 
@@ -136,62 +161,62 @@ model Availability {
 }
 
 model Service {
-  id            String   @id @default(cuid())
-  slug          String   @unique
-  title         String
-  description   String   @db.Text
-  price         Decimal  @default(0.0)
-  imageUrl      String?
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id             String   @id @default(cuid())
+  slug           String   @unique
+  title          String
+  description    String   @db.Text
+  price          Decimal  @default(0.0)
+  imageUrl       String?
+   
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // Relaciones
-  professionals Professional[]
-  posts         Post[]
-  appointments  Appointment[] // Agregado para poder relacionar la cita con el servicio
+  professionals  Professional[]
+  posts          Post[]
+  appointments   Appointment[] 
 }
 
 model Post {
-  id            String     @id @default(cuid())
-  slug          String     @unique
-  title         String
-  content       String     @db.Text
-  excerpt       String?    @db.Text
-  imageUrl      String?
-  
-  postType      PostType   @default(ARTICLE)
-  mediaUrl      String?    
-  
-  status        PostStatus @default(PENDING)
-  
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id             String     @id @default(cuid())
+  slug           String     @unique
+  title          String
+  content        String     @db.Text
+  excerpt        String?    @db.Text
+  imageUrl       String?
+   
+  postType       PostType   @default(ARTICLE)
+  mediaUrl       String?    
+   
+  status         PostStatus @default(PENDING)
+   
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
   // Relaciones
-  authorId      String?
-  author        Professional? @relation(fields: [authorId], references: [id])
-  
-  serviceId     String?
-  service       Service?      @relation(fields: [serviceId], references: [id])
+  authorId       String?
+  author         Professional? @relation(fields: [authorId], references: [id])
+   
+  serviceId      String?
+  service        Service?      @relation(fields: [serviceId], references: [id])
 
   // Aprobación Admin
-  approvedById String?
-  approvedBy   User?         @relation("AdminApprovesPost", fields: [approvedById], references: [id])
+  approvedById   String?
+  approvedBy     User?         @relation("AdminApprovesPost", fields: [approvedById], references: [id])
 }
 
 model Appointment {
   id             String       @id @default(cuid())
   date           DateTime
   status         String       @default("PENDING") 
-  
+   
   userId         String
   user           User         @relation(fields: [userId], references: [id])
-  
+   
   professionalId String
   professional   Professional @relation(fields: [professionalId], references: [id])
 
-  // Relación con Servicio (Necesaria para saber qué reservó)
+  // Relación con Servicio
   serviceId      String?
   service        Service?     @relation(fields: [serviceId], references: [id])
 
