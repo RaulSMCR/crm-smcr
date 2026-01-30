@@ -21,23 +21,27 @@ export async function generateMetadata({ params }) {
 export default async function ServiceDetailPage({ params }) {
   const { slug } = params;
 
-  // 1. QUERY ADAPTADA AL ESQUEMA RESTAURADO
+  // 1. QUERY CORREGIDA
   const service = await prisma.service.findUnique({
     where: { slug },
     include: {
-      category: true,
+      // Si tu modelo Service tiene relación con Category, déjalo. Si no, bórralo.
+      // category: true, 
+      
       professionals: {
-        where: { status: 'ACTIVE' },
+        // IMPORTANTE: Ajustado a 'isApproved' según tu seed. 
+        // Si ya migraste a 'status', cambia esto por: { status: 'ACTIVE' }
+        where: { isApproved: true }, 
+        
         include: {
-          // Relación directa a la tabla Professional
           professional: {
             select: {
               id: true,
               name: true,
-              profession: true,
+              declaredJobTitle: true, // <--- CORRECCIÓN PRINCIPAL
               avatarUrl: true,
               bio: true,
-              calendarUrl: true, // Útil para el botón de reservar
+              // calendarUrl: true, // Descomenta si este campo existe en tu schema
             },
           },
         },
@@ -49,8 +53,7 @@ export default async function ServiceDetailPage({ params }) {
     return notFound();
   }
 
-  // 2. SANITIZACIÓN (Decimal a String)
-  // Convertimos el precio base para evitar errores de serialización
+  // 2. SANITIZACIÓN
   const basePriceString = service.price ? service.price.toString() : "0";
 
   return (
@@ -61,6 +64,7 @@ export default async function ServiceDetailPage({ params }) {
           <Link href="/servicios" className="hover:underline">
             ← Volver a Servicios
           </Link>
+          {/* Validación extra por si service.category es null */}
           {service.category && (
             <>
               <span className="text-gray-300">•</span>
@@ -93,16 +97,14 @@ export default async function ServiceDetailPage({ params }) {
 
         {service.professionals.length === 0 ? (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-yellow-800">
-            <p>Actualmente no hay profesionales asignados a este servicio. Por favor consulta más tarde.</p>
+            <p>Actualmente no hay profesionales asignados a este servicio.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {service.professionals.map((proLink) => {
               const { professional } = proLink;
               
-              // 3. CÁLCULO DE PRECIO FINAL
-              // Si el profesional tiene un precio especial (override), usamos ese.
-              // Si no, usamos el precio base del servicio.
+              // Lógica de precio: Override o Base
               const finalPrice = proLink.priceOverride 
                 ? proLink.priceOverride.toString() 
                 : basePriceString;
@@ -135,8 +137,9 @@ export default async function ServiceDetailPage({ params }) {
                         <h3 className="text-lg font-bold text-gray-900 leading-tight">
                           {professional.name}
                         </h3>
+                        {/* CORRECCIÓN DE UI: Usamos declaredJobTitle */}
                         <p className="text-sm text-brand-600 font-medium">
-                          {professional.profession}
+                          {professional.declaredJobTitle || "Profesional de Salud"}
                         </p>
                         {professional.bio && (
                           <p className="text-sm text-gray-500 mt-2 line-clamp-2">
@@ -147,7 +150,7 @@ export default async function ServiceDetailPage({ params }) {
                     </div>
                   </div>
 
-                  {/* Footer de la tarjeta: Precio y Botón */}
+                  {/* Footer: Precio y Botón */}
                   <div className="bg-gray-50 px-6 py-4 border-t border-gray-100 flex items-center justify-between">
                     <div className="flex flex-col">
                       <span className="text-xs text-gray-400 font-medium uppercase">Valor sesión</span>
@@ -156,7 +159,7 @@ export default async function ServiceDetailPage({ params }) {
                       </span>
                     </div>
 
-                    {/* Botón de Acción */}
+                    {/* Botón de Reservar */}
                     {professional.calendarUrl ? (
                       <a 
                         href={professional.calendarUrl}

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/prisma'; // Asegúrate que esta ruta sea correcta
 
 export const metadata = {
   title: 'Servicios | Salud Mental Costa Rica',
@@ -7,7 +7,6 @@ export const metadata = {
 };
 
 export default async function ServiciosPage() {
-  // Consulta limpia de campos inexistentes
   const services = await prisma.service.findMany({
     orderBy: {
       title: 'asc',
@@ -19,20 +18,22 @@ export default async function ServiciosPage() {
       description: true,
       price: true,
       imageUrl: true,
-      // Eliminamos 'category'
       
-      // Relación directa con profesionales
+      // Relación con profesionales
       professionals: {
         where: {
-          isApproved: true, // Filtramos solo profesionales aprobados
+          isApproved: true, // Ojo: Si cambiaste a 'status: ACTIVE', actualiza esta línea
         },
         select: {
           id: true,
           name: true,
-          profession: true,
-          // Eliminamos 'avatarUrl'
+          declaredJobTitle: true, // <--- CORRECCIÓN 1: Usamos el nuevo campo
+          // Si quisieras las categorías oficiales, descomenta esto:
+          // categories: {
+          //   select: { name: true }
+          // }
         },
-        take: 3, // Mostramos max 3 pros por tarjeta para no saturar
+        take: 3, 
       },
     },
   });
@@ -50,7 +51,6 @@ export default async function ServiciosPage() {
             {/* Imagen del Servicio */}
             <div className="h-48 bg-gray-200 relative overflow-hidden">
               {service.imageUrl ? (
-                // Usamos img estándar para evitar config de dominios en next/image por ahora
                 <img 
                   src={service.imageUrl} 
                   alt={service.title} 
@@ -85,7 +85,12 @@ export default async function ServiciosPage() {
                   <p className="text-xs text-gray-400 uppercase font-semibold mb-2">Disponible con:</p>
                   <div className="flex -space-x-2 overflow-hidden">
                     {service.professionals.map((pro) => (
-                      <div key={pro.id} className="relative inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500" title={pro.name}>
+                      <div 
+                        key={pro.id} 
+                        className="relative inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500 cursor-help" 
+                        // CORRECCIÓN 2: Tooltip mejorado para ver la profesión al pasar el mouse
+                        title={`${pro.name} - ${pro.declaredJobTitle || 'Profesional'}`}
+                      >
                         {pro.name.charAt(0)}
                       </div>
                     ))}
