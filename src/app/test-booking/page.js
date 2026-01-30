@@ -1,35 +1,75 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import BookingWidget from '@/components/booking-widget';
+import { createAppointment } from '@/actions/appointment-actions';
+import Link from 'next/link';
 
 export default function TestBookingPage() {
   const [selection, setSelection] = useState(null);
+  const [isPending, startTransition] = useTransition();
+  const [result, setResult] = useState(null);
 
-  // Pon aquí el ID de un profesional que TENGAS en tu base de datos y tenga horarios
-  // Puedes copiarlo desde tu base de datos (tabla Professional)
-  const TEST_PROFESSIONAL_ID = "REEMPLAZA_CON_UN_ID_REAL_DE_TU_DB"; 
+  // --- IMPORTANTE: CAMBIA ESTO POR UN ID REAL DE TU DB LUEGO DE CREAR AL PROFESIONAL ---
+  // Lo dejaremos vacío por ahora para que veas dónde ponerlo
+  const TEST_PROFESSIONAL_ID = "PON_AQUI_EL_ID_DEL_PROFESIONAL"; 
+
+  const handleConfirm = () => {
+    if (!selection || !TEST_PROFESSIONAL_ID) return;
+
+    startTransition(async () => {
+      const response = await createAppointment(TEST_PROFESSIONAL_ID, selection.iso);
+      setResult(response);
+    });
+  };
 
   return (
     <main className="max-w-4xl mx-auto py-10 px-4">
-      <h1 className="text-2xl font-bold mb-6">Prueba de Motor de Reservas</h1>
+      <h1 className="text-2xl font-bold mb-6">Prueba de Sistema de Reservas</h1>
       
-      {/* Widget */}
-      <BookingWidget 
-        professionalId={TEST_PROFESSIONAL_ID} 
-        onSlotSelect={(data) => setSelection(data)}
-      />
+      {!TEST_PROFESSIONAL_ID || TEST_PROFESSIONAL_ID === "PON_AQUI_EL_ID_DEL_PROFESIONAL" ? (
+        <div className="bg-amber-100 text-amber-800 p-4 rounded mb-6">
+          ⚠️ <strong>Atención:</strong> Debes editar <code>src/app/test-booking/page.js</code> y poner el ID del profesional que crearemos en el paso 1.
+        </div>
+      ) : (
+        <>
+          <BookingWidget 
+            professionalId={TEST_PROFESSIONAL_ID} 
+            onSlotSelect={(data) => {
+              setSelection(data);
+              setResult(null); // Limpiar mensajes previos
+            }}
+          />
 
-      {/* Debugger Visual */}
-      <div className="mt-10 p-4 bg-slate-100 rounded border font-mono text-sm">
-        <h3 className="font-bold mb-2">Estado de Selección (Output):</h3>
-        <pre>{JSON.stringify(selection, null, 2)}</pre>
-      </div>
+          {selection && !result && (
+            <div className="mt-8 p-6 bg-slate-50 border rounded-lg text-center">
+              <p className="text-lg mb-4">
+                ¿Confirmar reserva para el <strong>{selection.date.toLocaleDateString()}</strong> a las <strong>{selection.time}</strong>?
+              </p>
+              <button 
+                onClick={handleConfirm}
+                disabled={isPending}
+                className="bg-green-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-green-700 disabled:opacity-50 transition-all"
+              >
+                {isPending ? 'Procesando...' : 'Confirmar Reserva Real'}
+              </button>
+            </div>
+          )}
 
-      {selection && (
-        <button className="mt-4 bg-green-600 text-white px-6 py-3 rounded hover:bg-green-700 font-bold w-full md:w-auto">
-          Confirmar Cita para {selection.time}
-        </button>
+          {result && (
+            <div className={`mt-6 p-4 rounded-lg text-center ${result.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+              {result.success ? (
+                <>
+                  <p className="font-bold text-xl">✅ ¡Cita creada con éxito!</p>
+                  <p className="text-sm mt-2">ID: {result.appointmentId}</p>
+                  <p className="mt-4">Revisa el Dashboard del profesional para verla.</p>
+                </>
+              ) : (
+                <p>❌ Error: {result.error}</p>
+              )}
+            </div>
+          )}
+        </>
       )}
     </main>
   );
