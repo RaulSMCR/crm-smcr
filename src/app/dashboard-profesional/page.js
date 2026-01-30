@@ -1,163 +1,227 @@
-// src/app/dashboard-profesional/page.js
 import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
 import CancelAppointmentButton from '@/components/CancelAppointmentButton';
 
-export const revalidate = 0;
+export const revalidate = 0; // Datos siempre frescos
 
+// Helper para formatear fechas
 function fmtDateTime(dt) {
+  if (!dt) return 'Fecha inválida';
   try {
     return new Intl.DateTimeFormat('es-AR', {
       dateStyle: 'medium',
       timeStyle: 'short',
     }).format(dt);
   } catch {
-    return dt.toISOString().replace('T', ' ').slice(0, 16);
+    return dt.toISOString().slice(0, 16).replace('T', ' ');
   }
 }
 
 export default async function DashboardProfesionalPage() {
-  // Auth (middleware ya protege, pero validamos igual)
+  // 1. Auth Check
   const token = cookies().get('sessionToken')?.value || '';
   const payload = await verifyToken(token).catch(() => null);
+
   if (!payload || payload.role !== 'PROFESSIONAL') {
     return (
-      <main className="max-w-3xl mx-auto px-4 py-10">
-        <h1 className="text-xl font-semibold">Acceso restringido</h1>
-        <p className="text-gray-600">Necesitás iniciar sesión como profesional.</p>
+      <main className="max-w-3xl mx-auto px-4 py-10 text-center">
+        <h1 className="text-xl font-semibold text-red-600">Acceso restringido</h1>
+        <p className="text-gray-600 mt-2">Necesitás iniciar sesión como profesional.</p>
+        <Link href="/login" className="text-blue-600 hover:underline mt-4 inline-block">
+          Ir al Login
+        </Link>
       </main>
     );
   }
-  const professionalId = Number(payload.userId);
 
-  // Próximas citas (14 días)
+  // --- CORRECCIÓN CRÍTICA: El ID es String, no Number ---
+  const professionalId = String(payload.userId); 
+
+  // 2. Definir rango de tiempo (Próximos 14 días)
   const now = new Date();
   const until = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
 
-  const [appointments, myPosts] = await Promise.all([
+  // 3. Consultas a la Base de Datos (Paralelas para velocidad)
+  const [appointments, myPosts, availability] = await Promise.all([
+    // A. Citas
     prisma.appointment.findMany({
       where: {
         professionalId,
         status: { not: 'CANCELLED' },
-        startTime: { gte: now, lte: until },
+        date: { gte: now, lte: until }, // Usamos 'date' según tu schema actual
       },
-      orderBy: { startTime: 'asc' },
-      select: {
-        id: true,
-        startTime: true,
-        endTime: true,
-        status: true,
-        user: { select: { id: true, name: true, email: true, phone: true } },
-        service: { select: { id: true, slug: true, title: true } },
+      orderBy: { date: 'asc' },
+      include: {
+        user: { select: { name: true, email: true, phone: true } },
+        service: { select: { title: true } }
       },
     }),
+    
+    // B. Publicaciones
     prisma.post.findMany({
       where: { authorId: professionalId },
       orderBy: { createdAt: 'desc' },
-      take: 8,
-      select: {
-        id: true,
-        title: true,
-        slug: true,
-        status: true,
-        createdAt: true,
-        service: { select: { slug: true, title: true } },
-      },
+      take: 5,
+      include: { service: { select: { title: true } } }
     }),
+
+    // C. Disponibilidad (Para saber si mostrar alerta)
+    prisma.availability.findMany({
+      where: { professionalId },
+      take: 1 // Solo necesitamos saber si existe al menos uno
+    })
   ]);
+
+  const hasAvailability = availability.length > 0;
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-10 space-y-10">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Panel del Profesional</h1>
+      
+      {/* HEADER */}
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Panel del Profesional</h1>
+          <p className="text-gray-500 text-sm">Bienvenido, gestiona tus citas y contenido.</p>
+        </div>
         <Link
           href="/dashboard-profesional/editar-articulo/new"
-          className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+          className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 text-center font-medium shadow-sm transition-colors"
         >
-          Nuevo artículo
+          + Nuevo artículo
         </Link>
       </header>
 
-      {/* Agenda próxima */}
-      <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xl font-semibold">Próximas citas (14 días)</h2>
+      {/* --- ALERTA DE CONFIGURACIÓN (CRÍTICO PARA TU PRUEBA) --- */}
+      <section className={`p-6 rounded-lg border ${hasAvailability ? 'bg-white border-gray-200' : 'bg-amber-50 border-amber-200'}`}>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-800">
+              {hasAvailability ? "🗓️ Tu Agenda" : "⚠️ Configuración Pendiente"}
+            </h2>
+            <p className="text-sm text-gray-600 mt-1">
+              {hasAvailability 
+                ? "Tus horarios están activos. Los pacientes pueden encontrarte." 
+                : "Aún no has definido tus horarios de atención. Tu perfil no permitirá reservas hasta que lo hagas."}
+            </p>
+          </div>
           <Link
-            href={`/perfil/${professionalId}/calendar`}
-            className="text-sm text-blue-600 underline"
+            href="/dashboard-profesional/horarios"
+            className={`px-5 py-2.5 rounded font-medium text-sm transition-colors ${
+              hasAvailability 
+                ? "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50" 
+                : "bg-amber-600 text-white hover:bg-amber-700 shadow-sm"
+            }`}
           >
-            Ver calendario público →
+            {hasAvailability ? "Gestionar Horarios" : "Configurar Horarios Ahora"}
           </Link>
+        </div>
+      </section>
+
+      {/* SECCIÓN 1: PRÓXIMAS CITAS */}
+      <section>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-gray-800">Próximas Citas</h2>
+          {/* Aquí podrías poner el link al perfil público en el futuro */}
         </div>
 
         {appointments.length === 0 ? (
-          <p className="text-gray-600">Sin citas en los próximos días.</p>
+          <div className="bg-white border border-dashed rounded-lg p-8 text-center text-gray-500">
+            No tienes citas programadas para los próximos 14 días.
+          </div>
         ) : (
-          <ul className="divide-y border rounded-lg">
-            {appointments.map((a) => (
-              <li key={a.id} className="p-4 flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="font-medium">{fmtDateTime(new Date(a.startTime))}</div>
-                  <div className="text-sm text-gray-600">
-                    {a.user?.name ?? 'Usuario'} ({a.user?.email ?? '—'})
-                    {a.user?.phone ? ` · ${a.user.phone}` : ''}
-                  </div>
-                  {a.service ? (
-                    <div className="text-sm text-gray-700">
-                      Servicio: {a.service.title}
+          <div className="bg-white border rounded-lg overflow-hidden shadow-sm">
+            <ul className="divide-y divide-gray-100">
+              {appointments.map((a) => (
+                <li key={a.id} className="p-4 hover:bg-gray-50 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  
+                  {/* Info Cita */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-bold text-lg text-blue-900">
+                         {fmtDateTime(new Date(a.date))}
+                      </span>
+                      <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-800 font-medium">
+                        {a.status}
+                      </span>
                     </div>
-                  ) : null}
-                  <div className="text-xs text-gray-500">Estado: {a.status}</div>
-                </div>
-                <CancelAppointmentButton professionalId={professionalId} appointmentId={a.id} />
-              </li>
-            ))}
-          </ul>
+                    
+                    <div className="text-gray-900 font-medium">
+                      {a.user?.name || 'Paciente sin nombre'}
+                    </div>
+                    
+                    <div className="text-sm text-gray-500 flex flex-wrap gap-x-4">
+                      <span>{a.user?.email}</span>
+                      {a.user?.phone && <span>📞 {a.user.phone}</span>}
+                    </div>
+
+                    {a.service && (
+                      <div className="text-sm text-gray-600 mt-1">
+                        Servicio: <span className="font-medium">{a.service.title}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Acciones */}
+                  <div className="flex-shrink-0">
+                    <CancelAppointmentButton 
+                      professionalId={professionalId} 
+                      appointmentId={a.id} 
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </section>
 
-      {/* Tus artículos */}
+      {/* SECCIÓN 2: TUS ARTÍCULOS */}
       <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xl font-semibold">Tus artículos</h2>
-          <Link
-            href="/dashboard-profesional/editar-articulo/new"
-            className="text-sm text-blue-600 underline"
-          >
-            Crear nuevo →
-          </Link>
-        </div>
-
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">Tus Últimos Artículos</h2>
+        
         {myPosts.length === 0 ? (
-          <p className="text-gray-600">Aún no creaste artículos.</p>
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
+            <p className="text-gray-600 mb-2">Aún no has publicado contenido.</p>
+            <Link href="/dashboard-profesional/editar-articulo/new" className="text-blue-600 hover:underline text-sm">
+              Escribir mi primer artículo
+            </Link>
+          </div>
         ) : (
-          <ul className="grid md:grid-cols-2 gap-4">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {myPosts.map((p) => (
-              <li key={p.id} className="border rounded-lg p-4">
-                <div className="font-medium truncate">{p.title}</div>
-                <div className="text-sm text-gray-600">
-                  Estado: {p.status} {p.service ? `· ${p.service.title}` : ''}
+              <article key={p.id} className="bg-white border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+                <h3 className="font-medium text-gray-900 truncate mb-1" title={p.title}>
+                  {p.title}
+                </h3>
+                <div className="text-xs text-gray-500 mb-3 flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full ${
+                    p.status === 'PUBLISHED' ? 'bg-green-500' : 'bg-gray-400'
+                  }`} />
+                  {p.status}
                 </div>
-                <div className="flex items-center gap-2 mt-3">
+                
+                <div className="flex items-center gap-2 mt-auto pt-2 border-t">
                   <Link
                     href={`/dashboard-profesional/editar-articulo/${p.id}`}
-                    className="px-3 py-1.5 rounded border hover:bg-gray-50 text-sm"
+                    className="flex-1 text-center py-1.5 text-xs font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded border"
                   >
                     Editar
                   </Link>
-                  <Link
-                    href={`/blog/${p.slug}`}
-                    className="px-3 py-1.5 rounded border hover:bg-gray-50 text-sm"
-                    target="_blank"
-                  >
-                    Ver
-                  </Link>
+                  {p.status === 'PUBLISHED' && (
+                    <Link
+                      href={`/blog/${p.slug}`}
+                      target="_blank"
+                      className="flex-1 text-center py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded border border-blue-100"
+                    >
+                      Ver
+                    </Link>
+                  )}
                 </div>
-              </li>
+              </article>
             ))}
-          </ul>
+          </div>
         )}
       </section>
     </main>
