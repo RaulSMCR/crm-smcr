@@ -1,3 +1,4 @@
+// src/app/api/auth/register/route.js
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
@@ -8,7 +9,7 @@ export async function POST(request) {
   try {
     const body = await request.json().catch(() => ({}));
     
-    // 1. Extraemos TODOS los campos que envía tu formulario
+    // 1. Extraemos TODOS los campos
     const { 
       name, 
       email, 
@@ -42,22 +43,21 @@ export async function POST(request) {
       );
     }
 
-    // 4. Seguridad
+    // 4. Seguridad (Hash + Token)
     const hashedPassword = await bcrypt.hash(String(password), 12);
     const { token, tokenHash, expiresAt } = generateSecurityToken();
 
-    // 5. Crear Usuario en DB (Mapeando los campos extra)
-    // NOTA: Convertimos birthDate (string YYYY-MM-DD) a objeto Date
+    // 5. Crear Usuario en DB
     const newUser = await prisma.user.create({
       data: {
         name: String(name).trim(),
         email: normalizedEmail,
         passwordHash: hashedPassword,
         
-        // Campos específicos del Paciente
+        // Campos específicos
         identification: String(identification).trim(),
         phone: String(phone).trim(),
-        birthDate: new Date(birthDate), // Conversión crítica para Prisma
+        birthDate: new Date(birthDate), 
         
         gender: gender ? String(gender).trim() : null,
         interests: interests ? String(interests).trim() : null,
@@ -71,12 +71,21 @@ export async function POST(request) {
       },
     });
 
-    // 6. Enviar Email
+    // 6. Enviar Email (CON REPORTE DE ERRORES PARA DEBUG)
     try {
       await sendVerificationEmail(newUser.email, token);
     } catch (emailError) {
-      console.error("⚠️ Falló envío de email:", emailError);
-      // No retornamos error 500 para no bloquear el registro
+      console.error("⚠️ CRITICAL EMAIL ERROR:", emailError);
+      
+      // ESTA ES LA PARTE IMPORTANTE:
+      // Devolvemos un error 500 explícito con el mensaje técnico
+      // para que lo puedas leer en el formulario.
+      return NextResponse.json(
+        { 
+          error: `Usuario creado (ID: ${newUser.id}), pero FALLÓ el envío del correo: ${emailError.message || 'Error desconocido en Resend'}` 
+        },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json(
@@ -91,7 +100,7 @@ export async function POST(request) {
   } catch (error) {
     console.error("REGISTER_ERROR:", error);
     return NextResponse.json(
-      { error: "Error interno del servidor." },
+      { error: "Error interno del servidor: " + error.message },
       { status: 500 }
     );
   }
