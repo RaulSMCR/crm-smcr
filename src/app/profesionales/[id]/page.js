@@ -1,103 +1,148 @@
 //src/app/profesionales/[id]/page.js
-import { notFound } from 'next/navigation';
-import Image from 'next/image';
-import Link from 'next/link';
-import { prisma } from '@/lib/prisma';
-import ProtectedAction from '@/components/auth/ProtectedAction';
+'use client';
 
-function getYoutubeEmbedId(url) {
-  if (!url) return null;
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-  const match = url.match(regExp);
-  return (match && match[2].length === 11) ? match[2] : null;
-}
+import { useState, useEffect, useCallback } from 'react';
+import { DayPicker } from 'react-day-picker';
+import 'react-day-picker/dist/style.css';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { useParams, useRouter } from 'next/navigation';
 
-export default async function ProfessionalProfilePage({ params }) {
-  const { id } = await params;
+export default function AgendarPage() {
+  const params = useParams();
+  const router = useRouter();
+  const professionalId = params.id;
 
-  const pro = await prisma.professional.findUnique({
-    where: { id, isApproved: true },
-    include: {
-      categories: true,
-      services: { select: { id: true, title: true, price: true } },
-      posts: {
-        where: { status: 'PUBLISHED' },
-        orderBy: { createdAt: 'desc' },
-        take: 3,
+  const [selectedDay, setSelectedDay] = useState(null);
+  const [availableTimes, setAvailableTimes] = useState([]);
+  const [busySlots, setBusySlots] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState({ text: '', type: '' });
+
+  const fetchAvailability = useCallback(async () => {
+    if (!professionalId) return;
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/calendar/${professionalId}`);
+      if (response.ok) {
+        const data = await response.json();
+        const busyDates = data.busy.map(slot => ({
+          start: new Date(slot.start),
+          end: new Date(slot.end),
+        }));
+        setBusySlots(busyDates);
+      }
+    } catch (error) {
+      console.error("Error al cargar disponibilidad:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [professionalId]);
+
+  useEffect(() => {
+    fetchAvailability();
+  }, [fetchAvailability]);
+
+  useEffect(() => {
+    if (!selectedDay) {
+      setAvailableTimes([]);
+      return;
+    }
+
+    // Generar slots de 9 AM a 5 PM (Mejorable leyendo pro.availabilities)
+    const workHours = [];
+    for (let hour = 9; hour < 17; hour++) {
+      workHours.push(new Date(selectedDay.getFullYear(), selectedDay.getMonth(), selectedDay.getDate(), hour));
+    }
+
+    const available = workHours.filter(timeSlot => {
+      return !busySlots.some(busySlot => 
+        timeSlot.getTime() === busySlot.start.getTime()
+      );
+    });
+
+    setAvailableTimes(available);
+  }, [selectedDay, busySlots]);
+
+  const handleTimeSelect = async (time) => {
+    setMessage({ text: '', type: '' });
+    const isConfirmed = confirm(`¿Confirmas la cita para el ${format(time, "PPPP 'a las' p", { locale: es })}?`);
+
+    if (isConfirmed) {
+      try {
+        const response = await fetch(`/api/calendar/${professionalId}/book`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ selectedTime: time }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          setMessage({ text: '¡Cita agendada con éxito! Revisa tu correo.', type: 'success' });
+          fetchAvailability();
+          setSelectedDay(null);
+        } else {
+          setMessage({ text: `Error: ${data.error || 'No se pudo agendar.'}`, type: 'error' });
+        }
+      } catch (error) {
+        setMessage({ text: 'Error de conexión al servidor.', type: 'error' });
       }
     }
-  });
-
-  if (!pro) return notFound();
-  const youtubeId = getYoutubeEmbedId(pro.introVideoUrl);
+  };
 
   return (
-    <div className="bg-gray-50 min-h-screen pb-20">
-      <div className="bg-white border-b">
-        <div className="max-w-6xl mx-auto px-4 py-10 flex flex-col md:flex-row gap-8 items-start">
-          <div className="relative w-32 h-32 md:w-48 md:h-48 flex-shrink-0">
-            {pro.avatarUrl ? (
-              <Image src={pro.avatarUrl} alt={pro.name} fill className="object-cover rounded-2xl shadow-lg" />
-            ) : (
-              <div className="w-full h-full bg-blue-100 rounded-2xl flex items-center justify-center text-4xl font-bold text-blue-600">
-                {pro.name.charAt(0)}
-              </div>
-            )}
-          </div>
-          <div className="flex-1">
-            <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900">{pro.name}</h1>
-            <p className="text-xl text-blue-600 font-medium">{pro.declaredJobTitle}</p>
-            <div className="flex flex-wrap gap-2 mt-3">
-              {pro.categories.map(cat => (
-                <span key={cat.id} className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{cat.name}</span>
-              ))}
-            </div>
-          </div>
+    <div className="container mx-auto px-6 py-12 max-w-5xl">
+      <h1 className="text-3xl font-bold text-center mb-2">Agenda tu Cita</h1>
+      <p className="text-center text-gray-600 mb-8">Gestión profesional de turnos SMCR</p>
+
+      {message.text && (
+        <div className={`p-4 mb-6 rounded-xl text-center font-medium ${message.type === 'error' ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-green-100 text-green-700 border border-green-200'}`}>
+          {message.text}
         </div>
-      </div>
+      )}
 
-      <main className="max-w-6xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-10">
-          <section className="bg-white p-8 rounded-2xl shadow-sm border">
-            <h2 className="text-2xl font-bold mb-4">Sobre mí</h2>
-            <div className="text-gray-600 leading-relaxed whitespace-pre-wrap">{pro.bio}</div>
-          </section>
-
-          {pro.posts.length > 0 && (
-            <section>
-              <h2 className="text-2xl font-bold mb-6">📝 Publicaciones Recientes</h2>
-              <div className="grid gap-4">
-                {pro.posts.map((post) => (
-                  <ProtectedAction key={post.id}>
-                    <Link href={`/blog/${post.slug}`} className="group bg-white p-5 rounded-xl border hover:shadow-md transition-all flex items-center justify-between">
-                      <div>
-                        <h3 className="font-bold group-hover:text-blue-600">{post.title}</h3>
-                        <p className="text-sm text-blue-500 mt-1">🔓 Acceso exclusivo para usuarios</p>
-                      </div>
-                      <span className="text-gray-400">→</span>
-                    </Link>
-                  </ProtectedAction>
-                ))}
-              </div>
-            </section>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+        <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-100 flex justify-center">
+          <DayPicker
+            mode="single"
+            selected={selectedDay}
+            onSelect={setSelectedDay}
+            disabled={{ before: new Date() }}
+            locale={es}
+          />
+        </div>
+        
+        <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-100">
+          <h2 className="text-xl font-bold mb-6 text-gray-800 border-b pb-2">
+            {selectedDay ? format(selectedDay, 'PPP', { locale: es }) : 'Selecciona un día'}
+          </h2>
+          
+          {loading ? (
+            <p className="text-gray-400 animate-pulse">Consultando agenda...</p>
+          ) : selectedDay ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {availableTimes.length > 0 ? (
+                availableTimes.map((time, index) => (
+                  <button 
+                    key={index}
+                    onClick={() => handleTimeSelect(time)}
+                    className="bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-all active:scale-95 shadow-sm"
+                  >
+                    {format(time, 'p', { locale: es })}
+                  </button>
+                ))
+              ) : (
+                <p className="col-span-full text-gray-500 italic">No hay horarios disponibles.</p>
+              )}
+            </div>
+          ) : (
+            <div className="h-40 flex items-center justify-center border-2 border-dashed border-gray-100 rounded-xl text-gray-300">
+              Esperando selección de fecha
+            </div>
           )}
         </div>
-
-        <div className="lg:col-span-1">
-          <div className="sticky top-8 bg-white p-6 rounded-2xl shadow-lg border border-blue-50">
-            <h3 className="text-lg font-semibold mb-4 text-center">Reserva tu cita</h3>
-            <ProtectedAction>
-              <Link 
-                href={`/reservar/${pro.id}`}
-                className="block w-full bg-blue-600 text-white text-center font-bold py-4 rounded-xl hover:bg-blue-700 transition-all shadow-md"
-              >
-                Ver Agenda y Reservar
-              </Link>
-            </ProtectedAction>
-            <p className="text-xs text-gray-400 mt-4 text-center italic">Requiere inicio de sesión</p>
-          </div>
-        </div>
-      </main>
+      </div>
     </div>
   );
 }
