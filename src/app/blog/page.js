@@ -1,9 +1,8 @@
 // src/app/blog/page.js
 import Link from 'next/link';
-import Image from 'next/image'; // Usaremos el componente optimizado
+import Image from 'next/image'; 
 import { prisma } from '@/lib/prisma';
 
-// Utilidad para formatear fechas (extraída para reutilización o testeo)
 const formatDate = (date) => {
   return new Intl.DateTimeFormat('es-ES', {
     day: '2-digit',
@@ -13,8 +12,6 @@ const formatDate = (date) => {
 };
 
 export default async function BlogPage() {
-  // ADVERTENCIA: En producción, debes implementar paginación (skip/take).
-  // Aquí limitamos a 20 para evitar sobrecarga si la BD crece.
   const posts = await prisma.post.findMany({
     where: { status: 'PUBLISHED' },
     orderBy: { createdAt: 'desc' },
@@ -30,8 +27,7 @@ export default async function BlogPage() {
       author: {
         select: {
           name: true,
-          profession: true,
-          // avatarUrl: true, // No lo usabas en el renderizado, lo quité para optimizar la query
+          declaredJobTitle: true, // <--- CORREGIDO: Campo actualizado
         },
       },
     },
@@ -52,15 +48,10 @@ export default async function BlogPage() {
         <ul className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {posts.map((p) => (
             <li key={p.id} className="group flex flex-col border rounded-lg overflow-hidden hover:shadow-lg transition-shadow bg-white">
-              {/* SOLUCIÓN ENLACES ANIDADOS: 
-                 En lugar de envolver todo, envolvemos la imagen y el título por separado,
-                 o usamos un enlace absoluto posicionado (no implementado aquí para mantener la semántica simple).
-              */}
               
               {/* Imagen Clicable */}
               {p.imageUrl && (
                 <Link href={`/blog/${p.slug}`} className="relative h-48 w-full overflow-hidden bg-gray-100">
-                  {/* Si decides no usar next/image, vuelve a <img>, pero te recomiendo configurar el dominio */}
                   <Image
                     src={p.imageUrl}
                     alt={`Portada del artículo: ${p.title}`}
@@ -81,12 +72,15 @@ export default async function BlogPage() {
 
                 <div className="text-xs text-gray-500 mt-2 flex flex-wrap gap-x-2 items-center">
                   <span>{p.author?.name || 'Redacción'}</span>
-                  {p.author?.profession && (
+                  
+                  {/* CORREGIDO: Usamos declaredJobTitle en el renderizado */}
+                  {p.author?.declaredJobTitle && (
                     <>
                       <span className="text-gray-300">•</span>
-                      <span>{p.author.profession}</span>
+                      <span>{p.author.declaredJobTitle}</span>
                     </>
                   )}
+                  
                   <span className="text-gray-300">•</span>
                   <time dateTime={p.createdAt.toISOString()}>
                     {formatDate(p.createdAt)}
@@ -98,7 +92,6 @@ export default async function BlogPage() {
                     {p.postType}
                   </span>
 
-                  {/* Enlace al Servicio independiente (ahora es válido porque no está dentro de otro Link) */}
                   {p.service && (
                     <Link
                       href={`/servicios/${p.service.slug}`}

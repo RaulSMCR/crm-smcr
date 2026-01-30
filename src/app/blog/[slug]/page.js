@@ -3,7 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
-import MarkdownRenderer from '@/components/MarkdownRenderer'; // Tu componente de renderizado
+import MarkdownRenderer from '@/components/MarkdownRenderer'; 
 
 // --- UTILIDADES ---
 
@@ -17,18 +17,16 @@ function formatDate(date) {
 
 // --- DATA FETCHING ---
 
-/**
- * Obtiene el post actual con sus relaciones necesarias.
- * Nota: En Next.js App Router, las peticiones fetch se dedulican automáticamente.
- * Como estamos usando Prisma directo, si el tráfico es muy alto, podrías envolver
- * esto en `React.cache`, pero para un blog estándar no es estrictamente necesario.
- */
 async function getPost(slug) {
   const post = await prisma.post.findFirst({
     where: { slug, status: 'PUBLISHED' },
     include: {
       author: {
-        select: { name: true, profession: true, avatarUrl: true },
+        select: { 
+          name: true, 
+          declaredJobTitle: true, // <--- CORREGIDO: Campo actualizado
+          avatarUrl: true 
+        },
       },
       service: {
         select: { slug: true, title: true },
@@ -38,18 +36,15 @@ async function getPost(slug) {
   return post;
 }
 
-/**
- * Calcula el post anterior y siguiente para la navegación al pie de página.
- */
 async function getPrevNext(createdAt) {
   const [prev, next] = await Promise.all([
-    // Anterior: El más reciente creado ANTES del actual
+    // Anterior
     prisma.post.findFirst({
       where: { status: 'PUBLISHED', createdAt: { lt: createdAt } },
       orderBy: { createdAt: 'desc' },
       select: { slug: true, title: true },
     }),
-    // Siguiente: El más antiguo creado DESPUÉS del actual
+    // Siguiente
     prisma.post.findFirst({
       where: { status: 'PUBLISHED', createdAt: { gt: createdAt } },
       orderBy: { createdAt: 'asc' },
@@ -62,7 +57,6 @@ async function getPrevNext(createdAt) {
 // --- METADATOS (SEO) ---
 
 export async function generateMetadata({ params }) {
-  // Await params es obligatorio en versiones modernas de Next.js
   const { slug } = await params;
   const post = await getPost(slug);
 
@@ -70,7 +64,6 @@ export async function generateMetadata({ params }) {
     return { title: 'Artículo no encontrado' };
   }
 
-  // Creamos un extracto limpio del contenido para la descripción (quitando símbolos de MD)
   const excerpt = post.content
     ? post.content.replace(/[#*`_]/g, '').slice(0, 160) + '...'
     : 'Lee este artículo en nuestro blog.';
@@ -119,7 +112,7 @@ export default async function BlogDetailPage({ params }) {
         
         {/* 2. Encabezado del Artículo */}
         <header className="mb-10 text-center md:text-left">
-          {/* Etiquetas (Categoría / Servicio) */}
+          {/* Etiquetas */}
           <div className="flex flex-wrap gap-3 mb-6 justify-center md:justify-start">
             <span className="px-3 py-1 bg-brand-50 text-brand-700 text-xs font-bold rounded-full uppercase tracking-wider">
               {post.postType}
@@ -160,7 +153,8 @@ export default async function BlogDetailPage({ params }) {
                 {post.author?.name || 'Redacción'}
               </span>
               <span className="text-gray-500">
-                {post.author?.profession ? `${post.author.profession} • ` : ''} 
+                {/* CORREGIDO: Usamos declaredJobTitle en el renderizado */}
+                {post.author?.declaredJobTitle ? `${post.author.declaredJobTitle} • ` : ''} 
                 <time dateTime={post.createdAt.toISOString()}>
                   {formatDate(post.createdAt)}
                 </time>
@@ -169,7 +163,7 @@ export default async function BlogDetailPage({ params }) {
           </div>
         </header>
 
-        {/* 3. Hero Section (Imagen o Video Principal) */}
+        {/* 3. Hero Section */}
         <div className="mb-12 rounded-2xl overflow-hidden shadow-sm bg-gray-50">
           {post.postType === 'VIDEO' && post.mediaUrl ? (
             <div className="aspect-video w-full">
@@ -196,7 +190,7 @@ export default async function BlogDetailPage({ params }) {
                 src={post.imageUrl}
                 alt={`Imagen principal de: ${post.title}`}
                 fill
-                priority // Carga crítica para LCP
+                priority 
                 className="object-cover"
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 90vw, 1000px"
               />
@@ -204,12 +198,8 @@ export default async function BlogDetailPage({ params }) {
           ) : null}
         </div>
 
-        {/* 4. CONTENIDO (Renderizado MDX/Markdown) */}
+        {/* 4. CONTENIDO */}
         <div className="max-w-none">
-            {/* Aquí usamos las clases 'prose' que configuramos en tailwind.config.
-               prose-lg: Tamaño de letra cómodo.
-               prose-brand: (si lo configuraste) o prose-blue por defecto.
-            */}
             <article className="prose prose-lg prose-blue mx-auto text-gray-800">
                 <MarkdownRenderer content={post.content} />
             </article>

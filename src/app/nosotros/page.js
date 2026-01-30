@@ -1,3 +1,4 @@
+//src/app/nosotros/page.js
 import { prisma } from '@/lib/prisma';
 
 export const metadata = {
@@ -6,7 +7,6 @@ export const metadata = {
 };
 
 export default async function NosotrosPage() {
-  // Consulta corregida para coincidir con tu Schema.prisma
   const professionals = await prisma.professional.findMany({
     where: {
       isApproved: true,
@@ -17,8 +17,7 @@ export default async function NosotrosPage() {
     select: {
       id: true,
       name: true,
-      profession: true,
-      // Usamos introVideoUrl si existe, o null
+      declaredJobTitle: true, // <--- CORREGIDO: Campo actualizado
       introVideoUrl: true, 
       services: {
         take: 3,
@@ -51,7 +50,8 @@ export default async function NosotrosPage() {
             
             <div className="p-6">
               <h2 className="text-xl font-bold text-gray-900">{pro.name}</h2>
-              <p className="text-brand-600 font-medium mb-4">{pro.profession}</p>
+              {/* CORREGIDO: Usamos declaredJobTitle en el renderizado */}
+              <p className="text-brand-600 font-medium mb-4">{pro.declaredJobTitle}</p>
               
               {/* Sección de Servicios */}
               <div className="space-y-2">
