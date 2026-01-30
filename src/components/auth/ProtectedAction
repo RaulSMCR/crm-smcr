@@ -1,0 +1,22 @@
+// src/components/auth/ProtectedAction.jsx
+'use client';
+import { useSession } from 'next-auth/react';
+import { useRouter, usePathname } from 'next/navigation';
+
+export default function ProtectedAction({ children, onClick, fallbackUrl = '/login' }) {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const handleInteraction = (e) => {
+    if (status !== 'authenticated') {
+      e.preventDefault();
+      // Redirigimos al login guardando a dónde quería ir el usuario
+      router.push(`${fallbackUrl}?callbackUrl=${encodeURIComponent(pathname)}`);
+    } else if (onClick) {
+      onClick();
+    }
+  };
+
+  return <div onClick={handleInteraction}>{children}</div>;
+}
