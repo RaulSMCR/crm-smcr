@@ -1,9 +1,15 @@
 import { PrismaClient } from '@prisma/client';
 
 const prismaClientSingleton = () => {
-  // 👈 AQUÍ está el cambio clave: pasamos la URL explícitamente
+  // Forma Universal (funciona en v5, v6 y v7)
   return new PrismaClient({
-    datasourceUrl: process.env.DATABASE_URL,
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL,
+      },
+    },
+    // Opcional: Logs para depurar si algo falla en producción
+    // log: ['error'], 
   });
 };
 
@@ -11,6 +17,6 @@ const globalForPrisma = globalThis;
 
 const prisma = globalForPrisma.prisma ?? prismaClientSingleton();
 
-export { prisma }; // O export default prisma, según como lo tengas
+export { prisma };
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
