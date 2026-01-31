@@ -13,7 +13,6 @@ const key = new TextEncoder().encode(secretKey);
 
 /**
  * 1. OBTENER SESIÓN (getSession)
- * Verifica la cookie y devuelve el usuario si está logueado.
  */
 export async function getSession() {
   const cookieStore = cookies();
@@ -61,13 +60,12 @@ export async function login(formData) {
   }
 
   // 3. Crear Token de Sesión
-  // Guardamos datos útiles en el payload para evitar consultas extra a la DB
   const sessionData = {
     userId: user.id,
     email: user.email,
     role: role,
     user: { name: user.name }, 
-    profile: user // Datos completos (útil para verificar estado, avatar, etc.)
+    profile: user // Datos completos
   };
 
   // Caducidad: 7 días
@@ -100,16 +98,17 @@ export async function logout() {
 }
 
 /**
- * 4. REGISTRO PROFESIONAL (Con Slug, Teléfono y Bio)
+ * 4. REGISTRO PROFESIONAL (Completo con CV y Carta)
  */
 export async function registerProfessional(formData) {
-  // Recibir datos del formulario "rico"
   const name = formData.get('name');
   const email = formData.get('email');
   const password = formData.get('password');
   const specialty = formData.get('specialty');
   const phone = formData.get('phone'); 
-  const bio = formData.get('bio');    
+  const bio = formData.get('bio');
+  const coverLetter = formData.get('coverLetter'); 
+  const cvFile = formData.get('cv'); 
 
   // Validaciones básicas
   if (!name || !email || !password || !specialty) {
@@ -127,7 +126,6 @@ export async function registerProfessional(formData) {
       .replace(/[\s_-]+/g, '-');
       
     let count = 0;
-    // Loop para asegurar que el slug sea único (ej: juan-perez, juan-perez-1)
     while (true) {
       const slugToCheck = count === 0 ? slug : `${slug}-${count}`;
       const check = await prisma.professional.findUnique({ where: { slug: slugToCheck } });
@@ -138,10 +136,19 @@ export async function registerProfessional(formData) {
       count++;
     }
 
-    // 3. Encriptar contraseña
+    // 3. Manejo del Archivo (CV)
+    // NOTA: Aquí solo guardamos una referencia temporal.
+    // Para guardar el archivo real en producción, necesitaríamos Vercel Blob o S3.
+    let cvUrl = null;
+    if (cvFile && cvFile.size > 0) {
+      // Simulación: Guardamos el nombre del archivo para saber que intentó subirlo
+      cvUrl = `pending_upload_${Date.now()}_${cvFile.name}`;
+    }
+
+    // 4. Encriptar contraseña
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 4. Crear en Base de Datos
+    // 5. Crear en Base de Datos
     await prisma.professional.create({
       data: {
         name,
@@ -151,7 +158,9 @@ export async function registerProfessional(formData) {
         slug,
         phone: phone || null,
         bio: bio || null,
-        // isApproved: false // Por defecto es false en el schema, no hace falta ponerlo
+        coverLetter: coverLetter || null,
+        cvUrl: cvUrl, 
+        // isApproved: false (default)
       }
     });
 
