@@ -1,7 +1,7 @@
 //src/app/registro/profesional/ProfessionalRegisterClient.js
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { registerProfessional } from '@/actions/auth-actions';
 
@@ -9,11 +9,38 @@ export default function ProfessionalRegisterClient() {
   const router = useRouter();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // Estados para validación de contraseña
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passValid, setPassValid] = useState({
+    length: false,
+    number: false,
+    special: false,
+    match: false
+  });
+
+  // Validar requisitos mientras escribe
+  useEffect(() => {
+    setPassValid({
+      length: password.length >= 8,
+      number: /\d/.test(password),
+      special: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+      match: password && password === confirmPassword
+    });
+  }, [password, confirmPassword]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+
+    // Validación final en cliente
+    if (!passValid.length || !passValid.number || !passValid.match) {
+      setError('Por favor, cumple con todos los requisitos de seguridad.');
+      setLoading(false);
+      return;
+    }
 
     const formData = new FormData(e.target);
     const res = await registerProfessional(formData);
@@ -27,107 +54,118 @@ export default function ProfessionalRegisterClient() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white p-8 rounded-xl shadow-lg border border-gray-100 space-y-8">
+    <form onSubmit={handleSubmit} className="bg-white p-8 rounded-xl shadow-lg border border-gray-100 space-y-6">
       
-      {/* Encabezado */}
-      <div className="text-center pb-6 border-b border-gray-100">
-        <h2 className="text-2xl font-bold text-gray-900">Solicitud de Ingreso Profesional</h2>
-        <p className="text-sm text-gray-500 mt-2">Completa tu perfil para unirte a la red de Salud Mental Costa Rica.</p>
+      <div className="text-center pb-4 border-b border-gray-100">
+        <h2 className="text-2xl font-bold text-gray-900">Registro Profesional</h2>
+        <p className="text-sm text-gray-500 mt-1">Crea tu cuenta segura y únete a la red.</p>
       </div>
 
       {error && (
-        <div className="bg-red-50 text-red-600 p-4 rounded-lg text-sm border border-red-200 font-medium">
+        <div className="bg-red-50 text-red-600 p-4 rounded-lg text-sm border border-red-200 font-medium flex items-center gap-2">
           ⚠️ {error}
         </div>
       )}
 
-      {/* SECCIÓN 1: Credenciales */}
-      <section className="space-y-4">
-        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-2">
-          1. Datos de la Cuenta
-        </h3>
+      {/* 1. Datos Personales */}
+      <div className="space-y-4">
+        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">1. Datos Personales</h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1">Nombre Completo *</label>
-            <input name="name" type="text" required className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="Ej: Dr. Juan Pérez" />
+            <input name="name" type="text" required className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500" placeholder="Dr. Juan Pérez" />
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1">Especialidad *</label>
-            <input name="specialty" type="text" required className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="Ej: Psicólogo Clínico" />
+            <input name="specialty" type="text" required className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500" placeholder="Psicología" />
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Correo Electrónico *</label>
-            <input name="email" type="email" required className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="correo@ejemplo.com" />
-          </div>
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">Email Profesional *</label>
+          <input name="email" type="email" required className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500" placeholder="nombre@ejemplo.com" />
+        </div>
+        
+        <div>
+           <label className="block text-sm font-semibold text-gray-700 mb-1">Teléfono / WhatsApp</label>
+           <input name="phone" type="tel" className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500" placeholder="+54 11..." />
+        </div>
+      </div>
+
+      {/* 2. Seguridad */}
+      <div className="space-y-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">2. Seguridad de la Cuenta</h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1">Contraseña *</label>
-            <input name="password" type="password" required className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="••••••••" />
+            <input 
+              name="password" 
+              type="password" 
+              required 
+              className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Confirmar Contraseña *</label>
+            <input 
+              name="confirmPassword" 
+              type="password" 
+              required 
+              className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={(e) => setConfirmPassword(e.target.value)}
+            />
           </div>
         </div>
-      </section>
 
-      {/* SECCIÓN 2: Perfil Público */}
-      <section className="space-y-4">
-        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-2">
-          2. Perfil Público
-        </h3>
+        {/* Checklist de Seguridad */}
+        <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 mt-2">
+           <div className={`flex items-center gap-1 ${passValid.length ? 'text-green-600 font-bold' : ''}`}>
+             {passValid.length ? '✓' : '○'} Mínimo 8 caracteres
+           </div>
+           <div className={`flex items-center gap-1 ${passValid.number ? 'text-green-600 font-bold' : ''}`}>
+             {passValid.number ? '✓' : '○'} Al menos un número
+           </div>
+           <div className={`flex items-center gap-1 ${passValid.special ? 'text-green-600 font-bold' : ''}`}>
+             {passValid.special ? '✓' : '○'} Carácter especial
+           </div>
+           <div className={`flex items-center gap-1 ${passValid.match ? 'text-green-600 font-bold' : ''}`}>
+             {passValid.match ? '✓' : '○'} Las contraseñas coinciden
+           </div>
+        </div>
+      </div>
+
+      {/* 3. Perfil y Documentos */}
+      <div className="space-y-4">
+        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">3. Información Adicional</h3>
         
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">Teléfono / WhatsApp</label>
-          <input name="phone" type="tel" className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="+506 8888-8888" />
+          <label className="block text-sm font-semibold text-gray-700 mb-1">Biografía / Perfil</label>
+          <textarea name="bio" rows="2" className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500" placeholder="Breve presentación profesional..."></textarea>
         </div>
 
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">Biografía Corta</label>
-          <textarea name="bio" rows="3" className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="Descríbete brevemente para los pacientes..."></textarea>
-        </div>
-      </section>
-
-      {/* SECCIÓN 3: Admisión */}
-      <section className="space-y-4">
-        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-2">
-          3. Documentación de Admisión
-        </h3>
-        
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1">Carta de Presentación</label>
-          <textarea name="coverLetter" rows="4" className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="¿Por qué deseas unirte a nuestra plataforma?"></textarea>
+          <textarea name="coverLetter" rows="2" className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500" placeholder="Motivo de solicitud de ingreso..."></textarea>
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">Adjuntar CV (PDF/Word)</label>
-          <div className="flex items-center justify-center w-full">
-            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition">
-                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    <svg className="w-8 h-8 mb-4 text-gray-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
-                        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
-                    </svg>
-                    <p className="mb-2 text-sm text-gray-500"><span className="font-semibold">Haz clic para subir</span> o arrastra el archivo</p>
-                    <p className="text-xs text-gray-500">PDF, DOC, DOCX (Máx. 5MB)</p>
-                </div>
-                <input name="cv" type="file" className="hidden" accept=".pdf,.doc,.docx" />
-            </label>
-          </div> 
+          <label className="block text-sm font-semibold text-gray-700 mb-1">Adjuntar CV (PDF)</label>
+          <input name="cv" type="file" accept=".pdf,.doc,.docx" className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
         </div>
-      </section>
+      </div>
 
       <div className="pt-4">
         <button 
           type="submit" 
-          disabled={loading}
-          className="w-full bg-blue-900 text-white py-4 rounded-lg font-bold text-lg hover:bg-blue-800 transition transform active:scale-[0.99] disabled:opacity-70 shadow-lg"
+          disabled={loading || !passValid.match || !passValid.length}
+          className="w-full bg-gray-900 text-white py-3.5 rounded-lg font-bold hover:bg-black transition disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
         >
-          {loading ? 'Procesando Registro...' : 'Enviar Solicitud Profesional'}
+          {loading ? 'Procesando...' : 'Enviar Solicitud Profesional'}
         </button>
       </div>
-
-      <p className="text-xs text-center text-gray-400 mt-4">
-        Al registrarte, aceptas nuestros términos y condiciones y la política de privacidad de datos.
-      </p>
     </form>
   );
 }
