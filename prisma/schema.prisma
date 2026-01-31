@@ -1,13 +1,18 @@
+// prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  // NOTA: Las URLs se movieron a prisma.config.ts por requerimiento de Prisma 7
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // directUrl = env("DIRECT_URL") // Descomenta si usas Supabase con pooler
 }
 
-// --- ENUMS ---
+// --------------------------------------------------------
+// USUARIOS Y ROLES
+// --------------------------------------------------------
 
 enum Role {
   USER
@@ -15,205 +20,182 @@ enum Role {
   PROFESSIONAL
 }
 
-enum PostType {
-  ARTICLE
-  VIDEO
-  AUDIO
-  TEXT
-}
-
-enum PostStatus {
-  DRAFT
-  PENDING
-  PUBLISHED
-  ARCHIVED
-}
-
-enum AppointmentStatus {
-  PENDING
-  CONFIRMED
-  CANCELLED_BY_USER
-  CANCELLED_BY_PRO
-  COMPLETED
-  NO_SHOW
-}
-
-enum PaymentStatus {
-  UNPAID
-  PAID
-  REFUNDED
-}
-
-// --- MODELOS ---
-
 model User {
   id            String    @id @default(cuid())
-  name          String
+  name          String?
   email         String    @unique
-  passwordHash  String?   // Opcional si usa Auth Social
-  
-  // Perfilamiento
-  gender        String?
-  interests     String?
+  password      String?
+  emailVerified DateTime?
+  image         String?
+  role          Role      @default(USER)
   phone         String?
-  identification String?
-  birthDate     DateTime?
-  timeZone      String?   @default("UTC")
-  
-  // Auth & Verificación
-  role                 Role      @default(USER)
-  emailVerified        Boolean   @default(false)
-  
-  // Tokens
-  verifyTokenHash      String?
-  verifyTokenExp       DateTime?
-  resetTokenHash       String?
-  resetTokenExp        DateTime?
-
-  // Timestamps
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
   
   // Relaciones
-  appointments         Appointment[]
-  approvedProfessionals Professional[] @relation("AdminApprovesPro")
-  approvedPosts        Post[]         @relation("AdminApprovesPost")
-}
+  appointments  Appointment[] // Citas como paciente
+  accounts      Account[]
+  sessions      Session[]
 
-model Category {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-  description String?  @db.Text
-  icon        String?
-  
-  parentId    String?
-  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children    Category[] @relation("CategoryHierarchy")
-
-  professionals Professional[]
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 model Professional {
-  id               String   @id @default(cuid())
-  email            String   @unique
-  name             String
-  slug             String   @unique 
-  declaredJobTitle String
-  passwordHash     String?   
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  name               String
+  password           String?  // Opcional si solo entra con Google
+  slug               String   @unique // Para URL amigable: /profesional/juan-perez
+  bio                String?  @db.Text
+  avatarUrl          String?
+  specialty          String?  // Ej: "Psicólogo Clínico"
   
-  // Perfil Público
-  phone            String?
-  avatarUrl        String?
-  resumeUrl        String?   
-  bio              String?   @db.Text
-  introVideoUrl    String?
+  // Integraciones
+  googleAccessToken  String?  @db.Text
+  googleRefreshToken String?  @db.Text
   
-  // Integraciones (Google Calendar y Pagos)
-  googleRefreshToken String? 
-  googleAccessToken  String?  
-  calendarId         String?  @default("primary") 
-  paymentLinkBase    String?
-  bankAccountInfo    String?
-
-  // Estado Admin
-  adminNotes       String?   @db.Text
-  isApproved       Boolean   @default(false)
-  emailVerified    Boolean   @default(false)
-  
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
   // Relaciones
-  categories       Category[]
-  services         Service[]
-  posts            Post[]        @relation("ProfessionalToPost")
-  availabilities   Availability[]
-  appointments     Appointment[]
-  
-  approvedById     String?
-  approvedBy       User?    @relation("AdminApprovesPro", fields: [approvedById], references: [id])
+  services      Service[]     // Servicios que ofrece
+  appointments  Appointment[] // Citas que atiende
+  availability  Availability[] // Horarios configurados
+  posts         Post[]        // Artículos de blog
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
-model Availability {
-  id             String       @id @default(cuid())
-  dayOfWeek      Int          // 0=Domingo
-  startTime      String       // "09:00"
-  endTime        String       // "17:00"
-  isActive       Boolean      @default(true)
-  
-  professionalId String
-  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
-
-  @@index([professionalId])
-}
+// --------------------------------------------------------
+// NEGOCIO: CITAS Y SERVICIOS
+// --------------------------------------------------------
 
 model Service {
-  id          String   @id @default(cuid())
-  slug        String   @unique
-  title       String
-  description String   @db.Text
-  price       Decimal  @default(0.0)
-  durationMin Int      @default(60) 
-  imageUrl    String?
+  id            String   @id @default(cuid())
+  title         String
+  description   String?  @db.Text
+  price         Decimal  @db.Decimal(10, 2)
+  durationMin   Int      // Duración en minutos (ej: 50)
   
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  // Relaciones
+  professionals Professional[] // Muchos profesionales pueden dar este servicio
+  appointments  Appointment[]
 
-  professionals Professional[]
-  posts         Post[]
-  appointments  Appointment[] 
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
-model Post {
-  id          String     @id @default(cuid())
-  slug        String     @unique
-  title       String
-  content     String     @db.Text
-  excerpt     String?    @db.Text
-  imageUrl    String?
-  
-  postType    PostType   @default(ARTICLE)
-  mediaUrl    String?    
-  status      PostStatus @default(PENDING)
-  
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-
-  authorId    String?
-  author      Professional? @relation("ProfessionalToPost", fields: [authorId], references: [id])
-  
-  serviceId   String?
-  service     Service?      @relation(fields: [serviceId], references: [id])
-
-  approvedById String?
-  approvedBy   User?         @relation("AdminApprovesPost", fields: [approvedById], references: [id])
+enum AppointmentStatus {
+  PENDING           // Solicitada
+  CONFIRMED         // Aceptada por profesional
+  CANCELLED_BY_USER
+  CANCELLED_BY_PRO
+  COMPLETED         // Terminada
+  NO_SHOW           // Paciente no se presentó
 }
 
 model Appointment {
   id             String            @id @default(cuid())
-  date           DateTime          
-  endDate        DateTime?         
-  
+  date           DateTime          // Fecha y hora de inicio
+  endDate        DateTime          // Fecha y hora de fin (calculada por durationMin)
   status         AppointmentStatus @default(PENDING)
-  paymentStatus  PaymentStatus     @default(UNPAID)
   
-  // Integración Google
-  gcalEventId    String?           
-  pricePaid      Decimal           @default(0.0)
-
+  pricePaid      Decimal?          @db.Decimal(10, 2)
+  paymentStatus  String?           @default("UNPAID") // UNPAID, PAID, REFUNDED
+  gcalEventId    String?           // ID del evento en Google Calendar para borrarlo luego
+  
+  // Relaciones
   userId         String
   user           User              @relation(fields: [userId], references: [id])
   
   professionalId String
   professional   Professional      @relation(fields: [professionalId], references: [id])
-
+  
   serviceId      String?
   service        Service?          @relation(fields: [serviceId], references: [id])
 
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
+
+  @@index([date])
+  @@index([userId])
+  @@index([professionalId])
+}
+
+model Availability {
+  id             String       @id @default(cuid())
+  dayOfWeek      Int          // 0=Domingo, 1=Lunes, ... 6=Sábado
+  startTime      String       // "09:00"
+  endTime        String       // "17:00"
+  
+  professionalId String
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@unique([professionalId, dayOfWeek]) // Un horario base por día por profesional
+}
+
+// --------------------------------------------------------
+// CONTENIDO: BLOG
+// --------------------------------------------------------
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model Post {
+  id          String     @id @default(cuid())
+  title       String
+  slug        String     @unique
+  content     String     @db.Text
+  excerpt     String?    @db.Text
+  coverImage  String?
+  status      PostStatus @default(DRAFT)
+  
+  // SEO
+  metaTitle   String?
+  metaDesc    String?
+
+  authorId    String
+  author      Professional @relation(fields: [authorId], references: [id])
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+// --------------------------------------------------------
+// AUTH.JS (NEXT-AUTH) - Tablas requeridas si usas adapters
+// --------------------------------------------------------
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
 }
