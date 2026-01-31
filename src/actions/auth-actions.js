@@ -7,7 +7,7 @@ import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 import { redirect } from "next/navigation";
 
-// Clave secreta para firmar los tokens (en producción debe estar en .env)
+// Configuración JWT
 const secretKey = process.env.JWT_SECRET || "secret-key-change-me-in-prod";
 const key = new TextEncoder().encode(secretKey);
 
@@ -38,40 +38,36 @@ export async function login(formData) {
   const email = formData.get("email");
   const password = formData.get("password");
 
-  // 1. Buscar usuario (Puede ser Profesional o Paciente/User)
-  // Primero buscamos como Profesional
+  if (!email || !password) return { error: "Faltan credenciales." };
+
+  // 1. Buscar usuario (Primero como Profesional, luego como Paciente)
   let user = await prisma.professional.findUnique({ where: { email } });
   let role = "PROFESSIONAL";
 
-  // Si no es profesional, buscamos como Paciente
   if (!user) {
     user = await prisma.user.findUnique({ where: { email } });
     role = "USER";
   }
 
-  // Si no existe ninguno
   if (!user) {
     return { error: "Credenciales inválidas." };
   }
 
   // 2. Verificar contraseña
-  // Nota: Asegúrate de que tu DB use nombres consistentes. 
-  // Si en Prisma es 'password', usa 'password'. Si es 'passwordHash', ajusta aquí.
-  // Asumimos 'password' por tu schema reciente.
   const isMatch = await bcrypt.compare(password, user.password);
   
   if (!isMatch) {
     return { error: "Credenciales inválidas." };
   }
 
-  // 3. Crear la Sesión (Token)
-  // Guardamos info mínima en la cookie
+  // 3. Crear Token de Sesión
+  // Guardamos datos útiles en el payload para evitar consultas extra a la DB
   const sessionData = {
     userId: user.id,
     email: user.email,
     role: role,
-    user: { name: user.name }, // Datos básicos para la UI
-    profile: user // Datos completos (útil para perfiles)
+    user: { name: user.name }, 
+    profile: user // Datos completos (útil para verificar estado, avatar, etc.)
   };
 
   // Caducidad: 7 días
@@ -104,59 +100,78 @@ export async function logout() {
 }
 
 /**
- * 4. REGISTRO PROFESIONAL
+ * 4. REGISTRO PROFESIONAL (Con Slug, Teléfono y Bio)
  */
 export async function registerProfessional(formData) {
+  // Recibir datos del formulario "rico"
   const name = formData.get('name');
   const email = formData.get('email');
   const password = formData.get('password');
   const specialty = formData.get('specialty');
+  const phone = formData.get('phone'); 
+  const bio = formData.get('bio');    
 
+  // Validaciones básicas
   if (!name || !email || !password || !specialty) {
-    return { error: "Todos los campos son obligatorios." };
+    return { error: "Los campos Nombre, Email, Contraseña y Especialidad son obligatorios." };
   }
 
   try {
+    // 1. Verificar duplicados
     const existingUser = await prisma.professional.findUnique({ where: { email } });
     if (existingUser) return { error: "Este correo ya está registrado." };
 
-    // Generar Slug
-    let slug = name.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-');
+    // 2. Generar Slug único
+    let slug = name.toLowerCase().trim()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/[\s_-]+/g, '-');
+      
     let count = 0;
-    while (await prisma.professional.findUnique({ where: { slug: count === 0 ? slug : `${slug}-${count}` } })) {
+    // Loop para asegurar que el slug sea único (ej: juan-perez, juan-perez-1)
+    while (true) {
+      const slugToCheck = count === 0 ? slug : `${slug}-${count}`;
+      const check = await prisma.professional.findUnique({ where: { slug: slugToCheck } });
+      if (!check) {
+        slug = slugToCheck;
+        break;
+      }
       count++;
     }
-    const finalSlug = count === 0 ? slug : `${slug}-${count}`;
 
+    // 3. Encriptar contraseña
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // 4. Crear en Base de Datos
     await prisma.professional.create({
       data: {
         name,
         email,
         password: hashedPassword,
         specialty,
-        slug: finalSlug,
+        slug,
+        phone: phone || null,
+        bio: bio || null,
+        // isApproved: false // Por defecto es false en el schema, no hace falta ponerlo
       }
     });
 
     return { success: true };
+
   } catch (error) {
     console.error("Error registro profesional:", error);
-    return { error: "Error interno al registrar." };
+    return { error: "Error interno al procesar el registro." };
   }
 }
 
 /**
  * 5. REGISTRO PACIENTE (Usuario)
- * (Lo agregamos por si acaso lo necesitas en el futuro inmediato)
  */
 export async function registerUser(formData) {
   const name = formData.get('name');
   const email = formData.get('email');
   const password = formData.get('password');
 
-  if (!name || !email || !password) return { error: "Faltan datos." };
+  if (!name || !email || !password) return { error: "Todos los campos son obligatorios." };
 
   try {
     const existing = await prisma.user.findUnique({ where: { email } });
@@ -170,6 +185,7 @@ export async function registerUser(formData) {
 
     return { success: true };
   } catch (error) {
+    console.error("Error registro usuario:", error);
     return { error: "Error al registrar usuario." };
   }
 }

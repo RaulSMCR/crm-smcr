@@ -3,8 +3,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-// IMPORTANTE: Importamos la Server Action, no usamos fetch
-import { registerProfessional } from '@/actions/auth-actions'; 
+import { registerProfessional } from '@/actions/auth-actions';
 
 export default function ProfessionalRegisterClient() {
   const router = useRouter();
@@ -17,61 +16,83 @@ export default function ProfessionalRegisterClient() {
     setError('');
 
     const formData = new FormData(e.target);
-    
-    // Llamada directa a la Server Action (esto se ejecuta en el servidor)
     const res = await registerProfessional(formData);
 
     if (res?.error) {
       setError(res.error);
       setLoading(false);
     } else {
-      // Éxito: Redirigir al login
       router.push('/ingresar?registered=true');
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+    <form onSubmit={handleSubmit} className="space-y-5 bg-white p-8 rounded-xl shadow-lg border border-gray-100">
       
-      <h2 className="text-xl font-bold text-gray-800 mb-4">Registro Profesional</h2>
+      <div className="text-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">Registro Profesional</h2>
+        <p className="text-sm text-gray-500">Únete a nuestra red de especialistas</p>
+      </div>
 
       {error && (
-        <div className="bg-red-50 text-red-600 p-3 rounded text-sm border border-red-200">
+        <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm border border-red-200 flex items-center gap-2">
           ⚠️ {error}
         </div>
       )}
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Nombre Completo</label>
-        <input name="name" type="text" required placeholder="Ej: Dr. Juan Pérez" className="mt-1 block w-full border border-gray-300 rounded-md p-2" />
+      {/* Grid para Nombre y Especialidad */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">Nombre Completo *</label>
+          <input name="name" type="text" required placeholder="Ej: Dr. Juan Pérez" className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none transition" />
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">Especialidad *</label>
+          <input name="specialty" type="text" required placeholder="Ej: Psicólogo Clínico" className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none transition" />
+        </div>
       </div>
 
+      {/* Teléfono */}
       <div>
-        <label className="block text-sm font-medium text-gray-700">Especialidad</label>
-        {/* OJO: El name debe ser "specialty" para coincidir con la base de datos */}
-        <input name="specialty" type="text" required placeholder="Ej: Psicólogo Clínico" className="mt-1 block w-full border border-gray-300 rounded-md p-2" />
+        <label className="block text-sm font-semibold text-gray-700 mb-1">Teléfono / WhatsApp</label>
+        <input name="phone" type="tel" placeholder="+54 11 ..." className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none transition" />
       </div>
 
+      {/* Email */}
       <div>
-        <label className="block text-sm font-medium text-gray-700">Correo Electrónico</label>
-        <input name="email" type="email" required placeholder="nombre@ejemplo.com" className="mt-1 block w-full border border-gray-300 rounded-md p-2" />
+        <label className="block text-sm font-semibold text-gray-700 mb-1">Correo Electrónico *</label>
+        <input name="email" type="email" required placeholder="nombre@ejemplo.com" className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none transition" />
       </div>
 
+      {/* Contraseña */}
       <div>
-        <label className="block text-sm font-medium text-gray-700">Contraseña</label>
-        <input name="password" type="password" required className="mt-1 block w-full border border-gray-300 rounded-md p-2" />
+        <label className="block text-sm font-semibold text-gray-700 mb-1">Contraseña *</label>
+        <input name="password" type="password" required className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none transition" />
+        <p className="text-xs text-gray-400 mt-1">Mínimo 6 caracteres.</p>
+      </div>
+
+      {/* Biografía */}
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-1">Biografía / Presentación</label>
+        <textarea 
+          name="bio" 
+          rows="3" 
+          placeholder="Cuenta brevemente sobre tu experiencia y enfoque..." 
+          className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none transition"
+        ></textarea>
       </div>
 
       <button 
         type="submit" 
         disabled={loading}
-        className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition disabled:opacity-50"
+        className="w-full bg-blue-600 text-white py-3.5 rounded-lg font-bold text-lg hover:bg-blue-700 transition transform active:scale-[0.99] disabled:opacity-50 shadow-md hover:shadow-lg"
       >
-        {loading ? 'Creando cuenta...' : 'Registrarme'}
+        {loading ? 'Creando cuenta...' : 'Registrarme como Profesional'}
       </button>
 
       <p className="text-xs text-center text-gray-500 mt-4">
-        Al registrarte aceptas nuestros términos y condiciones.
+        Al hacer clic en registrarme, aceptas los términos de uso y política de privacidad.
       </p>
     </form>
   );
