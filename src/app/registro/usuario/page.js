@@ -1,11 +1,17 @@
 // src/app/registro/usuario/page.js
 "use client";
 
-import { useMemo, useState } from "react";
-import Link from "next/link"; // Importado para el link de login
+import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
+// 👇 IMPORTANTE: Conectamos con la Server Action
+import { registerUser } from "@/actions/auth-actions";
 
 export default function RegistroUsuarioPage() {
-  const [isSuccess, setIsSuccess] = useState(false); // Nuevo estado para controlar la vista de éxito
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  // Estados del formulario
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -19,371 +25,239 @@ export default function RegistroUsuarioPage() {
   });
 
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
 
-  const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-
-  function setField(key, value) {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  }
-
-  // Requisitos de contraseña (baseline razonable):
+  // --- VALIDACIONES DE CONTRASEÑA EN TIEMPO REAL (UX) ---
   const passwordChecks = useMemo(() => {
-    const pwd = form.password ?? "";
-    const emailLocal = (form.email ?? "").split("@")[0]?.toLowerCase() ?? "";
+    const pwd = form.password || "";
+    return {
+      length: pwd.length >= 8, // Ajustado a 8 para coincidir con backend (o 12 si prefieres estricto)
+      number: /\d/.test(pwd),
+      special: /[!@#$%^&*(),.?":{}|<>]/.test(pwd),
+      match: pwd && pwd === form.confirmPassword
+    };
+  }, [form.password, form.confirmPassword]);
 
-    const lengthOk = pwd.length >= 12;
-    const lowerOk = /[a-z]/.test(pwd);
-    const upperOk = /[A-Z]/.test(pwd);
-    const numberOk = /[0-9]/.test(pwd);
-    const symbolOk = /[^A-Za-z0-9]/.test(pwd);
-    const noEmailOk =
-      emailLocal.length < 3 ? true : !pwd.toLowerCase().includes(emailLocal);
+  const isPasswordValid = Object.values(passwordChecks).every(Boolean);
 
-    const allOk =
-      lengthOk && lowerOk && upperOk && numberOk && symbolOk && noEmailOk;
-
-    return { lengthOk, lowerOk, upperOk, numberOk, symbolOk, noEmailOk, allOk };
-  }, [form.password, form.email]);
-
-  const passwordsMatch =
-    (form.password ?? "").length > 0 &&
-    (form.confirmPassword ?? "").length > 0 &&
-    form.password === form.confirmPassword;
-
-  function validateBeforeSubmit() {
-    if (!form.name.trim()) return "Completá tu nombre.";
-    if (!form.email.trim()) return "Completá tu email.";
-    if (!form.identification.trim())
-      return "Completá tu identificación (DNI/Cédula/Pasaporte).";
-    if (!form.birthDate) return "Seleccioná tu fecha de nacimiento.";
-    if (!form.phone.trim()) return "Completá tu teléfono.";
-    if (!passwordChecks.allOk)
-      return "La contraseña no cumple los requisitos de seguridad.";
-    if (!passwordsMatch) return "La confirmación de contraseña no coincide.";
-
-    // Validación suave de fecha
-    const birth = new Date(form.birthDate);
-    if (Number.isNaN(birth.getTime()))
-      return "Fecha de nacimiento inválida.";
-
-    return "";
+  // Manejo de cambios en inputs
+  function handleChange(e) {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
   }
 
-  const canSubmit =
-    form.name.trim() &&
-    form.email.trim() &&
-    form.identification.trim() &&
-    form.birthDate &&
-    form.phone.trim() &&
-    passwordChecks.allOk &&
-    passwordsMatch &&
-    !loading;
-
+  // --- ENVÍO DEL FORMULARIO ---
   async function onSubmit(e) {
     e.preventDefault();
     setErrorMsg("");
+    setLoading(true);
 
-    const preError = validateBeforeSubmit();
-    if (preError) {
-      setErrorMsg(preError);
+    // Validación final en cliente
+    if (!isPasswordValid) {
+      setErrorMsg("Por favor, corrige los errores en la contraseña.");
+      setLoading(false);
       return;
     }
 
-    setLoading(true);
-
     try {
-      // Preparamos el payload exacto que espera el backend corregido
-      const payload = {
-        name: form.name,
-        email: form.email,
-        identification: form.identification,
-        birthDate: form.birthDate, // YYYY-MM-DD
-        phone: form.phone,
-        password: form.password,
-        gender: form.gender,
-        interests: form.interests,
-      };
-
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+      // Creamos FormData manualmente porque tenemos estado controlado
+      const formData = new FormData();
+      Object.entries(form).forEach(([key, value]) => {
+        formData.append(key, value);
       });
 
-      const data = await res.json();
+      // 👇 Llamada a la Server Action
+      const res = await registerUser(formData);
 
-      if (!res.ok) {
-        setErrorMsg(data?.error ?? "Error al crear usuario");
+      if (res?.error) {
+        setErrorMsg(res.error);
         setLoading(false);
-        return;
+      } else {
+        // Éxito -> Redirigir a /ingresar
+        router.push("/ingresar?registered=true");
       }
-
-      // --- CORRECCIÓN PRINCIPAL ---
-      // En lugar de redirigir, mostramos la pantalla de éxito
-      setIsSuccess(true);
-      setLoading(false);
-      
     } catch (err) {
-      setErrorMsg("Error de red o del servidor");
+      setErrorMsg("Ocurrió un error inesperado. Intenta nuevamente.");
       setLoading(false);
     }
   }
 
-  // --- VISTA DE ÉXITO ---
-  if (isSuccess) {
-    return (
-      <main className="mx-auto max-w-xl p-8 text-center bg-white rounded-lg shadow-sm mt-10 border border-neutral-200">
-        <div className="mb-6 flex justify-center">
-          <div className="h-20 w-20 rounded-full bg-green-100 flex items-center justify-center">
-            <svg className="h-10 w-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-        </div>
-        <h1 className="mb-4 text-3xl font-bold text-gray-900">¡Cuenta creada!</h1>
-        <p className="text-gray-600 mb-8 text-lg">
-          Hemos enviado un enlace de confirmación a: <br/>
-          <span className="font-semibold text-gray-900">{form.email}</span>
-        </p>
-        <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg mb-8 text-sm text-blue-800">
-          Por favor revisa tu bandeja de entrada (y la carpeta de spam) para activar tu cuenta.
-        </div>
-        
-        <Link 
-          href="/login" 
-          className="inline-block w-full sm:w-auto rounded-lg bg-brand-600 px-8 py-3 text-white font-medium hover:bg-brand-700 transition shadow-sm"
-        >
-          Ir a Iniciar Sesión
-        </Link>
-      </main>
-    );
-  }
+  // Fecha máxima (hoy)
+  const maxDate = new Date().toISOString().split("T")[0];
 
-  // --- VISTA DE FORMULARIO (Original) ---
   return (
-    <main className="mx-auto max-w-xl p-6">
-      <h1 className="mb-4 text-2xl font-bold">Crear usuario</h1>
+    <main className="mx-auto max-w-xl p-6 py-10">
+      <div className="mb-8 text-center">
+        <h1 className="text-3xl font-bold text-gray-900">Crear Cuenta</h1>
+        <p className="text-gray-500 mt-2">Únete como paciente para gestionar tus citas.</p>
+      </div>
 
-      {errorMsg ? (
-        <div className="mb-4 rounded-lg border border-red-300 bg-red-50 p-3">
-          <p className="text-sm text-red-700">{errorMsg}</p>
+      {errorMsg && (
+        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-center">
+          <p className="text-sm font-medium text-red-700">⚠️ {errorMsg}</p>
         </div>
-      ) : null}
+      )}
 
-      <form onSubmit={onSubmit} className="space-y-4">
+      <form onSubmit={onSubmit} className="space-y-5 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+        
         {/* Nombre */}
-        <div className="space-y-1">
-          <label className="text-sm font-medium">Nombre completo</label>
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">Nombre Completo *</label>
           <input
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
+            name="name"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
             value={form.name}
-            onChange={(e) => setField("name", e.target.value)}
+            onChange={handleChange}
             placeholder="Tu nombre"
-            autoComplete="name"
             required
           />
         </div>
 
         {/* Email */}
-        <div className="space-y-1">
-          <label className="text-sm font-medium">Email</label>
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">Email *</label>
           <input
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
+            name="email"
+            type="email"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
             value={form.email}
-            onChange={(e) => setField("email", e.target.value)}
+            onChange={handleChange}
             placeholder="tu@email.com"
-            autoComplete="email"
             required
           />
         </div>
 
-        {/* Identificación */}
-        <div className="space-y-1">
-          <label className="text-sm font-medium">
-            Identificación (DNI / Cédula / Pasaporte)
-          </label>
-          <input
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
-            value={form.identification}
-            onChange={(e) => setField("identification", e.target.value)}
-            placeholder="Ej: 12345678"
-            autoComplete="off"
-            required
-          />
-        </div>
-
-        {/* Fecha de nacimiento */}
-        <div className="space-y-1">
-          <label className="text-sm font-medium">Fecha de nacimiento</label>
-          <input
-            type="date"
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
-            value={form.birthDate}
-            onChange={(e) => setField("birthDate", e.target.value)}
-            required
-          />
+        {/* Identificación y Fecha */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Identificación</label>
+              <input
+                name="identification"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                value={form.identification}
+                onChange={handleChange}
+                placeholder="DNI / Cédula"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Fecha de Nacimiento</label>
+              <input
+                name="birthDate"
+                type="date"
+                max={maxDate}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                value={form.birthDate}
+                onChange={handleChange}
+              />
+            </div>
         </div>
 
         {/* Teléfono */}
-        <div className="space-y-1">
-          <label className="text-sm font-medium">Teléfono</label>
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">Teléfono</label>
           <input
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
+            name="phone"
+            type="tel"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
             value={form.phone}
-            onChange={(e) => setField("phone", e.target.value)}
-            placeholder="Ej: +506 8888 8888"
-            autoComplete="tel"
-            required
+            onChange={handleChange}
+            placeholder="+54 11..."
           />
         </div>
 
-        {/* Password */}
-        <div className="space-y-1">
-          <label className="text-sm font-medium">Contraseña</label>
-          <div className="flex gap-2">
-            <input
-              type={showPassword ? "text" : "password"}
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
-              value={form.password}
-              onChange={(e) => setField("password", e.target.value)}
-              placeholder="Mínimo 12 caracteres"
-              autoComplete="new-password"
-              required
-              aria-describedby="password-help"
-            />
-            <button
-              type="button"
-              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-              onClick={() => setShowPassword((v) => !v)}
-            >
-              {showPassword ? "Ocultar" : "Ver"}
-            </button>
-          </div>
+        <hr className="border-gray-100 my-2" />
 
-          <div
-            id="password-help"
-            className="mt-2 rounded-lg border border-neutral-200 bg-neutral-50 p-3"
-          >
-            <p className="mb-2 text-xs font-medium text-neutral-700">
-              Requisitos de seguridad
-            </p>
-            <ul className="space-y-1 text-xs">
-              <li className={passwordChecks.lengthOk ? "text-green-700" : "text-neutral-600"}>
-                • Mínimo 12 caracteres
-              </li>
-              <li className={passwordChecks.lowerOk ? "text-green-700" : "text-neutral-600"}>
-                • Al menos 1 letra minúscula
-              </li>
-              <li className={passwordChecks.upperOk ? "text-green-700" : "text-neutral-600"}>
-                • Al menos 1 letra mayúscula
-              </li>
-              <li className={passwordChecks.numberOk ? "text-green-700" : "text-neutral-600"}>
-                • Al menos 1 número
-              </li>
-              <li className={passwordChecks.symbolOk ? "text-green-700" : "text-neutral-600"}>
-                • Al menos 1 símbolo (ej: !@#$)
-              </li>
-              <li className={passwordChecks.noEmailOk ? "text-green-700" : "text-neutral-600"}>
-                • No debe contener tu email
-              </li>
-            </ul>
-          </div>
+        {/* Contraseña */}
+        <div className="space-y-4">
+            <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Contraseña *</label>
+                    <input
+                        name="password"
+                        type={showPassword ? "text" : "password"}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                        value={form.password}
+                        onChange={handleChange}
+                        required
+                    />
+                </div>
+                <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="mb-[5px] px-3 py-2.5 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
+                >
+                    {showPassword ? "Ocultar" : "Ver"}
+                </button>
+            </div>
+
+            <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Confirmar Contraseña *</label>
+                <input
+                    name="confirmPassword"
+                    type="password"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                    value={form.confirmPassword}
+                    onChange={handleChange}
+                    required
+                />
+            </div>
+
+            {/* Checklist Visual de Seguridad */}
+            <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 grid grid-cols-2 gap-2 text-xs">
+                <span className={passwordChecks.length ? "text-green-600 font-bold" : "text-gray-500"}>
+                    {passwordChecks.length ? "✓" : "○"} Mínimo 8 caracteres
+                </span>
+                <span className={passwordChecks.number ? "text-green-600 font-bold" : "text-gray-500"}>
+                    {passwordChecks.number ? "✓" : "○"} Al menos un número
+                </span>
+                <span className={passwordChecks.special ? "text-green-600 font-bold" : "text-gray-500"}>
+                    {passwordChecks.special ? "✓" : "○"} Carácter especial
+                </span>
+                <span className={passwordChecks.match ? "text-green-600 font-bold" : "text-gray-500"}>
+                    {passwordChecks.match ? "✓" : "○"} Contraseñas coinciden
+                </span>
+            </div>
         </div>
 
-        {/* Confirm password */}
-        <div className="space-y-1">
-          <label className="text-sm font-medium">Confirmar contraseña</label>
-          <div className="flex gap-2">
-            <input
-              type={showConfirm ? "text" : "password"}
-              className={
-                "w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-1 " +
-                (form.confirmPassword.length === 0
-                  ? "border-neutral-300 focus:border-brand-600 focus:ring-brand-600"
-                  : passwordsMatch
-                  ? "border-green-400 focus:border-green-500 focus:ring-green-500"
-                  : "border-red-300 focus:border-red-500 focus:ring-red-500")
-              }
-              value={form.confirmPassword}
-              onChange={(e) => setField("confirmPassword", e.target.value)}
-              placeholder="Repetí la contraseña"
-              autoComplete="new-password"
-              required
-            />
-            <button
-              type="button"
-              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-              onClick={() => setShowConfirm((v) => !v)}
-            >
-              {showConfirm ? "Ocultar" : "Ver"}
-            </button>
-          </div>
+        <hr className="border-gray-100 my-2" />
 
-          {form.confirmPassword.length > 0 && !passwordsMatch ? (
-            <p className="text-xs text-red-600">La confirmación no coincide.</p>
-          ) : null}
+        {/* Extras (Género / Intereses) */}
+        <div className="grid grid-cols-1 gap-4">
+             <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Género (Opcional)</label>
+                <input
+                    name="gender"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                    value={form.gender}
+                    onChange={handleChange}
+                    placeholder="Ej: Femenino, Masculino, No binario..."
+                />
+             </div>
+             <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Intereses (Opcional)</label>
+                <textarea
+                    name="interests"
+                    rows="2"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                    value={form.interests}
+                    onChange={handleChange}
+                    placeholder="¿Buscas ayuda con ansiedad, depresión, nutrición?"
+                />
+             </div>
         </div>
 
-        <hr className="my-2" />
-
-        {/* Género */}
-        <div className="space-y-1">
-          <label className="text-sm font-medium">Género (opcional)</label>
-          <input
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
-            value={form.gender}
-            onChange={(e) => setField("gender", e.target.value)}
-            placeholder="Escribí lo que quieras"
-          />
-        </div>
-
-        {/* Intereses */}
-        <div className="space-y-1">
-          <label className="text-sm font-medium">
-            Intereses relacionados a salud mental (opcional)
-          </label>
-          <textarea
-            rows={4}
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600"
-            value={form.interests}
-            onChange={(e) => setField("interests", e.target.value)}
-            placeholder="Escribí lo que quieras, con tus propias palabras."
-          />
-          <p className="text-xs text-neutral-500">
-            Esta información es opcional y puede modificarse más adelante.
-          </p>
-        </div>
-
-        {/* BOTÓN BRAND */}
+        {/* Botón de Envío */}
         <button
           type="submit"
-          disabled={!canSubmit}
-          className="
-            w-full
-            rounded-lg
-            bg-brand-600
-            px-4
-            py-2
-            font-semibold
-            text-white
-            transition
-            hover:bg-brand-700
-            focus:outline-none
-            focus:ring-2
-            focus:ring-brand-600
-            focus:ring-offset-2
-            disabled:cursor-not-allowed
-            disabled:opacity-60
-          "
+          disabled={loading || !isPasswordValid}
+          className="w-full rounded-lg bg-brand-600 bg-blue-900 text-white px-4 py-3 font-bold transition hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
         >
-          {loading ? "Creando..." : "Crear usuario"}
+          {loading ? "Creando usuario..." : "Registrarme"}
         </button>
 
-        <p className="text-xs text-neutral-500">
-          Consejo: usá una contraseña única (idealmente una frase larga) y no la reutilices en otros sitios.
+        <p className="text-center text-xs text-gray-500 mt-4">
+             ¿Ya tienes cuenta? <a href="/ingresar" className="text-blue-600 underline">Inicia sesión aquí</a>
         </p>
+
       </form>
     </main>
   );

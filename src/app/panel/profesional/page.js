@@ -29,14 +29,15 @@ export default async function DashboardProfesionalPage() {
       <main className="max-w-3xl mx-auto px-4 py-10 text-center">
         <h1 className="text-xl font-semibold text-red-600">Acceso restringido</h1>
         <p className="text-gray-600 mt-2">Necesitás iniciar sesión como profesional.</p>
-        <Link href="/login" className="text-blue-600 hover:underline mt-4 inline-block">
+        {/* 👇 CORRECCIÓN: Apuntar a la ruta nueva /ingresar */}
+        <Link href="/ingresar" className="text-blue-600 hover:underline mt-4 inline-block">
           Ir al Login
         </Link>
       </main>
     );
   }
 
-  // --- CORRECCIÓN CRÍTICA: El ID es String, no Number ---
+  // ID siempre como String para Prisma
   const professionalId = String(payload.userId); 
 
   // 2. Definir rango de tiempo (Próximos 14 días)
@@ -50,7 +51,7 @@ export default async function DashboardProfesionalPage() {
       where: {
         professionalId,
         status: { not: 'CANCELLED' },
-        date: { gte: now, lte: until }, // Usamos 'date' según tu schema actual
+        date: { gte: now, lte: until },
       },
       orderBy: { date: 'asc' },
       include: {
@@ -70,7 +71,7 @@ export default async function DashboardProfesionalPage() {
     // C. Disponibilidad (Para saber si mostrar alerta)
     prisma.availability.findMany({
       where: { professionalId },
-      take: 1 // Solo necesitamos saber si existe al menos uno
+      take: 1 
     })
   ]);
 
@@ -85,15 +86,16 @@ export default async function DashboardProfesionalPage() {
           <h1 className="text-2xl font-bold text-gray-900">Panel del Profesional</h1>
           <p className="text-gray-500 text-sm">Bienvenido, gestiona tus citas y contenido.</p>
         </div>
+        {/* 👇 CORRECCIÓN: Ruta actualizada a /panel/profesional */}
         <Link
-          href="/dashboard-profesional/editar-articulo/new"
+          href="/panel/profesional/editar-articulo/new"
           className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 text-center font-medium shadow-sm transition-colors"
         >
           + Nuevo artículo
         </Link>
       </header>
 
-      {/* --- ALERTA DE CONFIGURACIÓN (CRÍTICO PARA TU PRUEBA) --- */}
+      {/* --- ALERTA DE CONFIGURACIÓN --- */}
       <section className={`p-6 rounded-lg border ${hasAvailability ? 'bg-white border-gray-200' : 'bg-amber-50 border-amber-200'}`}>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
@@ -106,8 +108,9 @@ export default async function DashboardProfesionalPage() {
                 : "Aún no has definido tus horarios de atención. Tu perfil no permitirá reservas hasta que lo hagas."}
             </p>
           </div>
+          {/* 👇 CORRECCIÓN: Ruta actualizada a /panel/profesional */}
           <Link
-            href="/dashboard-profesional/horarios"
+            href="/panel/profesional/horarios"
             className={`px-5 py-2.5 rounded font-medium text-sm transition-colors ${
               hasAvailability 
                 ? "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50" 
@@ -123,7 +126,6 @@ export default async function DashboardProfesionalPage() {
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-gray-800">Próximas Citas</h2>
-          {/* Aquí podrías poner el link al perfil público en el futuro */}
         </div>
 
         {appointments.length === 0 ? (
@@ -140,7 +142,7 @@ export default async function DashboardProfesionalPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-bold text-lg text-blue-900">
-                         {fmtDateTime(new Date(a.date))}
+                          {fmtDateTime(new Date(a.date))}
                       </span>
                       <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-800 font-medium">
                         {a.status}
@@ -184,7 +186,8 @@ export default async function DashboardProfesionalPage() {
         {myPosts.length === 0 ? (
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
             <p className="text-gray-600 mb-2">Aún no has publicado contenido.</p>
-            <Link href="/dashboard-profesional/editar-articulo/new" className="text-blue-600 hover:underline text-sm">
+            {/* 👇 CORRECCIÓN: Ruta actualizada */}
+            <Link href="/panel/profesional/editar-articulo/new" className="text-blue-600 hover:underline text-sm">
               Escribir mi primer artículo
             </Link>
           </div>
@@ -203,8 +206,9 @@ export default async function DashboardProfesionalPage() {
                 </div>
                 
                 <div className="flex items-center gap-2 mt-auto pt-2 border-t">
+                  {/* 👇 CORRECCIÓN: Ruta actualizada */}
                   <Link
-                    href={`/dashboard-profesional/editar-articulo/${p.id}`}
+                    href={`/panel/profesional/editar-articulo/${p.id}`}
                     className="flex-1 text-center py-1.5 text-xs font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded border"
                   >
                     Editar

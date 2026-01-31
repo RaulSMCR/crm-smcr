@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
+// 👇 IMPORTANTE: Conectamos con tus Server Actions
+import { getSession, logout } from "@/actions/auth-actions";
 
 const NAV = [
   { label: "Inicio", href: "/" },
@@ -29,24 +31,25 @@ export default function Header() {
 
   const isActive = (href) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
-  // 1. Cargar sesión al iniciar
+  // 1. Cargar sesión al iniciar (Usando Server Action)
   useEffect(() => {
     let alive = true;
 
     async function loadMe() {
       setAuthLoading(true);
       try {
-        const res = await fetch("/api/auth/me", { cache: "no-store" });
+        // 👇 Reemplazamos fetch por la Server Action
+        const session = await getSession();
+        
         if (!alive) return;
 
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.id) setMe(data); // Si hay ID, hay sesión
-          else setMe(null);
+        if (session && session.userId) {
+          setMe(session); // Guardamos la sesión (incluye role, email, user.name)
         } else {
           setMe(null);
         }
-      } catch {
+      } catch (error) {
+        console.error("Error cargando sesión:", error);
         if (alive) setMe(null);
       } finally {
         if (alive) setAuthLoading(false);
@@ -55,23 +58,25 @@ export default function Header() {
 
     loadMe();
     return () => { alive = false; };
-  }, [pathname]); // Se recarga al navegar por si cambió el estado
+  }, [pathname]); // Se recarga al navegar para mantener sincronía
 
   // 2. Determinar URL del Dashboard según ROL
   const dashboardUrl = useMemo(() => {
-    if (!me) return "/login";
+    if (!me) return "/ingresar"; // 👇 Corregido a /ingresar
     if (me.role === "ADMIN") return "/admin";
-    if (me.role === "PROFESSIONAL") return "/dashboard-profesional";
-    return "/dashboard-paciente"; // PACIENTES
+    if (me.role === "PROFESSIONAL") return "/panel/profesional"; // 👇 Ajustado a ruta real
+    return "/panel/paciente"; // 👇 Ajustado a ruta real
   }, [me]);
 
-  // 3. Función de Logout
+  // 3. Función de Logout (Usando Server Action)
   const handleLogout = async () => {
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
+      await logout(); // 👇 Server Action que borra la cookie
       setMe(null);
-      router.refresh(); // Refrescar componentes de servidor
-      router.push("/login"); // Ir al login
+      router.refresh(); 
+      // No hace falta router.push porque la acción logout ya hace redirect, 
+      // pero por seguridad en cliente:
+      // router.push("/ingresar"); 
     } catch (error) {
       console.error("Error al salir", error);
     }
@@ -137,8 +142,9 @@ export default function Header() {
                 </button>
               </>
             ) : (
+              // 👇 Corregido href a /ingresar
               <Link 
-                href="/login" 
+                href="/ingresar" 
                 className="bg-white/10 hover:bg-white/20 text-white px-5 py-2 rounded-md text-sm font-semibold transition border border-white/30"
               >
                 Ingresar
@@ -194,7 +200,8 @@ export default function Header() {
                 </button>
               </>
             ) : (
-              <Link href="/login" className="block text-center bg-white/20 text-white py-3 rounded-lg font-bold">
+              // 👇 Corregido href a /ingresar
+              <Link href="/ingresar" className="block text-center bg-white/20 text-white py-3 rounded-lg font-bold">
                 Ingresar
               </Link>
             )}
