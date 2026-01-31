@@ -1,21 +1,73 @@
 // src/app/registro/profesional/page.js
-import ProfessionalRegisterForm from "@/components/ProfessionalRegisterForm";
+'use client';
 
-export default function RegistroProfesionalPage() {
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { registerProfessional } from '@/actions/auth-actions'; // Importamos la acción
+
+export default function ProfessionalRegisterClient() {
+  const router = useRouter();
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    const formData = new FormData(e.target);
+    const res = await registerProfessional(formData);
+
+    if (res?.error) {
+      setError(res.error);
+      setLoading(false);
+    } else {
+      // Éxito
+      router.push('/ingresar?registered=true');
+    }
+  };
+
   return (
-    <main className="bg-neutral-250 py-12">
-      <div className="container mx-auto px-6">
-        <header className="mx-auto max-w-xl mb-6">
-          <h1 className="text-2xl font-bold">Registro profesional</h1>
-          <p className="mt-2 text-sm text-neutral-700">
-            Completá tus datos para postularte. Te enviaremos un email para verificar tu correo y un
-            administrador te contactará para agendar una entrevista. Tu perfil no será visible hasta
-            que sea validado.
-          </p>
-        </header>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && (
+        <div className="bg-red-50 text-red-600 p-3 rounded text-sm">
+          {error}
+        </div>
+      )}
 
-        <ProfessionalRegisterForm />
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Nombre Completo</label>
+        <input name="name" type="text" required className="mt-1 block w-full border border-gray-300 rounded-md p-2" />
       </div>
-    </main>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Especialidad</label>
+        <input 
+          name="specialty" // <--- OJO: Debe llamarse "specialty"
+          type="text" 
+          placeholder="Ej: Psicólogo Clínico, Nutricionista..." 
+          required 
+          className="mt-1 block w-full border border-gray-300 rounded-md p-2" 
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Correo Electrónico</label>
+        <input name="email" type="email" required className="mt-1 block w-full border border-gray-300 rounded-md p-2" />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Contraseña</label>
+        <input name="password" type="password" required className="mt-1 block w-full border border-gray-300 rounded-md p-2" />
+      </div>
+
+      <button 
+        type="submit" 
+        disabled={loading}
+        className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition disabled:opacity-50"
+      >
+        {loading ? 'Registrando...' : 'Crear Cuenta Profesional'}
+      </button>
+    </form>
   );
 }
