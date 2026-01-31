@@ -11,6 +11,8 @@ const formatDate = (date) => {
   }).format(date);
 };
 
+export const dynamic = 'force-dynamic'; // Asegura que siempre muestre posts nuevos
+
 export default async function BlogPage() {
   const posts = await prisma.post.findMany({
     where: { status: 'PUBLISHED' },
@@ -20,91 +22,101 @@ export default async function BlogPage() {
       id: true,
       slug: true,
       title: true,
-      imageUrl: true,
+      coverImage: true, // <--- CORREGIDO: Antes imageUrl
+      excerpt: true,    // <--- AGREGADO: Para mostrar un resumen
       createdAt: true,
-      postType: true,
-      service: { select: { id: true, slug: true, title: true } },
+      // postType: true, // REMOVIDO: No existe en schema
+      // service: ...,   // REMOVIDO: No hay relación en schema actual
       author: {
         select: {
           name: true,
-          declaredJobTitle: true, // <--- CORREGIDO: Campo actualizado
+          specialty: true, // <--- CORREGIDO: Antes declaredJobTitle
         },
       },
     },
   });
 
   return (
-    <main className="max-w-5xl mx-auto px-4 py-10">
-      <header className="mb-6">
-        <h1 className="text-3xl font-bold">Blog</h1>
-        <p className="text-gray-500 mt-2">Explora nuestros últimos artículos y novedades.</p>
+    <main className="max-w-6xl mx-auto px-4 py-12">
+      <header className="mb-10 text-center">
+        <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">Nuestro Blog</h1>
+        <p className="text-lg text-gray-600 mt-3 max-w-2xl mx-auto">
+          Artículos, novedades y consejos de nuestros profesionales.
+        </p>
       </header>
 
       {posts.length === 0 ? (
-        <div className="py-10 text-center text-gray-500 bg-gray-50 rounded-lg">
-          <p>Aún no hay publicaciones disponibles.</p>
+        <div className="py-16 text-center bg-gray-50 rounded-2xl border border-gray-100">
+          <div className="text-gray-400 mb-4">
+            <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"></path></svg>
+          </div>
+          <h3 className="text-lg font-medium text-gray-900">Aún no hay publicaciones</h3>
+          <p className="text-gray-500 mt-1">Vuelve pronto para leer nuestro contenido.</p>
         </div>
       ) : (
-        <ul className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
           {posts.map((p) => (
-            <li key={p.id} className="group flex flex-col border rounded-lg overflow-hidden hover:shadow-lg transition-shadow bg-white">
+            <article key={p.id} className="group flex flex-col bg-white border border-gray-200 rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300">
               
               {/* Imagen Clicable */}
-              {p.imageUrl && (
-                <Link href={`/blog/${p.slug}`} className="relative h-48 w-full overflow-hidden bg-gray-100">
+              <Link href={`/blog/${p.slug}`} className="relative h-56 w-full overflow-hidden bg-gray-100 block">
+                {p.coverImage ? (
                   <Image
-                    src={p.imageUrl}
-                    alt={`Portada del artículo: ${p.title}`}
+                    src={p.coverImage}
+                    alt={`Portada: ${p.title}`}
                     fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="object-cover group-hover:scale-105 transition-transform duration-500"
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   />
-                </Link>
-              )}
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
+                    <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                  </div>
+                )}
+              </Link>
 
-              <div className="p-4 flex flex-col flex-grow">
-                {/* Título Clicable */}
-                <Link href={`/blog/${p.slug}`} className="block">
-                  <h2 className="text-xl font-semibold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2">
+              <div className="p-6 flex flex-col flex-grow">
+                {/* Metadatos Superiores */}
+                <div className="flex items-center gap-2 text-xs font-medium text-blue-600 mb-3">
+                   <time dateTime={p.createdAt.toISOString()} className="bg-blue-50 px-2 py-1 rounded">
+                    {formatDate(p.createdAt)}
+                   </time>
+                </div>
+
+                {/* Título */}
+                <Link href={`/blog/${p.slug}`} className="block mb-3">
+                  <h2 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2 leading-tight">
                     {p.title}
                   </h2>
                 </Link>
 
-                <div className="text-xs text-gray-500 mt-2 flex flex-wrap gap-x-2 items-center">
-                  <span>{p.author?.name || 'Redacción'}</span>
-                  
-                  {/* CORREGIDO: Usamos declaredJobTitle en el renderizado */}
-                  {p.author?.declaredJobTitle && (
-                    <>
-                      <span className="text-gray-300">•</span>
-                      <span>{p.author.declaredJobTitle}</span>
-                    </>
-                  )}
-                  
-                  <span className="text-gray-300">•</span>
-                  <time dateTime={p.createdAt.toISOString()}>
-                    {formatDate(p.createdAt)}
-                  </time>
-                </div>
+                {/* Excerpt (Resumen) */}
+                {p.excerpt && (
+                    <p className="text-gray-600 text-sm line-clamp-3 mb-4 flex-grow">
+                        {p.excerpt}
+                    </p>
+                )}
 
-                <div className="mt-4 flex items-center justify-between pt-4 border-t border-gray-100 mt-auto">
-                  <span className="text-xs font-medium px-2 py-1 bg-gray-100 rounded text-gray-600">
-                    {p.postType}
-                  </span>
-
-                  {p.service && (
-                    <Link
-                      href={`/servicios/${p.service.slug}`}
-                      className="text-sm text-blue-600 hover:underline font-medium"
-                    >
-                      {p.service.title} →
-                    </Link>
-                  )}
+                {/* Autor */}
+                <div className="mt-auto pt-4 border-t border-gray-100 flex items-center gap-3">
+                   <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-bold uppercase">
+                      {p.author?.name ? p.author.name.charAt(0) : 'A'}
+                   </div>
+                   <div className="flex flex-col">
+                      <span className="text-sm font-medium text-gray-900">
+                        {p.author?.name || 'Redacción'}
+                      </span>
+                      {p.author?.specialty && (
+                        <span className="text-xs text-gray-500">
+                          {p.author.specialty}
+                        </span>
+                      )}
+                   </div>
                 </div>
               </div>
-            </li>
+            </article>
           ))}
-        </ul>
+        </div>
       )}
     </main>
   );

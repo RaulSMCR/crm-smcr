@@ -1,24 +1,27 @@
 //src/app/nosotros/page.js
 import { prisma } from '@/lib/prisma';
+import Link from 'next/link';
 
 export const metadata = {
   title: 'Nosotros | Equipo Profesional',
   description: 'Conoce a nuestros especialistas en salud mental.',
 };
 
+export const dynamic = 'force-dynamic';
+
 export default async function NosotrosPage() {
   const professionals = await prisma.professional.findMany({
-    where: {
-      isApproved: true,
-    },
+    // Eliminamos 'where: { isApproved: true }' porque el campo no existe
     orderBy: {
       createdAt: 'asc',
     },
     select: {
       id: true,
       name: true,
-      declaredJobTitle: true, // <--- CORREGIDO: Campo actualizado
-      introVideoUrl: true, 
+      specialty: true, // <--- CORREGIDO: Antes declaredJobTitle
+      bio: true,       // <--- AGREGADO: Para mostrar una pequeña descripción
+      avatarUrl: true, // <--- AGREGADO: Para mostrar la foto real
+      slug: true,
       services: {
         take: 3,
         select: {
@@ -31,56 +34,72 @@ export default async function NosotrosPage() {
 
   return (
     <main className="max-w-7xl mx-auto px-4 py-12">
-      <div className="text-center mb-12">
+      <div className="text-center mb-16">
         <h1 className="text-4xl font-bold text-gray-900 mb-4">Nuestro Equipo</h1>
         <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-          Profesionales dedicados a tu bienestar emocional y mental, altamente calificados y aprobados por nuestra plataforma.
+          Profesionales dedicados a tu bienestar emocional y mental, altamente calificados.
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {professionals.map((pro) => (
-          <div key={pro.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
-            <div className="h-48 bg-brand-100 flex items-center justify-center">
-              {/* Placeholder de Avatar usando las iniciales */}
-              <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center text-3xl font-bold text-brand-600 shadow-inner">
-                {pro.name.charAt(0)}
-              </div>
+          <div key={pro.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all duration-300 flex flex-col">
+            
+            {/* Cabecera con Avatar */}
+            <div className="h-32 bg-gradient-to-r from-blue-50 to-indigo-50 relative">
+               <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2">
+                  <div className="w-24 h-24 rounded-full border-4 border-white shadow-md overflow-hidden bg-white flex items-center justify-center">
+                    {pro.avatarUrl ? (
+                      <img 
+                        src={pro.avatarUrl} 
+                        alt={pro.name} 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-3xl font-bold text-blue-600">
+                        {pro.name.charAt(0)}
+                      </span>
+                    )}
+                  </div>
+               </div>
             </div>
             
-            <div className="p-6">
-              <h2 className="text-xl font-bold text-gray-900">{pro.name}</h2>
-              {/* CORREGIDO: Usamos declaredJobTitle en el renderizado */}
-              <p className="text-brand-600 font-medium mb-4">{pro.declaredJobTitle}</p>
+            <div className="pt-14 pb-6 px-6 text-center flex-grow flex flex-col">
+              <h2 className="text-xl font-bold text-gray-900 mb-1">{pro.name}</h2>
               
-              {/* Sección de Servicios */}
-              <div className="space-y-2">
-                <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Especialidades:</p>
-                <div className="flex flex-wrap gap-2">
+              {/* Especialidad */}
+              <p className="text-blue-600 font-medium mb-3 text-sm uppercase tracking-wide">
+                {pro.specialty || 'Profesional de Salud'}
+              </p>
+              
+              {/* Bio corta */}
+              {pro.bio && (
+                <p className="text-gray-500 text-sm mb-4 line-clamp-3">
+                  {pro.bio}
+                </p>
+              )}
+              
+              {/* Servicios (Badges) */}
+              <div className="mt-auto">
+                <div className="flex flex-wrap justify-center gap-2 mb-4">
                   {pro.services.length > 0 ? (
                     pro.services.map((s) => (
-                      <span key={s.id} className="inline-block px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-md">
+                      <span key={s.id} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
                         {s.title}
                       </span>
                     ))
                   ) : (
-                    <span className="text-sm text-gray-400 italic">Consultas generales</span>
+                    <span className="text-xs text-gray-400 italic">Consultas generales</span>
                   )}
                 </div>
-              </div>
 
-              {pro.introVideoUrl && (
-                <div className="mt-6 pt-4 border-t border-gray-100">
-                  <a 
-                    href={pro.introVideoUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-sm text-blue-600 hover:underline flex items-center gap-1"
-                  >
-                    ▶ Ver video de presentación
-                  </a>
-                </div>
-              )}
+                <Link 
+                   href={`/agendar/${pro.id}`} // Usamos ID ya que es lo más seguro ahora
+                   className="inline-block w-full py-2 px-4 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
+                >
+                   Agendar Cita
+                </Link>
+              </div>
             </div>
           </div>
         ))}
