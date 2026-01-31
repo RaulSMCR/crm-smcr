@@ -1,4 +1,4 @@
-//src/registro/profesional/ProfessionalRegisterClient.js
+//src/app/registro/profesional/ProfessionalRegisterClient.js
 'use client';
 
 import { useState } from 'react';
