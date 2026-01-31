@@ -3,9 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  // NOTA: Las URLs se movieron a prisma.config.ts por requerimiento de Prisma 7
 }
 
 // --- ENUMS ---
@@ -30,44 +29,55 @@ enum PostStatus {
   ARCHIVED
 }
 
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED_BY_USER
+  CANCELLED_BY_PRO
+  COMPLETED
+  NO_SHOW
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+}
+
 // --- MODELOS ---
 
 model User {
-  id             String    @id @default(cuid())
-  name           String
-  email          String    @unique
-  passwordHash   String
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  passwordHash  String?   // Opcional si usa Auth Social
   
   // Perfilamiento
-  gender         String?
-  interests      String?
-  phone          String?
+  gender        String?
+  interests     String?
+  phone         String?
   identification String?
-  birthDate      DateTime?
-  timeZone       String?   @default("UTC")
+  birthDate     DateTime?
+  timeZone      String?   @default("UTC")
   
   // Auth & Verificación
-  role                  Role      @default(USER)
-  emailVerified         Boolean   @default(false)
+  role                 Role      @default(USER)
+  emailVerified        Boolean   @default(false)
   
-  // Tokens de Verificación
-  verifyTokenHash       String?
-  verifyTokenExp        DateTime?
-  verifyEmailLastSentAt DateTime?
-
-  // Tokens de Recuperación
-  resetTokenHash        String?
-  resetTokenExp         DateTime?
-  resetLastSentAt       DateTime?
+  // Tokens
+  verifyTokenHash      String?
+  verifyTokenExp       DateTime?
+  resetTokenHash       String?
+  resetTokenExp        DateTime?
 
   // Timestamps
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
   
   // Relaciones
-  appointments          Appointment[]
+  appointments         Appointment[]
   approvedProfessionals Professional[] @relation("AdminApprovesPro")
-  approvedPosts         Post[]         @relation("AdminApprovesPost")
+  approvedPosts        Post[]         @relation("AdminApprovesPost")
 }
 
 model Category {
@@ -77,12 +87,10 @@ model Category {
   description String?  @db.Text
   icon        String?
   
-  // Jerarquía (Padre/Hijo)
   parentId    String?
   parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
   children    Category[] @relation("CategoryHierarchy")
 
-  // Relación N:M con Profesionales
   professionals Professional[]
 
   createdAt   DateTime @default(now())
@@ -93,44 +101,48 @@ model Professional {
   id               String   @id @default(cuid())
   email            String   @unique
   name             String
-  slug             String?  @unique // Corregido: Necesario para el Seed y URLs
+  slug             String   @unique 
   declaredJobTitle String
   passwordHash     String?   
   
-  // Campos de Perfil
+  // Perfil Público
   phone            String?
   avatarUrl        String?
   resumeUrl        String?   
   bio              String?   @db.Text
   introVideoUrl    String?
-  calendarUrl      String?
-  paymentLinkBase  String?
+  
+  // Integraciones (Google Calendar y Pagos)
+  googleRefreshToken String? 
+  googleAccessToken  String?  
+  calendarId         String?  @default("primary") 
+  paymentLinkBase    String?
+  bankAccountInfo    String?
 
+  // Estado Admin
   adminNotes       String?   @db.Text
   isApproved       Boolean   @default(false)
   emailVerified    Boolean   @default(false)
   
-  // Timestamps
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
   // Relaciones
   categories       Category[]
   services         Service[]
-  posts            Post[]       @relation("ProfessionalToPost")
+  posts            Post[]        @relation("ProfessionalToPost")
   availabilities   Availability[]
   appointments     Appointment[]
   
-  // Aprobación Admin
   approvedById     String?
   approvedBy       User?    @relation("AdminApprovesPro", fields: [approvedById], references: [id])
 }
 
 model Availability {
   id             String       @id @default(cuid())
-  dayOfWeek      Int          // 0=Domingo, 1=Lunes, ..., 6=Sábado
-  startTime      String       
-  endTime        String       
+  dayOfWeek      Int          // 0=Domingo
+  startTime      String       // "09:00"
+  endTime        String       // "17:00"
   isActive       Boolean      @default(true)
   
   professionalId String
@@ -140,63 +152,68 @@ model Availability {
 }
 
 model Service {
-  id             String   @id @default(cuid())
-  slug           String   @unique
-  title          String
-  description    String   @db.Text
-  price          Decimal  @default(0.0)
-  imageUrl       String?
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  description String   @db.Text
+  price       Decimal  @default(0.0)
+  durationMin Int      @default(60) 
+  imageUrl    String?
   
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  // Relaciones
-  professionals  Professional[]
-  posts          Post[]
-  appointments   Appointment[] 
+  professionals Professional[]
+  posts         Post[]
+  appointments  Appointment[] 
 }
 
 model Post {
-  id             String       @id @default(cuid())
-  slug           String       @unique
-  title          String
-  content        String       @db.Text
-  excerpt        String?      @db.Text
-  imageUrl       String?
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  title       String
+  content     String     @db.Text
+  excerpt     String?    @db.Text
+  imageUrl    String?
   
-  postType       PostType     @default(ARTICLE)
-  mediaUrl       String?    
-  status         PostStatus   @default(PENDING)
+  postType    PostType   @default(ARTICLE)
+  mediaUrl    String?    
+  status      PostStatus @default(PENDING)
   
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
-  // Relaciones
-  authorId       String?
-  author         Professional? @relation("ProfessionalToPost", fields: [authorId], references: [id])
+  authorId    String?
+  author      Professional? @relation("ProfessionalToPost", fields: [authorId], references: [id])
   
-  serviceId      String?
-  service        Service?      @relation(fields: [serviceId], references: [id])
+  serviceId   String?
+  service     Service?      @relation(fields: [serviceId], references: [id])
 
-  // Aprobación Admin
-  approvedById   String?
-  approvedBy     User?         @relation("AdminApprovesPost", fields: [approvedById], references: [id])
+  approvedById String?
+  approvedBy   User?         @relation("AdminApprovesPost", fields: [approvedById], references: [id])
 }
 
 model Appointment {
-  id             String       @id @default(cuid())
-  date           DateTime
-  status         String       @default("PENDING") 
+  id             String            @id @default(cuid())
+  date           DateTime          
+  endDate        DateTime?         
   
+  status         AppointmentStatus @default(PENDING)
+  paymentStatus  PaymentStatus     @default(UNPAID)
+  
+  // Integración Google
+  gcalEventId    String?           
+  pricePaid      Decimal           @default(0.0)
+
   userId         String
-  user           User         @relation(fields: [userId], references: [id])
+  user           User              @relation(fields: [userId], references: [id])
   
   professionalId String
-  professional   Professional @relation(fields: [professionalId], references: [id])
+  professional   Professional      @relation(fields: [professionalId], references: [id])
 
   serviceId      String?
-  service        Service?     @relation(fields: [serviceId], references: [id])
+  service        Service?          @relation(fields: [serviceId], references: [id])
 
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 }

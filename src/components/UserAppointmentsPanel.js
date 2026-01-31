@@ -1,224 +1,150 @@
-"use client";
+//src/components/UserAppointmentsPanel.js
+'use client';
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { useState } from 'react';
 
-function fmt(iso) {
-  const d = new Date(iso);
-  return d.toLocaleString("es-CR", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
+// Si tuvieras una acción para cancelar, la importarías aquí:
+// import { cancelAppointment } from '@/actions/agenda-actions';
+
+export default function UserAppointmentsPanel({ initialAppointments = [] }) {
+  // Inicializamos el estado con los datos que vienen del servidor (Page)
+  // Usamos estado por si luego queremos filtrar/ordenar sin recargar la página
+  const [appointments, setAppointments] = useState(initialAppointments);
+  const [filter, setFilter] = useState('ALL'); // 'ALL', 'UPCOMING', 'PAST'
+
+  // Helper para mostrar estados bonitos en español
+  const getStatusBadge = (status) => {
+    const config = {
+      PENDING: { label: 'Pendiente', style: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
+      CONFIRMED: { label: 'Confirmada', style: 'bg-green-100 text-green-800 border-green-200' },
+      CANCELLED_BY_USER: { label: 'Cancelada', style: 'bg-red-50 text-red-600 border-red-100' },
+      CANCELLED_BY_PRO: { label: 'Cancelada por Prof.', style: 'bg-red-50 text-red-600 border-red-100' },
+      COMPLETED: { label: 'Completada', style: 'bg-gray-100 text-gray-600 border-gray-200' },
+      NO_SHOW: { label: 'Ausente', style: 'bg-purple-50 text-purple-600 border-purple-100' }
+    };
+
+    const current = config[status] || { label: status, style: 'bg-gray-100' };
+
+    return (
+      <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${current.style}`}>
+        {current.label}
+      </span>
+    );
+  };
+
+  // Lógica simple de filtrado visual
+  const filteredAppointments = appointments.filter(apt => {
+    if (filter === 'ALL') return true;
+    const isPast = new Date(apt.date) < new Date();
+    return filter === 'PAST' ? isPast : !isPast;
   });
-}
-
-function badgeLabel(status) {
-  switch (status) {
-    case "CONFIRMED": return "Confirmada";
-    case "PENDING": return "Pendiente";
-    case "CANCELLED": return "Cancelada";
-    case "COMPLETED": return "Completada";
-    case "NO_SHOW": return "No asistió";
-    default: return status;
-  }
-}
-
-function money(v) {
-  if (v === null || v === undefined) return "—";
-  try {
-    return new Intl.NumberFormat("es-CR", { style: "currency", currency: "CRC" }).format(Number(v));
-  } catch {
-    return String(v);
-  }
-}
-
-export default function UserAppointmentsPanel() {
-  const [loading, setLoading] = useState(true);
-  const [appointments, setAppointments] = useState([]);
-  const [error, setError] = useState("");
-  const [busyId, setBusyId] = useState(null);
-
-  async function load() {
-    setError("");
-    setLoading(true);
-    try {
-      const res = await fetch("/api/appointments/my", {
-        method: "GET",
-        credentials: "include",
-        cache: "no-store",
-        headers: { Accept: "application/json" },
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.message || `Error ${res.status}`);
-      setAppointments(Array.isArray(data.appointments) ? data.appointments : []);
-    } catch (e) {
-      setError(e?.message || "No se pudieron cargar tus citas.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => { load(); }, []);
-
-  async function cancelAppointment(apptId) {
-    const reason = prompt("Motivo de cancelación (opcional). Dejá en blanco si no querés indicar motivo:");
-    if (reason === null) return;
-    if (!confirm("¿Confirmás la cancelación de esta cita?")) return;
-
-    setBusyId(apptId);
-    setError("");
-    try {
-      const res = await fetch(`/api/appointments/${apptId}/cancel`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.message || `Error ${res.status}`);
-      await load();
-    } catch (e) {
-      setError(e?.message || "No se pudo cancelar la cita.");
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  const hasAppointments = useMemo(() => appointments.length > 0, [appointments]);
 
   return (
-    <section className="mt-8 bg-white rounded-xl shadow-sm border border-neutral-200 p-6">
-      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-gray-800">Tus citas</h2>
-          <p className="text-sm text-gray-600 mt-1">
-            Podés cancelar o reagendar. La reprogramación se realiza respetando las políticas del servicio.
-          </p>
-        </div>
-
-        <div className="flex gap-2 flex-wrap">
-          <Link
-            href="/servicios"
-            className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-brand-600 text-white hover:bg-brand-700"
-          >
-            Agendar nueva cita
-          </Link>
-
-          <Link
-            href="/"
-            className="inline-flex items-center justify-center px-4 py-2 rounded-lg border border-neutral-200 hover:bg-neutral-50"
-          >
-            Seguir navegando
-          </Link>
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      {/* Cabecera del Panel con Filtros */}
+      <div className="p-6 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <h2 className="text-xl font-bold text-gray-800">Mis Citas</h2>
+        
+        <div className="flex bg-gray-100 p-1 rounded-lg">
+          {['ALL', 'UPCOMING', 'PAST'].map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                filter === f 
+                  ? 'bg-white text-gray-900 shadow-sm' 
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {f === 'ALL' ? 'Todas' : f === 'UPCOMING' ? 'Próximas' : 'Historial'}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="mt-4 text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
-        <strong>Reagendar:</strong> se gestiona desde el calendario del profesional y está sujeto a las{" "}
-        <Link className="underline" href="/terminos">políticas del servicio</Link>.
+      {/* Lista de Citas */}
+      <div className="divide-y divide-gray-100">
+        {filteredAppointments.length > 0 ? (
+          filteredAppointments.map((apt) => (
+            <div key={apt.id} className="p-6 hover:bg-gray-50 transition-colors flex flex-col sm:flex-row justify-between gap-4">
+              
+              {/* Información Principal */}
+              <div className="flex gap-4">
+                {/* Avatar del Profesional (Placeholder si es null) */}
+                <div className="flex-shrink-0">
+                   {apt.professional.avatarUrl ? (
+                     <img src={apt.professional.avatarUrl} alt={apt.professional.name} className="w-12 h-12 rounded-full object-cover border" />
+                   ) : (
+                     <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-lg">
+                       {apt.professional.name.charAt(0)}
+                     </div>
+                   )}
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900">{apt.professional.name}</h3>
+                  <p className="text-sm text-gray-500">{apt.service?.title || 'Consulta General'}</p>
+                  
+                  <div className="mt-2 flex items-center gap-3 text-sm text-gray-600">
+                    <div className="flex items-center gap-1">
+                      {/* Icono Calendario */}
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                      {format(new Date(apt.date), "EEEE d 'de' MMMM", { locale: es })}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {/* Icono Reloj */}
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                      {format(new Date(apt.date), "HH:mm", { locale: es })} hs
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Estado y Acciones */}
+              <div className="flex flex-col items-end gap-2">
+                {getStatusBadge(apt.status)}
+                
+                {/* Precio */}
+                {apt.service?.price && (
+                  <span className="text-sm font-medium text-gray-900">
+                    ${Number(apt.service.price).toLocaleString('es-AR')}
+                  </span>
+                )}
+
+                {/* Botón de Cancelar (Solo si es pendiente o confirmada y futura) */}
+                {(apt.status === 'PENDING' || apt.status === 'CONFIRMED') && new Date(apt.date) > new Date() && (
+                  <button 
+                    className="text-xs text-red-600 hover:text-red-800 underline mt-1"
+                    onClick={() => {
+                        if(confirm('¿Seguro que deseas cancelar esta cita?')) {
+                            // Aquí llamarías a tu Server Action: cancelAppointment(apt.id)
+                            alert("Funcionalidad pendiente de conectar con Server Action");
+                        }
+                    }}
+                  >
+                    Cancelar Cita
+                  </button>
+                )}
+              </div>
+
+            </div>
+          ))
+        ) : (
+          <div className="text-center py-12">
+            <div className="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+            </div>
+            <h3 className="text-lg font-medium text-gray-900">No hay citas en esta lista</h3>
+            <p className="text-gray-500 max-w-sm mx-auto mt-1">
+              {filter === 'ALL' 
+                ? 'Aún no has agendado ninguna cita con nuestros profesionales.' 
+                : 'No tienes citas que coincidan con este filtro.'}
+            </p>
+          </div>
+        )}
       </div>
-
-      {error ? (
-        <div className="mt-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
-          {error}
-        </div>
-      ) : null}
-
-      {loading ? (
-        <div className="mt-6 text-center text-gray-600">Cargando citas…</div>
-      ) : !hasAppointments ? (
-        <div className="mt-6 text-center text-gray-600">Aún no tenés citas agendadas.</div>
-      ) : (
-        <div className="mt-6 overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-gray-600 border-b">
-                <th className="py-2 pr-3">Fecha y hora</th>
-                <th className="py-2 pr-3">Profesional</th>
-                <th className="py-2 pr-3">Lugar</th>
-                <th className="py-2 pr-3">Valor</th>
-                <th className="py-2 pr-3">Estado</th>
-                <th className="py-2 pr-3">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {appointments.map((a) => {
-                const busy = busyId === a.id;
-                const calendarUrl = a?.professional?.calendarUrl || "";
-                const cancellable = !["CANCELLED", "COMPLETED", "NO_SHOW"].includes(a.status);
-
-                // Lugar: no existe en Prisma aún. Por ahora:
-                // - Si el profesional tiene calendarUrl, asumimos "Online / según calendario"
-                // - Si no, "Por definir"
-                const place = calendarUrl ? "Según calendario del profesional" : "Por definir";
-
-                // Valor: preferimos priceFinal si está, si no usamos el price del servicio
-                const value = a.priceFinal ?? a?.service?.price ?? null;
-
-                return (
-                  <tr key={a.id} className="border-b last:border-b-0">
-                    <td className="py-3 pr-3 whitespace-nowrap">
-                      {fmt(a.startTime)} <span className="text-gray-500">– {fmt(a.endTime)}</span>
-                    </td>
-
-                    <td className="py-3 pr-3">
-                      {a?.professional?.name || "Profesional"}{" "}
-                      {a?.professional?.profession ? (
-                        <span className="text-gray-500">({a.professional.profession})</span>
-                      ) : null}
-                    </td>
-
-                    <td className="py-3 pr-3">{place}</td>
-
-                    <td className="py-3 pr-3 whitespace-nowrap">{money(value)}</td>
-
-                    <td className="py-3 pr-3">
-                      <span className="inline-flex items-center px-2 py-1 rounded-md border bg-neutral-50">
-                        {badgeLabel(a.status)}
-                      </span>
-                    </td>
-
-                    <td className="py-3 pr-3">
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          onClick={() => cancelAppointment(a.id)}
-                          disabled={busy || !cancellable}
-                          className="px-3 py-2 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-60"
-                        >
-                          {busy ? "Procesando…" : "Cancelar"}
-                        </button>
-
-                        {calendarUrl ? (
-                          <a
-                            href={calendarUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="px-3 py-2 rounded-lg border border-neutral-200 hover:bg-neutral-50"
-                            onClick={(e) => {
-                              const ok = confirm(
-                                "Reagendar se realiza siguiendo las políticas del servicio y la disponibilidad del profesional. ¿Querés continuar?"
-                              );
-                              if (!ok) e.preventDefault();
-                            }}
-                          >
-                            Reagendar
-                          </a>
-                        ) : (
-                          <span className="px-3 py-2 rounded-lg border border-neutral-200 text-gray-500">
-                            Reagendar (sin calendario)
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
+    </div>
   );
 }

@@ -1,42 +1,43 @@
-// src/components/UserRegisterForm.js
 'use client';
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Cookies from 'js-cookie';
 
-export default function UserRegisterForm() {
+function RegisterFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // Mantenemos los nombres del estado sincronizados con el schema de Prisma
   const [formData, setFormData] = useState({
-    nombreCompleto: '',
-    identificacion: '',
-    fechaNacimiento: '',
+    name: '',
+    identification: '',
+    birthDate: '',
     gender: '',
-    intereses: '',
+    interests: '',
     email: '',
-    telefono: '',
+    phone: '',
     password: '',
     confirmPassword: '',
   });
 
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState({ text: '', type: '' });
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setMessage('');
+    setMessage({ text: '', type: '' });
 
     if (formData.password !== formData.confirmPassword) {
-      setMessage('Las contraseñas no coinciden.');
+      setMessage({ text: 'Las contraseñas no coinciden.', type: 'error' });
       return;
     }
+
+    setLoading(true);
 
     try {
       const response = await fetch('/api/auth/register', {
@@ -45,207 +46,114 @@ export default function UserRegisterForm() {
         body: JSON.stringify(formData),
       });
 
+      const data = await response.json();
+
       if (response.ok) {
-        const redirectUrl = searchParams.get('redirect');
-        if (redirectUrl) {
-          router.push(redirectUrl); // Va al calendario del profesional
-        } else {
-          router.push('/dashboard'); // Va al panel de control por defecto
+        // Si la API devuelve un token, lo seteamos para que SmartScheduleButton lo detecte
+        if (data.token) {
+          Cookies.set('sessionToken', data.token, { expires: 7 });
         }
+
+        const redirectUrl = searchParams.get('redirect');
+        
+        // Redirección inteligente: decodificamos por si viene con caracteres especiales
+        if (redirectUrl) {
+          router.push(decodeURIComponent(redirectUrl));
+        } else {
+          router.push('/dashboard');
+        }
+        router.refresh();
       } else {
-        const errorData = await response.json();
-        setMessage(errorData.message || 'Ocurrió un error en el registro.');
+        setMessage({ text: data.error || 'Ocurrió un error en el registro.', type: 'error' });
       }
     } catch (error) {
-      setMessage('No se pudo conectar con el servidor.');
+      setMessage({ text: 'No se pudo conectar con el servidor.', type: 'error' });
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="bg-white p-8 rounded-lg shadow-md border max-w-2xl mx-auto"
-    >
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">
-        Crea tu Cuenta de Usuario
-      </h2>
+    <form onSubmit={handleSubmit} className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 max-w-2xl mx-auto">
+      <h2 className="text-2xl font-bold text-gray-900 mb-2">Crea tu Cuenta de Usuario</h2>
+      <p className="text-gray-500 mb-8 text-sm">Ingresa tus datos para acceder a los servicios de SMCR.</p>
+
+      {message.text && (
+        <div className={`p-4 mb-6 rounded-xl text-sm border ${message.type === 'error' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-green-50 text-green-700 border-green-100'}`}>
+          {message.text}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="mb-4">
-          <label
-            htmlFor="nombreCompleto"
-            className="block text-gray-700 font-medium mb-2"
-          >
-            Nombre Completo
-          </label>
-          <input
-            type="text"
-            name="nombreCompleto"
-            value={formData.nombreCompleto}
-            onChange={handleChange}
-            required
-            className="w-full p-2 border border-gray-300 rounded-md"
-          />
+        <div>
+          <label className="block text-gray-700 font-semibold text-sm mb-2">Nombre Completo</label>
+          <input type="text" name="name" value={formData.name} onChange={handleChange} required className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
         </div>
 
-        <div className="mb-4">
-          <label
-            htmlFor="identificacion"
-            className="block text-gray-700 font-medium mb-2"
-          >
-            Identificación (Cédula)
-          </label>
-          <input
-            type="text"
-            name="identificacion"
-            value={formData.identificacion}
-            onChange={handleChange}
-            required
-            className="w-full p-2 border border-gray-300 rounded-md"
-          />
+        <div>
+          <label className="block text-gray-700 font-semibold text-sm mb-2">Identificación (Cédula)</label>
+          <input type="text" name="identification" value={formData.identification} onChange={handleChange} required className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
         </div>
 
-        <div className="mb-4">
-          <label
-            htmlFor="fechaNacimiento"
-            className="block text-gray-700 font-medium mb-2"
-          >
-            Fecha de Nacimiento
-          </label>
-          <input
-            type="date"
-            name="fechaNacimiento"
-            value={formData.fechaNacimiento}
-            onChange={handleChange}
-            required
-            className="w-full p-2 border border-gray-300 rounded-md"
-          />
+        <div>
+          <label className="block text-gray-700 font-semibold text-sm mb-2">Fecha de Nacimiento</label>
+          <input type="date" name="birthDate" value={formData.birthDate} onChange={handleChange} required className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
         </div>
 
-        <div className="mb-4">
-          <label
-            htmlFor="telefono"
-            className="block text-gray-700 font-medium mb-2"
-          >
-            Teléfono de Contacto
-          </label>
-          <input
-            type="tel"
-            name="telefono"
-            value={formData.telefono}
-            onChange={handleChange}
-            required
-            className="w-full p-2 border border-gray-300 rounded-md"
-          />
+        <div>
+          <label className="block text-gray-700 font-semibold text-sm mb-2">Teléfono de Contacto</label>
+          <input type="tel" name="phone" value={formData.phone} onChange={handleChange} required className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
         </div>
 
-        <div className="mb-4">
-          <label
-            htmlFor="gender"
-            className="block text-gray-700 font-medium mb-2"
-          >
-            Género (opcional)
-          </label>
-          <select
-            name="gender"
-            id="gender"
-            value={formData.gender}
-            onChange={handleChange}
-            className="w-full p-2 border border-gray-300 rounded-md"
-          >
+        <div>
+          <label className="block text-gray-700 font-semibold text-sm mb-2">Género</label>
+          <select name="gender" value={formData.gender} onChange={handleChange} className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white">
             <option value="">Seleccionar...</option>
             <option value="femenino">Femenino</option>
             <option value="masculino">Masculino</option>
             <option value="no-binario">No-binario</option>
             <option value="otro">Otro</option>
-            <option value="prefiero-no-decir">Prefiero no decir</option>
           </select>
         </div>
-      </div>
-
-      <div className="mb-4">
-        <label
-          htmlFor="intereses"
-          className="block text-gray-700 font-medium mb-2"
-        >
-          Intereses en Salud Mental
-        </label>
-        <textarea
-          name="intereses"
-          value={formData.intereses}
-          onChange={handleChange}
-          rows="3"
-          placeholder="Ej: Ansiedad, terapia de pareja, crecimiento personal..."
-          className="w-full p-2 border border-gray-300 rounded-md"
-        />
-      </div>
-
-      <div className="mb-4">
-        <label
-          htmlFor="email"
-          className="block text-gray-700 font-medium mb-2"
-        >
-          Email
-        </label>
-        <input
-          type="email"
-          name="email"
-          value={formData.email}
-          onChange={handleChange}
-          required
-          className="w-full p-2 border border-gray-300 rounded-md"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <div>
-          <label
-            htmlFor="password"
-            className="block text-gray-700 font-medium mb-2"
-          >
-            Contraseña
-          </label>
-          <input
-            type="password"
-            name="password"
-            value={formData.password}
-            onChange={handleChange}
-            required
-            className="w-full p-2 border border-gray-300 rounded-md"
-          />
-        </div>
 
         <div>
-          <label
-            htmlFor="confirmPassword"
-            className="block text-gray-700 font-medium mb-2"
-          >
-            Confirmar Contraseña
-          </label>
-          <input
-            type="password"
-            name="confirmPassword"
-            value={formData.confirmPassword}
-            onChange={handleChange}
-            required
-            className="w-full p-2 border border-gray-300 rounded-md"
-          />
+          <label className="block text-gray-700 font-semibold text-sm mb-2">Email</label>
+          <input type="email" name="email" value={formData.email} onChange={handleChange} required className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
         </div>
       </div>
 
-      {/* Botón corregido usando estilos de marca */}
+      <div className="mt-6">
+        <label className="block text-gray-700 font-semibold text-sm mb-2">Intereses en Salud Mental</label>
+        <textarea name="interests" value={formData.interests} onChange={handleChange} rows="2" className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all" placeholder="Ej: Ansiedad, terapia de pareja..." />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+        <div>
+          <label className="block text-gray-700 font-semibold text-sm mb-2">Contraseña</label>
+          <input type="password" name="password" value={formData.password} onChange={handleChange} required className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
+        </div>
+        <div>
+          <label className="block text-gray-700 font-semibold text-sm mb-2">Confirmar Contraseña</label>
+          <input type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} required className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
+        </div>
+      </div>
+
       <button
         type="submit"
-        className="w-full btn btn-primary mt-2"
+        disabled={loading}
+        className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl mt-8 hover:bg-blue-700 transition-all shadow-lg active:scale-95 disabled:opacity-50"
       >
-        Crear Cuenta
+        {loading ? 'Creando cuenta...' : 'Crear Cuenta y Continuar'}
       </button>
-
-      {message && (
-        <p className="mt-4 text-center text-sm text-red-600">
-          {message}
-        </p>
-      )}
     </form>
+  );
+}
+
+// Next.js requiere Suspense para usar useSearchParams en componentes de cliente
+export default function UserRegisterForm() {
+  return (
+    <Suspense fallback={<div className="text-center p-10">Cargando formulario...</div>}>
+      <RegisterFormContent />
+    </Suspense>
   );
 }

@@ -4,65 +4,41 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { generateSecurityToken } from "@/lib/tokens";
 import { sendVerificationEmail } from "@/lib/mail";
+import { signToken } from "@/lib/auth"; // Necesario para loguear automáticamente
 
 export async function POST(request) {
   try {
     const body = await request.json().catch(() => ({}));
-    
-    // 1. Extraemos TODOS los campos
-    const { 
-      name, 
-      email, 
-      password, 
-      gender, 
-      interests, 
-      identification, 
-      phone, 
-      birthDate 
-    } = body ?? {};
+    const { name, email, password, identification, birthDate, phone, gender, interests } = body;
 
-    // 2. Validaciones Obligatorias
+    // 1. Validaciones
     if (!name || !email || !password || !identification || !birthDate) {
-      return NextResponse.json(
-        { error: "Faltan datos obligatorios." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Faltan datos obligatorios." }, { status: 400 });
     }
 
     const normalizedEmail = String(email).trim().toLowerCase();
 
-    // 3. Verificar duplicados
-    const existingUser = await prisma.user.findUnique({
-      where: { email: normalizedEmail }
-    });
-
+    // 2. Duplicados
+    const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (existingUser) {
-      return NextResponse.json(
-        { error: "Ya existe un usuario con este correo." },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: "Ya existe un usuario con este correo." }, { status: 409 });
     }
 
-    // 4. Seguridad (Hash + Token)
+    // 3. Seguridad
     const hashedPassword = await bcrypt.hash(String(password), 12);
     const { token, tokenHash, expiresAt } = generateSecurityToken();
 
-    // 5. Crear Usuario en DB
+    // 4. Crear Usuario
     const newUser = await prisma.user.create({
       data: {
         name: String(name).trim(),
         email: normalizedEmail,
         passwordHash: hashedPassword,
-        
-        // Campos específicos
         identification: String(identification).trim(),
-        phone: String(phone).trim(),
-        birthDate: new Date(birthDate), 
-        
+        phone: phone ? String(phone).trim() : null,
+        birthDate: new Date(birthDate),
         gender: gender ? String(gender).trim() : null,
         interests: interests ? String(interests).trim() : null,
-
-        // Auth
         emailVerified: false,
         verifyTokenHash: tokenHash,
         verifyTokenExp: expiresAt,
@@ -71,37 +47,45 @@ export async function POST(request) {
       },
     });
 
-    // 6. Enviar Email (CON REPORTE DE ERRORES PARA DEBUG)
+    // 5. Generar Token de Sesión Inmediata
+    // Esto permite que el usuario agende aunque el mail de verificación tarde
+    const sessionToken = await signToken({
+      userId: newUser.id,
+      email: newUser.email,
+      role: newUser.role
+    });
+
+    // 6. Intento de Envío de Email (No bloqueante)
+    let emailSent = true;
     try {
       await sendVerificationEmail(newUser.email, token);
     } catch (emailError) {
-      console.error("⚠️ CRITICAL EMAIL ERROR:", emailError);
-      
-      // ESTA ES LA PARTE IMPORTANTE:
-      // Devolvemos un error 500 explícito con el mensaje técnico
-      // para que lo puedas leer en el formulario.
-      return NextResponse.json(
-        { 
-          error: `Usuario creado (ID: ${newUser.id}), pero FALLÓ el envío del correo: ${emailError.message || 'Error desconocido en Resend'}` 
-        },
-        { status: 500 }
-      );
+      console.error("⚠️ EMAIL_SEND_FAILURE:", emailError.message);
+      emailSent = false; 
+      // No devolvemos error 500 para no romper el registro
     }
 
-    return NextResponse.json(
-      {
-        ok: true,
-        message: "Cuenta creada exitosamente. Por favor verifica tu correo.",
-        userId: newUser.id
-      },
-      { status: 201 }
-    );
+    // 7. Respuesta con Cookie de sesión
+    const response = NextResponse.json({
+      ok: true,
+      token: sessionToken,
+      emailSent, // Informamos al front si el mail falló
+      message: emailSent 
+        ? "Registro exitoso. Verifica tu correo." 
+        : "Registro exitoso, pero hubo un problema al enviar el correo de verificación. Puedes agendar y verificar tu cuenta más tarde."
+    }, { status: 201 });
+
+    response.cookies.set("sessionToken", sessionToken, {
+      httpOnly: false, // Para que SmartScheduleButton lo lea
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24 * 7,
+      path: "/",
+    });
+
+    return response;
 
   } catch (error) {
     console.error("REGISTER_ERROR:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor: " + error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Error interno: " + error.message }, { status: 500 });
   }
 }

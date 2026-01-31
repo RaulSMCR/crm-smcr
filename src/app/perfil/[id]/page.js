@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import SmartScheduleButton from '@/components/SmartScheduleButton';
+import ProtectedAction from '@/components/auth/ProtectedAction'; // Importamos el interceptor
 
 function formatDate(date) {
   return new Intl.DateTimeFormat('es-ES', {
@@ -18,7 +19,7 @@ async function getProfessional(id) {
     select: {
       id: true,
       name: true,
-      profession: true,
+      declaredJobTitle: true, // CORREGIDO: antes profession
       bio: true,
       avatarUrl: true,
       introVideoUrl: true,
@@ -40,7 +41,6 @@ async function getProfessional(id) {
           createdAt: true,
           imageUrl: true,
           postType: true,
-          service: { select: { slug: true, title: true } },
         },
       },
     },
@@ -49,152 +49,79 @@ async function getProfessional(id) {
 }
 
 export default async function ProfessionalProfilePage({ params }) {
-  const id = Number(params?.id);
-  if (!Number.isInteger(id)) notFound();
+  // CORREGIDO: Los IDs son Strings (CUID), no Numbers
+  const { id } = await params;
+  
+  if (!id) notFound();
 
   const pro = await getProfessional(id);
-  if (!pro) notFound();
+  // Seguridad: Solo perfiles aprobados son públicos
+  if (!pro || !pro.isApproved) notFound();
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-10">
       {/* Header */}
       <section className="flex flex-col md:flex-row md:items-center gap-6 mb-10">
-        <div className="w-28 h-28 rounded-full overflow-hidden">
+        <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-gray-100 shadow-sm">
           {pro.avatarUrl ? (
             <img src={pro.avatarUrl} alt={pro.name} className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-brand-300 text-3xl">
+            <div className="w-full h-full bg-blue-50 flex items-center justify-center text-blue-600 text-3xl font-bold">
               {pro.name.slice(0, 1)}
             </div>
           )}
         </div>
 
         <div className="flex-1">
-          <h1 className="text-3xl font-bold">{pro.name}</h1>
-          <p className="text-brand-300">{pro.profession}</p>
-
-          <div className="mt-2">
-            {pro.isApproved ? (
-              <span className="text-xs inline-flex items-center gap-2 bg-green-50 text-green-700 border border-green-200 px-2 py-1 rounded">
-                ✓ Perfil verificado
-              </span>
-            ) : (
-              <span className="text-xs inline-flex items-center gap-2 bg-yellow-50 text-yellow-700 border border-yellow-200 px-2 py-1 rounded">
-                ⚠ En revisión
-              </span>
-            )}
-          </div>
+          <h1 className="text-3xl font-bold text-gray-900">{pro.name}</h1>
+          <p className="text-blue-600 font-medium">{pro.declaredJobTitle}</p>
 
           <div className="mt-4 flex flex-wrap gap-3">
-            {/* Botón inteligente de agendamiento */}
+            {/* Botón de agendamiento envuelto en lógica de protección si fuera necesario */}
             <SmartScheduleButton professionalId={pro.id} />
-
-            {pro.paymentLinkBase ? (
-              <a
-                href={pro.paymentLinkBase}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center px-4 py-2 rounded-lg border hover:bg-brand-300"
-              >
-                Generar enlace de pago
+            
+            {pro.paymentLinkBase && (
+              <a href={pro.paymentLinkBase} target="_blank" className="px-4 py-2 rounded-lg border hover:bg-gray-50 transition-colors">
+                Realizar Pago
               </a>
-            ) : null}
+            )}
           </div>
         </div>
       </section>
 
-      {/* Intro video opcional */}
-      {pro.introVideoUrl ? (
-        <section className="mb-10">
-          <div className="aspect-video w-full rounded-xl overflow-hidden border">
-            <iframe
-              src={pro.introVideoUrl}
-              className="w-full h-full"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              title={`Presentación de ${pro.name}`}
-            />
-          </div>
-        </section>
-      ) : null}
-
       {/* Bio */}
-      {pro.bio ? (
-        <section className="mb-12">
-          <h2 className="text-2xl font-semibold mb-3">Sobre mí</h2>
-          <div className="prose max-w-none">
-            <p style={{ whiteSpace: 'pre-wrap' }}>{pro.bio}</p>
-          </div>
-        </section>
-      ) : null}
-
-      {/* Servicios del profesional */}
       <section className="mb-12">
-        <h2 className="text-2xl font-semibold mb-4">Servicios</h2>
-        {pro.services.length === 0 ? (
-          <p className="text-gray-600">Aún no hay servicios vinculados.</p>
-        ) : (
-          <ul className="grid gap-6 md:grid-cols-2">
-            {pro.services.map((s) => (
-              <li key={s.id} className="border rounded-lg p-4 hover:shadow">
-                <Link href={`/servicios/${s.slug}`} className="block">
-                  {s.imageUrl ? (
-                    <img
-                      src={s.imageUrl}
-                      alt={s.title}
-                      className="w-full h-40 object-cover rounded-md mb-3"
-                    />
-                  ) : null}
-                  <h3 className="text-lg font-semibold">{s.title}</h3>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
+        <h2 className="text-xl font-bold text-gray-800 mb-3 border-b pb-2">Trayectoria Profesional</h2>
+        <p className="text-gray-600 leading-relaxed" style={{ whiteSpace: 'pre-wrap' }}>{pro.bio}</p>
       </section>
 
-      {/* Últimos artículos publicados */}
-      <section>
-        <h2 className="text-2xl font-semibold mb-4">Artículos recientes</h2>
-        {pro.posts.length === 0 ? (
-          <p className="text-brand-600">Este profesional aún no tiene artículos publicados.</p>
-        ) : (
-          <ul className="grid gap-6 md:grid-cols-2">
-            {pro.posts.map((p) => (
-              <li key={p.id} className="border rounded-lg p-4 hover:shadow">
-                <article>
-                  {/* Link al post */}
-                  <Link href={`/blog/${p.slug}`} className="block">
-                    {p.imageUrl ? (
-                      <img
-                        src={p.imageUrl}
-                        alt={p.title}
-                        className="w-full h-40 object-cover rounded-md mb-3"
-                      />
-                    ) : null}
-                    <h3 className="text-lg font-semibold">{p.title}</h3>
-                  </Link>
+      {/* Servicios con validación de existencia */}
+      <section className="mb-12">
+        <h2 className="text-xl font-bold text-gray-800 mb-4">Servicios Ofrecidos</h2>
+        <div className="grid gap-4 md:grid-cols-2">
+          {pro.services.map((s) => (
+            <div key={s.id} className="border rounded-xl p-4 hover:border-blue-300 transition-all shadow-sm">
+              <h3 className="font-bold text-gray-900">{s.title}</h3>
+              <p className="text-blue-600 font-bold">${Number(s.price)}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
-                  {/* Meta: fecha, tipo, servicio */}
-                  <div className="text-sm text-brand-300 mt-1">
-                    {formatDate(new Date(p.createdAt))} · {p.postType}
-                    {p.service ? (
-                      <>
-                        {' · Servicio: '}
-                        <Link
-                          className="text-brand-600 underline"
-                          href={`/servicios/${p.service.slug}`}
-                        >
-                          {p.service.title}
-                        </Link>
-                      </>
-                    ) : null}
-                  </div>
-                </article>
-              </li>
-            ))}
-          </ul>
-        )}
+      {/* Artículos Protegidos */}
+      <section>
+        <h2 className="text-xl font-bold text-gray-800 mb-4">Blog y Artículos</h2>
+        <div className="grid gap-6 md:grid-cols-2">
+          {pro.posts.map((p) => (
+            <ProtectedAction key={p.id}>
+              <Link href={`/blog/${p.slug}`} className="block border rounded-xl p-4 hover:shadow-md transition-shadow">
+                <h3 className="font-bold text-gray-900 group-hover:text-blue-600">{p.title}</h3>
+                <span className="text-xs text-gray-400">{formatDate(new Date(p.createdAt))}</span>
+                <p className="text-blue-500 text-sm mt-2 font-medium">🔓 Leer más (Solo usuarios)</p>
+              </Link>
+            </ProtectedAction>
+          ))}
+        </div>
       </section>
     </main>
   );
