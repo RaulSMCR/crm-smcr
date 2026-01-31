@@ -1,145 +1,229 @@
-//src/app/panel/profesional/page.js
-import { redirect } from "next/navigation";
-import Link from "next/link";
-import { getSession, logout } from "@/actions/auth-actions";
-import { getProfessionalAppointments } from "@/actions/agenda-actions";
-import { prisma } from "@/lib/prisma"; // Necesario solo si traemos los artículos aquí directo
+import Link from 'next/link';
+import { cookies } from 'next/headers';
+import { prisma } from '@/lib/prisma';
+import { verifyToken } from '@/lib/auth';
+import CancelAppointmentButton from '@/components/CancelAppointmentButton';
 
-// Componentes Nuevos
-import DashboardNav from "@/components/DashboardNav";
-import ProfessionalAppointmentsPanel from "@/components/ProfessionalAppointmentsPanel";
-import GoogleConnectButton from "@/components/admin/GoogleConnectButton";
+export const revalidate = 0; // Datos siempre frescos
 
-// Asegura que la página siempre muestre datos frescos
-export const dynamic = 'force-dynamic';
+// Helper para formatear fechas
+function fmtDateTime(dt) {
+  if (!dt) return 'Fecha inválida';
+  try {
+    return new Intl.DateTimeFormat('es-AR', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(dt);
+  } catch {
+    return dt.toISOString().slice(0, 16).replace('T', ' ');
+  }
+}
 
-export default async function ProfesionalDashboardPage() {
-  // 1. Verificación de Sesión y Rol (Seguridad)
-  const session = await getSession();
-  
-  if (!session || !session.profile) {
-    redirect("/ingresar");
+export default async function DashboardProfesionalPage() {
+  // 1. Auth Check
+  const token = cookies().get('sessionToken')?.value || '';
+  const payload = await verifyToken(token).catch(() => null);
+
+  if (!payload || payload.role !== 'PROFESSIONAL') {
+    return (
+      <main className="max-w-3xl mx-auto px-4 py-10 text-center">
+        <h1 className="text-xl font-semibold text-red-600">Acceso restringido</h1>
+        <p className="text-gray-600 mt-2">Necesitás iniciar sesión como profesional.</p>
+        <Link href="/login" className="text-blue-600 hover:underline mt-4 inline-block">
+          Ir al Login
+        </Link>
+      </main>
+    );
   }
 
-  if (session.role !== "PROFESSIONAL") {
-    // Si es paciente, lo mandamos a su panel correcto
-    redirect("/panel/paciente");
-  }
+  // --- CORRECCIÓN CRÍTICA: El ID es String, no Number ---
+  const professionalId = String(payload.userId); 
 
-  const professionalId = session.profile.id;
+  // 2. Definir rango de tiempo (Próximos 14 días)
+  const now = new Date();
+  const until = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
 
-  // 2. Carga de Datos en Paralelo (Agenda + Blog)
-  // Usamos Promise.all para que sea instantáneo
-  const [appointments, myPosts] = await Promise.all([
-    // A. Agenda (Usando la Server Action unificada)
-    getProfessionalAppointments(professionalId),
+  // 3. Consultas a la Base de Datos (Paralelas para velocidad)
+  const [appointments, myPosts, availability] = await Promise.all([
+    // A. Citas
+    prisma.appointment.findMany({
+      where: {
+        professionalId,
+        status: { not: 'CANCELLED' },
+        date: { gte: now, lte: until }, // Usamos 'date' según tu schema actual
+      },
+      orderBy: { date: 'asc' },
+      include: {
+        user: { select: { name: true, email: true, phone: true } },
+        service: { select: { title: true } }
+      },
+    }),
     
-    // B. Blog (Consulta directa optimizada para Server Component)
+    // B. Publicaciones
     prisma.post.findMany({
       where: { authorId: professionalId },
       orderBy: { createdAt: 'desc' },
       take: 5,
       include: { service: { select: { title: true } } }
+    }),
+
+    // C. Disponibilidad (Para saber si mostrar alerta)
+    prisma.availability.findMany({
+      where: { professionalId },
+      take: 1 // Solo necesitamos saber si existe al menos uno
     })
   ]);
 
+  const hasAvailability = availability.length > 0;
+
   return (
-    <div className="bg-gray-50 py-12 min-h-screen">
-      <div className="container mx-auto px-6 max-w-6xl">
-        
-        {/* ENCABEZADO */}
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-8">
+    <main className="max-w-6xl mx-auto px-4 py-10 space-y-10">
+      
+      {/* HEADER */}
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Panel del Profesional</h1>
+          <p className="text-gray-500 text-sm">Bienvenido, gestiona tus citas y contenido.</p>
+        </div>
+        <Link
+          href="/dashboard-profesional/editar-articulo/new"
+          className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 text-center font-medium shadow-sm transition-colors"
+        >
+          + Nuevo artículo
+        </Link>
+      </header>
+
+      {/* --- ALERTA DE CONFIGURACIÓN (CRÍTICO PARA TU PRUEBA) --- */}
+      <section className={`p-6 rounded-lg border ${hasAvailability ? 'bg-white border-gray-200' : 'bg-amber-50 border-amber-200'}`}>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">Panel Profesional</h1>
-            <p className="text-lg text-gray-600">
-              Bienvenido, {session.profile.name}
+            <h2 className="text-lg font-semibold text-gray-800">
+              {hasAvailability ? "🗓️ Tu Agenda" : "⚠️ Configuración Pendiente"}
+            </h2>
+            <p className="text-sm text-gray-600 mt-1">
+              {hasAvailability 
+                ? "Tus horarios están activos. Los pacientes pueden encontrarte." 
+                : "Aún no has definido tus horarios de atención. Tu perfil no permitirá reservas hasta que lo hagas."}
             </p>
           </div>
-          
-          <div className="flex gap-3 items-center">
-             {/* Botón Logout (Server Action) */}
-             <form action={logout}>
-                <button type="submit" className="text-sm bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md font-medium hover:bg-gray-50 transition-colors shadow-sm">
-                  Cerrar Sesión
-                </button>
-             </form>
+          <Link
+            href="/dashboard-profesional/horarios"
+            className={`px-5 py-2.5 rounded font-medium text-sm transition-colors ${
+              hasAvailability 
+                ? "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50" 
+                : "bg-amber-600 text-white hover:bg-amber-700 shadow-sm"
+            }`}
+          >
+            {hasAvailability ? "Gestionar Horarios" : "Configurar Horarios Ahora"}
+          </Link>
+        </div>
+      </section>
+
+      {/* SECCIÓN 1: PRÓXIMAS CITAS */}
+      <section>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-gray-800">Próximas Citas</h2>
+          {/* Aquí podrías poner el link al perfil público en el futuro */}
+        </div>
+
+        {appointments.length === 0 ? (
+          <div className="bg-white border border-dashed rounded-lg p-8 text-center text-gray-500">
+            No tienes citas programadas para los próximos 14 días.
           </div>
-        </div>
-
-        {/* NAVEGACIÓN Y CONEXIÓN GOOGLE */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
-            <div className="lg:col-span-3">
-                 <DashboardNav />
-            </div>
-            {/* Tarjeta de Estado de Integración */}
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col justify-center items-center gap-2">
-                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Sincronización</p>
-                 <GoogleConnectButton />
-            </div>
-        </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            {/* COLUMNA IZQUIERDA (2/3): AGENDA INTERACTIVA */}
-            <div className="lg:col-span-2 space-y-6">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-bold text-gray-800">Gestión de Citas</h2>
-                    {/* Botón de configuración de horarios (Ruta actualizada) */}
-                    <Link href="/panel/profesional/horarios" className="text-sm text-blue-600 hover:underline font-medium">
-                        Configurar Disponibilidad &rarr;
-                    </Link>
-                </div>
-
-                {/* EL NUEVO COMPONENTE POTENTE */}
-                <ProfessionalAppointmentsPanel initialAppointments={appointments} />
-            </div>
-
-            {/* COLUMNA DERECHA (1/3): BLOG RÁPIDO */}
-            <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-bold text-gray-800">Mis Artículos</h2>
-                    <Link href="/panel/profesional/editar-articulo/new" className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors">
-                        + Nuevo
-                    </Link>
-                </div>
-
-                {/* Lista Simple de Artículos */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    {myPosts.length > 0 ? (
-                        <ul className="divide-y divide-gray-100">
-                            {myPosts.map(post => (
-                                <li key={post.id} className="p-4 hover:bg-gray-50 transition-colors">
-                                    <Link href={`/panel/profesional/editar-articulo/${post.id}`} className="block group">
-                                        <h3 className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-1">
-                                            {post.title}
-                                        </h3>
-                                        <div className="flex justify-between items-center mt-2">
-                                            <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                                post.status === 'PUBLISHED' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                                            }`}>
-                                                {post.status === 'PUBLISHED' ? 'Publicado' : 'Borrador'}
-                                            </span>
-                                            <span className="text-xs text-gray-400">Editar &rarr;</span>
-                                        </div>
-                                    </Link>
-                                </li>
-                            ))}
-                        </ul>
-                    ) : (
-                        <div className="p-8 text-center text-gray-500 text-sm">
-                            No has escrito artículos aún.
-                        </div>
-                    )}
-                    <div className="bg-gray-50 p-3 text-center border-t border-gray-100">
-                        <Link href="/panel/profesional/articulos" className="text-xs font-semibold text-gray-600 hover:text-gray-900">
-                            Ver todos mis artículos
-                        </Link>
+        ) : (
+          <div className="bg-white border rounded-lg overflow-hidden shadow-sm">
+            <ul className="divide-y divide-gray-100">
+              {appointments.map((a) => (
+                <li key={a.id} className="p-4 hover:bg-gray-50 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  
+                  {/* Info Cita */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-bold text-lg text-blue-900">
+                         {fmtDateTime(new Date(a.date))}
+                      </span>
+                      <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-800 font-medium">
+                        {a.status}
+                      </span>
                     </div>
-                </div>
-            </div>
+                    
+                    <div className="text-gray-900 font-medium">
+                      {a.user?.name || 'Paciente sin nombre'}
+                    </div>
+                    
+                    <div className="text-sm text-gray-500 flex flex-wrap gap-x-4">
+                      <span>{a.user?.email}</span>
+                      {a.user?.phone && <span>📞 {a.user.phone}</span>}
+                    </div>
 
-        </div>
-      </div>
-    </div>
+                    {a.service && (
+                      <div className="text-sm text-gray-600 mt-1">
+                        Servicio: <span className="font-medium">{a.service.title}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Acciones */}
+                  <div className="flex-shrink-0">
+                    <CancelAppointmentButton 
+                      professionalId={professionalId} 
+                      appointmentId={a.id} 
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </section>
+
+      {/* SECCIÓN 2: TUS ARTÍCULOS */}
+      <section>
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">Tus Últimos Artículos</h2>
+        
+        {myPosts.length === 0 ? (
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
+            <p className="text-gray-600 mb-2">Aún no has publicado contenido.</p>
+            <Link href="/dashboard-profesional/editar-articulo/new" className="text-blue-600 hover:underline text-sm">
+              Escribir mi primer artículo
+            </Link>
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {myPosts.map((p) => (
+              <article key={p.id} className="bg-white border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+                <h3 className="font-medium text-gray-900 truncate mb-1" title={p.title}>
+                  {p.title}
+                </h3>
+                <div className="text-xs text-gray-500 mb-3 flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full ${
+                    p.status === 'PUBLISHED' ? 'bg-green-500' : 'bg-gray-400'
+                  }`} />
+                  {p.status}
+                </div>
+                
+                <div className="flex items-center gap-2 mt-auto pt-2 border-t">
+                  <Link
+                    href={`/dashboard-profesional/editar-articulo/${p.id}`}
+                    className="flex-1 text-center py-1.5 text-xs font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded border"
+                  >
+                    Editar
+                  </Link>
+                  {p.status === 'PUBLISHED' && (
+                    <Link
+                      href={`/blog/${p.slug}`}
+                      target="_blank"
+                      className="flex-1 text-center py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded border border-blue-100"
+                    >
+                      Ver
+                    </Link>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+    </main>
   );
 }
