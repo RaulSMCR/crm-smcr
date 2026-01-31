@@ -6,13 +6,15 @@ import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 import { redirect } from "next/navigation";
+import crypto from "crypto"; // Necesario para generar tokens de seguridad
 
-// Configuración JWT
+// Configuración de clave secreta para la sesión
 const secretKey = process.env.JWT_SECRET || "secret-key-change-me-in-prod";
 const key = new TextEncoder().encode(secretKey);
 
 /**
  * 1. OBTENER SESIÓN (getSession)
+ * Verifica la cookie, valida la firma JWT y devuelve los datos del usuario.
  */
 export async function getSession() {
   const cookieStore = cookies();
@@ -26,20 +28,22 @@ export async function getSession() {
     });
     return payload;
   } catch (error) {
+    // Si el token es inválido o expiró, retornamos null
     return null;
   }
 }
 
 /**
  * 2. INICIAR SESIÓN (Login)
+ * Unificado para Profesionales y Pacientes.
  */
 export async function login(formData) {
   const email = formData.get("email");
   const password = formData.get("password");
 
-  if (!email || !password) return { error: "Faltan credenciales." };
+  if (!email || !password) return { error: "Por favor, ingresa tus credenciales." };
 
-  // 1. Buscar usuario (Primero como Profesional, luego como Paciente)
+  // A. Buscar usuario (Primero en Profesionales, luego en Usuarios)
   let user = await prisma.professional.findUnique({ where: { email } });
   let role = "PROFESSIONAL";
 
@@ -48,24 +52,33 @@ export async function login(formData) {
     role = "USER";
   }
 
+  // Si no existe en ninguna tabla
   if (!user) {
     return { error: "Credenciales inválidas." };
   }
 
-  // 2. Verificar contraseña
+  // B. Verificar contraseña (Bcrypt)
   const isMatch = await bcrypt.compare(password, user.password);
   
   if (!isMatch) {
     return { error: "Credenciales inválidas." };
   }
 
-  // 3. Crear Token de Sesión
+  // C. (Opcional) Verificar si el profesional está aprobado
+  // Si quieres bloquear el login hasta que sea aprobado, descomenta esto:
+  /*
+  if (role === 'PROFESSIONAL' && !user.isApproved) {
+    return { error: "Tu cuenta está pendiente de aprobación." };
+  }
+  */
+
+  // D. Crear Token de Sesión
   const sessionData = {
     userId: user.id,
     email: user.email,
     role: role,
     user: { name: user.name }, 
-    profile: user // Datos completos
+    profile: user // Datos completos para usar en el frontend
   };
 
   // Caducidad: 7 días
@@ -77,10 +90,10 @@ export async function login(formData) {
     .setExpirationTime("7d")
     .sign(key);
 
-  // 4. Establecer Cookie
+  // E. Establecer Cookie Segura
   cookies().set("session", session, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    httpOnly: true, // No accesible por JS del cliente (seguridad XSS)
+    secure: process.env.NODE_ENV === "production", // Solo HTTPS en producción
     expires,
     sameSite: "lax",
     path: "/",
@@ -98,29 +111,33 @@ export async function logout() {
 }
 
 /**
- * 4. REGISTRO PROFESIONAL (Completo con CV y Carta)
+ * 4. REGISTRO PROFESIONAL ROBUSTO
+ * Incluye generación de slug, hash de contraseña y tokens de verificación.
  */
 export async function registerProfessional(formData) {
+  // Recolección de datos
   const name = formData.get('name');
   const email = formData.get('email');
   const password = formData.get('password');
   const specialty = formData.get('specialty');
+  
+  // Datos del Perfil Completo
   const phone = formData.get('phone'); 
   const bio = formData.get('bio');
   const coverLetter = formData.get('coverLetter'); 
   const cvFile = formData.get('cv'); 
 
-  // Validaciones básicas
+  // Validaciones
   if (!name || !email || !password || !specialty) {
-    return { error: "Los campos Nombre, Email, Contraseña y Especialidad son obligatorios." };
+    return { error: "Nombre, Email, Contraseña y Especialidad son obligatorios." };
   }
 
   try {
-    // 1. Verificar duplicados
+    // A. Verificar duplicados
     const existingUser = await prisma.professional.findUnique({ where: { email } });
-    if (existingUser) return { error: "Este correo ya está registrado." };
+    if (existingUser) return { error: "Este correo electrónico ya está registrado." };
 
-    // 2. Generar Slug único
+    // B. Generar Slug Único (Para la URL del perfil público)
     let slug = name.toLowerCase().trim()
       .replace(/[^\w\s-]/g, '')
       .replace(/[\s_-]+/g, '-');
@@ -136,44 +153,58 @@ export async function registerProfessional(formData) {
       count++;
     }
 
-    // 3. Manejo del Archivo (CV)
-    // NOTA: Aquí solo guardamos una referencia temporal.
-    // Para guardar el archivo real en producción, necesitaríamos Vercel Blob o S3.
+    // C. Manejo del Archivo CV (Simulación segura)
+    // Guardamos el nombre del archivo como referencia hasta implementar subida a la nube.
     let cvUrl = null;
     if (cvFile && cvFile.size > 0) {
-      // Simulación: Guardamos el nombre del archivo para saber que intentó subirlo
       cvUrl = `pending_upload_${Date.now()}_${cvFile.name}`;
     }
 
-    // 4. Encriptar contraseña
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // D. Seguridad: Hash de Contraseña
+    const hashedPassword = await bcrypt.hash(password, 12); // Salt 12
 
-    // 5. Crear en Base de Datos
+    // E. Seguridad: Tokens de Verificación (Email Verification)
+    const verifyToken = crypto.randomBytes(32).toString('hex');
+    const verifyTokenHash = crypto.createHash('sha256').update(verifyToken).digest('hex');
+    const verifyTokenExp = new Date(Date.now() + 24 * 60 * 60 * 1000); // Expira en 24hs
+
+    // F. Crear en Base de Datos
     await prisma.professional.create({
       data: {
+        // Datos básicos
         name,
         email,
         password: hashedPassword,
         specialty,
         slug,
+        
+        // Perfil extendido
         phone: phone || null,
         bio: bio || null,
         coverLetter: coverLetter || null,
         cvUrl: cvUrl, 
-        // isApproved: false (default)
+
+        // Seguridad y Estado
+        isApproved: false, // Requiere aprobación manual del admin
+        emailVerified: false,
+        verifyTokenHash,
+        verifyTokenExp,
+        verifyEmailLastSentAt: new Date(),
       }
     });
+
+    // TODO: Aquí dispararíamos el email de verificación usando 'resend' con el 'verifyToken'
 
     return { success: true };
 
   } catch (error) {
-    console.error("Error registro profesional:", error);
-    return { error: "Error interno al procesar el registro." };
+    console.error("Error crítico en registro profesional:", error);
+    return { error: "Error interno del sistema al procesar el registro." };
   }
 }
 
 /**
- * 5. REGISTRO PACIENTE (Usuario)
+ * 5. REGISTRO DE USUARIO (PACIENTE)
  */
 export async function registerUser(formData) {
   const name = formData.get('name');
@@ -188,8 +219,19 @@ export async function registerUser(formData) {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Opcional: Generar token de verificación también para usuarios
+    const verifyToken = crypto.randomBytes(32).toString('hex');
+    const verifyTokenHash = crypto.createHash('sha256').update(verifyToken).digest('hex');
+
     await prisma.user.create({
-      data: { name, email, password: hashedPassword }
+      data: { 
+        name, 
+        email, 
+        password: hashedPassword,
+        // Si tienes campos de verificación en User, descomenta esto:
+        // verifyTokenHash, 
+        // emailVerified: false 
+      }
     });
 
     return { success: true };

@@ -40,27 +40,36 @@ model User {
 }
 
 model Professional {
-  id                 String   @id @default(cuid())
-  email              String   @unique
-  name               String
-  password           String?  // Opcional si solo entra con Google
-  slug               String   @unique // Para URL amigable: /profesional/juan-perez
-  bio                String?  @db.Text
-  avatarUrl          String?
-  specialty          String?  // Ej: "Psicólogo Clínico"
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  password      String
+  slug          String    @unique
+  specialty     String
   
-  // Integraciones
-  googleAccessToken  String?  @db.Text
-  googleRefreshToken String?  @db.Text
+  // --- Perfil Completo ---
+  phone         String?
+  bio           String?
+  coverLetter   String?
+  cvUrl         String?
+  introVideoUrl String?
   
-  // Relaciones
-  services      Service[]     // Servicios que ofrece
-  appointments  Appointment[] // Citas que atiende
-  availability  Availability[] // Horarios configurados
-  posts         Post[]        // Artículos de blog
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  // --- Seguridad y Verificación ---
+  isApproved            Boolean   @default(false)
+  emailVerified         Boolean   @default(false)
+  verifyTokenHash       String?
+  verifyTokenExp        DateTime?
+  verifyEmailLastSentAt DateTime?
+  
+  // --- Timestamps ---
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // --- Relaciones ---
+  services      Service[]
+  appointments  Appointment[]
+  posts         Post[]
+  availability  Availability[]  // <--- ¡ESTA ES LA LÍNEA QUE FALTABA!
 }
 
 // --------------------------------------------------------
