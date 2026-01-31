@@ -1,73 +1,57 @@
+//src/actions/availability-actions.js
 'use server'
 
-import { cookies } from 'next/headers';
-import { prisma } from '@/lib/prisma';
-import { verifyToken } from '@/lib/auth'; // Tu librería jose
-import { revalidatePath } from 'next/cache';
+import { prisma } from "@/lib/prisma";
+import { getSession } from "@/actions/auth-actions";
+import { revalidatePath } from "next/cache";
 
-/**
- * Guarda la disponibilidad semanal del profesional.
- * Estrategia: Borrón y cuenta nueva (Delete All + Create Many) para la semana.
- * * @param {Array} scheduleData - Array de objetos: [{ dayOfWeek: 1, startTime: '09:00', endTime: '17:00' }, ...]
- */
-export async function updateAvailability(scheduleData) {
-  // 1. Verificar Autenticación
-  const cookieStore = cookies();
-  const token = cookieStore.get('sessionToken')?.value;
+export async function getAvailability() {
+  const session = await getSession();
+  if (!session || session.role !== 'PROFESSIONAL') return { error: "No autorizado" };
 
-  if (!token) {
-    return { error: 'No se encontró sesión activa.' };
-  }
-
-  let session;
   try {
-    session = await verifyToken(token);
+    const availability = await prisma.availability.findMany({
+      where: { professionalId: session.profile.id },
+      orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }] // Ordenar por día y luego por hora
+    });
+    return { success: true, data: availability };
   } catch (error) {
-    return { error: 'Sesión inválida o expirada.' };
+    return { success: false, error: "Error al cargar horarios" };
   }
+}
 
-  // 2. Verificar Rol
-  if (!session || session.role !== 'PROFESSIONAL') {
-    return { error: 'No tienes permisos de profesional.' };
-  }
+export async function updateAvailability(scheduleData) {
+  const session = await getSession();
+  if (!session || session.role !== 'PROFESSIONAL') return { error: 'No autorizado' };
 
-  // Aseguramos que el ID sea String (según schema CUID)
-  const professionalId = String(session.userId);
+  const professionalId = session.profile.id;
 
   try {
-    // 3. Transacción: Borrar previos + Insertar nuevos
     await prisma.$transaction(async (tx) => {
-      // A. Eliminar disponibilidad existente para evitar duplicados/conflictos
+      // 1. Limpiamos TODO el horario previo
       await tx.availability.deleteMany({
         where: { professionalId }
       });
 
-      // B. Insertar nuevos slots si el array no está vacío
+      // 2. Insertamos los nuevos bloques (pueden ser múltiples por día)
       if (scheduleData && scheduleData.length > 0) {
-        // Validamos datos mínimos antes de insertar
-        const validSlots = scheduleData.map(slot => ({
-          dayOfWeek: Number(slot.dayOfWeek),
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          professionalId: professionalId,
-          isActive: true
-        }));
-
         await tx.availability.createMany({
-          data: validSlots
+          data: scheduleData.map(slot => ({
+            professionalId,
+            dayOfWeek: Number(slot.dayOfWeek),
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+          }))
         });
       }
     });
 
-    // 4. Revalidar caché
-    revalidatePath('/dashboard-profesional'); 
-    // También revalidamos la ruta específica de edición si existe
-    revalidatePath('/dashboard-profesional/horarios');
-
-    return { success: true, message: 'Disponibilidad actualizada correctamente.' };
+    revalidatePath('/panel/profesional');
+    revalidatePath('/panel/profesional/horarios');
+    return { success: true, message: 'Horarios actualizados correctamente.' };
 
   } catch (error) {
-    console.error("Error en updateAvailability:", error);
-    return { error: 'Error interno al guardar la disponibilidad.' };
+    console.error("Error saving availability:", error);
+    return { error: 'Error interno al guardar.' };
   }
 }

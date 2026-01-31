@@ -121,15 +121,17 @@ model Appointment {
 
 model Availability {
   id             String       @id @default(cuid())
-  dayOfWeek      Int          // 0=Domingo, 1=Lunes, ... 6=Sábado
+  dayOfWeek      Int          // 0=Domingo, 1=Lunes...
   startTime      String       // "09:00"
-  endTime        String       // "17:00"
+  endTime        String       // "13:00"
   
   professionalId String
   professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
 
-  @@unique([professionalId, dayOfWeek]) // Un horario base por día por profesional
+  // ⚠️ IMPORTANTE: Elimina la línea @@unique o cámbiala por @@index
+  @@index([professionalId, dayOfWeek]) 
 }
+
 
 // --------------------------------------------------------
 // CONTENIDO: BLOG
