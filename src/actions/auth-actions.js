@@ -12,7 +12,7 @@ import { Resend } from 'resend';
 const resend = new Resend(process.env.RESEND_API_KEY);
 const secretKey = process.env.JWT_SECRET || "secret-key-change-me-in-prod";
 const key = new TextEncoder().encode(secretKey);
-const BASE_URL = process.env.NEXT_PUBLIC_URL || "http://localhost:3000";
+const BASE_URL = process.env.NEXT_PUBLIC_URL || "https://crm-smcr.vercel.app";
 
 /* -------------------------------------------------------------------------- */
 /* 1. GESTIÓN DE SESIÓN                                                       */
@@ -222,5 +222,59 @@ export async function registerUser(formData) {
   } catch (error) {
     console.error("Error registro usuario:", error);
     return { error: "Error al registrar usuario." };
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* 4. VERIFICACIÓN DE EMAIL (NUEVO)                                           */
+/* -------------------------------------------------------------------------- */
+
+export async function verifyEmail(token) {
+  if (!token) return { error: "Token inválido." };
+
+  // 1. Recrear el hash (porque en DB guardamos el hash, no el token crudo)
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+  try {
+    // A. Buscar en Profesionales
+    const professional = await prisma.professional.findFirst({
+      where: { 
+        verifyTokenHash: tokenHash,
+        verifyTokenExp: { gt: new Date() } // Que no haya expirado
+      }
+    });
+
+    if (professional) {
+      await prisma.professional.update({
+        where: { id: professional.id },
+        data: { 
+          emailVerified: true,
+          verifyTokenHash: null, // Quemamos el token para que no se re-use
+          verifyTokenExp: null
+        }
+      });
+      return { success: true, role: 'PROFESSIONAL', email: professional.email };
+    }
+
+    // B. Buscar en Usuarios (Pacientes)
+    // (Si implementaste verificación para pacientes, sino esto no encontrará nada)
+    /* const user = await prisma.user.findFirst({
+      where: { verifyTokenHash: tokenHash, verifyTokenExp: { gt: new Date() } }
+    });
+
+    if (user) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { emailVerified: true, verifyTokenHash: null, verifyTokenExp: null }
+      });
+      return { success: true, role: 'USER', email: user.email };
+    }
+    */
+
+    return { error: "Token inválido o expirado." };
+
+  } catch (error) {
+    console.error("Error verificando email:", error);
+    return { error: "Error al procesar la verificación." };
   }
 }
