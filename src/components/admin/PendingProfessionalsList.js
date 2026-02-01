@@ -1,43 +1,55 @@
+src/components/admin/PendingProfessionalsList.js
 'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+// 👇 IMPORTANTE: Traemos las acciones del servidor
+import { approveProfessional, rejectProfessional } from '@/actions/admin-actions';
 
-export default function PendingProfessionalsList({ initialData }) {
+// Nota: Cambié el nombre de la prop a 'professionals' para que coincida con lo que manda el page.js
+export default function PendingProfessionalsList({ professionals = [] }) {
   const router = useRouter();
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [loadingId, setLoadingId] = useState(null); // Para saber cuál botón específico está cargando
 
   const handleApprove = async (proId, proName) => {
     if (!confirm(`¿Estás seguro de aprobar a ${proName}? Será visible en la web pública.`)) return;
 
-    setIsProcessing(true);
+    setLoadingId(proId); // Bloqueamos solo esta fila
     try {
-      const res = await fetch(`/api/admin/professionals/${proId}/approve`, {
-        method: 'POST',
-      });
+      // 👇 Llamada directa a Server Action (Adiós fetch)
+      const res = await approveProfessional(proId);
 
-      // 1. Leemos la respuesta del servidor (aquí viene el error real)
-      const data = await res.json();
-
-      // 2. Si falló, lanzamos el mensaje específico que mandó el servidor
-      if (!res.ok) {
-        throw new Error(data.message || data.error || 'Falló la aprobación (Error desconocido)');
+      if (res.error) {
+        throw new Error(res.error);
       }
 
       alert(`✅ ${proName} ha sido aprobado.`);
-      
-      // Recargamos la página para que la lista se actualice
-      router.refresh(); 
-      
+      router.refresh(); // Recarga la data sin refrescar el navegador
     } catch (error) {
-      // 3. Ahora la alerta mostrará la causa real (ej: "No autorizado", "Token inválido")
       alert('❌ Error: ' + error.message);
     } finally {
-      setIsProcessing(false);
+      setLoadingId(null);
     }
   };
 
-  if (initialData.length === 0) {
+  const handleReject = async (proId, proName) => {
+    if (!confirm(`⚠️ ¿RECHAZAR y ELIMINAR a ${proName}? Esta acción no se puede deshacer.`)) return;
+
+    setLoadingId(proId);
+    try {
+      const res = await rejectProfessional(proId);
+      if (res.error) throw new Error(res.error);
+      
+      alert(`🗑️ Solicitud de ${proName} rechazada.`);
+      router.refresh();
+    } catch (error) {
+      alert('❌ Error: ' + error.message);
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
+  if (professionals.length === 0) {
     return (
       <div className="p-12 text-center bg-gray-50 rounded-lg border border-dashed border-gray-300">
         <p className="text-gray-500">No hay profesionales pendientes de revisión. ¡Todo al día!</p>
@@ -57,16 +69,17 @@ export default function PendingProfessionalsList({ initialData }) {
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
-          {initialData.map((pro) => (
+          {professionals.map((pro) => (
             <tr key={pro.id} className="hover:bg-gray-50 transition-colors">
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="flex items-center">
-                  <div className="flex-shrink-0 h-10 w-10 bg-brand-100 rounded-full flex items-center justify-center text-brand-600 font-bold">
+                  <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold uppercase">
                     {pro.name.charAt(0)}
                   </div>
                   <div className="ml-4">
                     <div className="text-sm font-medium text-gray-900">{pro.name}</div>
-                    <div className="text-sm text-gray-500">{pro.profession}</div>
+                    {/* 👇 Corregido: profession -> specialty */}
+                    <div className="text-sm text-gray-500">{pro.specialty || 'Sin especialidad'}</div>
                   </div>
                 </div>
               </td>
@@ -75,21 +88,33 @@ export default function PendingProfessionalsList({ initialData }) {
                 {pro.phone && <div className="text-sm text-gray-500">{pro.phone}</div>}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {new Date(pro.createdAt).toLocaleDateString()}
+                {new Date(pro.createdAt).toLocaleDateString('es-AR')}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                {pro.resumeUrl && (
-                  <a href={pro.resumeUrl} target="_blank" className="text-blue-600 hover:text-blue-900 mr-4">
+                {/* 👇 Corregido: resumeUrl -> cvUrl */}
+                {pro.cvUrl && (
+                  <a href={pro.cvUrl} target="_blank" className="text-blue-600 hover:text-blue-900 mr-4 underline">
                     Ver CV
                   </a>
                 )}
-                <button
-                  onClick={() => handleApprove(pro.id, pro.name)}
-                  disabled={isProcessing}
-                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
-                >
-                  {isProcessing ? '...' : 'Aprobar'}
-                </button>
+                
+                <div className="inline-flex gap-2">
+                  <button
+                    onClick={() => handleApprove(pro.id, pro.name)}
+                    disabled={loadingId === pro.id}
+                    className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
+                  >
+                    {loadingId === pro.id ? '...' : 'Aprobar'}
+                  </button>
+
+                  <button
+                    onClick={() => handleReject(pro.id, pro.name)}
+                    disabled={loadingId === pro.id}
+                    className="inline-flex items-center px-3 py-1.5 border border-red-200 text-xs font-medium rounded-md text-red-600 bg-white hover:bg-red-50 disabled:opacity-50"
+                  >
+                    Rechazar
+                  </button>
+                </div>
               </td>
             </tr>
           ))}
