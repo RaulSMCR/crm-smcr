@@ -1,3 +1,4 @@
+//src/app/servicios/page.js
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 
@@ -15,22 +16,24 @@ export default async function ServiciosPage() {
     },
     select: {
       id: true,
-      // slug: true, // ELIMINADO: No existe en schema
       title: true,
       description: true,
       price: true,
-      // imageUrl: true, // ELIMINADO: No existe en schema
       
       // Relación con profesionales
       professionals: {
-        // where: { isApproved: true }, // ELIMINADO: No existe campo
+        take: 5, 
         select: {
           id: true,
-          name: true,
-          specialty: true, // CORREGIDO: Antes declaredJobTitle
-          avatarUrl: true
+          specialty: true,
+          // 1. CORRECCIÓN: Viajamos a la tabla 'User' para obtener los datos personales
+          user: {
+            select: {
+              name: true,
+              image: true // Nota: En el esquema User es 'image', no 'avatarUrl'
+            }
+          }
         },
-        take: 5, 
       },
     },
   });
@@ -56,7 +59,6 @@ export default async function ServiciosPage() {
 
             <div className="p-6 flex flex-col flex-grow">
               <h2 className="text-2xl font-bold text-gray-900 mb-3">
-                {/* Usamos ID porque Slug ya no existe */}
                 <Link href={`/servicios/${service.id}`} className="hover:text-brand-600 transition-colors">
                   {service.title}
                 </Link>
@@ -75,12 +77,15 @@ export default async function ServiciosPage() {
                       <div 
                         key={pro.id} 
                         className="relative inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500 cursor-help" 
-                        title={`${pro.name} - ${pro.specialty || 'Profesional'}`}
+                        // 2. CORRECCIÓN JSX: pro.user.name
+                        title={`${pro.user.name} - ${pro.specialty || 'Profesional'}`}
                       >
-                        {pro.avatarUrl ? (
-                            <img src={pro.avatarUrl} alt={pro.name} className="w-full h-full rounded-full object-cover" />
+                        {pro.user.image ? (
+                            // 3. CORRECCIÓN JSX: pro.user.image
+                            <img src={pro.user.image} alt={pro.user.name} className="w-full h-full rounded-full object-cover" />
                         ) : (
-                            pro.name.charAt(0)
+                            // 4. CORRECCIÓN JSX: pro.user.name
+                            pro.user.name.charAt(0)
                         )}
                       </div>
                     ))}
