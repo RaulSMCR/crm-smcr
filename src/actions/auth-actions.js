@@ -1,4 +1,5 @@
 //src/actions/auth-actions.js
+// src/actions/auth-actions.js
 'use server'
 
 import { prisma } from "@/lib/prisma";
@@ -7,7 +8,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import crypto from "crypto";
 import { Resend } from 'resend';
-import { signToken, getSession as getLibSession } from "@/lib/auth"; // <--- IMPORTAMOS getSession
+// 👇 IMPORTANTE: Importamos getSession de la librería (la fuente de la verdad)
+import { signToken, getSession as getLibSession } from "@/lib/auth"; 
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const BASE_URL = process.env.NEXT_PUBLIC_URL || "https://crm-smcr.vercel.app";
@@ -16,8 +18,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_URL || "https://crm-smcr.vercel.app";
 /* 0. UTILIDADES DE SESIÓN (PUENTE)                                           */
 /* -------------------------------------------------------------------------- */
 
-// Esta función es vital porque tus componentes la buscan aquí.
-// Simplemente reutilizamos la lógica centralizada de lib/auth.js
+// Mantenemos esto para que las páginas que importan desde aquí sigan funcionando
 export async function getSession() {
   return await getLibSession();
 }
@@ -70,6 +71,7 @@ export async function login(formData) {
       role: user.role,
       isApproved: user.isApproved,
       name: user.name,
+      // Guardamos IDs clave para no tener que consultarlos luego
       professionalId: user.professionalProfile?.id || null,
       slug: user.professionalProfile?.slug || null
     };
@@ -94,7 +96,8 @@ export async function login(formData) {
 }
 
 export async function logout() {
-  cookies().set("session", "", { expires: new Date(0) });
+  // 👇 CORRECCIÓN: Añadido path: '/' para asegurar borrado
+  cookies().set("session", "", { expires: new Date(0), path: '/' });
   redirect("/ingresar");
 }
 
@@ -133,6 +136,7 @@ export async function registerProfessional(formData) {
     const hashedPassword = await bcrypt.hash(password, 12);
     const verifyToken = crypto.randomBytes(32).toString('hex');
     
+    // Transacción: Crea Usuario + Perfil o falla todo
     await prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
         data: {
