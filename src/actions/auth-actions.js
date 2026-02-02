@@ -1,32 +1,20 @@
+//src/actions/auth-actions.js
 'use server'
 
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
-import { SignJWT, jwtVerify } from "jose";
 import { redirect } from "next/navigation";
 import crypto from "crypto";
 import { Resend } from 'resend';
+import { signToken } from "@/lib/auth"; // Usamos tu librería centralizada
 
-// Configuración de Resend y JWT
 const resend = new Resend(process.env.RESEND_API_KEY);
-const secretKey = process.env.JWT_SECRET || "secret-key-change-me-in-prod";
-const key = new TextEncoder().encode(secretKey);
 const BASE_URL = process.env.NEXT_PUBLIC_URL || "https://crm-smcr.vercel.app";
 
 /* -------------------------------------------------------------------------- */
-/* 1. GESTIÓN DE SESIÓN                                                       */
+/* 1. LOGIN UNIFICADO (User + Profile)                                        */
 /* -------------------------------------------------------------------------- */
-
-export async function getSession() {
-  const cookieStore = cookies();
-  const session = cookieStore.get("session")?.value;
-  if (!session) return null;
-  try {
-    const { payload } = await jwtVerify(session, key, { algorithms: ["HS256"] });
-    return payload;
-  } catch (error) { return null; }
-}
 
 export async function login(formData) {
   const email = formData.get("email");
@@ -34,50 +22,70 @@ export async function login(formData) {
 
   if (!email || !password) return { error: "Credenciales requeridas." };
 
-  // 1. Buscar usuario (primero en Profesionales, luego en Usuarios)
-  let user = await prisma.professional.findUnique({ where: { email } });
-  let role = "PROFESSIONAL";
+  try {
+    // 1. Buscamos en la TABLA ÚNICA de Usuarios
+    // Incluimos el perfil profesional por si acaso es un médico
+    const user = await prisma.user.findUnique({ 
+      where: { email },
+      include: { professionalProfile: true } 
+    });
 
-  if (!user) {
-    user = await prisma.user.findUnique({ where: { email } });
-    role = "USER";
+    // 2. Validaciones de Seguridad
+    if (!user || !user.password) {
+      return { error: "Credenciales inválidas." };
+    }
+
+    const isValid = await bcrypt.compare(password, user.password);
+    if (!isValid) return { error: "Credenciales inválidas." };
+
+    // 3. Validación de Negocio: Aprobación
+    // Si es profesional y NO está aprobado, no entra.
+    if (user.role === 'PROFESSIONAL' && !user.isApproved) {
+      return { error: "Tu cuenta está pendiente de aprobación por la administración." };
+    }
+
+    // 4. Bloqueo de usuarios baneados (si isActive es false)
+    if (!user.isActive) {
+      return { error: "Esta cuenta ha sido desactivada. Contacta soporte." };
+    }
+
+    // 5. INTELIGENCIA DE NEGOCIO: Actualizar Last Login
+    // Esto se ejecuta en segundo plano (sin await) para no frenar el login
+    prisma.user.update({
+      where: { id: user.id },
+      data: { lastLogin: new Date() }
+    }).catch(err => console.error("Error actualizando lastLogin:", err));
+
+    // 6. Preparar Payload del Token
+    const sessionData = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      isApproved: user.isApproved,
+      name: user.name,
+      // Datos extra útiles para el frontend
+      professionalId: user.professionalProfile?.id || null,
+      slug: user.professionalProfile?.slug || null
+    };
+
+    // 7. Crear Cookie (Usando tu lib/auth.js)
+    const token = await signToken(sessionData);
+    
+    // Configurar cookie
+    cookies().set("session", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 días
+      sameSite: "lax",
+      path: "/",
+    });
+
+    return { success: true, role: user.role };
+
+  } catch (error) {
+    console.error("Login error:", error);
+    return { error: "Ocurrió un error inesperado." };
   }
-
-  // 2. Validar contraseña
-  if (!user || !(await bcrypt.compare(password, user.password))) {
-    return { error: "Credenciales inválidas." };
-  }
-
-  // 3. BLOQUEO: Si es profesional y NO está aprobado
-  if (role === 'PROFESSIONAL' && !user.isApproved) {
-    return { error: "Tu cuenta está pendiente de aprobación por la administración. Recibirás un aviso cuando se active." };
-  }
-
-  // 4. Crear Sesión
-  const sessionData = {
-    userId: user.id,
-    email: user.email,
-    role: role,
-    user: { name: user.name }, 
-    profile: user 
-  };
-
-  const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 días
-  const session = await new SignJWT(sessionData)
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("7d")
-    .sign(key);
-
-  cookies().set("session", session, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    expires,
-    sameSite: "lax",
-    path: "/",
-  });
-
-  return { success: true, role };
 }
 
 export async function logout() {
@@ -86,195 +94,172 @@ export async function logout() {
 }
 
 /* -------------------------------------------------------------------------- */
-/* 2. REGISTRO PROFESIONAL (Con Logs de Email)                                */
+/* 2. REGISTRO PROFESIONAL (Transacción Atómica)                              */
 /* -------------------------------------------------------------------------- */
 
 export async function registerProfessional(formData) {
+  // Datos Personales
   const name = formData.get('name');
   const email = formData.get('email');
   const password = formData.get('password');
   const confirmPassword = formData.get('confirmPassword');
-  const specialty = formData.get('specialty');
   
-  // Datos Perfil
+  // Datos Profesionales
+  const specialty = formData.get('specialty');
   const phone = formData.get('phone'); 
   const bio = formData.get('bio');
-  const coverLetter = formData.get('coverLetter'); 
-  const cvFile = formData.get('cv'); 
+  const coverLetter = formData.get('coverLetter'); // Capturamos Carta
+  
+  // Marketing
+  const acquisitionChannel = formData.get('acquisitionChannel') || 'Directo';
 
-  // Validaciones
-  if (!name || !email || !password || !specialty) return { error: "Campos obligatorios incompletos." };
+  // Validación básica
+  if (!name || !email || !password || !specialty) return { error: "Faltan campos obligatorios." };
   if (password !== confirmPassword) return { error: "Las contraseñas no coinciden." };
-  if (password.length < 8) return { error: "La contraseña debe tener 8 caracteres mínimo." };
+  if (password.length < 8) return { error: "La contraseña debe tener al menos 8 caracteres." };
 
   try {
-    const existingUser = await prisma.professional.findUnique({ where: { email } });
-    if (existingUser) return { error: "Este correo ya está registrado." };
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) return { error: "El correo ya está registrado." };
 
-    // Generar Slug
+    // Generar Slug Único (Para la URL del perfil)
     let slug = name.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-');
     let count = 0;
-    while (await prisma.professional.findUnique({ where: { slug: count === 0 ? slug : `${slug}-${count}` } })) count++;
+    while (await prisma.professionalProfile.findUnique({ where: { slug: count === 0 ? slug : `${slug}-${count}` } })) {
+      count++;
+    }
     slug = count === 0 ? slug : `${slug}-${count}`;
 
-    // CV Placeholder
-    let cvUrl = null;
-    if (cvFile && cvFile.size > 0) cvUrl = `pending_upload_${Date.now()}_${cvFile.name}`;
-
-    // Hash Password
-    const hashedPassword = await bcrypt.hash(password, 12); 
-    
-    // Tokens de Verificación
+    const hashedPassword = await bcrypt.hash(password, 12);
     const verifyToken = crypto.randomBytes(32).toString('hex');
-    const verifyTokenHash = crypto.createHash('sha256').update(verifyToken).digest('hex');
-    const verifyTokenExp = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-    // Crear en DB
-    await prisma.professional.create({
-      data: {
-        name, email, password: hashedPassword, specialty, slug,
-        phone: phone || null, bio: bio || null, coverLetter: coverLetter || null, cvUrl, 
-        isApproved: false, // Pendiente de aprobación
-        emailVerified: false,
-        verifyTokenHash, verifyTokenExp, verifyEmailLastSentAt: new Date(),
-      }
-    });
-
-    // --- LOGS DE EMAIL PARA DEBUGGING ---
-    console.log(`[Email Debug] Iniciando envío a: ${email}`);
     
-    if (process.env.RESEND_API_KEY) {
-      const verificationUrl = `${BASE_URL}/verificar-email?token=${verifyToken}`;
-      
-      const { data, error } = await resend.emails.send({
-        from: 'Salud Mental Costa Rica <onboarding@resend.dev>', // ⚠️ Cambia esto si ya tienes dominio verificado
-        to: email, // ⚠️ En modo prueba (Sandbox) solo funciona si envías a TU PROPIO email
-        subject: 'Verifica tu cuenta profesional',
-        html: `
-          <div style="font-family: sans-serif; padding: 20px;">
-            <h1>Bienvenido, ${name}</h1>
-            <p>Gracias por registrarte en Salud Mental Costa Rica.</p>
-            <p>Por favor verifica tu correo para continuar con el proceso de admisión:</p>
-            <a href="${verificationUrl}" style="display: inline-block; padding: 12px 24px; background-color: #003366; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Verificar Email</a>
-            <p style="margin-top: 20px; font-size: 12px; color: #666;">Si no creaste esta cuenta, ignora este mensaje.</p>
-          </div>
-        `
+    // --- TRANSACCIÓN: TODO O NADA ---
+    // Creamos usuario y perfil al mismo tiempo. Si falla uno, no se crea ninguno.
+    await prisma.$transaction(async (tx) => {
+      // A. Crear Usuario Base
+      const newUser = await tx.user.create({
+        data: {
+          name,
+          email,
+          password: hashedPassword,
+          phone,
+          role: 'PROFESSIONAL',
+          isApproved: false, // Requiere aprobación Admin
+          emailVerified: false,
+          verifyTokenHash: crypto.createHash('sha256').update(verifyToken).digest('hex'),
+          verifyTokenExp: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24h
+          
+          acquisitionChannel: acquisitionChannel, 
+          campaignName: 'Captación Profesionales'
+        }
       });
 
-      if (error) {
-        console.error("❌ [Email Error] Resend falló:", error);
-      } else {
-        console.log("✅ [Email Éxito] ID:", data?.id);
-      }
-    } else {
-      console.warn("⚠️ [Email Alerta] No se encontró RESEND_API_KEY en las variables de entorno.");
+      // B. Crear Perfil Profesional Enlazado
+      await tx.professionalProfile.create({
+        data: {
+          userId: newUser.id,
+          specialty,
+          slug,
+          bio,
+          coverLetter: coverLetter || null,
+          // Nota: No guardamos 'cvUrl' aún porque el archivo no se ha subido a la nube.
+          // Ignoramos el objeto File aquí para no romper Prisma.
+        }
+      });
+    });
+
+    // Envío de Email (Fuera de la transacción para no bloquear la DB si falla el correo)
+    if (process.env.RESEND_API_KEY) {
+      await resend.emails.send({
+        from: 'Salud Mental Costa Rica <onboarding@resend.dev>', // Cambia esto en producción
+        to: email,
+        subject: 'Confirma tu cuenta profesional',
+        html: `<p>Hola ${name}, gracias por registrarte. Por favor verifica tu cuenta aquí: <a href="${BASE_URL}/verificar-email?token=${verifyToken}">Verificar Email</a></p>`
+      });
     }
 
     return { success: true };
 
   } catch (error) {
-    console.error("Error crítico en registro profesional:", error);
-    return { error: "Error interno del sistema." };
+    console.error("Error registro profesional:", error);
+    return { error: "Error al crear la cuenta. Inténtalo de nuevo." };
   }
 }
 
 /* -------------------------------------------------------------------------- */
-/* 3. REGISTRO USUARIO (PACIENTE)                                             */
+/* 3. REGISTRO PACIENTE (Con Captura de Marketing)                            */
 /* -------------------------------------------------------------------------- */
 
 export async function registerUser(formData) {
   const name = formData.get('name');
   const email = formData.get('email');
   const password = formData.get('password');
-  // Otros campos opcionales
   const phone = formData.get('phone');
-  const identification = formData.get('identification');
-  const birthDate = formData.get('birthDate');
-  const gender = formData.get('gender');
-  const interests = formData.get('interests');
+  
+  // Marketing
+  const acquisitionChannel = formData.get('acquisitionChannel') || 'Directo'; 
 
-  if (!name || !email || !password) return { error: "Faltan datos obligatorios." };
+  if (!name || !email || !password) return { error: "Datos incompletos." };
 
   try {
     const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) return { error: "Correo ya registrado." };
+    if (existing) return { error: "El correo ya está registrado." };
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    
-    let birthDateObj = null;
-    if (birthDate) birthDateObj = new Date(birthDate);
 
     await prisma.user.create({
-      data: { 
-        name, 
-        email, 
+      data: {
+        name,
+        email,
         password: hashedPassword,
-        phone: phone || null,
-        identification: identification || null,
-        birthDate: birthDateObj,
-        // Si tu schema tiene estos campos, descomenta:
-        // gender: gender || null,
-        // interests: interests || null
+        phone,
+        role: 'USER',
+        isApproved: true, // Pacientes entran directo sin aprobación manual
+        acquisitionChannel: acquisitionChannel,
+        // createdAt se llena automático
       }
     });
 
     return { success: true };
   } catch (error) {
     console.error("Error registro usuario:", error);
-    return { error: "Error al registrar usuario." };
+    return { error: "Error al registrarse." };
   }
 }
 
 /* -------------------------------------------------------------------------- */
-/* 4. VERIFICACIÓN DE EMAIL (NUEVO)                                           */
+/* 4. VERIFICACIÓN DE EMAIL                                                   */
 /* -------------------------------------------------------------------------- */
 
 export async function verifyEmail(token) {
   if (!token) return { error: "Token inválido." };
 
-  // 1. Recrear el hash (porque en DB guardamos el hash, no el token crudo)
   const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
   try {
-    // A. Buscar en Profesionales
-    const professional = await prisma.professional.findFirst({
+    // Buscamos en la tabla USER (ahora es la única que tiene tokens)
+    const user = await prisma.user.findFirst({
       where: { 
         verifyTokenHash: tokenHash,
-        verifyTokenExp: { gt: new Date() } // Que no haya expirado
+        verifyTokenExp: { gt: new Date() } 
       }
     });
 
-    if (professional) {
-      await prisma.professional.update({
-        where: { id: professional.id },
-        data: { 
-          emailVerified: true,
-          verifyTokenHash: null, // Quemamos el token para que no se re-use
-          verifyTokenExp: null
-        }
-      });
-      return { success: true, role: 'PROFESSIONAL', email: professional.email };
-    }
+    if (!user) return { error: "Token inválido o expirado." };
 
-    // B. Buscar en Usuarios (Pacientes)
-    // (Si implementaste verificación para pacientes, sino esto no encontrará nada)
-    /* const user = await prisma.user.findFirst({
-      where: { verifyTokenHash: tokenHash, verifyTokenExp: { gt: new Date() } }
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { 
+        emailVerified: true,
+        verifyTokenHash: null,
+        verifyTokenExp: null
+      }
     });
 
-    if (user) {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { emailVerified: true, verifyTokenHash: null, verifyTokenExp: null }
-      });
-      return { success: true, role: 'USER', email: user.email };
-    }
-    */
-
-    return { error: "Token inválido o expirado." };
+    return { success: true, role: user.role, email: user.email };
 
   } catch (error) {
     console.error("Error verificando email:", error);
-    return { error: "Error al procesar la verificación." };
+    return { error: "Error al verificar." };
   }
 }

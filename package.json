@@ -10,19 +10,14 @@
     "seed": "node prisma/seed.js"
   },
   "scripts": {
-    "dev": "next dev -p 3000",
-    "build": "prisma db push --accept-data-loss && prisma generate && next build",
-    "start": "next start -p 3000",
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
-    "seed": "prisma db seed",
-    "prisma:generate": "prisma generate",
-    "prisma:push": "prisma db push",
-    "prisma:migrate:dev": "prisma migrate dev",
-    "prisma:migrate:deploy": "prisma migrate deploy",
-    "prisma:reset": "prisma migrate reset --force --skip-seed",
-    "prisma:studio": "prisma studio",
-    "vercel-build": "pnpm prisma:generate && pnpm prisma:migrate:deploy && pnpm build"
+    "db:push": "prisma db push",
+    "db:seed": "node prisma/seed.js",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
     "@prisma/client": "5.22.0",

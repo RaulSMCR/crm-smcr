@@ -1,131 +1,138 @@
 // src/app/ingresar/LoginClient.js
-"use client";
+'use client';
 
-import { useState, useTransition } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { login } from "@/actions/auth-actions"; // Importamos la Server Action nueva
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { login } from '@/actions/auth-actions';
+import Link from 'next/link';
 
 export default function LoginClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [isPending, startTransition] = useTransition(); // Usamos useTransition para estados de carga nativos
-  const [error, setError] = useState(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
-  // Detectar mensaje de registro exitoso
-  const isRegistered = searchParams.get("registered") === "true";
+  // Efecto para detectar si viene del registro exitoso
+  useEffect(() => {
+    if (searchParams.get('registered') === 'true') {
+      setSuccessMessage('¡Cuenta creada con éxito! Por favor inicia sesión.');
+    }
+  }, [searchParams]);
 
-  async function handleSubmit(e) {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(null);
+    setLoading(true);
+    setError('');
+    setSuccessMessage('');
 
-    // Extraemos los datos del formulario directamente
     const formData = new FormData(e.target);
+    
+    // Llamada a la Server Action blindada
+    const res = await login(formData);
 
-    startTransition(async () => {
-      // Llamamos a la Server Action (Backend)
-      const res = await login(formData);
-
-      if (res?.error) {
-        setError(res.error);
+    if (res?.error) {
+      setError(res.error);
+      setLoading(false);
+    } else if (res?.success) {
+      // REDIRECCIÓN INTELIGENTE BASADA EN ROL
+      // Esto asegura que cada tipo de usuario aterrice en su dashboard correcto
+      if (res.role === 'ADMIN') {
+        router.push('/admin/dashboard/summary');
+      } else if (res.role === 'PROFESSIONAL') {
+        router.push('/panel/profesional');
       } else {
-        // Redirección inteligente según ROL
-        // Buscamos si había una url previa ('next'), si no, vamos al panel correspondiente
-        const nextParam = searchParams.get("next");
-        
-        if (nextParam && nextParam.startsWith("/")) {
-          router.push(nextParam);
-        } else if (res.role === "PROFESSIONAL") {
-          router.push("/panel/profesional");
-        } else {
-          router.push("/panel/paciente");
-        }
-        
-        router.refresh(); // Actualizamos la sesión en el navegador
+        // Pacientes (USER)
+        router.push('/panel/paciente');
       }
-    });
-  }
+      
+      // Nota: No ponemos setLoading(false) aquí para evitar que el botón 
+      // se reactive mientras redirigimos (mejor UX).
+    }
+  };
 
   return (
-    <main className="min-h-[70vh] flex items-center justify-center px-4 bg-gray-50">
-      <div className="w-full max-w-md bg-white p-8 rounded-xl shadow-lg border border-gray-100">
+    <div className="w-full max-w-md mx-auto">
+      <form onSubmit={handleSubmit} className="bg-white p-8 rounded-xl shadow-lg border border-gray-100 space-y-6">
         
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Bienvenido de nuevo</h1>
-          <p className="text-sm text-gray-500 mt-1">Ingresa a tu panel de gestión</p>
+        <div className="text-center pb-4 border-b border-gray-100">
+          <h2 className="text-2xl font-bold text-gray-900">Iniciar Sesión</h2>
+          <p className="text-sm text-gray-500 mt-1">Accede a tu cuenta de Salud Mental CR</p>
         </div>
 
-        {/* Mensaje de éxito tras registro */}
-        {isRegistered && (
-          <div className="mb-6 p-4 bg-green-50 text-green-700 rounded-lg text-sm text-center font-medium border border-green-200 shadow-sm">
-            ✨ ¡Cuenta creada con éxito! <br/> Por favor inicia sesión con tus credenciales.
+        {/* Mensajes de Estado */}
+        {successMessage && (
+          <div className="bg-green-50 text-green-700 p-4 rounded-lg text-sm border border-green-200 font-medium flex items-center gap-2">
+            ✅ {successMessage}
           </div>
         )}
 
-        {/* Mensaje de Error */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-lg text-sm text-center border border-red-200 font-medium">
+          <div className="bg-red-50 text-red-600 p-4 rounded-lg text-sm border border-red-200 font-medium flex items-center gap-2">
             ⚠️ {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-1">
-              Correo Electrónico
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              required
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none transition"
-              placeholder="nombre@ejemplo.com"
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Email</label>
+            <input 
+              name="email" 
+              type="email" 
+              required 
+              className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+              placeholder="tu@email.com" 
             />
           </div>
-
+          
           <div>
             <div className="flex justify-between items-center mb-1">
-                <label htmlFor="password" class="block text-sm font-semibold text-gray-700">
-                  Contraseña
-                </label>
-                <a href="/recuperar" className="text-xs text-blue-600 hover:underline">
-                  ¿Olvidaste tu contraseña?
-                </a>
+              <label className="block text-sm font-semibold text-gray-700">Contraseña</label>
+              <Link href="/recuperar" className="text-xs text-blue-600 hover:underline font-medium">
+                ¿Olvidaste tu contraseña?
+              </Link>
             </div>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none transition"
-              placeholder="••••••••"
+            <input 
+              name="password" 
+              type="password" 
+              required 
+              className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+              placeholder="••••••••" 
             />
           </div>
+        </div>
 
-          <button
-            type="submit"
-            disabled={isPending}
-            className="w-full py-3.5 rounded-lg bg-blue-900 text-white font-bold hover:bg-black transition transform active:scale-[0.99] disabled:opacity-70 shadow-md"
+        <div className="pt-2">
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="w-full bg-gray-900 text-white py-3.5 rounded-lg font-bold hover:bg-black transition disabled:opacity-50 disabled:cursor-not-allowed shadow-md flex justify-center items-center"
           >
-            {isPending ? "Iniciando sesión..." : "Ingresar"}
+            {loading ? (
+              <span className="flex items-center gap-2">
+                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Ingresando...
+              </span>
+            ) : 'Ingresar al Portal'}
           </button>
-        </form>
+        </div>
 
-        <div className="mt-6 pt-6 border-t border-gray-100 text-center text-sm text-gray-600">
-          <p className="mb-2">¿Aún no tienes cuenta?</p>
-          <div className="flex justify-center gap-4 font-medium">
-             <a className="text-blue-600 hover:text-blue-800 hover:underline" href="/registro/usuario">
-               Soy Paciente
-             </a>
-             <span className="text-gray-300">|</span>
-             <a className="text-blue-600 hover:text-blue-800 hover:underline" href="/registro/profesional">
-               Soy Profesional
-             </a>
+        <div className="text-center text-sm text-gray-500 mt-6 pt-4 border-t border-gray-100">
+          ¿No tienes cuenta?{' '}
+          <div className="flex justify-center gap-4 mt-2 font-medium">
+            <Link href="/registro/usuario" className="text-blue-600 hover:text-blue-800 transition">
+              Soy Paciente
+            </Link>
+            <span className="text-gray-300">|</span>
+            <Link href="/registro/profesional" className="text-purple-600 hover:text-purple-800 transition">
+              Soy Profesional
+            </Link>
           </div>
         </div>
-      </div>
-    </main>
+      </form>
+    </div>
   );
 }

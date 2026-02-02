@@ -1,5 +1,5 @@
-//src/app/registro/profesional/ProfessionalRegisterClient.js
-'use client';
+  //src/app/registro/profesional/ProfessionalRegisterClient.js
+  'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -55,6 +55,9 @@ export default function ProfessionalRegisterClient() {
 
   return (
     <form onSubmit={handleSubmit} className="bg-white p-8 rounded-xl shadow-lg border border-gray-100 space-y-6">
+      
+      {/* --- CAMPO OCULTO DE MARKETING --- */}
+      <input type="hidden" name="acquisitionChannel" value="Formulario Web - Registro" />
       
       <div className="text-center pb-4 border-b border-gray-100">
         <h2 className="text-2xl font-bold text-gray-900">Registro Profesional</h2>
@@ -153,6 +156,7 @@ export default function ProfessionalRegisterClient() {
 
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1">Adjuntar CV (PDF)</label>
+          {/* Nota: El archivo se envía, pero el backend lo ignorará hasta que configuremos S3/UploadThing */}
           <input name="cv" type="file" accept=".pdf,.doc,.docx" className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
         </div>
       </div>

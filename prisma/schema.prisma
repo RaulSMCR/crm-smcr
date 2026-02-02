@@ -1,155 +1,128 @@
 // prisma/schema.prisma
 
+// prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  // directUrl = env("DIRECT_URL") // Descomenta si usas Supabase con pooler
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // --------------------------------------------------------
-// USUARIOS Y ROLES
+// ENUMS
 // --------------------------------------------------------
 
 enum Role {
   USER
-  ADMIN
   PROFESSIONAL
-}
-
-model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  password      String?
-  emailVerified DateTime?
-  image         String?
-  role          Role      @default(USER)
-  phone         String?
-  
-  // Relaciones
-  appointments  Appointment[] // Citas como paciente
-  accounts      Account[]
-  sessions      Session[]
-
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-}
-
-model Professional {
-  id            String    @id @default(cuid())
-  name          String
-  email         String    @unique
-  password      String
-  slug          String    @unique
-  specialty     String
-  
-  // --- Perfil Completo ---
-  phone         String?
-  bio           String?
-  coverLetter   String?
-  cvUrl         String?
-  introVideoUrl String?
-  
-  // --- Seguridad y Verificación ---
-  isApproved            Boolean   @default(false)
-  emailVerified         Boolean   @default(false)
-  verifyTokenHash       String?
-  verifyTokenExp        DateTime?
-  verifyEmailLastSentAt DateTime?
-  
-  // --- Timestamps ---
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  
-  // --- Relaciones ---
-  services      Service[]
-  appointments  Appointment[]
-  posts         Post[]
-  availability  Availability[]  // <--- ¡ESTA ES LA LÍNEA QUE FALTABA!
-}
-
-// --------------------------------------------------------
-// NEGOCIO: CITAS Y SERVICIOS
-// --------------------------------------------------------
-
-model Service {
-  id            String   @id @default(cuid())
-  title         String
-  description   String?  @db.Text
-  price         Decimal  @db.Decimal(10, 2)
-  durationMin   Int      // Duración en minutos (ej: 50)
-  
-  // Relaciones
-  professionals Professional[] // Muchos profesionales pueden dar este servicio
-  appointments  Appointment[]
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  ADMIN
 }
 
 enum AppointmentStatus {
-  PENDING           // Solicitada
-  CONFIRMED         // Aceptada por profesional
+  PENDING
+  CONFIRMED
   CANCELLED_BY_USER
   CANCELLED_BY_PRO
-  COMPLETED         // Terminada
-  NO_SHOW           // Paciente no se presentó
+  COMPLETED
+  NO_SHOW
 }
 
-model Appointment {
-  id             String            @id @default(cuid())
-  date           DateTime          // Fecha y hora de inicio
-  endDate        DateTime          // Fecha y hora de fin (calculada por durationMin)
-  status         AppointmentStatus @default(PENDING)
-  
-  pricePaid      Decimal?          @db.Decimal(10, 2)
-  paymentStatus  String?           @default("UNPAID") // UNPAID, PAID, REFUNDED
-  gcalEventId    String?           // ID del evento en Google Calendar para borrarlo luego
-  
-  // Relaciones
-  userId         String
-  user           User              @relation(fields: [userId], references: [id])
-  
-  professionalId String
-  professional   Professional      @relation(fields: [professionalId], references: [id])
-  
-  serviceId      String?
-  service        Service?          @relation(fields: [serviceId], references: [id])
-
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-
-  @@index([date])
-  @@index([userId])
-  @@index([professionalId])
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
 }
-
-model Availability {
-  id             String       @id @default(cuid())
-  dayOfWeek      Int          // 0=Domingo, 1=Lunes...
-  startTime      String       // "09:00"
-  endTime        String       // "13:00"
-  
-  professionalId String
-  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
-
-  // ⚠️ IMPORTANTE: Elimina la línea @@unique o cámbiala por @@index
-  @@index([professionalId, dayOfWeek]) 
-}
-
-
-// --------------------------------------------------------
-// CONTENIDO: BLOG
-// --------------------------------------------------------
 
 enum PostStatus {
   DRAFT
   PUBLISHED
   ARCHIVED
+}
+
+// --------------------------------------------------------
+// 1. USUARIOS & MARKETING (La Demanda)
+// --------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  password      String
+  image         String?
+  phone         String?
+  role          Role      @default(USER)
+  
+  // --- Estado ---
+  isApproved    Boolean   @default(true) 
+  emailVerified Boolean   @default(false)
+  isActive      Boolean   @default(true)
+  lastLogin     DateTime? 
+  
+  // --- INTELIGENCIA DE MARKETING ---
+  // ¿De dónde vienen mis clientes?
+  acquisitionChannel String?   // Ej: "Instagram", "Google"
+  campaignName       String?   // Ej: "Verano2025"
+  
+  // --- Tokens ---
+  verifyTokenHash    String?
+  verifyTokenExp     DateTime?
+  resetToken         String?
+  resetTokenExp      DateTime?
+
+  // --- Relaciones ---
+  professionalProfile ProfessionalProfile?
+  appointments        Appointment[]        @relation("PatientAppointments")
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// --------------------------------------------------------
+// 2. PERFIL PROFESIONAL (La Oferta)
+// --------------------------------------------------------
+
+model ProfessionalProfile {
+  id            String    @id @default(cuid())
+  
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  slug          String    @unique
+  specialty     String
+  bio           String?   @db.Text
+  coverLetter   String?   @db.Text
+  cvUrl         String?
+  introVideoUrl String?
+  
+  rating        Decimal?  @db.Decimal(2, 1) 
+  commission    Int       @default(10)      
+  
+  services      Service[]
+  availability  Availability[]
+  posts         Post[]
+  appointments  Appointment[] @relation("ProAppointments")
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// --------------------------------------------------------
+// 3. BLOG & ANALÍTICAS DE CONTENIDO (El Imán)
+// --------------------------------------------------------
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique // Ej: "Ansiedad", "Nutrición"
+  slug        String   @unique
+  description String?
+  
+  posts       Post[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Post {
@@ -161,52 +134,84 @@ model Post {
   coverImage  String?
   status      PostStatus @default(DRAFT)
   
+  // --- MÉTRICAS DE ÉXITO ---
+  views       Int        @default(0) // Contador de visitas
+  readingTime Int?       // Minutos estimados de lectura (Ej: 5)
+  
   // SEO
   metaTitle   String?
   metaDesc    String?
 
+  // Relaciones
   authorId    String
-  author      Professional @relation(fields: [authorId], references: [id])
+  author      ProfessionalProfile @relation(fields: [authorId], references: [id])
+  
+  categoryId  String?
+  category    Category?           @relation(fields: [categoryId], references: [id])
 
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+  
+  @@index([views]) // Índice para ordenar rápidamente los "Más Leídos"
 }
 
 // --------------------------------------------------------
-// AUTH.JS (NEXT-AUTH) - Tablas requeridas si usas adapters
+// 4. NEGOCIO & CITAS
 // --------------------------------------------------------
 
-model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
+model Service {
+  id            String    @id @default(cuid())
+  title         String
+  description   String?   @db.Text
+  price         Decimal   @db.Decimal(10, 2)
+  durationMin   Int       
+  isActive      Boolean   @default(true)
+  
+  professionals ProfessionalProfile[] 
+  appointments  Appointment[]
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+model Availability {
+  id             String              @id @default(cuid())
+  dayOfWeek      Int                 
+  startTime      String              
+  endTime        String              
+  
+  professionalId String
+  professional   ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([professionalId, dayOfWeek]) 
 }
 
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
+model Appointment {
+  id             String            @id @default(cuid())
+  date           DateTime
+  endDate        DateTime          
+  status         AppointmentStatus @default(PENDING)
+  
+  pricePaid      Decimal?          @db.Decimal(10, 2) 
+  paymentStatus  PaymentStatus     @default(UNPAID)
+  commissionFee  Decimal?          @db.Decimal(10, 2) 
+  
+  gcalEventId    String?           
+  meetLink       String?           
 
-  @@unique([identifier, token])
+  patientId      String
+  patient        User              @relation("PatientAppointments", fields: [patientId], references: [id])
+  
+  professionalId String
+  professional   ProfessionalProfile @relation("ProAppointments", fields: [professionalId], references: [id])
+  
+  serviceId      String?
+  service        Service?          @relation(fields: [serviceId], references: [id])
+
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([date])          
+  @@index([patientId])     
+  @@index([professionalId])
 }
