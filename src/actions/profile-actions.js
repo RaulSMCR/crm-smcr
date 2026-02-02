@@ -1,9 +1,8 @@
 //src/actions/profile-actions.js
-
 'use server'
 
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/actions/auth-actions";
+import { getSession } from "@/lib/auth"; // <--- 1. CORRECCIÓN: Import directo
 import { revalidatePath } from "next/cache";
 
 /**
@@ -11,33 +10,43 @@ import { revalidatePath } from "next/cache";
  */
 export async function updateProfile(formData) {
   const session = await getSession();
+  
+  // Verificación estricta de rol
   if (!session || session.role !== 'PROFESSIONAL') return { error: "No autorizado" };
 
-  const professionalId = session.profile.id;
+  // 2. CORRECCIÓN: Usar el ID plano del nuevo token
+  const professionalId = session.professionalId;
 
   try {
     const name = formData.get('name');
     const specialty = formData.get('specialty');
     const bio = formData.get('bio');
-    // Nota: El avatar requiere subida de archivos (Cloudinary/Supabase). 
-    // Por ahora lo manejamos si envían una URL directa.
+    // Si manejamos avatar (URL):
     const avatarUrl = formData.get('avatarUrl'); 
 
-    await prisma.professional.update({
+    // 3. CORRECCIÓN: Actualización Cruzada
+    // Actualizamos ProfessionalProfile, pero A TRAVÉS de él, actualizamos también al User (Nombre/Foto)
+    await prisma.professionalProfile.update({
       where: { id: professionalId },
       data: {
-        name,
         specialty,
         bio,
-        ...(avatarUrl && { avatarUrl }), // Solo actualiza si hay dato
+        // Prisma permite actualizar la relación padre (User) aquí mismo
+        user: {
+          update: {
+            name: name,
+            ...(avatarUrl && { image: avatarUrl }), // Solo actualiza si hay dato
+          }
+        }
       }
     });
 
     revalidatePath('/panel/profesional/perfil');
-    revalidatePath(`/agendar/${professionalId}`); // Actualizar vista pública
+    // revalidatePath(`/profesional/${session.slug}`); // Si tienes vista pública
     
-    return { success: true, message: "Perfil actualizado." };
+    return { success: true, message: "Perfil actualizado correctamente." };
   } catch (error) {
+    console.error("Error updating profile:", error);
     return { error: "Error al actualizar perfil." };
   }
 }
@@ -49,7 +58,7 @@ export async function manageService(action, data) {
   const session = await getSession();
   if (!session || session.role !== 'PROFESSIONAL') return { error: "No autorizado" };
   
-  const professionalId = session.profile.id;
+  const professionalId = session.professionalId;
 
   try {
     if (action === 'CREATE') {
@@ -59,7 +68,7 @@ export async function manageService(action, data) {
           description: data.description,
           price: parseFloat(data.price),
           durationMin: parseInt(data.durationMin),
-          // Conectamos al profesional usando la relación many-to-many implícita o explícita
+          // Conectamos al ProfessionalProfile
           professionals: {
             connect: { id: professionalId }
           }
@@ -67,7 +76,7 @@ export async function manageService(action, data) {
       });
     } 
     else if (action === 'UPDATE') {
-      // Verificamos que el servicio pertenezca al profesional (seguridad)
+      // Verificamos propiedad
       const service = await prisma.service.findFirst({
         where: { id: data.id, professionals: { some: { id: professionalId } } }
       });
@@ -85,9 +94,7 @@ export async function manageService(action, data) {
       });
     }
     else if (action === 'DELETE') {
-      // Para borrar, primero desconectamos. 
-      // Si el servicio es compartido, solo se desconecta. Si es único, se podría borrar.
-      // Por simplicidad, aquí lo borramos (Asumiendo que cada pro crea sus servicios).
+      // Verificamos propiedad antes de borrar
       const service = await prisma.service.findFirst({
         where: { id: data.id, professionals: { some: { id: professionalId } } }
       });

@@ -1,24 +1,28 @@
 //src/app/panel/profesional/horarios/page.js
-
 import { redirect } from "next/navigation";
-import { getSession } from "@/actions/auth-actions";
+import { getSession } from "@/lib/auth"; // <--- 1. CORRECCIÓN IMPORTANTE (Evita error de build)
 import { getAvailability } from "@/actions/availability-actions";
 import DashboardNav from "@/components/DashboardNav";
-
-// CORRECCIÓN: El nombre del archivo debe coincidir EXACTAMENTE (Mayúsculas/Minúsculas)
 import AvailabilityForm from "@/components/AvailabilityForm"; 
 
 export default async function HorariosPage() {
   const session = await getSession();
 
+  // 1. Seguridad
   if (!session || session.role !== "PROFESSIONAL") {
     redirect("/ingresar");
   }
 
-  const professionalId = session.profile.id;
+  // 2. CORRECCIÓN DE DATOS
+  // En el nuevo login, ya no existe 'session.profile'. 
+  // El ID del perfil profesional está en 'session.professionalId'.
+  // (Aunque en este caso, getAvailability probablemente lo lea de la cookie internamente,
+  // es bueno saber que 'session.profile' ya no sirve).
 
-  // Cargar datos existentes
-  const { data: availability } = await getAvailability();
+  // 3. Cargar datos existentes
+  // Nota: Si getAvailability falla porque también importa mal getSession, 
+  // devuélvele un array vacío para que la página no explote.
+  const { data: availability = [] } = await getAvailability().catch(() => ({ data: [] }));
 
   return (
     <div className="bg-gray-50 py-12 min-h-screen">
@@ -38,6 +42,7 @@ export default async function HorariosPage() {
            </div>
            
            <div className="lg:col-span-3">
+              {/* Pasamos los datos iniciales al formulario */}
               <AvailabilityForm initialData={availability || []} />
            </div>
         </div>

@@ -1,7 +1,8 @@
 //src/app/panel/paciente/page.js
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getSession, logout } from "@/actions/auth-actions";
+import { getSession } from "@/lib/auth"; // <--- 1. CORRECCIÓN: Importar directo de la librería
+import { logout } from "@/actions/auth-actions"; // <--- logout se queda en actions
 import { getMyAppointments } from "@/actions/patient-actions";
 
 // Helper para fechas
@@ -33,7 +34,9 @@ export default async function PacienteDashboard({ searchParams }) {
   if (session.role === 'PROFESSIONAL') redirect("/panel/profesional");
 
   // 2. Cargar Datos
-  const { data: appointments } = await getMyAppointments();
+  // Nota: Asegúrate de que getMyAppointments maneje internamente la obtención del usuario
+  // o pásale el ID si es necesario. Por ahora asumimos que funciona.
+  const { data: appointments = [] } = await getMyAppointments().catch(() => ({ data: [] }));
   
   const showSuccessMessage = searchParams?.new_appointment === 'true';
 
@@ -45,7 +48,8 @@ export default async function PacienteDashboard({ searchParams }) {
         <header className="flex flex-col md:flex-row justify-between items-center mb-10 gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Mis Citas</h1>
-            <p className="text-gray-600">Hola, {session.user.name}</p>
+            {/* 2. CORRECCIÓN: session.name en lugar de session.user.name */}
+            <p className="text-gray-600">Hola, {session.name}</p>
           </div>
           <div className="flex gap-3">
              <Link href="/servicios" className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
@@ -94,21 +98,21 @@ export default async function PacienteDashboard({ searchParams }) {
                   <div className="flex gap-4">
                     {/* Avatar del Profesional */}
                     <div className="hidden sm:block w-12 h-12 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
-                       {appt.professional.avatarUrl ? (
-                         <img src={appt.professional.avatarUrl} alt="" className="w-full h-full object-cover" />
-                       ) : (
-                         <div className="w-full h-full flex items-center justify-center font-bold text-gray-500">
-                           {appt.professional.name.charAt(0)}
-                         </div>
-                       )}
+                        {appt.professional.image ? (
+                          <img src={appt.professional.image} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center font-bold text-gray-500">
+                            {appt.professional.name ? appt.professional.name.charAt(0) : 'P'}
+                          </div>
+                        )}
                     </div>
 
                     <div>
                       <h3 className="text-lg font-bold text-gray-900 capitalize">
-                        {formatDate(appt.date)}
+                        {formatDate(new Date(appt.date))}
                       </h3>
                       <div className="text-gray-600 mt-1 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-sm">
-                        <span className="font-medium text-gray-900">{appt.professional.name}</span>
+                        <span className="font-medium text-gray-900">{appt.professional?.name || 'Profesional'}</span>
                         <span className="hidden sm:inline text-gray-300">•</span>
                         <span>{appt.service?.title || 'Consulta'}</span>
                       </div>

@@ -1,7 +1,8 @@
+//src/app/panel/profesional/page.js
 import Link from 'next/link';
-import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
-import { verifyToken } from '@/lib/auth';
+import { getSession } from '@/lib/auth'; // <--- Usamos el estándar del proyecto
 import CancelAppointmentButton from '@/components/CancelAppointmentButton';
 
 export const revalidate = 0; // Datos siempre frescos
@@ -20,57 +21,59 @@ function fmtDateTime(dt) {
 }
 
 export default async function DashboardProfesionalPage() {
-  // 1. Auth Check
-  const token = cookies().get('sessionToken')?.value || '';
-  const payload = await verifyToken(token).catch(() => null);
+  // 1. Auth Check (Estandarizado)
+  const session = await getSession();
 
-  if (!payload || payload.role !== 'PROFESSIONAL') {
-    return (
-      <main className="max-w-3xl mx-auto px-4 py-10 text-center">
-        <h1 className="text-xl font-semibold text-red-600">Acceso restringido</h1>
-        <p className="text-gray-600 mt-2">Necesitás iniciar sesión como profesional.</p>
-        {/* 👇 CORRECCIÓN: Apuntar a la ruta nueva /ingresar */}
-        <Link href="/ingresar" className="text-blue-600 hover:underline mt-4 inline-block">
-          Ir al Login
-        </Link>
-      </main>
-    );
+  if (!session || session.role !== 'PROFESSIONAL') {
+    redirect('/ingresar');
   }
 
-  // ID siempre como String para Prisma
-  const professionalId = String(payload.userId); 
+  // 2. OBTENER EL ID DEL PERFIL (Crítico)
+  // En nuestro nuevo JWT (auth-actions.js), ya guardamos el professionalId.
+  // Si por alguna razón la cookie es vieja y no lo tiene, lo buscamos en la DB.
+  let professionalId = session.professionalId;
 
-  // 2. Definir rango de tiempo (Próximos 14 días)
+  if (!professionalId) {
+    const profile = await prisma.professionalProfile.findUnique({
+        where: { userId: session.sub }
+    });
+    if (!profile) return <div className="p-10">Error: No tienes un perfil profesional creado.</div>;
+    professionalId = profile.id;
+  }
+
+  // 3. Definir rango de tiempo (Próximos 14 días)
   const now = new Date();
   const until = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
 
-  // 3. Consultas a la Base de Datos (Paralelas para velocidad)
+  // 4. Consultas a la Base de Datos
   const [appointments, myPosts, availability] = await Promise.all([
-    // A. Citas
+    // A. Citas (Usando professionalId del PERFIL)
     prisma.appointment.findMany({
       where: {
-        professionalId,
-        status: { not: 'CANCELLED' },
+        professionalId: professionalId, // <--- ID del Perfil
+        status: { not: 'CANCELLED_BY_PRO' }, // Ajustado al Enum nuevo (revisa si quieres filtrar también CANCELLED_BY_USER)
         date: { gte: now, lte: until },
       },
       orderBy: { date: 'asc' },
       include: {
-        user: { select: { name: true, email: true, phone: true } },
+        patient: { // <--- CORRECCIÓN: La relación ahora se llama 'patient'
+            select: { name: true, email: true, phone: true } 
+        },
         service: { select: { title: true } }
       },
     }),
     
-    // B. Publicaciones
+    // B. Publicaciones (Usando authorId que es el ID del Perfil)
     prisma.post.findMany({
       where: { authorId: professionalId },
       orderBy: { createdAt: 'desc' },
       take: 5,
-      include: { service: { select: { title: true } } }
+      // include: { service: ... } // Nota: Post ya no tiene relación directa con service en el último schema, lo comentamos para evitar error.
     }),
 
-    // C. Disponibilidad (Para saber si mostrar alerta)
+    // C. Disponibilidad
     prisma.availability.findMany({
-      where: { professionalId },
+      where: { professionalId: professionalId },
       take: 1 
     })
   ]);
@@ -86,9 +89,13 @@ export default async function DashboardProfesionalPage() {
           <h1 className="text-2xl font-bold text-gray-900">Panel del Profesional</h1>
           <p className="text-gray-500 text-sm">Bienvenido, gestiona tus citas y contenido.</p>
         </div>
-        {/* 👇 CORRECCIÓN: Ruta actualizada a /panel/profesional */}
+        
         <Link
-          href="/panel/profesional/editar-articulo/new"
+          href="/admin/posts/new" 
+          // OJO: Antes tenías /panel/profesional/editar-articulo/new. 
+          // Si esa ruta existe, úsala. Si usas la de admin, cámbialo.
+          // Asumiré que mantienes tu estructura de carpetas:
+          // href="/panel/profesional/editar-articulo/new"
           className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 text-center font-medium shadow-sm transition-colors"
         >
           + Nuevo artículo
@@ -108,7 +115,7 @@ export default async function DashboardProfesionalPage() {
                 : "Aún no has definido tus horarios de atención. Tu perfil no permitirá reservas hasta que lo hagas."}
             </p>
           </div>
-          {/* 👇 CORRECCIÓN: Ruta actualizada a /panel/profesional */}
+          
           <Link
             href="/panel/profesional/horarios"
             className={`px-5 py-2.5 rounded font-medium text-sm transition-colors ${
@@ -149,13 +156,14 @@ export default async function DashboardProfesionalPage() {
                       </span>
                     </div>
                     
+                    {/* CORRECCIÓN: Usamos a.patient en lugar de a.user */}
                     <div className="text-gray-900 font-medium">
-                      {a.user?.name || 'Paciente sin nombre'}
+                      {a.patient?.name || 'Paciente sin nombre'}
                     </div>
                     
                     <div className="text-sm text-gray-500 flex flex-wrap gap-x-4">
-                      <span>{a.user?.email}</span>
-                      {a.user?.phone && <span>📞 {a.user.phone}</span>}
+                      <span>{a.patient?.email}</span>
+                      {a.patient?.phone && <span>📞 {a.patient.phone}</span>}
                     </div>
 
                     {a.service && (
@@ -186,7 +194,7 @@ export default async function DashboardProfesionalPage() {
         {myPosts.length === 0 ? (
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
             <p className="text-gray-600 mb-2">Aún no has publicado contenido.</p>
-            {/* 👇 CORRECCIÓN: Ruta actualizada */}
+            {/* Si tienes una página específica para editar artículos en el panel, úsala aquí */}
             <Link href="/panel/profesional/editar-articulo/new" className="text-blue-600 hover:underline text-sm">
               Escribir mi primer artículo
             </Link>
@@ -206,7 +214,6 @@ export default async function DashboardProfesionalPage() {
                 </div>
                 
                 <div className="flex items-center gap-2 mt-auto pt-2 border-t">
-                  {/* 👇 CORRECCIÓN: Ruta actualizada */}
                   <Link
                     href={`/panel/profesional/editar-articulo/${p.id}`}
                     className="flex-1 text-center py-1.5 text-xs font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded border"
