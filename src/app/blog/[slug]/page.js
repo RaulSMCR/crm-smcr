@@ -39,20 +39,27 @@ export default async function BlogPostPage({ params }) {
     include: {
       author: {
         select: {
-          id: true,
-          name: true,
-          specialty: true, // <--- CORREGIDO (Antes declaredJobTitle)
-          avatarUrl: true,
-          bio: true
+          id: true, // ID del Perfil (necesario para link agendar)
+          specialty: true, 
+          bio: true,
+          // 1. CORRECCIÓN: Datos personales desde User
+          user: {
+            select: {
+              name: true,
+              image: true 
+            }
+          }
         }
       }
-      // ELIMINADO: 'service' (Ya no existe la relación en el nuevo schema)
     }
   });
 
   if (!post) {
     notFound();
   }
+
+  // Helper para acortar el acceso a datos profundos en el JSX
+  const authorUser = post.author.user;
 
   return (
     <article className="min-h-screen bg-white">
@@ -91,20 +98,24 @@ export default async function BlogPostPage({ params }) {
         {/* Tarjeta del Autor */}
         <div className="flex items-center gap-4 p-6 bg-gray-50 rounded-xl border border-gray-100 mb-10">
             <div className="w-16 h-16 rounded-full bg-white border-2 border-white shadow-sm overflow-hidden flex-shrink-0">
-               {post.author.avatarUrl ? (
-                 <img src={post.author.avatarUrl} alt={post.author.name} className="w-full h-full object-cover"/>
+               {/* 2. CORRECCIÓN JSX: authorUser.image */}
+               {authorUser.image ? (
+                 <img src={authorUser.image} alt={authorUser.name} className="w-full h-full object-cover"/>
                ) : (
                  <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-500 font-bold text-xl">
-                    {post.author.name.charAt(0)}
+                    {/* 3. CORRECCIÓN JSX: authorUser.name */}
+                    {authorUser.name.charAt(0)}
                  </div>
                )}
             </div>
             <div>
                <p className="text-sm text-gray-500 uppercase font-bold tracking-wide">Escrito por</p>
-               <h3 className="text-xl font-bold text-gray-900">{post.author.name}</h3>
+               {/* 4. CORRECCIÓN JSX: authorUser.name */}
+               <h3 className="text-xl font-bold text-gray-900">{authorUser.name}</h3>
                <p className="text-blue-600 font-medium">{post.author.specialty || 'Profesional de Salud'}</p>
             </div>
             <div className="ml-auto hidden sm:block">
+               {/* Link usa el ID del perfil, eso está bien */}
                <Link 
                  href={`/agendar/${post.author.id}`}
                  className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
@@ -117,16 +128,13 @@ export default async function BlogPostPage({ params }) {
         {/* Cuerpo del Artículo */}
         <div 
           className="prose prose-lg prose-blue max-w-none text-gray-700 leading-relaxed"
-          // NOTA: Si guardas HTML en la DB, usa dangerouslySetInnerHTML. 
-          // Si guardas texto plano o Markdown, renderízalo acorde.
-          // Aquí asumimos texto enriquecido/HTML básico.
           dangerouslySetInnerHTML={{ __html: post.content }}
         />
 
         {/* Footer del Artículo */}
         <div className="mt-12 pt-8 border-t border-gray-200">
            <Link href="/blog" className="text-blue-600 font-bold hover:underline">
-              ← Volver a todos los artículos
+             ← Volver a todos los artículos
            </Link>
         </div>
 

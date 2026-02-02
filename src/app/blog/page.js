@@ -11,7 +11,7 @@ const formatDate = (date) => {
   }).format(date);
 };
 
-export const dynamic = 'force-dynamic'; // Asegura que siempre muestre posts nuevos
+export const dynamic = 'force-dynamic';
 
 export default async function BlogPage() {
   const posts = await prisma.post.findMany({
@@ -22,15 +22,20 @@ export default async function BlogPage() {
       id: true,
       slug: true,
       title: true,
-      coverImage: true, // <--- CORREGIDO: Antes imageUrl
-      excerpt: true,    // <--- AGREGADO: Para mostrar un resumen
+      coverImage: true, 
+      excerpt: true,    
       createdAt: true,
-      // postType: true, // REMOVIDO: No existe en schema
-      // service: ...,   // REMOVIDO: No hay relación en schema actual
+      // Relación con el Autor (ProfessionalProfile)
       author: {
         select: {
-          name: true,
-          specialty: true, // <--- CORREGIDO: Antes declaredJobTitle
+          specialty: true, 
+          // 1. CORRECCIÓN: Viajamos a User para obtener nombre e imagen
+          user: {
+            select: {
+              name: true,
+              image: true 
+            }
+          }
         },
       },
     },
@@ -99,12 +104,18 @@ export default async function BlogPage() {
 
                 {/* Autor */}
                 <div className="mt-auto pt-4 border-t border-gray-100 flex items-center gap-3">
-                   <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-bold uppercase">
-                      {p.author?.name ? p.author.name.charAt(0) : 'A'}
+                   <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-bold uppercase overflow-hidden">
+                      {/* 2. CORRECCIÓN JSX: Acceder a image o name en user */}
+                      {p.author?.user?.image ? (
+                         <img src={p.author.user.image} alt="" className="w-full h-full object-cover"/>
+                      ) : (
+                         <span>{p.author?.user?.name ? p.author.user.name.charAt(0) : 'A'}</span>
+                      )}
                    </div>
                    <div className="flex flex-col">
                       <span className="text-sm font-medium text-gray-900">
-                        {p.author?.name || 'Redacción'}
+                        {/* 3. CORRECCIÓN JSX: user.name */}
+                        {p.author?.user?.name || 'Redacción'}
                       </span>
                       {p.author?.specialty && (
                         <span className="text-xs text-gray-500">

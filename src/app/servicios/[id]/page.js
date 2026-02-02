@@ -30,11 +30,16 @@ export default async function ServiceDetailPage({ params }) {
       // Relación directa con profesionales
       professionals: {
         select: {
-          id: true,
-          name: true,
-          specialty: true, // <--- CORREGIDO (antes declaredJobTitle)
-          avatarUrl: true,
-          bio: true
+          id: true, // ID del Perfil (necesario para el link de agendar)
+          specialty: true,
+          bio: true,
+          // 1. CORRECCIÓN: Viajamos a User para obtener nombre y foto
+          user: {
+            select: {
+              name: true,
+              image: true, 
+            }
+          }
         }
       }
     }
@@ -85,17 +90,20 @@ export default async function ServiceDetailPage({ params }) {
                 <div className="flex items-center gap-4 mb-4">
                   {/* Avatar */}
                   <div className="w-16 h-16 rounded-full bg-gray-100 overflow-hidden flex-shrink-0">
-                    {pro.avatarUrl ? (
-                      <img src={pro.avatarUrl} alt={pro.name} className="w-full h-full object-cover" />
+                    {/* 2. CORRECCIÓN JSX: pro.user.image */}
+                    {pro.user.image ? (
+                      <img src={pro.user.image} alt={pro.user.name} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-xl font-bold text-gray-400">
-                        {pro.name.charAt(0)}
+                        {/* 3. CORRECCIÓN JSX: pro.user.name */}
+                        {pro.user.name.charAt(0)}
                       </div>
                     )}
                   </div>
                   
                   <div>
-                    <h3 className="font-bold text-gray-900 text-lg">{pro.name}</h3>
+                    {/* 4. CORRECCIÓN JSX: pro.user.name */}
+                    <h3 className="font-bold text-gray-900 text-lg">{pro.user.name}</h3>
                     <p className="text-blue-600 text-sm font-medium">{pro.specialty || 'Profesional de Salud'}</p>
                   </div>
                 </div>
@@ -107,7 +115,7 @@ export default async function ServiceDetailPage({ params }) {
                 )}
 
                 <Link 
-                  href={`/agendar/${pro.id}?serviceId=${service.id}`} // Pasamos el servicio pre-seleccionado
+                  href={`/agendar/${pro.id}?serviceId=${service.id}`} // pro.id es el ID del perfil, CORRECTO.
                   className="w-full py-3 bg-blue-600 text-white text-center rounded-lg font-bold hover:bg-blue-700 transition-colors mt-auto"
                 >
                   Agendar Cita

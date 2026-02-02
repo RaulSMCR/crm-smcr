@@ -1,6 +1,7 @@
 //src/app/nosotros/page.js
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export const metadata = {
   title: 'Nosotros | Equipo Profesional',
@@ -10,18 +11,23 @@ export const metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function NosotrosPage() {
-  const professionals = await prisma.professional.findMany({
-    // Eliminamos 'where: { isApproved: true }' porque el campo no existe
+  // 1. CORRECCIÓN: Usamos 'professionalProfile' en lugar de 'professional'
+  const professionals = await prisma.professionalProfile.findMany({
     orderBy: {
       createdAt: 'asc',
     },
     select: {
       id: true,
-      name: true,
-      specialty: true, // <--- CORREGIDO: Antes declaredJobTitle
-      bio: true,       // <--- AGREGADO: Para mostrar una pequeña descripción
-      avatarUrl: true, // <--- AGREGADO: Para mostrar la foto real
+      specialty: true,
+      bio: true,
       slug: true,
+      // 2. CORRECCIÓN: Obtenemos nombre y foto desde la relación con User
+      user: {
+        select: {
+          name: true,
+          image: true 
+        }
+      },
       services: {
         take: 3,
         select: {
@@ -49,15 +55,17 @@ export default async function NosotrosPage() {
             <div className="h-32 bg-gradient-to-r from-blue-50 to-indigo-50 relative">
                <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2">
                   <div className="w-24 h-24 rounded-full border-4 border-white shadow-md overflow-hidden bg-white flex items-center justify-center">
-                    {pro.avatarUrl ? (
+                    {/* 3. CORRECCIÓN JSX: pro.user.image */}
+                    {pro.user.image ? (
                       <img 
-                        src={pro.avatarUrl} 
-                        alt={pro.name} 
+                        src={pro.user.image} 
+                        alt={pro.user.name} 
                         className="w-full h-full object-cover"
                       />
                     ) : (
                       <span className="text-3xl font-bold text-blue-600">
-                        {pro.name.charAt(0)}
+                        {/* 4. CORRECCIÓN JSX: pro.user.name */}
+                        {pro.user.name.charAt(0)}
                       </span>
                     )}
                   </div>
@@ -65,7 +73,8 @@ export default async function NosotrosPage() {
             </div>
             
             <div className="pt-14 pb-6 px-6 text-center flex-grow flex flex-col">
-              <h2 className="text-xl font-bold text-gray-900 mb-1">{pro.name}</h2>
+              {/* 5. CORRECCIÓN JSX: pro.user.name */}
+              <h2 className="text-xl font-bold text-gray-900 mb-1">{pro.user.name}</h2>
               
               {/* Especialidad */}
               <p className="text-blue-600 font-medium mb-3 text-sm uppercase tracking-wide">
@@ -94,7 +103,7 @@ export default async function NosotrosPage() {
                 </div>
 
                 <Link 
-                   href={`/agendar/${pro.id}`} // Usamos ID ya que es lo más seguro ahora
+                   href={`/agendar/${pro.id}`} // El ID del perfil sigue siendo correcto para la URL
                    className="inline-block w-full py-2 px-4 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
                 >
                    Agendar Cita
