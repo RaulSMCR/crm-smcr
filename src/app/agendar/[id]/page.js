@@ -3,17 +3,26 @@ import { prisma } from '@/lib/prisma';
 import { notFound } from 'next/navigation';
 import BookingInterface from '@/components/booking/BookingInterface';
 
-export default async function AgendarPage({ params }) {
+export default async function AgendarPage({ params, searchParams }) {
   const { id } = params;
+  // Opcional: Si la URL trae ?serviceId=..., podemos usarlo para preseleccionar
+  const preSelectedServiceId = searchParams?.serviceId;
 
-  // 1. Buscamos al profesional
-  const professional = await prisma.professional.findUnique({
-    where: { id },
+  // 1. Buscamos al profesional (Perfil + Usuario)
+  const professional = await prisma.professionalProfile.findUnique({
+    where: { id }, // El ID de la URL es el del Perfil
     include: {
-        services: {
-            take: 1, // Por ahora tomamos el primer servicio por defecto
-            select: { id: true, title: true, price: true } 
+      // Obtenemos nombre y foto de la tabla User
+      user: {
+        select: {
+          name: true,
+          image: true
         }
+      },
+      // Traemos servicios para mostrar precio/titulo
+      services: {
+        select: { id: true, title: true, price: true } 
+      }
     }
   });
 
@@ -21,8 +30,17 @@ export default async function AgendarPage({ params }) {
     return notFound();
   }
 
-  // Datos del servicio por defecto (esto luego se puede mejorar para elegir servicio)
-  const defaultService = professional.services[0] || { 
+  // 2. Lógica de Selección de Servicio
+  // Si vino un ID por URL, buscamos ese. Si no, tomamos el primero.
+  let selectedService = null;
+  
+  if (preSelectedServiceId) {
+    selectedService = professional.services.find(s => s.id === preSelectedServiceId);
+  }
+  
+  // Fallback al primero o a un objeto default
+  const activeService = selectedService || professional.services[0] || { 
+    id: null,
     title: "Consulta General", 
     price: 50 
   };
@@ -35,15 +53,18 @@ export default async function AgendarPage({ params }) {
         <div className="md:col-span-5 lg:col-span-4 space-y-6">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 text-center">
                 <div className="w-32 h-32 mx-auto rounded-full bg-gray-200 mb-4 overflow-hidden border-4 border-white shadow-md">
-                    {professional.avatarUrl ? (
-                        <img src={professional.avatarUrl} alt={professional.name} className="w-full h-full object-cover"/>
+                    {/* CORRECCIÓN JSX: professional.user.image */}
+                    {professional.user.image ? (
+                        <img src={professional.user.image} alt={professional.user.name} className="w-full h-full object-cover"/>
                     ) : (
                         <div className="w-full h-full flex items-center justify-center text-4xl text-gray-400 font-bold">
-                            {professional.name.charAt(0)}
+                            {/* CORRECCIÓN JSX: professional.user.name */}
+                            {professional.user.name.charAt(0)}
                         </div>
                     )}
                 </div>
-                <h1 className="text-2xl font-bold text-gray-900">{professional.name}</h1>
+                {/* CORRECCIÓN JSX: professional.user.name */}
+                <h1 className="text-2xl font-bold text-gray-900">{professional.user.name}</h1>
                 <p className="text-blue-600 font-medium">{professional.specialty || 'Profesional de Salud'}</p>
                 
                 {professional.bio && (
@@ -70,8 +91,9 @@ export default async function AgendarPage({ params }) {
         <div className="md:col-span-7 lg:col-span-8">
             <BookingInterface 
                 professionalId={professional.id}
-                servicePrice={Number(defaultService.price)}
-                serviceTitle={defaultService.title}
+                servicePrice={Number(activeService.price)}
+                serviceTitle={activeService.title}
+                serviceId={activeService.id} // Pasamos el ID real si existe
             />
         </div>
 
