@@ -2,6 +2,7 @@
 'use client'
 
 import { useState } from 'react';
+// Asegúrate de que admin-actions.js exista en src/actions/
 import { createService, deleteService, approveUser, toggleUserStatus, deleteUser } from '@/actions/admin-actions';
 
 export default function AdminView({ stats, pendingPros, allUsers, services, appointments }) {
@@ -34,7 +35,7 @@ export default function AdminView({ stats, pendingPros, allUsers, services, appo
                 {/* Stats Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <StatCard label="Usuarios Totales" value={stats.totalUsers} icon="👥" />
-                    <StatCard label="Profesionales" value={stats.totalPros} icon="b" />
+                    <StatCard label="Profesionales" value={stats.totalPros} icon="🩺" />
                     <StatCard label="Citas Agendadas" value={stats.totalAppts} icon="📅" />
                     <StatCard label="Ingresos (Est.)" value={`$${stats.revenue}`} icon="💰" />
                 </div>
