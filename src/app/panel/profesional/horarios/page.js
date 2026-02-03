@@ -1,28 +1,37 @@
-//src/app/panel/profesional/horarios/page.js
+// src/app/panel/profesional/horarios/page.js
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth"; // <--- 1. CORRECCIÓN IMPORTANTE (Evita error de build)
+import { getSession } from "@/lib/auth";
 import { getAvailability } from "@/actions/availability-actions";
 import DashboardNav from "@/components/DashboardNav";
 import AvailabilityForm from "@/components/AvailabilityForm"; 
 
+// 🛑 BLINDAJE PARA VERCEL (VITAL)
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function HorariosPage() {
+  // 1. Verificación de Sesión
   const session = await getSession();
 
-  // 1. Seguridad
   if (!session || session.role !== "PROFESSIONAL") {
     redirect("/ingresar");
   }
 
-  // 2. CORRECCIÓN DE DATOS
-  // En el nuevo login, ya no existe 'session.profile'. 
-  // El ID del perfil profesional está en 'session.professionalId'.
-  // (Aunque en este caso, getAvailability probablemente lo lea de la cookie internamente,
-  // es bueno saber que 'session.profile' ya no sirve).
-
-  // 3. Cargar datos existentes
-  // Nota: Si getAvailability falla porque también importa mal getSession, 
-  // devuélvele un array vacío para que la página no explote.
-  const { data: availability = [] } = await getAvailability().catch(() => ({ data: [] }));
+  // 2. Cargar datos con RED DE SEGURIDAD
+  let availabilityData = [];
+  
+  try {
+    // Intentamos traer los horarios
+    const response = await getAvailability();
+    if (response && response.data) {
+      availabilityData = response.data;
+    }
+  } catch (error) {
+    // Si la BD falla, no rompemos la página. 
+    // Mostramos error en consola interna y cargamos el formulario vacío.
+    console.error("⚠️ Error cargando horarios (Carga Resiliente):", error);
+    availabilityData = []; 
+  }
 
   return (
     <div className="bg-gray-50 py-12 min-h-screen">
@@ -42,8 +51,8 @@ export default async function HorariosPage() {
            </div>
            
            <div className="lg:col-span-3">
-              {/* Pasamos los datos iniciales al formulario */}
-              <AvailabilityForm initialData={availability || []} />
+              {/* Pasamos los datos (o array vacío si falló la BD) */}
+              <AvailabilityForm initialData={availabilityData} />
            </div>
         </div>
 
