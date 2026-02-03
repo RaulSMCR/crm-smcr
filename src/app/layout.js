@@ -1,6 +1,6 @@
 // src/app/layout.js
 import './globals.css';
-import Header from '@/components/Header';
+// import Header from '@/components/Header'; <--- COMENTA ESTO
 import Footer from '@/components/Footer';
 
 export const metadata = {
@@ -12,7 +12,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="es">
       <body className="min-h-screen bg-[rgb(var(--app-bg))] text-neutral-900 antialiased">
-        <Header />
+        {/* <Header />  <--- COMENTA ESTO TAMBIÉN */}
         <main className="container py-8">{children}</main>
         <Footer />
       </body>
