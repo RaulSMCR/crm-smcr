@@ -40,7 +40,11 @@ export async function toggleUserStatus(id, currentStatus) {
 }
 
 export async function deleteUser(id) {
-    // Ojo: Borrar usuario borra sus citas y perfil por la cascada
-    await prisma.user.delete({ where: { id } });
-    revalidatePath('/panel/admin');
+    try {
+        // Al borrar el usuario, Prisma borrará en cascada su perfil y citas (si está configurado así en schema)
+        await prisma.user.delete({ where: { id } });
+        revalidatePath('/panel/admin');
+    } catch (error) {
+        console.error("Error eliminando usuario:", error);
+    }
 }
