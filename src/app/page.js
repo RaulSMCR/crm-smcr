@@ -1,4 +1,9 @@
 // src/app/page.js
+// src/app/page.js
+export const dynamic = 'force-dynamic'; // <--- ESTO ES VITAL
+export const revalidate = 0;
+
+// ... resto del código ...
 import HeroSection from "@/components/HeroSection";
 import CategorySection from "@/components/CategorySection";
 import MissionVideo from "@/components/MissionVideo";
