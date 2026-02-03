@@ -1,51 +1,67 @@
 // src/components/CategorySection.js
-import { prisma } from '@/lib/prisma';
-import HeroSection from "@/components/HeroSection";
-import CategorySection from "@/components/CategorySection";
-import MissionVideo from "@/components/MissionVideo";
-import ProfessionalCtaSection from "@/components/ProfessionalCtaSection";
+// src/components/CategorySection.js
+import Link from 'next/link';
 
-// Imágenes de stock para decorar los servicios (ya que la BD aun no tiene campo de imagen)
-const STOCK_IMAGES = [
-  'https://images.unsplash.com/photo-1526253038957-bce54e05968c?w=1600&q=80', // Psicología
-  'https://images.unsplash.com/photo-1543352634-8730b6e7a88a?w=1600&q=80', // Nutrición
-  'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=1600&q=80', // Terapia
-  'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=1600&q=80', // Coaching
-  'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=1600&q=80', // Médico
-];
-
-// Forzamos dinamismo para que si creas un servicio, aparezca al recargar
-export const dynamic = 'force-dynamic';
-
-export default async function HomePage() {
-  // 1. Buscamos los servicios reales en la Base de Datos
-  const dbServices = await prisma.service.findMany({
-    take: 4, // Mostramos máximo 4 en la home
-    orderBy: { createdAt: 'desc' }
-  });
-
-  // 2. Transformamos los datos al formato que CategorySection entiende
-  // (Mapeamos 'title' a 'name' y asignamos una imagen aleatoria)
-  const realCategories = dbServices.map((service, index) => ({
-    name: service.title,
-    // Usamos el ID como slug para que el link lleve a /servicios/[id]
-    slug: service.id, 
-    description: service.description || "Servicio profesional especializado.",
-    imageUrl: STOCK_IMAGES[index % STOCK_IMAGES.length] // Ciclo de imágenes
-  }));
-
-  // Si no hay servicios en la BD, usamos undefined para que CategorySection use sus fallbacks
-  const categoriesToShow = realCategories.length > 0 ? realCategories : undefined;
+export default function CategorySection({ categories, title }) {
+  // 🛡️ Seguridad: Si por alguna razón los datos llegan vacíos, no rompemos la web
+  if (!categories || categories.length === 0) {
+    return (
+      <section className="py-12 bg-gray-50 text-center">
+        <p className="text-gray-500">Cargando servicios...</p>
+      </section>
+    );
+  }
 
   return (
-    <div>
-      <HeroSection />
-      <MissionVideo />
-      
-      {/* Pasamos los datos reales al componente */}
-      <CategorySection categories={categoriesToShow} title="Nuestros Servicios" />
-      
-      <ProfessionalCtaSection />
-    </div>
+    <section className="py-16 bg-white">
+      <div className="container mx-auto px-4">
+        {/* Título de la Sección */}
+        <h2 className="text-3xl font-bold text-center text-gray-800 mb-12">
+          {title || "Nuestros Servicios"}
+        </h2>
+
+        {/* Rejilla de Tarjetas */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {categories.map((category) => (
+            <Link
+              key={category.slug}
+              href={`/servicios/${category.slug}`}
+              className="group flex flex-col bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg transition-all duration-300"
+            >
+              {/* Imagen de la tarjeta */}
+              <div className="h-48 overflow-hidden relative bg-gray-200">
+                {category.imageUrl ? (
+                  <img
+                    src={category.imageUrl}
+                    alt={category.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-400">
+                    <span className="text-4xl">📷</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Contenido de la tarjeta */}
+              <div className="p-6 flex flex-col flex-grow">
+                <h3 className="text-xl font-bold text-gray-800 mb-2 group-hover:text-blue-600 transition-colors">
+                  {category.name}
+                </h3>
+                <p className="text-gray-600 text-sm line-clamp-3 flex-grow">
+                  {category.description}
+                </p>
+                <div className="mt-4 text-blue-600 font-medium text-sm flex items-center">
+                  Ver más 
+                  <svg className="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
