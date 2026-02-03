@@ -3,23 +3,25 @@ import { prisma } from '@/lib/prisma';
 import { notFound } from 'next/navigation';
 import BookingInterface from '@/components/booking/BookingInterface';
 
+// Nota: params y searchParams son inyectados por Next.js automáticamente
 export default async function AgendarPage({ params, searchParams }) {
   const { id } = params;
-  // Opcional: Si la URL trae ?serviceId=..., podemos usarlo para preseleccionar
+  
+  // Opcional: Si el link viene con ?serviceId=..., intentamos pre-seleccionar ese servicio
   const preSelectedServiceId = searchParams?.serviceId;
 
-  // 1. Buscamos al profesional (Perfil + Usuario)
+  // 1. Buscamos al profesional usando la nueva tabla 'professionalProfile'
   const professional = await prisma.professionalProfile.findUnique({
-    where: { id }, // El ID de la URL es el del Perfil
+    where: { id }, // El ID en la URL corresponde al perfil profesional
     include: {
-      // Obtenemos nombre y foto de la tabla User
+      // Cruzamos a la tabla User para sacar Nombre y Foto
       user: {
         select: {
           name: true,
           image: true
         }
       },
-      // Traemos servicios para mostrar precio/titulo
+      // Cruzamos a Services para obtener precios y títulos
       services: {
         select: { id: true, title: true, price: true } 
       }
@@ -30,15 +32,13 @@ export default async function AgendarPage({ params, searchParams }) {
     return notFound();
   }
 
-  // 2. Lógica de Selección de Servicio
-  // Si vino un ID por URL, buscamos ese. Si no, tomamos el primero.
+  // 2. Lógica para determinar el servicio activo (por defecto el primero o el seleccionado)
   let selectedService = null;
   
   if (preSelectedServiceId) {
     selectedService = professional.services.find(s => s.id === preSelectedServiceId);
   }
   
-  // Fallback al primero o a un objeto default
   const activeService = selectedService || professional.services[0] || { 
     id: null,
     title: "Consulta General", 
@@ -53,17 +53,17 @@ export default async function AgendarPage({ params, searchParams }) {
         <div className="md:col-span-5 lg:col-span-4 space-y-6">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 text-center">
                 <div className="w-32 h-32 mx-auto rounded-full bg-gray-200 mb-4 overflow-hidden border-4 border-white shadow-md">
-                    {/* CORRECCIÓN JSX: professional.user.image */}
+                    {/* Renderizamos la imagen del usuario (antes avatarUrl) */}
                     {professional.user.image ? (
                         <img src={professional.user.image} alt={professional.user.name} className="w-full h-full object-cover"/>
                     ) : (
                         <div className="w-full h-full flex items-center justify-center text-4xl text-gray-400 font-bold">
-                            {/* CORRECCIÓN JSX: professional.user.name */}
                             {professional.user.name.charAt(0)}
                         </div>
                     )}
                 </div>
-                {/* CORRECCIÓN JSX: professional.user.name */}
+                
+                {/* Renderizamos el nombre del usuario */}
                 <h1 className="text-2xl font-bold text-gray-900">{professional.user.name}</h1>
                 <p className="text-blue-600 font-medium">{professional.specialty || 'Profesional de Salud'}</p>
                 
@@ -93,7 +93,7 @@ export default async function AgendarPage({ params, searchParams }) {
                 professionalId={professional.id}
                 servicePrice={Number(activeService.price)}
                 serviceTitle={activeService.title}
-                serviceId={activeService.id} // Pasamos el ID real si existe
+                serviceId={activeService.id}
             />
         </div>
 
