@@ -1,4 +1,5 @@
 //src/actions/auth-actions.js
+// src/actions/auth-actions.js
 'use server'
 
 import { prisma } from "@/lib/prisma";
@@ -7,23 +8,21 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import crypto from "crypto";
 import { Resend } from 'resend';
-// 👇 IMPORTANTE: Importamos getSession de la librería (la fuente de la verdad)
 import { signToken, getSession as getLibSession } from "@/lib/auth"; 
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const BASE_URL = process.env.NEXT_PUBLIC_URL || "https://crm-smcr.vercel.app";
 
 /* -------------------------------------------------------------------------- */
-/* 0. UTILIDADES DE SESIÓN (PUENTE)                                           */
+/* 0. UTILIDADES DE SESIÓN                                                    */
 /* -------------------------------------------------------------------------- */
 
-// Mantenemos esto para que las páginas que importan desde aquí sigan funcionando
 export async function getSession() {
   return await getLibSession();
 }
 
 /* -------------------------------------------------------------------------- */
-/* 1. LOGIN UNIFICADO (User + Profile)                                        */
+/* 1. LOGIN UNIFICADO                                                         */
 /* -------------------------------------------------------------------------- */
 
 export async function login(formData) {
@@ -33,13 +32,11 @@ export async function login(formData) {
   if (!email || !password) return { error: "Credenciales requeridas." };
 
   try {
-    // 1. Buscamos en la TABLA ÚNICA de Usuarios
     const user = await prisma.user.findUnique({ 
       where: { email },
       include: { professionalProfile: true } 
     });
 
-    // 2. Validaciones de Seguridad
     if (!user || !user.password) {
       return { error: "Credenciales inválidas." };
     }
@@ -47,35 +44,32 @@ export async function login(formData) {
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) return { error: "Credenciales inválidas." };
 
-    // 3. Validación de Negocio: Aprobación
+    // Validación de Negocio: Aprobación Profesional
     if (user.role === 'PROFESSIONAL' && !user.isApproved) {
       return { error: "Tu cuenta está pendiente de aprobación por la administración." };
     }
 
-    // 4. Bloqueo de usuarios baneados
+    // Bloqueo de usuarios
     if (!user.isActive) {
       return { error: "Esta cuenta ha sido desactivada. Contacta soporte." };
     }
 
-    // 5. Actualizar Last Login (Segundo plano)
+    // Actualizar Last Login
     prisma.user.update({
       where: { id: user.id },
       data: { lastLogin: new Date() }
     }).catch(err => console.error("Error actualizando lastLogin:", err));
 
-    // 6. Preparar Payload del Token
     const sessionData = {
       sub: user.id,
       email: user.email,
       role: user.role,
       isApproved: user.isApproved,
       name: user.name,
-      // Guardamos IDs clave para no tener que consultarlos luego
       professionalId: user.professionalProfile?.id || null,
       slug: user.professionalProfile?.slug || null
     };
 
-    // 7. Crear Cookie
     const token = await signToken(sessionData);
     
     cookies().set("session", token, {
@@ -95,13 +89,12 @@ export async function login(formData) {
 }
 
 export async function logout() {
-  // 👇 CORRECCIÓN: Añadido path: '/' para asegurar borrado
   cookies().set("session", "", { expires: new Date(0), path: '/' });
   redirect("/ingresar");
 }
 
 /* -------------------------------------------------------------------------- */
-/* 2. REGISTRO PROFESIONAL (Transacción Atómica)                              */
+/* 2. REGISTRO PROFESIONAL (Con CV, Matrícula y Email)                        */
 /* -------------------------------------------------------------------------- */
 
 export async function registerProfessional(formData) {
@@ -115,6 +108,10 @@ export async function registerProfessional(formData) {
   const bio = formData.get('bio');
   const coverLetter = formData.get('coverLetter'); 
   
+  // 👇 DATOS CRÍTICOS RECUPERADOS DEL FORMULARIO
+  const cvUrl = formData.get('cvUrl'); 
+  const licenseNumber = formData.get('licenseNumber');
+
   const acquisitionChannel = formData.get('acquisitionChannel') || 'Directo';
 
   if (!name || !email || !password || !specialty) return { error: "Faltan campos obligatorios." };
@@ -125,6 +122,7 @@ export async function registerProfessional(formData) {
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) return { error: "El correo ya está registrado." };
 
+    // Generar Slug único
     let slug = name.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-');
     let count = 0;
     while (await prisma.professionalProfile.findUnique({ where: { slug: count === 0 ? slug : `${slug}-${count}` } })) {
@@ -135,7 +133,7 @@ export async function registerProfessional(formData) {
     const hashedPassword = await bcrypt.hash(password, 12);
     const verifyToken = crypto.randomBytes(32).toString('hex');
     
-    // Transacción: Crea Usuario + Perfil o falla todo
+    // Transacción: Crea Usuario + Perfil (Con CV y Matrícula)
     await prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
         data: {
@@ -144,7 +142,7 @@ export async function registerProfessional(formData) {
           password: hashedPassword,
           phone,
           role: 'PROFESSIONAL',
-          isApproved: false,
+          isApproved: false, // Requiere aprobación manual
           emailVerified: false,
           verifyTokenHash: crypto.createHash('sha256').update(verifyToken).digest('hex'),
           verifyTokenExp: new Date(Date.now() + 24 * 60 * 60 * 1000),
@@ -160,6 +158,9 @@ export async function registerProfessional(formData) {
           slug,
           bio,
           coverLetter: coverLetter || null,
+          // 👇 GUARDADO DE CV Y MATRÍCULA
+          cvUrl: cvUrl || null,
+          licenseNumber: licenseNumber || "Pendiente",
         }
       });
     });
@@ -168,8 +169,20 @@ export async function registerProfessional(formData) {
       await resend.emails.send({
         from: 'Salud Mental Costa Rica <onboarding@resend.dev>',
         to: email,
-        subject: 'Confirma tu cuenta profesional',
-        html: `<p>Hola ${name}, verifica tu cuenta aquí: <a href="${BASE_URL}/verificar-email?token=${verifyToken}">Verificar Email</a></p>`
+        subject: 'Recibimos tu solicitud profesional',
+        html: `
+          <div style="font-family: sans-serif; color: #333;">
+            <h2>Hola ${name},</h2>
+            <p>Hemos recibido tu solicitud y tu CV correctamente.</p>
+            <p>Mientras nuestro equipo administrativo revisa tu perfil, por favor <strong>verifica tu correo electrónico</strong>:</p>
+            <p>
+                <a href="${BASE_URL}/verificar-email?token=${verifyToken}" style="background-color: #2563EB; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                    Verificar Email
+                </a>
+            </p>
+            <p><small>Si no solicitaste esto, ignora este mensaje.</small></p>
+          </div>
+        `
       });
     }
 
@@ -182,24 +195,33 @@ export async function registerProfessional(formData) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* 3. REGISTRO PACIENTE                                                       */
+/* 3. REGISTRO PACIENTE (Con Token y Email de Verificación)                   */
 /* -------------------------------------------------------------------------- */
 
 export async function registerUser(formData) {
   const name = formData.get('name');
   const email = formData.get('email');
   const password = formData.get('password');
+  const confirmPassword = formData.get('confirmPassword'); // 👇 Validamos confirmación
   const phone = formData.get('phone');
   const acquisitionChannel = formData.get('acquisitionChannel') || 'Directo'; 
 
+  // 1. Validaciones
   if (!name || !email || !password) return { error: "Datos incompletos." };
+  if (password !== confirmPassword) return { error: "Las contraseñas no coinciden." };
+  if (password.length < 8) return { error: "La contraseña debe tener al menos 8 caracteres." };
 
   try {
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) return { error: "El correo ya está registrado." };
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // 2. Generar Token (Igual que Pro)
+    const verifyToken = crypto.randomBytes(32).toString('hex');
+    const verifyTokenHash = crypto.createHash('sha256').update(verifyToken).digest('hex');
 
+    // 3. Crear Usuario (Paciente)
     await prisma.user.create({
       data: {
         name,
@@ -207,15 +229,39 @@ export async function registerUser(formData) {
         password: hashedPassword,
         phone,
         role: 'USER',
-        isApproved: true,
-        acquisitionChannel: acquisitionChannel,
+        isApproved: true, // Pacientes entran directos (pero verifican email)
+        emailVerified: false,
+        verifyTokenHash,
+        verifyTokenExp: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        acquisitionChannel,
       }
     });
+
+    // 4. Enviar Correo Paciente
+    if (process.env.RESEND_API_KEY) {
+      await resend.emails.send({
+        from: 'Salud Mental Costa Rica <onboarding@resend.dev>',
+        to: email,
+        subject: 'Bienvenido a SMCR - Confirma tu cuenta',
+        html: `
+          <div style="font-family: sans-serif; color: #333;">
+            <h2>¡Bienvenido, ${name}!</h2>
+            <p>Gracias por unirte a nuestra comunidad.</p>
+            <p>Para activar todas las funciones de tu cuenta, por favor confirma tu correo:</p>
+            <p>
+                <a href="${BASE_URL}/verificar-email?token=${verifyToken}" style="background-color: #2563EB; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                    Verificar mi Email
+                </a>
+            </p>
+          </div>
+        `
+      });
+    }
 
     return { success: true };
   } catch (error) {
     console.error("Error registro usuario:", error);
-    return { error: "Error al registrarse." };
+    return { error: "Error al registrarse. Inténtalo de nuevo." };
   }
 }
 
