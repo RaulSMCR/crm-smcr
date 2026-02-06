@@ -1,4 +1,3 @@
-//src/actions/auth-actions.js
 // src/actions/auth-actions.js
 'use server'
 
@@ -7,11 +6,11 @@ import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import crypto from "crypto";
-import { Resend } from 'resend';
+// 👇 IMPORTANTE: Usamos la instancia configurada en tu lib, no creamos una nueva
+import { resend } from "@/lib/resend"; 
 import { signToken, getSession as getLibSession } from "@/lib/auth"; 
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-const BASE_URL = process.env.NEXT_PUBLIC_URL || "https://crm-smcr.vercel.app";
+const BASE_URL = process.env.NEXT_PUBLIC_URL || "http://localhost:3000";
 
 /* -------------------------------------------------------------------------- */
 /* 0. UTILIDADES DE SESIÓN                                                    */
@@ -55,7 +54,7 @@ export async function login(formData) {
     }
 
     // Actualizar Last Login
-    prisma.user.update({
+    await prisma.user.update({
       where: { id: user.id },
       data: { lastLogin: new Date() }
     }).catch(err => console.error("Error actualizando lastLogin:", err));
@@ -108,7 +107,7 @@ export async function registerProfessional(formData) {
   const bio = formData.get('bio');
   const coverLetter = formData.get('coverLetter'); 
   
-  // 👇 DATOS CRÍTICOS RECUPERADOS DEL FORMULARIO
+  // Datos específicos
   const cvUrl = formData.get('cvUrl'); 
   const licenseNumber = formData.get('licenseNumber');
 
@@ -131,9 +130,12 @@ export async function registerProfessional(formData) {
     slug = count === 0 ? slug : `${slug}-${count}`;
 
     const hashedPassword = await bcrypt.hash(password, 12);
-    const verifyToken = crypto.randomBytes(32).toString('hex');
     
-    // Transacción: Crea Usuario + Perfil (Con CV y Matrícula)
+    // Generar Token
+    const verifyToken = crypto.randomBytes(32).toString('hex');
+    const verifyTokenHash = crypto.createHash('sha256').update(verifyToken).digest('hex');
+    
+    // Transacción: Crea Usuario + Perfil
     await prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
         data: {
@@ -144,7 +146,7 @@ export async function registerProfessional(formData) {
           role: 'PROFESSIONAL',
           isApproved: false, // Requiere aprobación manual
           emailVerified: false,
-          verifyTokenHash: crypto.createHash('sha256').update(verifyToken).digest('hex'),
+          verifyTokenHash: verifyTokenHash,
           verifyTokenExp: new Date(Date.now() + 24 * 60 * 60 * 1000),
           acquisitionChannel: acquisitionChannel, 
           campaignName: 'Captación Profesionales'
@@ -158,15 +160,17 @@ export async function registerProfessional(formData) {
           slug,
           bio,
           coverLetter: coverLetter || null,
-          // 👇 GUARDADO DE CV Y MATRÍCULA
           cvUrl: cvUrl || null,
           licenseNumber: licenseNumber || "Pendiente",
         }
       });
     });
 
-    if (process.env.RESEND_API_KEY) {
-      await resend.emails.send({
+    // Enviar Correo
+    if (!process.env.RESEND_API_KEY) {
+      console.error("⚠️ RESEND_API_KEY no configurada. No se envió el correo al profesional.");
+    } else {
+      const { error } = await resend.emails.send({
         from: 'Salud Mental Costa Rica <onboarding@resend.dev>',
         to: email,
         subject: 'Recibimos tu solicitud profesional',
@@ -184,6 +188,8 @@ export async function registerProfessional(formData) {
           </div>
         `
       });
+
+      if (error) console.error("❌ Error enviando email a Profesional:", error);
     }
 
     return { success: true };
@@ -202,7 +208,7 @@ export async function registerUser(formData) {
   const name = formData.get('name');
   const email = formData.get('email');
   const password = formData.get('password');
-  const confirmPassword = formData.get('confirmPassword'); // 👇 Validamos confirmación
+  const confirmPassword = formData.get('confirmPassword');
   const phone = formData.get('phone');
   const acquisitionChannel = formData.get('acquisitionChannel') || 'Directo'; 
 
@@ -217,7 +223,7 @@ export async function registerUser(formData) {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    // 2. Generar Token (Igual que Pro)
+    // 2. Generar Token
     const verifyToken = crypto.randomBytes(32).toString('hex');
     const verifyTokenHash = crypto.createHash('sha256').update(verifyToken).digest('hex');
 
@@ -229,7 +235,7 @@ export async function registerUser(formData) {
         password: hashedPassword,
         phone,
         role: 'USER',
-        isApproved: true, // Pacientes entran directos (pero verifican email)
+        isApproved: true, // Pacientes entran aprobados (solo falta verificar email)
         emailVerified: false,
         verifyTokenHash,
         verifyTokenExp: new Date(Date.now() + 24 * 60 * 60 * 1000),
@@ -237,10 +243,12 @@ export async function registerUser(formData) {
       }
     });
 
-    // 4. Enviar Correo Paciente
-    if (process.env.RESEND_API_KEY) {
-      await resend.emails.send({
-        from: 'Salud Mental Costa Rica <onboarding@resend.dev>',
+    // 4. Enviar Correo Paciente (Con diagnóstico de error)
+    if (!process.env.RESEND_API_KEY) {
+      console.error("⚠️ CRITICAL: RESEND_API_KEY no está configurada en .env. El correo no saldrá.");
+    } else {
+      const { data, error } = await resend.emails.send({
+        from: 'Salud Mental Costa Rica <onboarding@resend.dev>', // Asegúrate de verificar dominio en producción
         to: email,
         subject: 'Bienvenido a SMCR - Confirma tu cuenta',
         html: `
@@ -256,11 +264,17 @@ export async function registerUser(formData) {
           </div>
         `
       });
+
+      if (error) {
+        console.error("❌ RESEND API ERROR:", error);
+      } else {
+        console.log("✅ Email enviado correctamente a:", email, "ID:", data?.id);
+      }
     }
 
     return { success: true };
   } catch (error) {
-    console.error("Error registro usuario:", error);
+    console.error("Error FATAL registro usuario:", error);
     return { error: "Error al registrarse. Inténtalo de nuevo." };
   }
 }
