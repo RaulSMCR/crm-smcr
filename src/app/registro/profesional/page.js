@@ -21,7 +21,7 @@ export default function RegistroProfesionalPage() {
     phone: "",
     password: "",
     confirmPassword: "",
-    specialty: "", // Ahora es texto libre
+    specialty: "", 
     licenseNumber: "",
     bio: "",
   });
@@ -58,14 +58,14 @@ export default function RegistroProfesionalPage() {
         e.target.value = null;
         return;
       }
-      // Validación de tamaño (ej: 5MB)
+      // Validación de tamaño (5MB)
       if (selected.size > 5 * 1024 * 1024) { 
         setErrorMsg("⚠️ El archivo es muy pesado (Máx 5MB).");
         e.target.value = null;
         return;
       }
       setFile(selected);
-      setErrorMsg(""); // Limpiar errores previos
+      setErrorMsg(""); 
     }
   }
 
@@ -85,22 +85,24 @@ export default function RegistroProfesionalPage() {
     setLoading(true);
 
     try {
-      // 1. SUBIDA A SUPABASE
+      // 1. SUBIDA A SUPABASE (BUCKET 'CVS' EN MAYÚSCULA)
       setLoadingText("Subiendo documentación...");
       
       const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, '');
       const uniqueName = `${Date.now()}-${cleanName}`;
 
+      // 👇 AQUÍ ESTÁ EL CAMBIO CRÍTICO: 'CVS'
       const { error: uploadError } = await supabase
         .storage
-        .from('cvs')
+        .from('CVS') 
         .upload(uniqueName, file);
 
       if (uploadError) throw new Error("Error al subir el CV: " + uploadError.message);
 
+      // 👇 AQUÍ TAMBIÉN: 'CVS'
       const { data: { publicUrl } } = supabase
         .storage
-        .from('cvs')
+        .from('CVS')
         .getPublicUrl(uniqueName);
 
       // 2. REGISTRO EN BACKEND
@@ -141,7 +143,7 @@ export default function RegistroProfesionalPage() {
           <p className="text-slate-600 mb-6 text-sm">
             Hemos recibido tu perfil profesional y tu CV. Tu cuenta entrará en proceso de revisión.
             <br/><br/>
-            Te hemos enviado un correo de confirmación. Revisa tu bandeja de entrada (y spam).
+            Te hemos enviado un correo de confirmación. Revisa tu bandeja de entrada.
           </p>
           <Link href="/ingresar" className="block w-full py-3 px-4 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition font-medium">
             Ir al Inicio de Sesión
