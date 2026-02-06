@@ -9,19 +9,8 @@ import crypto from "crypto";
 import { resend } from "@/lib/resend"; 
 import { signToken, getSession as getLibSession } from "@/lib/auth"; 
 
-// --- LÓGICA DE DETECCIÓN DE URL (Mejorada para Vercel) ---
-const getBaseUrl = () => {
-  if (process.env.NEXT_PUBLIC_URL) {
-    return process.env.NEXT_PUBLIC_URL;
-  }
-  // Vercel expone esta variable automáticamente, pero viene sin 'https://'
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`;
-  }
-  return "http://localhost:3000";
-};
-
-const BASE_URL = getBaseUrl();
+// 👇 AQUÍ ESTÁ EL CAMBIO: Forzamos tu dominio de producción
+const BASE_URL = process.env.NEXT_PUBLIC_URL || "https://saludmentalcostarica.com";
 
 /* -------------------------------------------------------------------------- */
 /* 0. UTILIDADES DE SESIÓN                                                    */
@@ -54,17 +43,14 @@ export async function login(formData) {
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) return { error: "Credenciales inválidas." };
 
-    // Validación de Negocio: Aprobación Profesional
     if (user.role === 'PROFESSIONAL' && !user.isApproved) {
       return { error: "Tu cuenta está pendiente de aprobación por la administración." };
     }
 
-    // Bloqueo de usuarios
     if (!user.isActive) {
       return { error: "Esta cuenta ha sido desactivada. Contacta soporte." };
     }
 
-    // Actualizar Last Login
     await prisma.user.update({
       where: { id: user.id },
       data: { lastLogin: new Date() }
@@ -85,7 +71,7 @@ export async function login(formData) {
     cookies().set("session", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 días
+      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), 
       sameSite: "lax",
       path: "/",
     });
@@ -104,7 +90,7 @@ export async function logout() {
 }
 
 /* -------------------------------------------------------------------------- */
-/* 2. REGISTRO PROFESIONAL (Con CV, Matrícula y Email)                        */
+/* 2. REGISTRO PROFESIONAL                                                    */
 /* -------------------------------------------------------------------------- */
 
 export async function registerProfessional(formData) {
@@ -117,8 +103,6 @@ export async function registerProfessional(formData) {
   const phone = formData.get('phone'); 
   const bio = formData.get('bio');
   const coverLetter = formData.get('coverLetter'); 
-  
-  // Datos específicos
   const cvUrl = formData.get('cvUrl'); 
   const licenseNumber = formData.get('licenseNumber');
 
@@ -132,7 +116,6 @@ export async function registerProfessional(formData) {
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) return { error: "El correo ya está registrado." };
 
-    // Generar Slug único
     let slug = name.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-');
     let count = 0;
     while (await prisma.professionalProfile.findUnique({ where: { slug: count === 0 ? slug : `${slug}-${count}` } })) {
@@ -142,11 +125,9 @@ export async function registerProfessional(formData) {
 
     const hashedPassword = await bcrypt.hash(password, 12);
     
-    // Generar Token
     const verifyToken = crypto.randomBytes(32).toString('hex');
     const verifyTokenHash = crypto.createHash('sha256').update(verifyToken).digest('hex');
     
-    // Transacción: Crea Usuario + Perfil
     await prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
         data: {
@@ -155,7 +136,7 @@ export async function registerProfessional(formData) {
           password: hashedPassword,
           phone,
           role: 'PROFESSIONAL',
-          isApproved: false, // Requiere aprobación manual
+          isApproved: false, 
           emailVerified: false,
           verifyTokenHash: verifyTokenHash,
           verifyTokenExp: new Date(Date.now() + 24 * 60 * 60 * 1000),
@@ -177,9 +158,8 @@ export async function registerProfessional(formData) {
       });
     });
 
-    // Enviar Correo
     if (!process.env.RESEND_API_KEY) {
-      console.error("⚠️ RESEND_API_KEY no configurada. No se envió el correo al profesional.");
+      console.error("⚠️ RESEND_API_KEY no configurada.");
     } else {
       const { error } = await resend.emails.send({
         from: 'Salud Mental Costa Rica <onboarding@resend.dev>',
@@ -189,13 +169,12 @@ export async function registerProfessional(formData) {
           <div style="font-family: sans-serif; color: #333;">
             <h2>Hola ${name},</h2>
             <p>Hemos recibido tu solicitud y tu CV correctamente.</p>
-            <p>Mientras nuestro equipo administrativo revisa tu perfil, por favor <strong>verifica tu correo electrónico</strong>:</p>
+            <p>Por favor confirma tu correo para continuar:</p>
             <p>
                 <a href="${BASE_URL}/verificar-email?token=${verifyToken}" style="background-color: #2563EB; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
                     Verificar Email
                 </a>
             </p>
-            <p><small>Si no solicitaste esto, ignora este mensaje.</small></p>
           </div>
         `
       });
@@ -212,7 +191,7 @@ export async function registerProfessional(formData) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* 3. REGISTRO PACIENTE (Con Token y Email de Verificación)                   */
+/* 3. REGISTRO PACIENTE                                                       */
 /* -------------------------------------------------------------------------- */
 
 export async function registerUser(formData) {
@@ -223,7 +202,6 @@ export async function registerUser(formData) {
   const phone = formData.get('phone');
   const acquisitionChannel = formData.get('acquisitionChannel') || 'Directo'; 
 
-  // 1. Validaciones
   if (!name || !email || !password) return { error: "Datos incompletos." };
   if (password !== confirmPassword) return { error: "Las contraseñas no coinciden." };
   if (password.length < 8) return { error: "La contraseña debe tener al menos 8 caracteres." };
@@ -234,11 +212,9 @@ export async function registerUser(formData) {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    // 2. Generar Token
     const verifyToken = crypto.randomBytes(32).toString('hex');
     const verifyTokenHash = crypto.createHash('sha256').update(verifyToken).digest('hex');
 
-    // 3. Crear Usuario (Paciente)
     await prisma.user.create({
       data: {
         name,
@@ -254,9 +230,8 @@ export async function registerUser(formData) {
       }
     });
 
-    // 4. Enviar Correo Paciente
     if (!process.env.RESEND_API_KEY) {
-      console.error("⚠️ CRITICAL: RESEND_API_KEY no está configurada en .env. El correo no saldrá.");
+      console.error("⚠️ RESEND_API_KEY no configurada.");
     } else {
       const { data, error } = await resend.emails.send({
         from: 'Salud Mental Costa Rica <onboarding@resend.dev>',
@@ -266,7 +241,7 @@ export async function registerUser(formData) {
           <div style="font-family: sans-serif; color: #333;">
             <h2>¡Bienvenido, ${name}!</h2>
             <p>Gracias por unirte a nuestra comunidad.</p>
-            <p>Para activar todas las funciones de tu cuenta, por favor confirma tu correo:</p>
+            <p>Para activar tu cuenta, confirma tu correo:</p>
             <p>
                 <a href="${BASE_URL}/verificar-email?token=${verifyToken}" style="background-color: #2563EB; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
                     Verificar mi Email
@@ -279,7 +254,7 @@ export async function registerUser(formData) {
       if (error) {
         console.error("❌ RESEND API ERROR:", error);
       } else {
-        console.log("✅ Email enviado correctamente a:", email, "ID:", data?.id);
+        console.log("✅ Email enviado a:", email, "ID:", data?.id);
       }
     }
 
