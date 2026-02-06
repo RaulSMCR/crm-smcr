@@ -93,6 +93,7 @@ model ProfessionalProfile {
   
   slug          String    @unique
   specialty     String
+  licenseNumber String?   // <--- AGREGA ESTA LÍNEA (Puede ser opcional '?' o obligatorio)
   bio           String?   @db.Text
   coverLetter   String?   @db.Text
   cvUrl         String?

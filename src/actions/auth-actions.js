@@ -1,5 +1,4 @@
 //src/actions/auth-actions.js
-// src/actions/auth-actions.js
 'use server'
 
 import { prisma } from "@/lib/prisma";
