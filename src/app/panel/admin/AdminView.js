@@ -1,8 +1,8 @@
-// (src/app/panel/admin/AdminView.js)
+// src/app/panel/admin/AdminView.js
 'use client'
 
 import { useState } from 'react';
-import { createService, deleteService, approveUser, toggleUserStatus, deleteUser } from '@/actions/admin-actions';
+import { createService, deleteService, approveUser, rejectUser, toggleUserStatus, deleteUser } from '@/actions/admin-actions';
 
 export default function AdminView({ stats, pendingPros, allUsers, services, appointments }) {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -71,7 +71,7 @@ export default function AdminView({ stats, pendingPros, allUsers, services, appo
                 </p>
               </div>
 
-              {/* --- ZONA DE DOCUMENTACIÓN (NUEVO) --- */}
+              {/* --- ZONA DE DOCUMENTACIÓN --- */}
               <div className="border-t pt-4">
                 <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
                     📁 Documentación Adjunta
@@ -107,6 +107,19 @@ export default function AdminView({ stats, pendingPros, allUsers, services, appo
                 Cerrar
               </button>
               
+              {/* BOTÓN RECHAZAR (NUEVO) */}
+              <form action={async () => {
+                  if(confirm('¿Estás seguro de RECHAZAR esta solicitud? Se enviará un correo y se eliminará el registro.')) {
+                    await rejectUser(selectedPro.id);
+                    setSelectedPro(null);
+                  }
+              }}>
+                <button className="px-4 py-2 bg-red-50 text-red-600 font-bold rounded-lg hover:bg-red-100 border border-red-200 transition-colors">
+                  Rechazar
+                </button>
+              </form>
+
+              {/* BOTÓN APROBAR */}
               <form action={async () => {
                   await approveUser(selectedPro.id);
                   setSelectedPro(null); 
@@ -180,6 +193,17 @@ export default function AdminView({ stats, pendingPros, allUsers, services, appo
                                           👁️ Ver Ficha
                                       </button>
                                       
+                                      {/* BOTÓN RECHAZAR RÁPIDO (NUEVO) */}
+                                      <form action={async () => {
+                                          if(confirm(`¿Rechazar a ${u.name}? Esta acción enviará un correo y borrará la solicitud.`)) {
+                                              await rejectUser(u.id);
+                                          }
+                                      }}>
+                                          <button className="bg-red-50 text-red-600 border border-red-100 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors" title="Rechazar solicitud">
+                                              ✕
+                                          </button>
+                                      </form>
+
                                       <button 
                                           onClick={() => approveUser(u.id)}
                                           className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-green-700 shadow-sm transition-colors"
