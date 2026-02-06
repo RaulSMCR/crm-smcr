@@ -3,52 +3,66 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { Resend } from 'resend';
+import { resend } from "@/lib/resend"; 
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+export async function approveUser(userId) {
+  if (!userId) return { error: "ID de usuario requerido" };
 
-// ... (tus otras funciones createService, approveUser, etc.)
-
-export async function rejectUser(userId) {
   try {
-    // 1. Buscar al usuario para obtener su email antes de borrarlo
-    const user = await prisma.user.findUnique({
-      where: { id: userId }
+    // 1. Actualizar el estado en la base de datos
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { isApproved: true },
+      include: { professionalProfile: true } // Traemos el perfil para tener el nombre/email
     });
 
-    if (!user) return { error: "Usuario no encontrado" };
-
-    // 2. Enviar correo de rechazo (Si tienes API Key configurada)
-    if (process.env.RESEND_API_KEY) {
+    // 2. (Opcional) Enviar correo de notificación al profesional
+    if (process.env.RESEND_API_KEY && updatedUser.email) {
       await resend.emails.send({
         from: 'Salud Mental Costa Rica <onboarding@resend.dev>',
-        to: user.email,
-        subject: 'Actualización sobre tu solicitud de registro',
+        to: updatedUser.email,
+        subject: '¡Tu perfil ha sido aprobado!',
         html: `
-          <div style="font-family: sans-serif; padding: 20px; color: #333;">
-            <h2 style="color: #e53e3e;">Solicitud no aprobada</h2>
-            <p>Hola ${user.name},</p>
-            <p>Gracias por tu interés en formar parte de nuestra red de profesionales.</p>
-            <p>Tras revisar tu perfil y la documentación adjunta, hemos determinado que <strong>tu solicitud no cumple con los requisitos actuales</strong> para ser aprobada en nuestra plataforma.</p>
-            <p>Si crees que esto es un error o deseas volver a intentarlo con documentación actualizada, puedes registrarte nuevamente.</p>
-            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
-            <p style="font-size: 12px; color: #666;">Equipo Administrativo - SMCR</p>
+          <div style="font-family: sans-serif; color: #333;">
+            <h2>¡Felicidades, ${updatedUser.name}!</h2>
+            <p>Tu perfil profesional ha sido revisado y <strong>aprobado</strong> por nuestra administración.</p>
+            <p>Ya puedes acceder a tu panel y gestionar tu agenda:</p>
+            <p>
+               <a href="${process.env.NEXT_PUBLIC_URL}/ingresar" style="background-color: #2563EB; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                  Ir a mi Panel
+               </a>
+            </p>
           </div>
         `
-      });
+      }).catch(err => console.error("Error enviando email de aprobación:", err));
     }
 
-    // 3. Eliminar al usuario y su perfil asociado
-    // Al borrar el User, Prisma borrará el ProfessionalProfile por el "onDelete: Cascade"
-    await prisma.user.delete({
-      where: { id: userId }
-    });
-
+    // 3. Refrescar la caché para que la lista de pendientes se actualice sola
     revalidatePath('/panel/admin');
+    
     return { success: true };
 
   } catch (error) {
-    console.error("Error rechazando usuario:", error);
-    return { error: "Error al rechazar el usuario." };
+    console.error("Error aprobando usuario:", error);
+    return { error: "No se pudo aprobar el usuario. Intenta de nuevo." };
   }
+}
+
+export async function rejectUser(userId) {
+    if (!userId) return { error: "ID requerido" };
+    try {
+        // Opción A: Borrar usuario
+        // await prisma.user.delete({ where: { id: userId } });
+        
+        // Opción B: Marcar como desactivado (Mejor para historial)
+        await prisma.user.update({
+            where: { id: userId },
+            data: { isActive: false }
+        });
+
+        revalidatePath('/panel/admin');
+        return { success: true };
+    } catch (error) {
+        return { error: "Error al rechazar usuario" };
+    }
 }
