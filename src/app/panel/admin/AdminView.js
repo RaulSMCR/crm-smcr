@@ -2,14 +2,97 @@
 'use client'
 
 import { useState } from 'react';
-// Asegúrate de que admin-actions.js exista en src/actions/
 import { createService, deleteService, approveUser, toggleUserStatus, deleteUser } from '@/actions/admin-actions';
 
 export default function AdminView({ stats, pendingPros, allUsers, services, appointments }) {
   const [activeTab, setActiveTab] = useState('dashboard');
+  
+  // ESTADO NUEVO: Para controlar qué profesional estamos mirando en detalle
+  const [selectedPro, setSelectedPro] = useState(null);
 
   return (
     <div className="min-h-screen bg-gray-50">
+      
+      {/* --- MODAL DE DETALLES DEL PROFESIONAL --- */}
+      {selectedPro && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            
+            {/* Cabecera del Modal */}
+            <div className="bg-gray-50 border-b px-6 py-4 flex justify-between items-center">
+              <h3 className="text-xl font-bold text-gray-800">Ficha del Candidato</h3>
+              <button 
+                onClick={() => setSelectedPro(null)}
+                className="text-gray-400 hover:text-gray-600 font-bold text-xl"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Cuerpo del Modal (Los Datos) */}
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="h-16 w-16 bg-blue-100 rounded-full flex items-center justify-center text-2xl">
+                  🩺
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">{selectedPro.name}</h2>
+                  <p className="text-gray-500">{selectedPro.email}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-gray-50 p-3 rounded-lg border">
+                  <p className="text-xs text-gray-500 uppercase font-bold">Especialidad</p>
+                  <p className="font-medium">{selectedPro.professionalProfile?.specialty || 'No especificada'}</p>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-lg border">
+                  <p className="text-xs text-gray-500 uppercase font-bold">Nº Matrícula / Licencia</p>
+                  <p className="font-medium text-blue-700 font-mono">
+                    {selectedPro.professionalProfile?.licenseNumber || 'Pendiente'}
+                  </p>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-lg border">
+                  <p className="text-xs text-gray-500 uppercase font-bold">Teléfono</p>
+                  <p className="font-medium">{selectedPro.professionalProfile?.phone || 'No registrado'}</p>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-lg border">
+                  <p className="text-xs text-gray-500 uppercase font-bold">Experiencia</p>
+                  <p className="font-medium">{selectedPro.professionalProfile?.experience} años</p>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-lg border">
+                <p className="text-xs text-gray-500 uppercase font-bold mb-1">Biografía / Presentación</p>
+                <p className="text-gray-700 italic">
+                  "{selectedPro.professionalProfile?.bio || 'El candidato no ha escrito una biografía.'}"
+                </p>
+              </div>
+            </div>
+
+            {/* Pie del Modal (Acciones) */}
+            <div className="bg-gray-50 border-t px-6 py-4 flex justify-end gap-3">
+              <button 
+                onClick={() => setSelectedPro(null)}
+                className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded-lg"
+              >
+                Cerrar
+              </button>
+              <form action={async () => {
+                  await approveUser(selectedPro.id);
+                  setSelectedPro(null); // Cerrar modal tras aprobar
+              }}>
+                <button className="px-6 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 shadow-md transition-all">
+                  ✅ Aprobar Profesional
+                </button>
+              </form>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+
       {/* Sidebar / Tabs Navegación */}
       <div className="bg-white border-b sticky top-0 z-10 px-6 py-4 flex gap-6 overflow-x-auto shadow-sm">
         {['dashboard', 'usuarios', 'servicios', 'citas'].map((tab) => (
@@ -42,21 +125,41 @@ export default function AdminView({ stats, pendingPros, allUsers, services, appo
 
                 {/* Pendientes de Aprobación */}
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-orange-100">
-                    <h3 className="font-bold text-lg mb-4 text-orange-800">⚠️ Requieren Aprobación ({pendingPros.length})</h3>
+                    <h3 className="font-bold text-lg mb-4 text-orange-800 flex items-center gap-2">
+                      ⚠️ Requieren Aprobación ({pendingPros.length})
+                    </h3>
+                    
                     {pendingPros.length === 0 ? <p className="text-gray-400">Todo al día.</p> : (
                         <div className="space-y-3">
                             {pendingPros.map(u => (
-                                <div key={u.id} className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
-                                    <div>
-                                        <p className="font-bold">{u.name}</p>
-                                        <p className="text-xs text-gray-500">{u.email} • {u.professionalProfile?.specialty}</p>
+                                <div key={u.id} className="flex justify-between items-center p-4 bg-orange-50 rounded-lg border border-orange-100 hover:shadow-md transition-shadow">
+                                    <div className="flex items-center gap-4">
+                                      <div className="h-10 w-10 bg-orange-200 rounded-full flex items-center justify-center text-orange-700 font-bold">
+                                        {u.name.charAt(0)}
+                                      </div>
+                                      <div>
+                                          <p className="font-bold text-gray-800">{u.name}</p>
+                                          <p className="text-xs text-gray-500">{u.email}</p>
+                                      </div>
                                     </div>
-                                    <button 
-                                        onClick={() => approveUser(u.id)}
-                                        className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
-                                    >
-                                        Aprobar
-                                    </button>
+                                    
+                                    <div className="flex items-center gap-2">
+                                      {/* BOTÓN VER FICHA */}
+                                      <button 
+                                          onClick={() => setSelectedPro(u)}
+                                          className="flex items-center gap-1 bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+                                      >
+                                          👁️ Ver Ficha
+                                      </button>
+                                      
+                                      {/* BOTÓN APROBAR */}
+                                      <button 
+                                          onClick={() => approveUser(u.id)}
+                                          className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-green-700 shadow-sm transition-colors"
+                                      >
+                                          Aprobar
+                                      </button>
+                                    </div>
                                 </div>
                             ))}
                         </div>
