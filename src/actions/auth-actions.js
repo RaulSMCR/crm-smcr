@@ -6,11 +6,22 @@ import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import crypto from "crypto";
-// 👇 IMPORTANTE: Usamos la instancia configurada en tu lib, no creamos una nueva
 import { resend } from "@/lib/resend"; 
 import { signToken, getSession as getLibSession } from "@/lib/auth"; 
 
-const BASE_URL = process.env.NEXT_PUBLIC_URL || "http://localhost:3000";
+// --- LÓGICA DE DETECCIÓN DE URL (Mejorada para Vercel) ---
+const getBaseUrl = () => {
+  if (process.env.NEXT_PUBLIC_URL) {
+    return process.env.NEXT_PUBLIC_URL;
+  }
+  // Vercel expone esta variable automáticamente, pero viene sin 'https://'
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  return "http://localhost:3000";
+};
+
+const BASE_URL = getBaseUrl();
 
 /* -------------------------------------------------------------------------- */
 /* 0. UTILIDADES DE SESIÓN                                                    */
@@ -235,7 +246,7 @@ export async function registerUser(formData) {
         password: hashedPassword,
         phone,
         role: 'USER',
-        isApproved: true, // Pacientes entran aprobados (solo falta verificar email)
+        isApproved: true, 
         emailVerified: false,
         verifyTokenHash,
         verifyTokenExp: new Date(Date.now() + 24 * 60 * 60 * 1000),
@@ -243,12 +254,12 @@ export async function registerUser(formData) {
       }
     });
 
-    // 4. Enviar Correo Paciente (Con diagnóstico de error)
+    // 4. Enviar Correo Paciente
     if (!process.env.RESEND_API_KEY) {
       console.error("⚠️ CRITICAL: RESEND_API_KEY no está configurada en .env. El correo no saldrá.");
     } else {
       const { data, error } = await resend.emails.send({
-        from: 'Salud Mental Costa Rica <onboarding@resend.dev>', // Asegúrate de verificar dominio en producción
+        from: 'Salud Mental Costa Rica <onboarding@resend.dev>',
         to: email,
         subject: 'Bienvenido a SMCR - Confirma tu cuenta',
         html: `
