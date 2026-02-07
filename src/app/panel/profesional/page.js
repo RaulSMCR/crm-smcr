@@ -1,9 +1,10 @@
-// src/app/panel/profesional/page.js
+
 // src/app/panel/profesional/page.js
 import { redirect } from "next/navigation";
 import { getSession, logout } from "@/actions/auth-actions"; // 👈 IMPORTANTE: Importamos logout
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
+import LogoutButton from "@/components/LogoutButton"; // 👈 IMPÓRTALO
 
 export const dynamic = 'force-dynamic';
 
