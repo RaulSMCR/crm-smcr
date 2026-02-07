@@ -1,4 +1,5 @@
 // src/actions/auth-actions.js
+// src/actions/auth-actions.js
 'use server'
 
 import { prisma } from "@/lib/prisma";
@@ -9,7 +10,7 @@ import crypto from "crypto";
 import { resend } from "@/lib/resend"; 
 import { signToken, getSession as getLibSession } from "@/lib/auth"; 
 
-// 👇 AQUÍ ESTÁ EL CAMBIO: Forzamos tu dominio de producción
+// URL BASE
 const BASE_URL = process.env.NEXT_PUBLIC_URL || "https://saludmentalcostarica.com";
 
 /* -------------------------------------------------------------------------- */
@@ -82,11 +83,6 @@ export async function login(formData) {
     console.error("Login error:", error);
     return { error: "Ocurrió un error inesperado." };
   }
-}
-
-export async function logout() {
-  cookies().set("session", "", { expires: new Date(0), path: '/' });
-  redirect("/ingresar");
 }
 
 /* -------------------------------------------------------------------------- */
@@ -297,4 +293,17 @@ export async function verifyEmail(token) {
     console.error("Error verificando email:", error);
     return { error: "Error al verificar." };
   }
+}
+
+/* -------------------------------------------------------------------------- */
+/* 5. LOGOUT (CORREGIDO Y SEGURO)                                             */
+/* -------------------------------------------------------------------------- */
+
+export async function logout() {
+  // 1. Borramos la cookie
+  cookies().delete("session");
+  
+  // 2. IMPORTANTE: redirect() lanza un error interno de Next.js.
+  // NO debes envolverlo en try/catch, o la redirección fallará.
+  redirect("/ingresar");
 }

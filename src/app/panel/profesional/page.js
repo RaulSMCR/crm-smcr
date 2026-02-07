@@ -1,6 +1,7 @@
 // src/app/panel/profesional/page.js
+// src/app/panel/profesional/page.js
 import { redirect } from "next/navigation";
-import { getSession } from "@/actions/auth-actions"; 
+import { getSession, logout } from "@/actions/auth-actions"; // 👈 IMPORTANTE: Importamos logout
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 
@@ -9,18 +10,21 @@ export const dynamic = 'force-dynamic';
 export default async function ProfessionalDashboard() {
   // 1. Verificación de Sesión
   const session = await getSession();
-  if (!session) redirect("/ingresar");
+
+  if (!session) {
+    redirect("/ingresar");
+  }
   
   if (session.role !== 'PROFESSIONAL') {
     return redirect(session.role === 'ADMIN' ? "/panel/admin" : "/panel/paciente");
   }
 
-  // 2. Consulta a Base de Datos (Datos Frescos + Relaciones)
+  // 2. Consulta a Base de Datos
   const profile = await prisma.professionalProfile.findUnique({
     where: { userId: session.sub },
     include: {
       user: true,
-      services: true, // Traemos los servicios que ya tiene asignados
+      services: true,
       _count: {
         select: { posts: true, appointments: true }
       },
@@ -34,7 +38,7 @@ export default async function ProfessionalDashboard() {
 
   if (!profile) return <div className="p-8 text-center">Error: No se encontró el perfil.</div>;
 
-  // 3. Serialización de fechas (Evita errores de hidratación)
+  // 3. Serialización de fechas
   const safeAppointments = profile.appointments.map(appt => ({
     id: appt.id,
     dateString: appt.date.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }),
@@ -44,7 +48,7 @@ export default async function ProfessionalDashboard() {
   const isActive = profile.user.isActive;
   const isApproved = profile.user.isApproved;
 
-  // 4. Pantalla de Bloqueo (Si no está aprobado)
+  // 4. PANTALLA DE BLOQUEO (Si no está aprobado)
   if (!isApproved) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -56,14 +60,12 @@ export default async function ProfessionalDashboard() {
             <br/>Te notificaremos por correo cuando seas visible en la sección "Nosotros".
           </p>
           <div className="mt-6 border-t pt-4">
-             <form action={async () => {
-                'use server';
-                const { cookies } = await import("next/headers");
-                cookies().delete("session");
-                redirect("/ingresar");
-              }}>
-                <button className="text-blue-600 text-sm hover:underline">Cerrar Sesión</button>
-              </form>
+             {/* 👇 SOLUCIÓN: Usamos la acción importada */}
+             <form action={logout}>
+                <button type="submit" className="text-blue-600 text-sm hover:underline font-bold">
+                    Cerrar Sesión
+                </button>
+             </form>
           </div>
         </div>
       </div>
@@ -82,6 +84,14 @@ export default async function ProfessionalDashboard() {
             <p className="text-slate-500 text-sm">Panel de Control • {profile.specialty}</p>
           </div>
           <div className="flex gap-3 items-center">
+            
+            {/* 👇 BOTÓN SALIR EN HEADER */}
+            <form action={logout}>
+                <button type="submit" className="text-red-500 text-xs font-bold border border-red-100 px-3 py-2 rounded-lg hover:bg-red-50 transition">
+                    Salir
+                </button>
+            </form>
+
             <Link 
               href={`/profesionales/${profile.slug}`} 
               target="_blank"
