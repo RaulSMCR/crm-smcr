@@ -1,116 +1,76 @@
-//src/actions/profile-actions.js
+// src/actions/profile-actions.js
 'use server'
 
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth"; // <--- 1. CORRECCIÓN: Import directo
+import { getSession } from "@/lib/auth"; 
 import { revalidatePath } from "next/cache";
 
 /**
- * 1. ACTUALIZAR PERFIL (Bio, Especialidad, Nombre)
+ * ACTUALIZAR PERFIL COMPLETO
+ * - Datos Personales (User): Nombre, Foto
+ * - Datos Profesionales: Bio, Especialidad, Matrícula
+ * - Servicios: Vinculación (Many-to-Many)
  */
 export async function updateProfile(formData) {
   const session = await getSession();
   
-  // Verificación estricta de rol
-  if (!session || session.role !== 'PROFESSIONAL') return { error: "No autorizado" };
+  // Verificación de seguridad
+  if (!session || session.role !== 'PROFESSIONAL') {
+    return { error: "No autorizado" };
+  }
 
-  // 2. CORRECCIÓN: Usar el ID plano del nuevo token
-  const professionalId = session.professionalId;
+  const professionalId = session.professionalId; // Usamos el ID del perfil linkeado en el token
 
   try {
+    // 1. Recoger datos simples
     const name = formData.get('name');
     const specialty = formData.get('specialty');
+    const licenseNumber = formData.get('licenseNumber');
     const bio = formData.get('bio');
-    // Si manejamos avatar (URL):
-    const avatarUrl = formData.get('avatarUrl'); 
+    const imageUrl = formData.get('imageUrl'); // URL de la foto subida a Supabase
+    
+    // 2. Recoger los Servicios Seleccionados
+    // formData.getAll('serviceIds') nos da un array ej: ['id1', 'id2']
+    const serviceIds = formData.getAll('serviceIds');
 
-    // 3. CORRECCIÓN: Actualización Cruzada
-    // Actualizamos ProfessionalProfile, pero A TRAVÉS de él, actualizamos también al User (Nombre/Foto)
+    // 3. Ejecutar Update en Base de Datos
     await prisma.professionalProfile.update({
       where: { id: professionalId },
       data: {
         specialty,
         bio,
-        // Prisma permite actualizar la relación padre (User) aquí mismo
+        licenseNumber,
+        
+        // A. Actualizamos el Usuario Padre (Nombre y Foto)
         user: {
           update: {
             name: name,
-            ...(avatarUrl && { image: avatarUrl }), // Solo actualiza si hay dato
+            ...(imageUrl && { image: imageUrl }), // Solo actualiza imagen si viene una nueva
           }
+        },
+
+        // B. Actualizamos la Relación con Servicios
+        // 'set' reemplaza cualquier conexión anterior por la nueva lista que enviamos.
+        // Si el array está vacío, el profesional se queda sin servicios (desvinculado).
+        services: {
+          set: serviceIds.map(id => ({ id })) 
         }
       }
     });
 
+    // 4. Revalidar cachés para ver cambios inmediatos
     revalidatePath('/panel/profesional/perfil');
-    // revalidatePath(`/profesional/${session.slug}`); // Si tienes vista pública
+    revalidatePath('/panel/profesional');
     
-    return { success: true, message: "Perfil actualizado correctamente." };
+    // Si existe slug en la sesión, revalidamos la página pública también
+    if (session.slug) {
+        revalidatePath(`/profesionales/${session.slug}`);
+    }
+    
+    return { success: true, message: "Perfil guardado correctamente." };
+
   } catch (error) {
     console.error("Error updating profile:", error);
-    return { error: "Error al actualizar perfil." };
-  }
-}
-
-/**
- * 2. GESTIONAR SERVICIOS (Crear / Editar / Borrar)
- */
-export async function manageService(action, data) {
-  const session = await getSession();
-  if (!session || session.role !== 'PROFESSIONAL') return { error: "No autorizado" };
-  
-  const professionalId = session.professionalId;
-
-  try {
-    if (action === 'CREATE') {
-      await prisma.service.create({
-        data: {
-          title: data.title,
-          description: data.description,
-          price: parseFloat(data.price),
-          durationMin: parseInt(data.durationMin),
-          // Conectamos al ProfessionalProfile
-          professionals: {
-            connect: { id: professionalId }
-          }
-        }
-      });
-    } 
-    else if (action === 'UPDATE') {
-      // Verificamos propiedad
-      const service = await prisma.service.findFirst({
-        where: { id: data.id, professionals: { some: { id: professionalId } } }
-      });
-      
-      if (!service) return { error: "Servicio no encontrado o sin permiso." };
-
-      await prisma.service.update({
-        where: { id: data.id },
-        data: {
-          title: data.title,
-          description: data.description,
-          price: parseFloat(data.price),
-          durationMin: parseInt(data.durationMin),
-        }
-      });
-    }
-    else if (action === 'DELETE') {
-      // Verificamos propiedad antes de borrar
-      const service = await prisma.service.findFirst({
-        where: { id: data.id, professionals: { some: { id: professionalId } } }
-      });
-
-      if (!service) return { error: "Servicio no encontrado." };
-
-      await prisma.service.delete({
-        where: { id: data.id }
-      });
-    }
-
-    revalidatePath('/panel/profesional/perfil');
-    return { success: true };
-
-  } catch (error) {
-    console.error(error);
-    return { error: "Error al gestionar servicio." };
+    return { error: "Error al actualizar perfil. Intenta nuevamente." };
   }
 }

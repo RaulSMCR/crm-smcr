@@ -1,26 +1,25 @@
-//src/app/panel/profesional/perfil/page.js
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth"; // <--- 1. CORRECCIÓN: Import directo
+// src/app/panel/profesional/perfil/page.js
+import { getSession } from "@/actions/auth-actions";
 import { prisma } from "@/lib/prisma";
-import DashboardNav from "@/components/DashboardNav";
+import { redirect } from "next/navigation";
 import ProfileEditor from "@/components/profile/ProfileEditor";
-import ServicesManager from "@/components/profile/ServicesManager";
+
+// Forzar datos frescos para que si el Admin crea un servicio nuevo, aparezca aquí al instante
+export const dynamic = 'force-dynamic';
 
 export default async function PerfilPage() {
+  // 1. Seguridad: Verificar sesión
   const session = await getSession();
 
-  // 1. Seguridad: Verificar sesión y rol
   if (!session || session.role !== "PROFESSIONAL") {
     redirect("/ingresar");
   }
 
-  // 2. Cargar Datos: Adaptado al nuevo Schema (ProfessionalProfile + User)
-  const professionalProfile = await prisma.professionalProfile.findUnique({
-    // Usamos 'professionalId' que guardamos en el token durante el login
-    where: { id: session.professionalId }, 
+  // 2. Cargar Datos del Profesional (Incluyendo User y Servicios actuales)
+  const profile = await prisma.professionalProfile.findUnique({
+    where: { userId: session.sub }, // Usamos session.sub (ID Usuario) que es más seguro
     include: {
-      services: true,
-      // IMPORTANTE: Traemos los datos personales (Nombre, Email, Foto) de la tabla User
+      services: true, // Trae los servicios que YA tiene marcados
       user: {
         select: {
           name: true,
@@ -32,53 +31,40 @@ export default async function PerfilPage() {
     }
   });
 
-  if (!professionalProfile) {
+  if (!profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center p-8 bg-white rounded-xl shadow-md">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center p-8 bg-white rounded-xl shadow border border-red-100">
           <h2 className="text-red-600 font-bold mb-2">Error de Perfil</h2>
-          <p className="text-gray-600">No se encontró el perfil asociado a esta cuenta.</p>
+          <p className="text-slate-600">No se encontró el perfil asociado. Contacta a soporte.</p>
         </div>
       </div>
     );
   }
 
-  // 3. Preparación de Datos (Adelantando trabajo)
-  // El componente ProfileEditor probablemente espera un objeto plano con "name", "email", etc.
-  // Aquí fusionamos los datos del User dentro del objeto principal para que el componente hijo no se rompa.
-  const profileForEditor = {
-    ...professionalProfile,       // Bio, Specialty, Slug...
-    name: professionalProfile.user.name,
-    email: professionalProfile.user.email,
-    image: professionalProfile.user.image,
-    phone: professionalProfile.user.phone || professionalProfile.phone, // Prioridad al del usuario
-  };
+  // 3. NUEVO: Cargar TODOS los servicios disponibles en el sistema (Activos)
+  // Esto llena la lista de opciones para que el médico pueda hacer "Check"
+  const allServices = await prisma.service.findMany({
+    where: { isActive: true }, // Solo mostramos los habilitados por el Admin
+    orderBy: { title: 'asc' }
+  });
 
   return (
-    <div className="bg-gray-50 py-12 min-h-screen">
-      <div className="container mx-auto px-6 max-w-5xl">
+    <div className="bg-slate-50 py-10 min-h-screen">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6">
         
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Mi Perfil Profesional</h1>
-        <p className="text-gray-600 mb-8">Administra tu información pública y los servicios que ofreces.</p>
-
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-           {/* Menú Lateral */}
-           <div className="lg:col-span-1">
-              <DashboardNav />
-           </div>
-           
-           {/* Contenido Principal */}
-           <div className="lg:col-span-3 space-y-8">
-              
-              {/* 1. Datos Personales */}
-              {/* Pasamos el objeto fusionado para facilitar la vida al componente hijo */}
-              <ProfileEditor profile={profileForEditor} />
-
-              {/* 2. Gestión de Servicios */}
-              <ServicesManager services={professionalProfile.services} />
-
-           </div>
+        {/* Encabezado Simple */}
+        <div className="mb-8">
+            <h1 className="text-3xl font-bold text-slate-800">Mi Perfil Profesional</h1>
+            <p className="text-slate-500 mt-2">
+                Actualiza tu foto, biografía y selecciona los servicios que ofreces para que los pacientes te encuentren.
+            </p>
         </div>
+
+        {/* 4. Renderizamos el Editor ÚNICO 
+            Le pasamos el perfil actual y la lista de todos los servicios para elegir.
+        */}
+        <ProfileEditor profile={profile} allServices={allServices} />
 
       </div>
     </div>
