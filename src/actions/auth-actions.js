@@ -296,14 +296,15 @@ export async function verifyEmail(token) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* 5. LOGOUT (CORREGIDO Y SEGURO)                                             */
 /* -------------------------------------------------------------------------- */
-
+/* 5. LOGOUT (ESTA ES LA VERSIÓN QUE FUNCIONA)                                */
+/* -------------------------------------------------------------------------- */
 export async function logout() {
-  // 1. Borramos la cookie
+  // 1. Borrar cookie
   cookies().delete("session");
-  
-  // 2. IMPORTANTE: redirect() lanza un error interno de Next.js.
-  // NO debes envolverlo en try/catch, o la redirección fallará.
-  redirect("/ingresar");
+
+  // 2. REDIRECCIÓN FORZADA
+  // Si tu código antiguo tenía "return { ok: true ... }", BÓRRALO.
+  // Debe ser redirect().
+  redirect("/ingresar"); 
 }
