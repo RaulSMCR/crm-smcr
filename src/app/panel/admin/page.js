@@ -1,38 +1,41 @@
 // src/app/panel/admin/page.js
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth"; // Asegúrate de que la ruta sea correcta según tu proyecto
+import { getSession } from "@/actions/auth-actions"; // 👈 CORRECCIÓN: Usamos la ruta segura
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import PendingProfessionalsList from "@/components/admin/PendingProfessionalsList";
 
-// Forzar datos frescos siempre
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard() {
+  // 1. Obtener Sesión de forma segura
   const session = await getSession();
 
-  // 1. Seguridad
+  // 2. Validación de Seguridad
   if (!session || session.role !== 'ADMIN') {
     redirect('/ingresar');
   }
 
-  // 2. Obtener Datos Clave (Solo lo necesario para el Dashboard)
-  const [pendingCount, postsPendingCount, servicesCount, pendingUsers] = await Promise.all([
-    // A. Cuántos profesionales esperan aprobación
-    prisma.user.count({ where: { role: 'PROFESSIONAL', isApproved: false } }),
-    
-    // B. Cuántos posts están en borrador o sin revisar (opcional si usas 'published' false)
-    prisma.post.count({ where: { published: false } }),
-    
-    // C. Total de servicios activos
-    prisma.service.count({ where: { isActive: true } }),
+  // 3. Obtener Datos (Protegido con Try/Catch por si falla la DB)
+  let pendingCount = 0;
+  let postsPendingCount = 0;
+  let servicesCount = 0;
+  let pendingUsers = [];
 
-    // D. La lista real de usuarios pendientes (para la tabla rápida)
-    prisma.user.findMany({
-      where: { role: 'PROFESSIONAL', isApproved: false },
-      include: { professionalProfile: true }
-    })
-  ]);
+  try {
+    [pendingCount, postsPendingCount, servicesCount, pendingUsers] = await Promise.all([
+        prisma.user.count({ where: { role: 'PROFESSIONAL', isApproved: false } }),
+        prisma.post.count({ where: { published: false } }),
+        prisma.service.count({ where: { isActive: true } }),
+        prisma.user.findMany({
+            where: { role: 'PROFESSIONAL', isApproved: false },
+            include: { professionalProfile: true }
+        })
+    ]);
+  } catch (error) {
+    console.error("Error cargando datos del admin:", error);
+    // No bloqueamos la página, mostramos datos vacíos si falla la DB
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
@@ -51,11 +54,9 @@ export default async function AdminDashboard() {
             </div>
         </div>
 
-        {/* 3. CENTRO DE COMANDO (GRID DE NAVEGACIÓN) */}
-        {/* Aquí están los accesos a los módulos que creamos antes */}
+        {/* CENTRO DE COMANDO */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             
-            {/* MÓDULO 1: SERVICIOS */}
             <Link href="/panel/admin/servicios" className="group bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 text-6xl text-blue-500">🏷️</div>
                 <div className="flex justify-between items-start mb-4">
@@ -67,10 +68,9 @@ export default async function AdminDashboard() {
                     </span>
                 </div>
                 <h3 className="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Catálogo de Servicios</h3>
-                <p className="text-sm text-slate-500 mt-1">Crea, edita y asigna precios a las terapias.</p>
+                <p className="text-sm text-slate-500 mt-1">Gestiona precios y terapias.</p>
             </Link>
 
-            {/* MÓDULO 2: BLOG / EDITORIAL */}
             <Link href="/panel/admin/blog" className="group bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:border-purple-400 hover:shadow-md transition-all relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 text-6xl text-purple-500">✍️</div>
                 <div className="flex justify-between items-start mb-4">
@@ -84,35 +84,22 @@ export default async function AdminDashboard() {
                     )}
                 </div>
                 <h3 className="font-bold text-slate-800 group-hover:text-purple-600 transition-colors">Gestión Editorial</h3>
-                <p className="text-sm text-slate-500 mt-1">Modera artículos y gestiona el blog.</p>
+                <p className="text-sm text-slate-500 mt-1">Modera el blog.</p>
             </Link>
 
-            {/* MÓDULO 3: MÉTRICAS / USUARIOS (Placeholder para futuro) */}
-            <div className="group bg-white p-6 rounded-xl shadow-sm border border-slate-200 opacity-70">
-                <div className="flex justify-between items-start mb-4">
-                    <div className="h-12 w-12 bg-slate-100 text-slate-500 rounded-xl flex items-center justify-center text-2xl">
-                        📊
-                    </div>
+            <div className="group bg-white p-6 rounded-xl shadow-sm border border-slate-200 opacity-60">
+                <div className="h-12 w-12 bg-slate-100 text-slate-500 rounded-xl flex items-center justify-center text-2xl mb-4">
+                    📊
                 </div>
-                <h3 className="font-bold text-slate-500">Analíticas Avanzadas</h3>
-                <p className="text-sm text-slate-400 mt-1">Próximamente: Ingresos y reportes detallados.</p>
+                <h3 className="font-bold text-slate-500">Analíticas</h3>
+                <p className="text-sm text-slate-400 mt-1">Próximamente.</p>
             </div>
         </div>
 
-        {/* 4. ÁREA DE ACCIÓN URGENTE (Profesionales Pendientes) */}
+        {/* LISTA DE PENDIENTES */}
         <div className="space-y-4">
-            <div className="flex items-center gap-3">
-                <h2 className="text-xl font-bold text-slate-800">Solicitudes de Ingreso</h2>
-                {pendingCount > 0 ? (
-                    <span className="bg-red-500 text-white text-xs font-bold px-2.5 py-0.5 rounded-full shadow-sm">
-                        {pendingCount} pendientes
-                    </span>
-                ) : (
-                    <span className="text-slate-400 text-sm font-normal">(Todo al día)</span>
-                )}
-            </div>
-            
-            {/* Reutilizamos el componente de lista que arreglamos antes */}
+            <h2 className="text-xl font-bold text-slate-800">Solicitudes de Ingreso</h2>
+            {/* Si el componente falla, al menos sabremos que el resto funciona */}
             <PendingProfessionalsList users={pendingUsers} />
         </div>
 
