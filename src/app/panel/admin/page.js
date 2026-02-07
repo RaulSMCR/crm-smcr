@@ -16,11 +16,21 @@ export default async function AdminDashboard() {
   }
 
   // 2. Obtener Datos Clave
+  // CORRECCIÓN: Usamos 'status' en lugar de 'published' para los posts
   const [pendingCount, postsPendingCount, servicesCount, professionalsCount, pendingUsers] = await Promise.all([
+    // A. Profesionales pendientes de aprobación
     prisma.user.count({ where: { role: 'PROFESSIONAL', isApproved: false } }),
-    prisma.post.count({ where: { published: false } }),
+    
+    // B. Posts en estado 'DRAFT' (Borrador/Pendiente)
+    prisma.post.count({ where: { status: 'DRAFT' } }),
+    
+    // C. Servicios activos
     prisma.service.count({ where: { isActive: true } }),
-    prisma.user.count({ where: { role: 'PROFESSIONAL', isApproved: true } }), // Activos
+    
+    // D. Profesionales activos
+    prisma.user.count({ where: { role: 'PROFESSIONAL', isApproved: true } }), 
+    
+    // E. Lista de usuarios pendientes
     prisma.user.findMany({
       where: { role: 'PROFESSIONAL', isApproved: false },
       include: { professionalProfile: true }
@@ -56,7 +66,7 @@ export default async function AdminDashboard() {
                 <p className="text-xs text-slate-500 mt-1">Catálogo de terapias.</p>
             </Link>
 
-            {/* 2. BLOG */}
+            {/* 2. BLOG (Con contador de pendientes corregido) */}
             <Link href="/panel/admin/blog" className="group bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:border-purple-400 hover:shadow-md transition-all relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 text-6xl text-purple-500">✍️</div>
                 <div className="flex justify-between items-start mb-4">
