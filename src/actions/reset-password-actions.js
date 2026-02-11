@@ -1,139 +1,138 @@
-'use server'
+//src/actions/reset-password-actions.js
+"use server";
 
-import { prisma } from '@/lib/prisma';
-import { generateSecurityToken, validateTokenHash } from '@/lib/tokens';
-import { sendPasswordResetEmail } from '@/lib/mail';
-import bcrypt from 'bcryptjs';
+import { prisma } from "@/lib/prisma";
+import { sendPasswordResetEmail } from "@/lib/mail";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
-/**
- * 1. SOLICITAR RESET
- * Recibe el email, genera el token y lo envía.
- */
-export async function requestPasswordReset(email) {
-  try {
-    // A. Buscar usuario (Paciente)
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (user) {
-      await generateAndSendToken(user.id, user.email, 'USER');
-      // Retornamos éxito genérico por seguridad (evitar enumeración de usuarios)
-      return { success: true, message: 'Si el correo existe, recibirás instrucciones.' };
-    }
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
 
-    // B. Buscar Profesional
-    const professional = await prisma.professional.findUnique({ where: { email } });
-    if (professional) {
-      await generateAndSendToken(professional.id, professional.email, 'PROFESSIONAL');
-      return { success: true, message: 'Si el correo existe, recibirás instrucciones.' };
-    }
+function sha256Hex(input) {
+  return crypto.createHash("sha256").update(String(input)).digest("hex");
+}
 
-    // C. No encontrado (Simulamos éxito por seguridad)
-    return { success: true, message: 'Si el correo existe, recibirás instrucciones.' };
-
-  } catch (error) {
-    console.error('Error requestPasswordReset:', error);
-    return { error: 'Error interno del servidor.' };
-  }
+function genericOkMessage() {
+  // Anti-enumeración: siempre el mismo mensaje aunque no exista el email
+  return {
+    success: true,
+    message: "Si el correo existe, recibirás instrucciones para restablecer tu contraseña.",
+  };
 }
 
 /**
- * Función auxiliar interna para guardar token y enviar mail
+ * Solicitar reset (desde /recuperar)
+ * Recibe FormData: email
  */
-async function generateAndSendToken(id, email, modelType) {
-  const { token, tokenHash, expiresAt } = generateSecurityToken();
+export async function requestPasswordReset(formData) {
+  try {
+    const email = normalizeEmail(formData?.get("email"));
 
-  // Guardar hash en la tabla correcta
-  if (modelType === 'USER') {
+    if (!email) return genericOkMessage();
+
+    // En tu arquitectura actual, profesionales también viven en User (role=PROFESSIONAL)
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        resetTokenExp: true,
+        isActive: true,
+      },
+    });
+
+    // No existe => respondemos igual
+    if (!user) return genericOkMessage();
+
+    // Cuenta desactivada => respondemos igual (no filtramos)
+    if (user.isActive === false) return genericOkMessage();
+
+    // Throttle magro: si ya hay token vigente, no spameamos correos
+    const now = Date.now();
+    if (user.resetTokenExp && user.resetTokenExp.getTime() > now + 5 * 60 * 1000) {
+      return genericOkMessage();
+    }
+
+    // Token real (solo por email)
+    const token = crypto.randomBytes(32).toString("hex");
+    const tokenHash = sha256Hex(token);
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+
     await prisma.user.update({
-      where: { id },
-      data: { resetTokenHash: tokenHash, resetTokenExp: expiresAt }
+      where: { id: user.id },
+      data: {
+        resetToken: tokenHash, // 👈 usamos resetToken como HASH
+        resetTokenExp: expiresAt,
+      },
     });
-  } else {
-    await prisma.professional.update({
-      where: { id },
-      data: { resetTokenHash: tokenHash, resetTokenExp: expiresAt }
-    });
-  }
 
-  // Enviar el email con el token CRUDO (sin hashear)
-  await sendPasswordResetEmail(email, token);
+    // Email no bloqueante (pero si falla, igual respondemos genérico)
+    try {
+      await sendPasswordResetEmail(email, token);
+    } catch (e) {
+      console.error("PASSWORD_RESET_EMAIL_ERROR:", e);
+    }
+
+    return genericOkMessage();
+  } catch (e) {
+    console.error("requestPasswordReset error:", e);
+    // Incluso en error, respuesta genérica por seguridad
+    return genericOkMessage();
+  }
 }
 
 /**
- * 2. COMPLETAR RESET
- * Recibe el token y la nueva contraseña.
+ * Completar reset (desde /cambiar-password?token=...)
+ * Recibe FormData: token, password, confirmPassword
  */
-export async function resetPassword(token, newPassword) {
-  if (!token || !newPassword) {
-    return { error: 'Datos incompletos.' };
-  }
-
+export async function resetPassword(formData) {
   try {
-    // Generar hash del token recibido para buscar en DB
-    // Nota: Como no sabemos de quién es el token, tenemos que buscar en ambas tablas
-    // OJO: Prisma no permite buscar por campos que no sean @unique fácilmente sin where
-    // Estrategia: Hasheamos el token recibido y buscamos el usuario que tenga ese hash
-    
-    // Necesitamos el hash SHA256 del token que viene de la URL
-    const crypto = require('crypto');
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const token = String(formData?.get("token") || "").trim();
+    const password = String(formData?.get("password") || "");
+    const confirmPassword = String(formData?.get("confirmPassword") || "");
 
-    // 1. Buscar en Users
+    if (!token) return { error: "Token faltante o inválido." };
+
+    if (!password || password.length < 8) {
+      return { error: "La contraseña debe tener al menos 8 caracteres." };
+    }
+
+    if (password !== confirmPassword) {
+      return { error: "Las contraseñas no coinciden." };
+    }
+
+    const tokenHash = sha256Hex(token);
+    const now = new Date();
+
     const user = await prisma.user.findFirst({
       where: {
-        resetTokenHash: tokenHash,
-        resetTokenExp: { gt: new Date() } // Que no haya expirado
-      }
+        resetToken: tokenHash,
+        resetTokenExp: { gt: now },
+        isActive: true,
+      },
+      select: { id: true },
     });
 
-    if (user) {
-      return await updateUserPassword(user.id, 'USER', newPassword);
+    if (!user) {
+      return { error: "El enlace es inválido o expiró. Pedí uno nuevo en /recuperar." };
     }
 
-    // 2. Buscar en Professionals
-    const professional = await prisma.professional.findFirst({
-      where: {
-        resetTokenHash: tokenHash,
-        resetTokenExp: { gt: new Date() }
-      }
-    });
+    const hashedPassword = await bcrypt.hash(password, 12);
 
-    if (professional) {
-      return await updateUserPassword(professional.id, 'PROFESSIONAL', newPassword);
-    }
-
-    return { error: 'Token inválido o expirado.' };
-
-  } catch (error) {
-    console.error('Error resetPassword:', error);
-    return { error: 'Error al restablecer la contraseña.' };
-  }
-}
-
-/**
- * Función auxiliar para actualizar la password y limpiar el token
- */
-async function updateUserPassword(id, modelType, newPassword) {
-  const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-  if (modelType === 'USER') {
     await prisma.user.update({
-      where: { id },
+      where: { id: user.id },
       data: {
-        passwordHash: hashedPassword,
-        resetTokenHash: null, // Quemamos el token
-        resetTokenExp: null
-      }
+        password: hashedPassword, // 👈 tu schema actual usa `password`
+        resetToken: null,
+        resetTokenExp: null,
+      },
     });
-  } else {
-    await prisma.professional.update({
-      where: { id },
-      data: {
-        passwordHash: hashedPassword,
-        resetTokenHash: null,
-        resetTokenExp: null
-      }
-    });
-  }
 
-  return { success: true, message: 'Contraseña actualizada correctamente.' };
+    return { success: true, message: "Contraseña actualizada. Ya podés iniciar sesión." };
+  } catch (e) {
+    console.error("resetPassword error:", e);
+    return { error: "Error interno al restablecer la contraseña." };
+  }
 }

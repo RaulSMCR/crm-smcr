@@ -2,26 +2,25 @@
 import { NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 
-// Públicas exactas (solo rutas "hoja")
+// Públicas exactas
 const PUBLIC_EXACT = new Set([
   "/",
   "/ingresar",
   "/recuperar",
+  "/cambiar-password",
   "/registro",
   "/registro/usuario",
   "/registro/profesional",
   "/contacto",
   "/faq",
   "/nosotros",
+  "/servicios",
   "/espera-aprobacion",
   "/verificar-email",
 ]);
 
-// Públicas por prefijo (incluye subrutas)
-const PUBLIC_PREFIX = [
-  "/blog",
-  "/servicios", // ✅ permite /servicios/[id]
-];
+// Públicas por prefijo
+const PUBLIC_PREFIX = ["/blog"];
 
 // API auth pública
 const API_AUTH_PREFIX = "/api/auth";
@@ -35,30 +34,21 @@ const PROTECTED_ROUTES = [
 ];
 
 // ---- Secret defensivo (NO rompe middleware) ----
-let _cachedEncodedKey = null;
-let _cachedKeyState = "unknown"; // "ok" | "misconfig" | "dev_fallback"
-
 function getEncodedKeySafe() {
-  // Cache simple por request-lifetime del worker
-  if (_cachedEncodedKey && _cachedKeyState !== "unknown") return _cachedEncodedKey;
-
   const secret = process.env.SESSION_SECRET;
 
+  // En producción debería existir y ser fuerte
   if (process.env.NODE_ENV === "production") {
     if (!secret || secret.length < 32) {
       console.error("❌ SESSION_SECRET missing/weak in production (middleware).");
-      _cachedEncodedKey = null;
-      _cachedKeyState = "misconfig";
-      return null;
+      return null; // señal de misconfig
     }
   }
 
+  // Dev/Preview: fallback para no caerse
   const effective =
     secret && secret.length >= 16 ? secret : "dev-only-insecure-secret";
-
-  _cachedEncodedKey = new TextEncoder().encode(effective);
-  _cachedKeyState = secret && secret.length >= 16 ? "ok" : "dev_fallback";
-  return _cachedEncodedKey;
+  return new TextEncoder().encode(effective);
 }
 
 function isPublicPath(pathname) {
@@ -71,7 +61,9 @@ async function getPayloadFromCookie(request, encodedKey) {
   if (!token) return null;
 
   try {
-    const { payload } = await jwtVerify(token, encodedKey, { algorithms: ["HS256"] });
+    const { payload } = await jwtVerify(token, encodedKey, {
+      algorithms: ["HS256"],
+    });
     return payload;
   } catch {
     return null;
@@ -100,9 +92,12 @@ export async function middleware(request) {
     const encodedKey = getEncodedKeySafe();
     if (encodedKey && pathname === "/ingresar") {
       const payload = await getPayloadFromCookie(request, encodedKey);
-      if (payload?.role === "ADMIN") return NextResponse.redirect(new URL("/panel/admin", request.url));
-      if (payload?.role === "PROFESSIONAL") return NextResponse.redirect(new URL("/panel/profesional", request.url));
-      if (payload?.role === "USER") return NextResponse.redirect(new URL("/panel/paciente", request.url));
+      if (payload?.role === "ADMIN")
+        return NextResponse.redirect(new URL("/panel/admin", request.url));
+      if (payload?.role === "PROFESSIONAL")
+        return NextResponse.redirect(new URL("/panel/profesional", request.url));
+      if (payload?.role === "USER")
+        return NextResponse.redirect(new URL("/panel/paciente", request.url));
     }
     return NextResponse.next();
   }
