@@ -3,7 +3,7 @@
 
 // 1. IMPORTAMOS LA ACCIÓN (No usamos fetch ni APIs)
 import { logout } from "@/actions/auth-actions"; 
-import { useState } from "react";
+import { useState } from "react"; el fo
 
 export default function LogoutButton() {
   const [loading, setLoading] = useState(false);

@@ -1,10 +1,11 @@
-// src/actions/auth-actions.js
+// PATH: src/actions/auth-actions.js
 'use server'
 
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache"; // <--- IMPORTANTE PARA EL 404
 import crypto from "crypto";
 import { resend } from "@/lib/resend"; 
 import { signToken, getSession as getLibSession } from "@/lib/auth"; 
@@ -295,15 +296,19 @@ export async function verifyEmail(token) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* -------------------------------------------------------------------------- */
-/* 5. LOGOUT (ESTA ES LA VERSIÓN QUE FUNCIONA)                                */
+/* 5. LOGOUT (CORREGIDO PARA EVITAR 404)                                      */
 /* -------------------------------------------------------------------------- */
 export async function logout() {
-  // 1. Borrar cookie
-  cookies().delete("session");
+  try {
+    // Intentamos borrar la cookie de sesión
+    cookies().delete("session");
+  } catch (error) {
+    console.error("Error al borrar cookie en logout (no crítico):", error);
+  }
 
-  // 2. REDIRECCIÓN FORZADA
-  // Si tu código antiguo tenía "return { ok: true ... }", BÓRRALO.
-  // Debe ser redirect().
-  redirect("/ingresar"); 
+  // Limpiamos caché de Next.js para asegurar que el middleware no lea datos viejos
+  revalidatePath("/", "layout");
+
+  // Redirección fuera del Try/Catch
+  redirect("/ingresar");
 }
