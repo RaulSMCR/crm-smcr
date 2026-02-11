@@ -65,3 +65,50 @@ export async function sendVerificationEmail(email, token) {
     throw error;
   }
 }
+/* =========================================================
+   RECUPERACIÓN DE CONTRASEÑA
+   ========================================================= */
+
+export async function sendResetPasswordEmail(email, token) {
+  const resend = getResend();
+  if (!resend) return;
+
+  const resetLink = `${DOMAIN}/cambiar-password?token=${token}`;
+
+  try {
+    await resend.emails.send({
+      from: EMAIL_FROM,
+      to: email,
+      subject: "Restablecer contraseña - Salud Mental CR",
+      html: `
+        <div style="font-family: Arial, Helvetica, sans-serif; line-height:1.5; color:#111">
+          <h2>Restablecer contraseña</h2>
+          <p>Recibimos una solicitud para restablecer tu contraseña en <b>Salud Mental CR</b>.</p>
+          <p>Si fuiste vos, hacé click en el botón:</p>
+
+          <p style="margin:25px 0">
+            <a href="${resetLink}"
+              style="
+                background:#111827;
+                color:white;
+                padding:12px 22px;
+                text-decoration:none;
+                border-radius:8px;
+                font-weight:bold;
+                display:inline-block">
+              Crear nueva contraseña
+            </a>
+          </p>
+
+          <p style="font-size:12px;color:#555">
+            Este enlace expirará pronto.
+            Si no pediste este cambio, podés ignorar este mensaje.
+          </p>
+        </div>
+      `,
+    });
+  } catch (error) {
+    console.error("Error enviando email de reset:", error);
+    throw error;
+  }
+}
