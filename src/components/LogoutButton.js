@@ -1,9 +1,9 @@
-//src/components/LogoutButton.js
+// PATH: src/components/LogoutButton.js
 'use client'; 
 
-// 1. IMPORTAMOS LA ACCIÓN (No usamos fetch ni APIs)
+// 1. IMPORTAMOS LA ACCIÓN
 import { logout } from "@/actions/auth-actions"; 
-import { useState } from "react"; el fo
+import { useState } from "react";
 
 export default function LogoutButton() {
   const [loading, setLoading] = useState(false);
