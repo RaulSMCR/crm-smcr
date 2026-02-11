@@ -4,7 +4,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { resetPassword } from "@/actions/reset-password-actions";
+import { resetPasswordAction } from "@/actions/reset-password-actions";
 
 export default function ResetPasswordClient() {
   const sp = useSearchParams();
