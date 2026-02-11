@@ -1,21 +1,8 @@
-// src/middleware.js
+// PATH: src/middleware.js
 import { NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 
-function getEncodedKey() {
-  const secret = process.env.SESSION_SECRET;
-
-  if (process.env.NODE_ENV === "production" && (!secret || secret.length < 32)) {
-    throw new Error("Missing or weak SESSION_SECRET in production.");
-  }
-
-  const effective = secret && secret.length >= 16 ? secret : "dev-only-insecure-secret";
-  return new TextEncoder().encode(effective);
-}
-
-const encodedKey = getEncodedKey();
-
-// Públicas exactas (solo esa ruta exacta)
+// Públicas exactas
 const PUBLIC_EXACT = new Set([
   "/",
   "/ingresar",
@@ -28,31 +15,47 @@ const PUBLIC_EXACT = new Set([
   "/nosotros",
   "/servicios",
   "/espera-aprobacion",
+  "/verificar-email",
 ]);
 
-// Públicas por prefijo (permiten subrutas)
-const PUBLIC_PREFIX = [
-  "/blog",
-  // agrega aquí otras secciones públicas con slugs
-];
+// Públicas por prefijo
+const PUBLIC_PREFIX = ["/blog"];
 
-// API de auth pública
+// API auth pública
 const API_AUTH_PREFIX = "/api/auth";
 
-// Rutas protegidas por rol
+// Protegidas por rol
 const PROTECTED_ROUTES = [
   { prefix: "/panel/admin", role: "ADMIN" },
   { prefix: "/panel/profesional", role: "PROFESSIONAL" },
   { prefix: "/panel/paciente", role: "USER" },
-
   { prefix: "/api/admin", role: "ADMIN" },
-
-  // ⚠️ Ajusta estos prefijos a tus APIs reales cuando existan:
-  // { prefix: "/api/professional", role: "PROFESSIONAL" },
-  // { prefix: "/api/appointments", role: "USER" }, etc.
 ];
 
-async function getPayloadFromCookie(request) {
+// ---- Secret defensivo (NO rompe middleware) ----
+function getEncodedKeySafe() {
+  const secret = process.env.SESSION_SECRET;
+
+  // En producción debería existir y ser fuerte
+  if (process.env.NODE_ENV === "production") {
+    if (!secret || secret.length < 32) {
+      console.error("❌ SESSION_SECRET missing/weak in production (middleware).");
+      return null; // señal de misconfig
+    }
+  }
+
+  // Dev/Preview: fallback para no caerse
+  const effective =
+    secret && secret.length >= 16 ? secret : "dev-only-insecure-secret";
+  return new TextEncoder().encode(effective);
+}
+
+function isPublicPath(pathname) {
+  if (PUBLIC_EXACT.has(pathname)) return true;
+  return PUBLIC_PREFIX.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+async function getPayloadFromCookie(request, encodedKey) {
   const token = request.cookies.get("session")?.value;
   if (!token) return null;
 
@@ -62,11 +65,6 @@ async function getPayloadFromCookie(request) {
   } catch {
     return null;
   }
-}
-
-function isPublicPath(pathname) {
-  if (PUBLIC_EXACT.has(pathname)) return true;
-  return PUBLIC_PREFIX.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
 export async function middleware(request) {
@@ -82,17 +80,18 @@ export async function middleware(request) {
     return NextResponse.next();
   }
 
-  const isApiAuth = pathname.startsWith(API_AUTH_PREFIX);
   const isPublic = isPublicPath(pathname);
+  const isApiAuth = pathname.startsWith(API_AUTH_PREFIX);
 
   // B) Permitir públicas y /api/auth
   if (isPublic || isApiAuth) {
-    // Si está logueado e intenta /ingresar, mandarlo a su panel
-    const payload = await getPayloadFromCookie(request);
-    if (payload && pathname === "/ingresar") {
-      if (payload.role === "ADMIN") return NextResponse.redirect(new URL("/panel/admin", request.url));
-      if (payload.role === "PROFESSIONAL") return NextResponse.redirect(new URL("/panel/profesional", request.url));
-      return NextResponse.redirect(new URL("/panel/paciente", request.url));
+    // si está logueado e intenta /ingresar, mandarlo a su panel
+    const encodedKey = getEncodedKeySafe();
+    if (encodedKey && pathname === "/ingresar") {
+      const payload = await getPayloadFromCookie(request, encodedKey);
+      if (payload?.role === "ADMIN") return NextResponse.redirect(new URL("/panel/admin", request.url));
+      if (payload?.role === "PROFESSIONAL") return NextResponse.redirect(new URL("/panel/profesional", request.url));
+      if (payload?.role === "USER") return NextResponse.redirect(new URL("/panel/paciente", request.url));
     }
     return NextResponse.next();
   }
@@ -101,7 +100,21 @@ export async function middleware(request) {
   const rule = PROTECTED_ROUTES.find((r) => pathname.startsWith(r.prefix));
   if (!rule) return NextResponse.next();
 
-  const payload = await getPayloadFromCookie(request);
+  // D) Si falta secret en prod, no rompemos middleware: devolvemos 503/redirect
+  const encodedKey = getEncodedKeySafe();
+  if (!encodedKey) {
+    if (pathname.startsWith("/api")) {
+      return NextResponse.json(
+        { error: "Server misconfigured (SESSION_SECRET)" },
+        { status: 503 }
+      );
+    }
+    const url = new URL("/ingresar", request.url);
+    url.searchParams.set("error", "server_misconfigured");
+    return NextResponse.redirect(url);
+  }
+
+  const payload = await getPayloadFromCookie(request, encodedKey);
 
   // 1) Sin sesión
   if (!payload) {
@@ -113,18 +126,11 @@ export async function middleware(request) {
     return NextResponse.redirect(url);
   }
 
-  // 2) Profesional no aprobado (panel profesional)
+  // 2) Profesional no aprobado
   if (payload.role === "PROFESSIONAL" && payload.isApproved === false) {
-    // Permitir que vea SOLO la espera y quizás su página de integraciones/perfil si la necesitas:
-    if (
-      pathname.startsWith("/panel/profesional") &&
-      pathname !== "/espera-aprobacion"
-    ) {
+    if (pathname.startsWith("/panel/profesional")) {
       return NextResponse.redirect(new URL("/espera-aprobacion", request.url));
     }
-
-    // Si luego proteges APIs de profesional, aquí también podrías bloquearlas:
-    // if (pathname.startsWith("/api/professional")) return NextResponse.json({ error: "Not approved" }, { status: 403 });
   }
 
   // 3) Rol incorrecto
@@ -132,12 +138,10 @@ export async function middleware(request) {
     if (pathname.startsWith("/api")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-
     let target = "/ingresar";
     if (payload.role === "ADMIN") target = "/panel/admin";
     else if (payload.role === "PROFESSIONAL") target = "/panel/profesional";
     else target = "/panel/paciente";
-
     return NextResponse.redirect(new URL(target, request.url));
   }
 
