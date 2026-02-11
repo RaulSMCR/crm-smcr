@@ -1,4 +1,3 @@
-// PATH: src/app/cambiar-password/ResetPasswordClient.js
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
@@ -29,11 +28,13 @@ export default function ResetPasswordClient() {
     fd.append("confirmPassword", confirmPassword);
 
     startTransition(async () => {
-      const res = await resetPassword(fd);
+      const res = await resetPasswordAction(fd);
+
       if (res?.error) {
         setMsg({ type: "error", text: res.error });
         return;
       }
+
       setMsg({ type: "ok", text: res?.message || "Listo." });
       setTimeout(() => router.push("/ingresar"), 900);
     });

@@ -1,25 +1,32 @@
-// src/actions/reset-password-actions.js
 "use server";
 
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
 /**
- * Resetea contraseña usando token y nueva contraseña.
- * Asume en Prisma User:
- * - password (string)
- * - resetToken (string?)
+ * Server Action: resetea contraseña desde FormData
+ * Espera:
+ * - token
+ * - password
+ * - confirmPassword
+ *
+ * Requiere en Prisma User:
+ * - password (String)
+ * - resetToken (String?)
  * - resetTokenExp (DateTime?)
- * - isActive (boolean)
+ * - isActive (Boolean)
  */
-export async function resetPasswordAction({ token, newPassword }) {
+export async function resetPasswordAction(formData) {
   try {
-    if (!token || typeof token !== "string") {
-      return { ok: false, error: "Token inválido." };
-    }
-    if (!newPassword || newPassword.length < 8) {
-      return { ok: false, error: "La contraseña debe tener al menos 8 caracteres." };
-    }
+    const token = String(formData.get("token") || "");
+    const password = String(formData.get("password") || "");
+    const confirmPassword = String(formData.get("confirmPassword") || "");
+
+    if (!token) return { error: "Token faltante." };
+    if (!password || password.length < 8)
+      return { error: "La contraseña debe tener al menos 8 caracteres." };
+    if (password !== confirmPassword)
+      return { error: "Las contraseñas no coinciden." };
 
     const user = await prisma.user.findFirst({
       where: {
@@ -30,24 +37,22 @@ export async function resetPasswordAction({ token, newPassword }) {
       select: { id: true },
     });
 
-    if (!user) {
-      return { ok: false, error: "El enlace expiró o no es válido." };
-    }
+    if (!user) return { error: "El enlace expiró o no es válido." };
 
-    const passwordHash = await bcrypt.hash(newPassword, 10);
+    const passwordHash = await bcrypt.hash(password, 10);
 
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        password: passwordHash, // luego lo migraremos a passwordHash en el plan grande
+        password: passwordHash, // luego lo migraremos a passwordHash
         resetToken: null,
         resetTokenExp: null,
       },
     });
 
-    return { ok: true };
+    return { ok: true, message: "Contraseña actualizada. Ya podés ingresar." };
   } catch (e) {
     console.error("resetPasswordAction error:", e);
-    return { ok: false, error: "Error interno. Intenta de nuevo." };
+    return { error: "Error interno. Intenta de nuevo." };
   }
 }
