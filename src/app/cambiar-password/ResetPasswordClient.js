@@ -1,9 +1,9 @@
+// PATH: src/app/cambiar-password/ResetPasswordClient.js
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { resetPasswordAction } from "@/actions/reset-password-actions";
 
 export default function ResetPasswordClient() {
   const sp = useSearchParams();
@@ -22,21 +22,30 @@ export default function ResetPasswordClient() {
     e.preventDefault();
     setMsg(null);
 
-    const fd = new FormData();
-    fd.append("token", token);
-    fd.append("password", password);
-    fd.append("confirmPassword", confirmPassword);
-
     startTransition(async () => {
-      const res = await resetPasswordAction(fd);
+      try {
+        const res = await fetch("/api/auth/reset-password", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            token,
+            password,
+            confirmPassword,
+          }),
+        });
 
-      if (res?.error) {
-        setMsg({ type: "error", text: res.error });
-        return;
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          setMsg({ type: "error", text: data?.error || "No se pudo procesar." });
+          return;
+        }
+
+        setMsg({ type: "ok", text: data?.message || "Listo." });
+        setTimeout(() => router.push("/ingresar"), 900);
+      } catch {
+        setMsg({ type: "error", text: "Error de red. Intenta de nuevo." });
       }
-
-      setMsg({ type: "ok", text: res?.message || "Listo." });
-      setTimeout(() => router.push("/ingresar"), 900);
     });
   }
 
