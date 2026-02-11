@@ -1,4 +1,4 @@
-// src/app/api/auth/change-password/route.js
+// PATH: src/app/api/auth/change-password/route.js
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
@@ -11,7 +11,7 @@ function json(data, status = 200) {
 
 function getEncodedKey() {
   const secret = process.env.SESSION_SECRET;
-  if (!secret || secret.length < 16) return null; // defensivo
+  if (!secret || secret.length < 16) return null;
   return new TextEncoder().encode(secret);
 }
 
@@ -38,9 +38,7 @@ export async function POST(request) {
     }
 
     const payload = await getSessionPayload();
-    if (!payload?.sub) {
-      return json({ error: "Unauthorized" }, 401);
-    }
+    if (!payload?.sub) return json({ error: "Unauthorized" }, 401);
 
     const { currentPassword, newPassword, confirmPassword } = await request.json();
 
@@ -49,7 +47,8 @@ export async function POST(request) {
     const confirm = String(confirmPassword || "");
 
     if (!current) return json({ error: "Debes ingresar tu contraseña actual." }, 400);
-    if (!next || next.length < 8) return json({ error: "La nueva contraseña debe tener al menos 8 caracteres." }, 400);
+    if (!next || next.length < 8)
+      return json({ error: "La nueva contraseña debe tener al menos 8 caracteres." }, 400);
     if (next !== confirm) return json({ error: "La confirmación no coincide." }, 400);
 
     const user = await prisma.user.findUnique({
@@ -57,17 +56,11 @@ export async function POST(request) {
       select: { id: true, password: true, isActive: true },
     });
 
-    if (!user || user.isActive === false) {
-      return json({ error: "Usuario inválido." }, 400);
-    }
+    if (!user || user.isActive === false) return json({ error: "Usuario inválido." }, 400);
 
-    // Verificar password actual
     const ok = await bcrypt.compare(current, user.password || "");
-    if (!ok) {
-      return json({ error: "La contraseña actual es incorrecta." }, 400);
-    }
+    if (!ok) return json({ error: "La contraseña actual es incorrecta." }, 400);
 
-    // Guardar nueva password hasheada
     const passwordHash = await bcrypt.hash(next, 10);
 
     await prisma.user.update({
