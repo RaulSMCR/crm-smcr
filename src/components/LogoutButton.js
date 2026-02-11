@@ -1,27 +1,27 @@
 // PATH: src/components/LogoutButton.js
-'use client'; 
+'use client';
 
-// 1. IMPORTAMOS LA ACCIÓN
-import { logout } from "@/actions/auth-actions"; 
-import { useState } from "react";
+import { logout } from "@/actions/auth-actions";
+import { useFormStatus } from "react-dom";
 
-export default function LogoutButton() {
-  const [loading, setLoading] = useState(false);
-
-  const handleLogout = async () => {
-    setLoading(true);
-    // 2. EJECUTAMOS LA ACCIÓN DIRECTAMENTE
-    // Esto borra la cookie y redirige a /ingresar desde el servidor
-    await logout(); 
-  };
+function SubmitButton() {
+  const { pending } = useFormStatus();
 
   return (
-    <button 
-      onClick={handleLogout} 
-      disabled={loading}
+    <button
+      type="submit"
+      disabled={pending}
       className="text-red-600 font-bold hover:text-red-800 text-sm border border-red-200 bg-white px-4 py-2 rounded-lg hover:bg-red-50 transition-colors flex items-center gap-2 disabled:opacity-50"
     >
-      {loading ? "Saliendo..." : "🚪 Cerrar Sesión"}
+      {pending ? "Saliendo..." : "🚪 Cerrar Sesión"}
     </button>
+  );
+}
+
+export default function LogoutButton() {
+  return (
+    <form action={logout}>
+      <SubmitButton />
+    </form>
   );
 }

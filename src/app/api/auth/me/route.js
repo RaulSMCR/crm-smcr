@@ -1,4 +1,4 @@
-// src/app/api/auth/me/route.js
+// PATH: src/app/api/auth/me/route.js
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyToken } from "@/lib/auth";
@@ -7,23 +7,26 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request) {
   try {
-    // ✅ Cookie correcta (coincide con lib/auth.js + middleware)
+    // Cookie correcta (coincide con lib/auth.js + middleware)
     const token = request.cookies.get("session")?.value;
+
+    // Respuesta consistente (siempre { ok: boolean })
     if (!token) {
-      return NextResponse.json({ message: "No autenticado" }, { status: 401 });
+      return NextResponse.json({ ok: false, message: "No autenticado" }, { status: 401 });
     }
 
     // Verifica JWT (firma + exp)
     const payload = await verifyToken(token);
 
-    const userId = payload?.userId;
+    // Aceptamos userId o sub (por compatibilidad con tokens ya emitidos)
+    const userId = String(payload?.userId || payload?.sub || "");
     if (!userId) {
-      return NextResponse.json({ message: "Datos de sesión inválidos" }, { status: 401 });
+      return NextResponse.json({ ok: false, message: "Datos de sesión inválidos" }, { status: 401 });
     }
 
-    // Traemos estado real desde DB (fuente de verdad)
+    // Fuente de verdad: DB
     const user = await prisma.user.findUnique({
-      where: { id: String(userId) },
+      where: { id: userId },
       select: {
         id: true,
         name: true,
@@ -44,26 +47,27 @@ export async function GET(request) {
     });
 
     if (!user) {
-      return NextResponse.json({ message: "Usuario no encontrado" }, { status: 401 });
+      return NextResponse.json({ ok: false, message: "Usuario no encontrado" }, { status: 401 });
     }
 
-    // Estado de cuenta
     if (!user.isActive) {
-      return NextResponse.json({ message: "Cuenta desactivada" }, { status: 403 });
+      return NextResponse.json({ ok: false, message: "Cuenta desactivada" }, { status: 403 });
     }
 
     if (!user.emailVerified) {
-      return NextResponse.json({ message: "Email no verificado", error: "EMAIL_NOT_VERIFIED" }, { status: 403 });
-    }
-
-    if (user.role === "PROFESSIONAL" && user.isApproved === false) {
       return NextResponse.json(
-        { message: "Cuenta pendiente de aprobación", error: "PRO_NOT_APPROVED" },
+        { ok: false, message: "Email no verificado", error: "EMAIL_NOT_VERIFIED" },
         { status: 403 }
       );
     }
 
-    // Respuesta consistente para el Header y para paneles
+    if (user.role === "PROFESSIONAL" && user.isApproved === false) {
+      return NextResponse.json(
+        { ok: false, message: "Cuenta pendiente de aprobación", error: "PRO_NOT_APPROVED" },
+        { status: 403 }
+      );
+    }
+
     return NextResponse.json(
       {
         ok: true,
@@ -77,6 +81,9 @@ export async function GET(request) {
     );
   } catch (e) {
     console.error("Auth Me Error:", e);
-    return NextResponse.json({ message: "Sesión expirada" }, { status: 401 });
+
+    // Si el token está roto/expirado, devolvemos 401 consistente.
+    // (Opcional) podríamos limpiar cookie aquí, pero middleware ya se encarga al no validar.
+    return NextResponse.json({ ok: false, message: "Sesión expirada" }, { status: 401 });
   }
 }
