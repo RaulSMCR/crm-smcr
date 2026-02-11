@@ -36,7 +36,6 @@ export default function LoginClient() {
     setSuccessMessage('');
 
     const formData = new FormData(e.target);
-
     const res = await login(formData);
 
     if (res?.error) {
@@ -46,32 +45,28 @@ export default function LoginClient() {
     }
 
     if (res?.success) {
-      // 1) Si middleware nos mandó con ?next=..., respetarlo (seguro)
       const next = safeNextPath(searchParams.get('next'));
       if (next) {
         router.push(next);
         return;
       }
 
-      // 2) Si no hay next, redirección por rol (alineada a tu árbol real)
-      if (res.role === 'ADMIN') {
-        router.push('/panel/admin');
-      } else if (res.role === 'PROFESSIONAL') {
-        router.push('/panel/profesional');
-      } else {
-        router.push('/panel/paciente');
-      }
+      if (res.role === 'ADMIN') router.push('/panel/admin');
+      else if (res.role === 'PROFESSIONAL') router.push('/panel/profesional');
+      else router.push('/panel/paciente');
       return;
     }
 
-    // Respuesta inesperada
     setError('No se pudo iniciar sesión. Intenta de nuevo.');
     setLoading(false);
   };
 
   return (
     <div className="w-full max-w-md mx-auto">
-      <form onSubmit={handleSubmit} className="bg-white p-8 rounded-xl shadow-lg border border-gray-100 space-y-6">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white p-8 rounded-xl shadow-lg border border-gray-100 space-y-6"
+      >
         <div className="text-center pb-4 border-b border-gray-100">
           <h2 className="text-2xl font-bold text-gray-900">Iniciar Sesión</h2>
           <p className="text-sm text-gray-500 mt-1">Accede a tu cuenta de Salud Mental CR</p>
@@ -112,6 +107,12 @@ export default function LoginClient() {
               placeholder="••••••••"
               autoComplete="current-password"
             />
+
+            <div className="mt-2 text-right text-sm">
+              <Link href="/recuperar" className="underline text-gray-600 hover:text-gray-900">
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -123,7 +124,12 @@ export default function LoginClient() {
           >
             {loading ? (
               <span className="flex items-center gap-2">
-                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <svg
+                  className="animate-spin h-5 w-5 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path
                     className="opacity-75"
