@@ -61,11 +61,12 @@ export default function LoginClient() {
       } else {
         router.push('/panel/paciente');
       }
-    } else {
-      // Respuesta inesperada
-      setError('No se pudo iniciar sesión. Intenta de nuevo.');
-      setLoading(false);
+      return;
     }
+
+    // Respuesta inesperada
+    setError('No se pudo iniciar sesión. Intenta de nuevo.');
+    setLoading(false);
   };
 
   return (
@@ -102,12 +103,7 @@ export default function LoginClient() {
           </div>
 
           <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="block text-sm font-semibold text-gray-700">Contraseña</label>
-              <Link href="/recuperar" className="text-xs text-blue-600 hover:underline font-medium">
-                ¿Olvidaste tu contraseña?
-              </Link>
-            </div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Contraseña</label>
             <input
               name="password"
               type="password"

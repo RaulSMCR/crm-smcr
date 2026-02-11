@@ -1,4 +1,4 @@
-//src/lib/mail.js
+// PATH: src/lib/mail.js
 import { Resend } from "resend";
 
 const DOMAIN =
@@ -54,7 +54,7 @@ export async function sendVerificationEmail(email, token) {
           </p>
 
           <p style="font-size:12px;color:#555">
-            Este enlace expirará pronto.  
+            Este enlace expirará pronto.
             Si no creaste esta cuenta, simplemente ignorá este mensaje.
           </p>
         </div>
@@ -62,54 +62,6 @@ export async function sendVerificationEmail(email, token) {
     });
   } catch (error) {
     console.error("Error enviando email de verificación:", error);
-    throw error;
-  }
-}
-
-/* =========================================================
-   RESET DE CONTRASEÑA
-   ========================================================= */
-
-export async function sendPasswordResetEmail(email, token) {
-  const resend = getResend();
-  if (!resend) return;
-
-  // NUEVA RUTA CORRECTA
-  const resetLink = `${DOMAIN}/cambiar-password?token=${token}`;
-
-  try {
-    await resend.emails.send({
-      from: EMAIL_FROM,
-      to: email,
-      subject: "Recuperar acceso - Salud Mental CR",
-      html: `
-        <div style="font-family: Arial, Helvetica, sans-serif; line-height:1.5; color:#111">
-          <h2>Restablecer contraseña</h2>
-          <p>Recibimos una solicitud para cambiar tu contraseña.</p>
-
-          <p style="margin:25px 0">
-            <a href="${resetLink}"
-              style="
-                background:#111827;
-                color:white;
-                padding:12px 22px;
-                text-decoration:none;
-                border-radius:8px;
-                font-weight:bold;
-                display:inline-block">
-              Crear nueva contraseña
-            </a>
-          </p>
-
-          <p style="font-size:12px;color:#555">
-            Este enlace expira en 1 hora.  
-            Si no fuiste vos, ignorá este mensaje.
-          </p>
-        </div>
-      `,
-    });
-  } catch (error) {
-    console.error("Error enviando email de reset:", error);
     throw error;
   }
 }
