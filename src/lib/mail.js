@@ -4,36 +4,59 @@ import { Resend } from "resend";
 const DOMAIN =
   process.env.NEXT_PUBLIC_URL ||
   process.env.NEXT_PUBLIC_APP_URL ||
-  (process.env.NODE_ENV === "development" ? "http://localhost:3000" : "https://saludmentalcostarica.com");
+  (process.env.NODE_ENV === "development"
+    ? "http://localhost:3000"
+    : "https://saludmentalcostarica.com");
 
 const EMAIL_FROM = "Salud Mental CR <onboarding@resend.dev>";
 
 function getResend() {
   if (!process.env.RESEND_API_KEY) {
-    console.error("❌ ERROR: RESEND_API_KEY no está configurada.");
+    console.error("❌ RESEND_API_KEY no configurada.");
     return null;
   }
   return new Resend(process.env.RESEND_API_KEY);
 }
 
-export const sendVerificationEmail = async (email, token) => {
+/* =========================================================
+   VERIFICACIÓN DE EMAIL
+   ========================================================= */
+
+export async function sendVerificationEmail(email, token) {
   const resend = getResend();
   if (!resend) return;
 
-  // ✅ Ruta real en tu proyecto
   const confirmLink = `${DOMAIN}/verificar-email?token=${token}`;
 
   try {
     await resend.emails.send({
       from: EMAIL_FROM,
       to: email,
-      subject: "Verifica tu correo - SMCR",
+      subject: "Confirmá tu cuenta - Salud Mental CR",
       html: `
-        <div style="font-family: sans-serif; color: #111;">
+        <div style="font-family: Arial, Helvetica, sans-serif; line-height:1.5; color:#111">
           <h2>Confirmá tu cuenta</h2>
-          <p>Gracias por registrarte. Confirmá tu correo haciendo click aquí:</p>
-          <p><a href="${confirmLink}">Verificar correo</a></p>
-          <p style="color:#555;font-size:12px;">Este enlace expira pronto. Si no solicitaste esto, podés ignorar el mensaje.</p>
+          <p>Gracias por registrarte en <b>Salud Mental CR</b>.</p>
+          <p>Para activar tu cuenta hacé click en el botón:</p>
+
+          <p style="margin:25px 0">
+            <a href="${confirmLink}"
+              style="
+                background:#2563eb;
+                color:white;
+                padding:12px 22px;
+                text-decoration:none;
+                border-radius:8px;
+                font-weight:bold;
+                display:inline-block">
+              Verificar correo
+            </a>
+          </p>
+
+          <p style="font-size:12px;color:#555">
+            Este enlace expirará pronto.  
+            Si no creaste esta cuenta, simplemente ignorá este mensaje.
+          </p>
         </div>
       `,
     });
@@ -41,26 +64,47 @@ export const sendVerificationEmail = async (email, token) => {
     console.error("Error enviando email de verificación:", error);
     throw error;
   }
-};
+}
 
-export const sendPasswordResetEmail = async (email, token) => {
+/* =========================================================
+   RESET DE CONTRASEÑA
+   ========================================================= */
+
+export async function sendPasswordResetEmail(email, token) {
   const resend = getResend();
   if (!resend) return;
 
-  // ✅ Ruta real en tu proyecto
-  const resetLink = `${DOMAIN}/reset-password?token=${token}`;
+  // NUEVA RUTA CORRECTA
+  const resetLink = `${DOMAIN}/cambiar-password?token=${token}`;
 
   try {
     await resend.emails.send({
       from: EMAIL_FROM,
       to: email,
-      subject: "Restablecer contraseña - SMCR",
+      subject: "Recuperar acceso - Salud Mental CR",
       html: `
-        <div style="font-family: sans-serif; color: #111;">
-          <h2>Recuperar contraseña</h2>
-          <p>Solicitaste cambiar tu contraseña. Usá este enlace:</p>
-          <p><a href="${resetLink}">Cambiar contraseña</a></p>
-          <p style="color:#555;font-size:12px;">Si no fuiste vos, ignorá este correo.</p>
+        <div style="font-family: Arial, Helvetica, sans-serif; line-height:1.5; color:#111">
+          <h2>Restablecer contraseña</h2>
+          <p>Recibimos una solicitud para cambiar tu contraseña.</p>
+
+          <p style="margin:25px 0">
+            <a href="${resetLink}"
+              style="
+                background:#111827;
+                color:white;
+                padding:12px 22px;
+                text-decoration:none;
+                border-radius:8px;
+                font-weight:bold;
+                display:inline-block">
+              Crear nueva contraseña
+            </a>
+          </p>
+
+          <p style="font-size:12px;color:#555">
+            Este enlace expira en 1 hora.  
+            Si no fuiste vos, ignorá este mensaje.
+          </p>
         </div>
       `,
     });
@@ -68,4 +112,4 @@ export const sendPasswordResetEmail = async (email, token) => {
     console.error("Error enviando email de reset:", error);
     throw error;
   }
-};
+}

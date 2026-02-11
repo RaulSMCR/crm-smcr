@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 
-// Públicas exactas
+// Públicas exactas (solo rutas "hoja")
 const PUBLIC_EXACT = new Set([
   "/",
   "/ingresar",
@@ -13,13 +13,15 @@ const PUBLIC_EXACT = new Set([
   "/contacto",
   "/faq",
   "/nosotros",
-  "/servicios",
   "/espera-aprobacion",
   "/verificar-email",
 ]);
 
-// Públicas por prefijo
-const PUBLIC_PREFIX = ["/blog"];
+// Públicas por prefijo (incluye subrutas)
+const PUBLIC_PREFIX = [
+  "/blog",
+  "/servicios", // ✅ permite /servicios/[id]
+];
 
 // API auth pública
 const API_AUTH_PREFIX = "/api/auth";
@@ -33,21 +35,30 @@ const PROTECTED_ROUTES = [
 ];
 
 // ---- Secret defensivo (NO rompe middleware) ----
+let _cachedEncodedKey = null;
+let _cachedKeyState = "unknown"; // "ok" | "misconfig" | "dev_fallback"
+
 function getEncodedKeySafe() {
+  // Cache simple por request-lifetime del worker
+  if (_cachedEncodedKey && _cachedKeyState !== "unknown") return _cachedEncodedKey;
+
   const secret = process.env.SESSION_SECRET;
 
-  // En producción debería existir y ser fuerte
   if (process.env.NODE_ENV === "production") {
     if (!secret || secret.length < 32) {
       console.error("❌ SESSION_SECRET missing/weak in production (middleware).");
-      return null; // señal de misconfig
+      _cachedEncodedKey = null;
+      _cachedKeyState = "misconfig";
+      return null;
     }
   }
 
-  // Dev/Preview: fallback para no caerse
   const effective =
     secret && secret.length >= 16 ? secret : "dev-only-insecure-secret";
-  return new TextEncoder().encode(effective);
+
+  _cachedEncodedKey = new TextEncoder().encode(effective);
+  _cachedKeyState = secret && secret.length >= 16 ? "ok" : "dev_fallback";
+  return _cachedEncodedKey;
 }
 
 function isPublicPath(pathname) {
