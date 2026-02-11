@@ -8,7 +8,7 @@ const DOMAIN =
     ? "http://localhost:3000"
     : "https://saludmentalcostarica.com");
 
-const EMAIL_FROM = "Salud Mental CR <onboarding@resend.dev>";
+const EMAIL_FROM = "Salud Mental CR <no-reply@saludmentalcostarica.com>";
 
 function getResend() {
   if (!process.env.RESEND_API_KEY) {
