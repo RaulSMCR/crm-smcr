@@ -1,9 +1,14 @@
-// src/app/registro/usuario/page.js
+// PATH: src/app/registro/usuario/page.js
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { registerUser } from "@/actions/auth-actions";
 
 export default function RegistroUsuarioPage() {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -19,7 +24,6 @@ export default function RegistroUsuarioPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
   // Para no “molestar” con errores desde el inicio, marcamos si el usuario ya tocó/intentó enviar.
@@ -70,7 +74,6 @@ export default function RegistroUsuarioPage() {
   const emailLooksValid = useMemo(() => {
     const v = (form.email ?? "").trim();
     if (!v) return false;
-    // validación simple (HTML también valida por type="email")
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
   }, [form.email]);
 
@@ -79,7 +82,6 @@ export default function RegistroUsuarioPage() {
     const birth = new Date(form.birthDate);
     if (Number.isNaN(birth.getTime())) return "Fecha de nacimiento inválida.";
 
-    // Validación suave de rango: 1900-01-01 hasta hoy
     const min = new Date("1900-01-01");
     const max = new Date();
     max.setHours(0, 0, 0, 0);
@@ -89,7 +91,6 @@ export default function RegistroUsuarioPage() {
     return "";
   }, [form.birthDate]);
 
-  // Lista de razones que bloquean el submit (para mostrarle al usuario el “por qué”)
   const blockingReasons = useMemo(() => {
     const reasons = [];
 
@@ -129,11 +130,10 @@ export default function RegistroUsuarioPage() {
   ]);
 
   function validateBeforeSubmit() {
-    // devolvemos el primer error (mensaje principal)
     return blockingReasons[0] ?? "";
   }
 
-  const canSubmit = blockingReasons.length === 0 && !loading;
+  const canSubmit = blockingReasons.length === 0 && !pending;
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -146,54 +146,34 @@ export default function RegistroUsuarioPage() {
       return;
     }
 
-    setLoading(true);
+    // ✅ Server Action: registerUser(formData)
+    const fd = new FormData();
+    fd.set("name", form.name.trim());
+    fd.set("email", form.email.trim().toLowerCase());
+    fd.set("password", form.password);
+    fd.set("confirmPassword", form.confirmPassword);
+    fd.set("phone", form.phone.trim());
 
-    try {
-      const payload = {
-        name: form.name.trim(),
-        email: form.email.trim(),
-        identification: form.identification.trim(),
-        birthDate: form.birthDate, // YYYY-MM-DD
-        phone: form.phone.trim(),
-        password: form.password,
-        gender: form.gender?.trim() || "",
-        interests: form.interests?.trim() || "",
-      };
+    // Campos extra (tu Server Action actual NO los guarda: los dejamos listos para futuro)
+    fd.set("identification", form.identification.trim());
+    fd.set("birthDate", form.birthDate);
+    fd.set("gender", form.gender?.trim() || "");
+    fd.set("interests", form.interests?.trim() || "");
 
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+    startTransition(async () => {
+      const res = await registerUser(fd);
 
-      let data = null;
-      try {
-        data = await res.json();
-      } catch {
-        // si el backend no devuelve JSON, evitamos que explote
-      }
-
-      if (!res.ok) {
-        // Mensaje más informativo: status + posible error
-        const apiMsg =
-          data?.error ||
-          data?.message ||
-          `Error al crear usuario (HTTP ${res.status})`;
-        setErrorMsg(apiMsg);
-        setLoading(false);
+      if (res?.error) {
+        setErrorMsg(res.error);
         return;
       }
 
-      window.location.href = "/";
-    } catch (err) {
-      setErrorMsg(
-        "Error de red o del servidor. Revisá tu conexión o el endpoint /api/auth/register."
-      );
-      setLoading(false);
-    }
+      // UX: mandamos al login con mensaje (ya lo soporta tu /ingresar/LoginClient.js)
+      router.push("/ingresar?registered=true");
+      router.refresh();
+    });
   }
 
-  // Para inputs date: max = hoy (YYYY-MM-DD)
   const todayStr = useMemo(() => {
     const d = new Date();
     const yyyy = d.getFullYear();
@@ -202,7 +182,6 @@ export default function RegistroUsuarioPage() {
     return `${yyyy}-${mm}-${dd}`;
   }, []);
 
-  // Mostrar panel de razones si: hay razones y (ya intentó enviar o está en debug)
   const showReasonsPanel =
     (submitAttempted || debugEnabled) && blockingReasons.length > 0;
 
@@ -237,17 +216,12 @@ export default function RegistroUsuarioPage() {
         <div className="mb-4 rounded-lg border border-neutral-300 bg-neutral-50 p-3">
           <p className="mb-2 text-sm font-semibold">Debug</p>
           <pre className="whitespace-pre-wrap text-xs text-neutral-700">
-            {JSON.stringify(
-              { canSubmit, loading, blockingReasons, form },
-              null,
-              2
-            )}
+            {JSON.stringify({ canSubmit, pending, blockingReasons, form }, null, 2)}
           </pre>
         </div>
       ) : null}
 
       <form onSubmit={onSubmit} className="space-y-4">
-        {/* Nombre */}
         <div className="space-y-1">
           <label className="text-sm font-medium">Nombre completo</label>
           <input
@@ -264,7 +238,6 @@ export default function RegistroUsuarioPage() {
           ) : null}
         </div>
 
-        {/* Email */}
         <div className="space-y-1">
           <label className="text-sm font-medium">Email</label>
           <input
@@ -277,12 +250,13 @@ export default function RegistroUsuarioPage() {
             autoComplete="email"
             required
           />
-          {(touched.email || submitAttempted) && form.email.trim() && !emailLooksValid ? (
+          {(touched.email || submitAttempted) &&
+          form.email.trim() &&
+          !emailLooksValid ? (
             <p className="text-xs text-red-600">El email no parece válido.</p>
           ) : null}
         </div>
 
-        {/* Identificación */}
         <div className="space-y-1">
           <label className="text-sm font-medium">
             Identificación (DNI / Cédula / Pasaporte)
@@ -296,14 +270,12 @@ export default function RegistroUsuarioPage() {
             autoComplete="off"
             required
           />
-          {(touched.identification || submitAttempted) && !form.identification.trim() ? (
-            <p className="text-xs text-red-600">
-              Completá tu identificación.
-            </p>
+          {(touched.identification || submitAttempted) &&
+          !form.identification.trim() ? (
+            <p className="text-xs text-red-600">Completá tu identificación.</p>
           ) : null}
         </div>
 
-        {/* Fecha de nacimiento */}
         <div className="space-y-1">
           <label className="text-sm font-medium">Fecha de nacimiento</label>
           <input
@@ -321,7 +293,6 @@ export default function RegistroUsuarioPage() {
           ) : null}
         </div>
 
-        {/* Teléfono */}
         <div className="space-y-1">
           <label className="text-sm font-medium">Teléfono</label>
           <input
@@ -339,7 +310,6 @@ export default function RegistroUsuarioPage() {
           ) : null}
         </div>
 
-        {/* Password */}
         <div className="space-y-1">
           <label className="text-sm font-medium">Contraseña</label>
           <div className="flex gap-2">
@@ -363,67 +333,39 @@ export default function RegistroUsuarioPage() {
             </button>
           </div>
 
-          {(touched.password || submitAttempted) && form.password && !passwordChecks.allOk ? (
-            <p className="text-xs text-red-600">
-              La contraseña no cumple los requisitos.
-            </p>
+          {(touched.password || submitAttempted) &&
+          form.password &&
+          !passwordChecks.allOk ? (
+            <p className="text-xs text-red-600">La contraseña no cumple los requisitos.</p>
           ) : null}
 
-          <div
-            id="password-help"
-            className="mt-2 rounded-lg border border-neutral-200 bg-neutral-50 p-3"
-          >
+          <div id="password-help" className="mt-2 rounded-lg border border-neutral-200 bg-neutral-50 p-3">
             <p className="mb-2 text-xs font-medium text-neutral-700">
               Requisitos de seguridad
             </p>
             <ul className="space-y-1 text-xs">
-              <li
-                className={
-                  passwordChecks.lengthOk ? "text-green-700" : "text-neutral-600"
-                }
-              >
+              <li className={passwordChecks.lengthOk ? "text-green-700" : "text-neutral-600"}>
                 • Mínimo 12 caracteres
               </li>
-              <li
-                className={
-                  passwordChecks.lowerOk ? "text-green-700" : "text-neutral-600"
-                }
-              >
+              <li className={passwordChecks.lowerOk ? "text-green-700" : "text-neutral-600"}>
                 • Al menos 1 letra minúscula
               </li>
-              <li
-                className={
-                  passwordChecks.upperOk ? "text-green-700" : "text-neutral-600"
-                }
-              >
+              <li className={passwordChecks.upperOk ? "text-green-700" : "text-neutral-600"}>
                 • Al menos 1 letra mayúscula
               </li>
-              <li
-                className={
-                  passwordChecks.numberOk ? "text-green-700" : "text-neutral-600"
-                }
-              >
+              <li className={passwordChecks.numberOk ? "text-green-700" : "text-neutral-600"}>
                 • Al menos 1 número
               </li>
-              <li
-                className={
-                  passwordChecks.symbolOk ? "text-green-700" : "text-neutral-600"
-                }
-              >
+              <li className={passwordChecks.symbolOk ? "text-green-700" : "text-neutral-600"}>
                 • Al menos 1 símbolo (ej: !@#$)
               </li>
-              <li
-                className={
-                  passwordChecks.noEmailOk ? "text-green-700" : "text-neutral-600"
-                }
-              >
+              <li className={passwordChecks.noEmailOk ? "text-green-700" : "text-neutral-600"}>
                 • No debe contener tu email
               </li>
             </ul>
           </div>
         </div>
 
-        {/* Confirm password */}
         <div className="space-y-1">
           <label className="text-sm font-medium">Confirmar contraseña</label>
           <div className="flex gap-2">
@@ -462,7 +404,6 @@ export default function RegistroUsuarioPage() {
 
         <hr className="my-2" />
 
-        {/* Género */}
         <div className="space-y-1">
           <label className="text-sm font-medium">Género (opcional)</label>
           <input
@@ -473,7 +414,6 @@ export default function RegistroUsuarioPage() {
           />
         </div>
 
-        {/* Intereses */}
         <div className="space-y-1">
           <label className="text-sm font-medium">
             Intereses relacionados a salud mental (opcional)
@@ -490,41 +430,26 @@ export default function RegistroUsuarioPage() {
           </p>
         </div>
 
-        {/* BOTÓN BRAND */}
         <button
           type="submit"
           disabled={!canSubmit}
           className="
-            w-full
-            rounded-lg
-            bg-brand-600
-            px-4
-            py-2
-            font-semibold
-            text-white
-            transition
-            hover:bg-brand-700
-            focus:outline-none
-            focus:ring-2
-            focus:ring-brand-600
-            focus:ring-offset-2
-            disabled:cursor-not-allowed
-            disabled:opacity-60
+            w-full rounded-lg bg-brand-600 px-4 py-2 font-semibold text-white transition
+            hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2
+            disabled:cursor-not-allowed disabled:opacity-60
           "
         >
-          {loading ? "Creando..." : "Crear usuario"}
+          {pending ? "Creando..." : "Crear usuario"}
         </button>
 
-        {/* Mensaje explícito cuando el botón está deshabilitado */}
-        {!canSubmit && !loading ? (
+        {!canSubmit && !pending ? (
           <p className="text-xs text-neutral-600">
             El botón está deshabilitado porque aún hay datos inválidos o incompletos. Revisá el recuadro de arriba.
           </p>
         ) : null}
 
         <p className="text-xs text-neutral-500">
-          Consejo: usá una contraseña única (idealmente una frase larga) y no la
-          reutilices en otros sitios.
+          Consejo: usá una contraseña única (idealmente una frase larga) y no la reutilices en otros sitios.
         </p>
       </form>
     </main>
