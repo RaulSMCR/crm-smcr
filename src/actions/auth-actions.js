@@ -5,13 +5,19 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache"; // <--- IMPORTANTE PARA EL 404
+import { revalidatePath } from "next/cache";
 import crypto from "crypto";
-import { resend } from "@/lib/resend"; 
-import { signToken, getSession as getLibSession } from "@/lib/auth"; 
+import { resend } from "@/lib/resend";
+import { signToken, getSession as getLibSession } from "@/lib/auth";
 
-// URL BASE
-const BASE_URL = process.env.NEXT_PUBLIC_URL || "https://saludmentalcostarica.com";
+// URL BASE (mejor para dev/preview/prod)
+const BASE_URL =
+  process.env.NEXT_PUBLIC_URL ||
+  (process.env.NODE_ENV === "development" ? "http://localhost:3000" : "https://saludmentalcostarica.com");
+
+function normalizeEmail(v) {
+  return String(v || "").trim().toLowerCase();
+}
 
 /* -------------------------------------------------------------------------- */
 /* 0. UTILIDADES DE SESIÓN                                                    */
@@ -26,15 +32,15 @@ export async function getSession() {
 /* -------------------------------------------------------------------------- */
 
 export async function login(formData) {
-  const email = formData.get("email");
-  const password = formData.get("password");
+  const email = normalizeEmail(formData.get("email"));
+  const password = String(formData.get("password") || "");
 
   if (!email || !password) return { error: "Credenciales requeridas." };
 
   try {
-    const user = await prisma.user.findUnique({ 
+    const user = await prisma.user.findUnique({
       where: { email },
-      include: { professionalProfile: true } 
+      include: { professionalProfile: true },
     });
 
     if (!user || !user.password) {
@@ -44,41 +50,49 @@ export async function login(formData) {
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) return { error: "Credenciales inválidas." };
 
-    if (user.role === 'PROFESSIONAL' && !user.isApproved) {
-      return { error: "Tu cuenta está pendiente de aprobación por la administración." };
+    // ✅ Coherencia con /api/auth/me: no permitimos sesión sin verificar email
+    if (!user.emailVerified) {
+      return { error: "Debes verificar tu email primero.", code: "EMAIL_NOT_VERIFIED" };
+    }
+
+    if (user.role === "PROFESSIONAL" && !user.isApproved) {
+      return { error: "Tu cuenta está pendiente de aprobación por la administración.", code: "PRO_NOT_APPROVED" };
     }
 
     if (!user.isActive) {
       return { error: "Esta cuenta ha sido desactivada. Contacta soporte." };
     }
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLogin: new Date() }
-    }).catch(err => console.error("Error actualizando lastLogin:", err));
+    await prisma.user
+      .update({
+        where: { id: user.id },
+        data: { lastLogin: new Date() },
+      })
+      .catch((err) => console.error("Error actualizando lastLogin:", err));
 
     const sessionData = {
       sub: user.id,
+      userId: user.id, // por compatibilidad con /api/auth/me si lo usas
       email: user.email,
       role: user.role,
       isApproved: user.isApproved,
+      emailVerified: user.emailVerified,
       name: user.name,
-      professionalId: user.professionalProfile?.id || null,
-      slug: user.professionalProfile?.slug || null
+      professionalProfileId: user.professionalProfile?.id || null,
+      slug: user.professionalProfile?.slug || null,
     };
 
     const token = await signToken(sessionData);
-    
+
     cookies().set("session", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), 
+      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       sameSite: "lax",
       path: "/",
     });
 
     return { success: true, role: user.role };
-
   } catch (error) {
     console.error("Login error:", error);
     return { error: "Ocurrió un error inesperado." };
@@ -90,19 +104,21 @@ export async function login(formData) {
 /* -------------------------------------------------------------------------- */
 
 export async function registerProfessional(formData) {
-  const name = formData.get('name');
-  const email = formData.get('email');
-  const password = formData.get('password');
-  const confirmPassword = formData.get('confirmPassword');
-  
-  const specialty = formData.get('specialty');
-  const phone = formData.get('phone'); 
-  const bio = formData.get('bio');
-  const coverLetter = formData.get('coverLetter'); 
-  const cvUrl = formData.get('cvUrl'); 
-  const licenseNumber = formData.get('licenseNumber');
+  const name = String(formData.get("name") || "").trim();
+  const email = normalizeEmail(formData.get("email"));
+  const password = String(formData.get("password") || "");
+  const confirmPassword = String(formData.get("confirmPassword") || "");
 
-  const acquisitionChannel = formData.get('acquisitionChannel') || 'Directo';
+  const specialty = String(formData.get("specialty") || "").trim();
+  const phone = formData.get("phone") ? String(formData.get("phone")).trim() : null;
+  const bio = formData.get("bio") ? String(formData.get("bio")).trim() : null;
+  const coverLetter = formData.get("coverLetter") ? String(formData.get("coverLetter")).trim() : null;
+  const cvUrl = formData.get("cvUrl") ? String(formData.get("cvUrl")).trim() : null;
+  const licenseNumber = formData.get("licenseNumber") ? String(formData.get("licenseNumber")).trim() : null;
+
+  const acquisitionChannel = formData.get("acquisitionChannel")
+    ? String(formData.get("acquisitionChannel")).trim()
+    : "Directo";
 
   if (!name || !email || !password || !specialty) return { error: "Faltan campos obligatorios." };
   if (password !== confirmPassword) return { error: "Las contraseñas no coinciden." };
@@ -112,18 +128,29 @@ export async function registerProfessional(formData) {
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) return { error: "El correo ya está registrado." };
 
-    let slug = name.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-');
+    let slugBase = name
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, "")
+      .replace(/[\s_-]+/g, "-");
+
+    let slug = slugBase || "profesional";
     let count = 0;
-    while (await prisma.professionalProfile.findUnique({ where: { slug: count === 0 ? slug : `${slug}-${count}` } })) {
+
+    while (
+      await prisma.professionalProfile.findUnique({
+        where: { slug: count === 0 ? slug : `${slug}-${count}` },
+      })
+    ) {
       count++;
     }
     slug = count === 0 ? slug : `${slug}-${count}`;
 
     const hashedPassword = await bcrypt.hash(password, 12);
-    
-    const verifyToken = crypto.randomBytes(32).toString('hex');
-    const verifyTokenHash = crypto.createHash('sha256').update(verifyToken).digest('hex');
-    
+
+    const verifyToken = crypto.randomBytes(32).toString("hex");
+    const verifyTokenHash = crypto.createHash("sha256").update(verifyToken).digest("hex");
+
     await prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
         data: {
@@ -131,14 +158,15 @@ export async function registerProfessional(formData) {
           email,
           password: hashedPassword,
           phone,
-          role: 'PROFESSIONAL',
-          isApproved: false, 
+          role: "PROFESSIONAL",
+          isApproved: false,
+          isActive: true,
           emailVerified: false,
-          verifyTokenHash: verifyTokenHash,
+          verifyTokenHash,
           verifyTokenExp: new Date(Date.now() + 24 * 60 * 60 * 1000),
-          acquisitionChannel: acquisitionChannel, 
-          campaignName: 'Captación Profesionales'
-        }
+          acquisitionChannel,
+          campaignName: "Captación Profesionales",
+        },
       });
 
       await tx.professionalProfile.create({
@@ -147,10 +175,10 @@ export async function registerProfessional(formData) {
           specialty,
           slug,
           bio,
-          coverLetter: coverLetter || null,
-          cvUrl: cvUrl || null,
-          licenseNumber: licenseNumber || "Pendiente",
-        }
+          coverLetter,
+          cvUrl,
+          licenseNumber: licenseNumber || null,
+        },
       });
     });
 
@@ -158,28 +186,28 @@ export async function registerProfessional(formData) {
       console.error("⚠️ RESEND_API_KEY no configurada.");
     } else {
       const { error } = await resend.emails.send({
-        from: 'Salud Mental Costa Rica <onboarding@resend.dev>',
+        from: "Salud Mental Costa Rica <onboarding@resend.dev>",
         to: email,
-        subject: 'Recibimos tu solicitud profesional',
+        subject: "Recibimos tu solicitud profesional",
         html: `
           <div style="font-family: sans-serif; color: #333;">
             <h2>Hola ${name},</h2>
-            <p>Hemos recibido tu solicitud y tu CV correctamente.</p>
+            <p>Hemos recibido tu solicitud.</p>
             <p>Por favor confirma tu correo para continuar:</p>
             <p>
-                <a href="${BASE_URL}/verificar-email?token=${verifyToken}" style="background-color: #2563EB; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
-                    Verificar Email
-                </a>
+              <a href="${BASE_URL}/verificar-email?token=${verifyToken}"
+                 style="background-color: #2563EB; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                Verificar Email
+              </a>
             </p>
           </div>
-        `
+        `,
       });
 
       if (error) console.error("❌ Error enviando email a Profesional:", error);
     }
 
     return { success: true };
-
   } catch (error) {
     console.error("Error registro profesional:", error);
     return { error: "Error al crear la cuenta. Inténtalo de nuevo." };
@@ -191,12 +219,15 @@ export async function registerProfessional(formData) {
 /* -------------------------------------------------------------------------- */
 
 export async function registerUser(formData) {
-  const name = formData.get('name');
-  const email = formData.get('email');
-  const password = formData.get('password');
-  const confirmPassword = formData.get('confirmPassword');
-  const phone = formData.get('phone');
-  const acquisitionChannel = formData.get('acquisitionChannel') || 'Directo'; 
+  const name = String(formData.get("name") || "").trim();
+  const email = normalizeEmail(formData.get("email"));
+  const password = String(formData.get("password") || "");
+  const confirmPassword = String(formData.get("confirmPassword") || "");
+  const phone = formData.get("phone") ? String(formData.get("phone")).trim() : null;
+
+  const acquisitionChannel = formData.get("acquisitionChannel")
+    ? String(formData.get("acquisitionChannel")).trim()
+    : "Directo";
 
   if (!name || !email || !password) return { error: "Datos incompletos." };
   if (password !== confirmPassword) return { error: "Las contraseñas no coinciden." };
@@ -206,10 +237,10 @@ export async function registerUser(formData) {
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) return { error: "El correo ya está registrado." };
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    
-    const verifyToken = crypto.randomBytes(32).toString('hex');
-    const verifyTokenHash = crypto.createHash('sha256').update(verifyToken).digest('hex');
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    const verifyToken = crypto.randomBytes(32).toString("hex");
+    const verifyTokenHash = crypto.createHash("sha256").update(verifyToken).digest("hex");
 
     await prisma.user.create({
       data: {
@@ -217,41 +248,39 @@ export async function registerUser(formData) {
         email,
         password: hashedPassword,
         phone,
-        role: 'USER',
-        isApproved: true, 
+        role: "USER",
+        isApproved: true,
+        isActive: true,
         emailVerified: false,
         verifyTokenHash,
         verifyTokenExp: new Date(Date.now() + 24 * 60 * 60 * 1000),
         acquisitionChannel,
-      }
+      },
     });
 
     if (!process.env.RESEND_API_KEY) {
       console.error("⚠️ RESEND_API_KEY no configurada.");
     } else {
-      const { data, error } = await resend.emails.send({
-        from: 'Salud Mental Costa Rica <onboarding@resend.dev>',
+      const { error } = await resend.emails.send({
+        from: "Salud Mental Costa Rica <onboarding@resend.dev>",
         to: email,
-        subject: 'Bienvenido a SMCR - Confirma tu cuenta',
+        subject: "Bienvenido a SMCR - Confirma tu cuenta",
         html: `
           <div style="font-family: sans-serif; color: #333;">
             <h2>¡Bienvenido, ${name}!</h2>
             <p>Gracias por unirte a nuestra comunidad.</p>
             <p>Para activar tu cuenta, confirma tu correo:</p>
             <p>
-                <a href="${BASE_URL}/verificar-email?token=${verifyToken}" style="background-color: #2563EB; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
-                    Verificar mi Email
-                </a>
+              <a href="${BASE_URL}/verificar-email?token=${verifyToken}"
+                 style="background-color: #2563EB; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                Verificar mi Email
+              </a>
             </p>
           </div>
-        `
+        `,
       });
 
-      if (error) {
-        console.error("❌ RESEND API ERROR:", error);
-      } else {
-        console.log("✅ Email enviado a:", email, "ID:", data?.id);
-      }
+      if (error) console.error("❌ RESEND API ERROR:", error);
     }
 
     return { success: true };
@@ -266,28 +295,32 @@ export async function registerUser(formData) {
 /* -------------------------------------------------------------------------- */
 
 export async function verifyEmail(token) {
-  if (!token) return { error: "Token inválido." };
-  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const t = String(token || "");
+  if (!t) return { error: "Token inválido." };
+
+  const tokenHash = crypto.createHash("sha256").update(t).digest("hex");
 
   try {
     const user = await prisma.user.findFirst({
-      where: { 
+      where: {
         verifyTokenHash: tokenHash,
-        verifyTokenExp: { gt: new Date() } 
-      }
+        verifyTokenExp: { gt: new Date() },
+      },
     });
 
     if (!user) return { error: "Token inválido o expirado." };
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { 
+      data: {
         emailVerified: true,
         verifyTokenHash: null,
-        verifyTokenExp: null
-      }
+        verifyTokenExp: null,
+      },
     });
 
+    // (Opcional) Aquí podrías iniciar sesión automáticamente si quieres
+    // pero lo dejamos simple por ahora.
     return { success: true, role: user.role, email: user.email };
   } catch (error) {
     console.error("Error verificando email:", error);
@@ -298,17 +331,14 @@ export async function verifyEmail(token) {
 /* -------------------------------------------------------------------------- */
 /* 5. LOGOUT (CORREGIDO PARA EVITAR 404)                                      */
 /* -------------------------------------------------------------------------- */
+
 export async function logout() {
   try {
-    // Intentamos borrar la cookie de sesión
     cookies().delete("session");
   } catch (error) {
     console.error("Error al borrar cookie en logout (no crítico):", error);
   }
 
-  // Limpiamos caché de Next.js para asegurar que el middleware no lea datos viejos
   revalidatePath("/", "layout");
-
-  // Redirección fuera del Try/Catch
   redirect("/ingresar");
 }

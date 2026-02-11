@@ -1,128 +1,143 @@
 // src/middleware.js
-import { NextResponse } from 'next/server';
-import { jwtVerify } from 'jose';
+import { NextResponse } from "next/server";
+import { jwtVerify } from "jose";
 
-// 1. DEFINICIÓN DE RUTAS PÚBLICAS
-const PUBLIC_PATHS = [
-  '/', 
-  '/ingresar', 
-  '/recuperar', 
-  '/registro', 
-  '/registro/usuario', 
-  '/registro/profesional',
-  '/blog', 
-  '/contacto', 
-  '/faq', 
-  '/nosotros', 
-  '/servicios',
-  '/espera-aprobacion'
+function getEncodedKey() {
+  const secret = process.env.SESSION_SECRET;
+
+  if (process.env.NODE_ENV === "production" && (!secret || secret.length < 32)) {
+    throw new Error("Missing or weak SESSION_SECRET in production.");
+  }
+
+  const effective = secret && secret.length >= 16 ? secret : "dev-only-insecure-secret";
+  return new TextEncoder().encode(effective);
+}
+
+const encodedKey = getEncodedKey();
+
+// Públicas exactas (solo esa ruta exacta)
+const PUBLIC_EXACT = new Set([
+  "/",
+  "/ingresar",
+  "/recuperar",
+  "/registro",
+  "/registro/usuario",
+  "/registro/profesional",
+  "/contacto",
+  "/faq",
+  "/nosotros",
+  "/servicios",
+  "/espera-aprobacion",
+]);
+
+// Públicas por prefijo (permiten subrutas)
+const PUBLIC_PREFIX = [
+  "/blog",
+  // agrega aquí otras secciones públicas con slugs
 ];
 
-// 2. RUTAS PROTEGIDAS (Ajustadas a tu estructura real)
+// API de auth pública
+const API_AUTH_PREFIX = "/api/auth";
+
+// Rutas protegidas por rol
 const PROTECTED_ROUTES = [
-  { prefix: '/panel/admin', role: 'ADMIN' },       // <--- CORREGIDO
-  { prefix: '/panel/profesional', role: 'PROFESSIONAL' },
-  { prefix: '/panel/paciente', role: 'USER' },
-  // API routes
-  { prefix: '/api/admin', role: 'ADMIN' }, 
-  { prefix: '/api/panel', role: 'PROFESSIONAL' }
-];
+  { prefix: "/panel/admin", role: "ADMIN" },
+  { prefix: "/panel/profesional", role: "PROFESSIONAL" },
+  { prefix: "/panel/paciente", role: "USER" },
 
-// 3. CLAVE SECRETA (Debe coincidir EXACTAMENTE con lib/auth.js)
-// Si en lib/auth.js usaste un fallback, aquí debe ser EL MISMO.
-const SECRET_KEY = process.env.SESSION_SECRET || "default-secret-key-change-it";
-const encodedKey = new TextEncoder().encode(SECRET_KEY);
+  { prefix: "/api/admin", role: "ADMIN" },
+
+  // ⚠️ Ajusta estos prefijos a tus APIs reales cuando existan:
+  // { prefix: "/api/professional", role: "PROFESSIONAL" },
+  // { prefix: "/api/appointments", role: "USER" }, etc.
+];
 
 async function getPayloadFromCookie(request) {
+  const token = request.cookies.get("session")?.value;
+  if (!token) return null;
+
   try {
-    const token = request.cookies.get('session')?.value;
-    if (!token) return null;
-    
-    // Verificamos el token
-    const { payload } = await jwtVerify(token, encodedKey, {
-      algorithms: ['HS256'],
-    });
-    return payload; 
-  } catch (error) {
-    // Si el token está manipulado o expirado, retornamos null
+    const { payload } = await jwtVerify(token, encodedKey, { algorithms: ["HS256"] });
+    return payload;
+  } catch {
     return null;
   }
+}
+
+function isPublicPath(pathname) {
+  if (PUBLIC_EXACT.has(pathname)) return true;
+  return PUBLIC_PREFIX.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
 export async function middleware(request) {
   const { pathname, search } = request.nextUrl;
 
-  // A. Ignorar archivos estáticos y de Next.js
+  // A) Ignorar estáticos
   if (
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/images') ||
-    pathname.startsWith('/favicon.ico') ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/images") ||
+    pathname === "/favicon.ico" ||
     pathname.match(/\.(ico|png|jpg|jpeg|svg|gif|webp|css|js|map)$/)
   ) {
     return NextResponse.next();
   }
 
-  // B. Permitir rutas públicas explícitas
-  // Verificamos si la ruta actual coincide con alguna pública
-  const isPublic = PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(`${p}/`));
-  const isApiAuth = pathname.startsWith('/api/auth');
+  const isApiAuth = pathname.startsWith(API_AUTH_PREFIX);
+  const isPublic = isPublicPath(pathname);
 
-  if ((isPublic || isApiAuth) && !pathname.startsWith('/api/admin')) {
-    // Si ya tiene sesión e intenta ir al login, lo redirigimos a su panel
+  // B) Permitir públicas y /api/auth
+  if (isPublic || isApiAuth) {
+    // Si está logueado e intenta /ingresar, mandarlo a su panel
     const payload = await getPayloadFromCookie(request);
-    if (payload && pathname === '/ingresar') {
-         if (payload.role === 'ADMIN') return NextResponse.redirect(new URL('/panel/admin', request.url));
-         if (payload.role === 'PROFESSIONAL') return NextResponse.redirect(new URL('/panel/profesional', request.url));
-         if (payload.role === 'USER') return NextResponse.redirect(new URL('/panel/paciente', request.url));
+    if (payload && pathname === "/ingresar") {
+      if (payload.role === "ADMIN") return NextResponse.redirect(new URL("/panel/admin", request.url));
+      if (payload.role === "PROFESSIONAL") return NextResponse.redirect(new URL("/panel/profesional", request.url));
+      return NextResponse.redirect(new URL("/panel/paciente", request.url));
     }
     return NextResponse.next();
   }
 
-  // C. Comprobar Protección de Rutas
-  const protectionRule = PROTECTED_ROUTES.find(r => pathname.startsWith(r.prefix));
+  // C) ¿Ruta protegida?
+  const rule = PROTECTED_ROUTES.find((r) => pathname.startsWith(r.prefix));
+  if (!rule) return NextResponse.next();
 
-  // Si no es una ruta protegida explícitamente, dejamos pasar (seguridad por lista blanca)
-  if (!protectionRule) {
-    return NextResponse.next();
-  }
-
-  // --- ZONA SEGURA (Requiere Autenticación) ---
   const payload = await getPayloadFromCookie(request);
 
-  // 1. No hay sesión -> Login
+  // 1) Sin sesión
   if (!payload) {
-    if (pathname.startsWith('/api')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (pathname.startsWith("/api")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const url = new URL('/ingresar', request.url);
-    // Guardamos la URL a la que quería ir para redirigirlo después
-    url.searchParams.set('next', pathname + (search || ''));
+    const url = new URL("/ingresar", request.url);
+    url.searchParams.set("next", pathname + (search || ""));
     return NextResponse.redirect(url);
   }
 
-  // 2. ¿Profesional no aprobado?
-  if (
-    payload.role === 'PROFESSIONAL' && 
-    pathname.startsWith('/panel/profesional') && 
-    payload.isApproved === false
-  ) {
-    // Permitir acceso a una página de "Espera" si la creas, o redirigir
-    // Nota: Asegúrate de que /espera-aprobacion esté en PUBLIC_PATHS
-    return NextResponse.redirect(new URL('/espera-aprobacion', request.url));
-  }
-
-  // 3. Rol Incorrecto
-  if (payload.role !== protectionRule.role) {
-    if (pathname.startsWith('/api')) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  // 2) Profesional no aprobado (panel profesional)
+  if (payload.role === "PROFESSIONAL" && payload.isApproved === false) {
+    // Permitir que vea SOLO la espera y quizás su página de integraciones/perfil si la necesitas:
+    if (
+      pathname.startsWith("/panel/profesional") &&
+      pathname !== "/espera-aprobacion"
+    ) {
+      return NextResponse.redirect(new URL("/espera-aprobacion", request.url));
     }
 
-    // Redirigir al panel correcto según su rol
-    let target = '/ingresar';
-    if (payload.role === 'ADMIN') target = '/panel/admin';          // <--- CORREGIDO
-    else if (payload.role === 'PROFESSIONAL') target = '/panel/profesional';
-    else if (payload.role === 'USER') target = '/panel/paciente';
-    
+    // Si luego proteges APIs de profesional, aquí también podrías bloquearlas:
+    // if (pathname.startsWith("/api/professional")) return NextResponse.json({ error: "Not approved" }, { status: 403 });
+  }
+
+  // 3) Rol incorrecto
+  if (payload.role !== rule.role) {
+    if (pathname.startsWith("/api")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    let target = "/ingresar";
+    if (payload.role === "ADMIN") target = "/panel/admin";
+    else if (payload.role === "PROFESSIONAL") target = "/panel/profesional";
+    else target = "/panel/paciente";
+
     return NextResponse.redirect(new URL(target, request.url));
   }
 
@@ -130,8 +145,5 @@ export async function middleware(request) {
 }
 
 export const config = {
-  matcher: [
-    // Excluye archivos internos de Next.js y estáticos
-    '/((?!_next/static|_next/image|favicon\\.ico).*)'
-  ]
+  matcher: ["/((?!_next/static|_next/image|favicon\\.ico).*)"],
 };

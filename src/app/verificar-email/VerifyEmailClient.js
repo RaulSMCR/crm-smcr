@@ -1,4 +1,4 @@
-// src/app/verificar-email/VerifyEmailClient.js
+//src/app/verificar-email/VerifyEmailClient.js
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -19,6 +19,9 @@ export default function VerifyEmailClient() {
 
   const canVerify = useMemo(() => token.length > 0, [token]);
 
+  // ✅ Ya creamos /api/auth/resend-verification
+  const RESEND_ENABLED = true;
+
   useEffect(() => {
     let cancelled = false;
 
@@ -37,23 +40,25 @@ export default function VerifyEmailClient() {
         });
 
         const data = await res.json().catch(() => ({}));
-
         if (cancelled) return;
 
         if (!res.ok || !data?.ok) {
           setStatus("error");
-          setMessage(data?.error || "No se pudo verificar el correo. El enlace puede haber expirado.");
+          setMessage(
+            data?.error ||
+              "No se pudo verificar el correo. El enlace puede haber expirado."
+          );
           return;
         }
 
         setStatus("ok");
-        setMessage("¡Correo verificado! Ya podés iniciar sesión.");
+        setMessage("¡Correo verificado! Ya podés ingresar.");
 
-        // Redirigimos a login
+        // ✅ Ruta real de login en tu proyecto
         setTimeout(() => {
-          if (!cancelled) router.push("/login");
+          if (!cancelled) router.push("/ingresar");
         }, 1200);
-      } catch (e) {
+      } catch {
         if (cancelled) return;
         setStatus("error");
         setMessage("Error de red. Intentá nuevamente.");
@@ -88,7 +93,6 @@ export default function VerifyEmailClient() {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        // tu endpoint usa { error: "..."} (ej. 429)
         throw new Error(data?.error || "No se pudo reenviar.");
       }
 
@@ -114,7 +118,7 @@ export default function VerifyEmailClient() {
         {message}
       </p>
 
-      {status === "error" ? (
+      {status === "error" && RESEND_ENABLED ? (
         <div className="mt-4 rounded border bg-neutral-50 p-3">
           <div className="text-sm mb-2">
             Si el enlace venció, podés pedir uno nuevo:
