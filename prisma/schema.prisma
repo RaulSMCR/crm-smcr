@@ -5,14 +5,10 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-  // directUrl = env("DIRECT_URL")  <-- Opcional, pero para el deploy en Vercel solo necesitamos DATABASE_URL funcionando.
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL") // recomendado
 }
-
-// --------------------------------------------------------
-// ENUMS
-// --------------------------------------------------------
 
 enum Role {
   USER
@@ -42,83 +38,84 @@ enum PostStatus {
 }
 
 // --------------------------------------------------------
-// 1. USUARIOS & MARKETING (La Demanda)
+// USERS
 // --------------------------------------------------------
 
 model User {
-  id            String    @id @default(cuid())
+  id            String   @id @default(cuid())
   name          String
-  email         String    @unique
-  password      String
+  email         String   @unique
+  passwordHash  String
   image         String?
   phone         String?
-  role          Role      @default(USER)
-  
-  // --- Estado ---
-  isApproved    Boolean   @default(true) 
-  emailVerified Boolean   @default(false)
-  isActive      Boolean   @default(true)
-  lastLogin     DateTime? 
-  
-  // --- INTELIGENCIA DE MARKETING ---
-  // ¿De dónde vienen mis clientes?
-  acquisitionChannel String?   // Ej: "Instagram", "Google"
-  campaignName       String?   // Ej: "Verano2025"
-  
-  // --- Tokens ---
-  verifyTokenHash    String?
-  verifyTokenExp     DateTime?
-  resetToken         String?
-  resetTokenExp      DateTime?
+  role          Role     @default(USER)
 
-  // --- Relaciones ---
+  emailVerified Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  lastLogin     DateTime?
+
+  acquisitionChannel String?
+  campaignName       String?
+
+  verifyTokenHash String?
+  verifyTokenExp  DateTime?
+  resetTokenHash  String?
+  resetTokenExp   DateTime?
+
   professionalProfile ProfessionalProfile?
-  appointments        Appointment[]        @relation("PatientAppointments")
-  
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  appointments        Appointment[] @relation("PatientAppointments")
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 // --------------------------------------------------------
-// 2. PERFIL PROFESIONAL (La Oferta)
+// PROFESSIONAL PROFILE
 // --------------------------------------------------------
 
 model ProfessionalProfile {
-  id            String    @id @default(cuid())
-  
-  userId        String    @unique
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  slug          String    @unique
+  id            String @id @default(cuid())
+
+  userId        String @unique
+  user          User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  slug          String @unique
   specialty     String
-  licenseNumber String?   // <--- AGREGA ESTA LÍNEA (Puede ser opcional '?' o obligatorio)
-  bio           String?   @db.Text
-  coverLetter   String?   @db.Text
+  licenseNumber String?
+  bio           String? @db.Text
+  coverLetter   String? @db.Text
   cvUrl         String?
   introVideoUrl String?
-  
-  rating        Decimal?  @db.Decimal(2, 1) 
-  commission    Int       @default(10)      
-  
+
+  avatarUrl          String?
+  calendarUrl        String?
+  googleRefreshToken String? @db.Text
+  paymentLinkBase    String?
+
+  isApproved     Boolean @default(false)
+
+  rating        Decimal? @db.Decimal(2, 1)
+  commission    Int      @default(10)
+
   services      Service[]
   availability  Availability[]
   posts         Post[]
   appointments  Appointment[] @relation("ProAppointments")
-  
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 // --------------------------------------------------------
-// 3. BLOG & ANALÍTICAS DE CONTENIDO (El Imán)
+// BLOG
 // --------------------------------------------------------
 
 model Category {
-  id          String   @id @default(cuid())
-  name        String   @unique // Ej: "Ansiedad", "Nutrición"
-  slug        String   @unique
+  id          String  @id @default(cuid())
+  name        String  @unique
+  slug        String  @unique
   description String?
-  
+
   posts       Post[]
 
   createdAt   DateTime @default(now())
@@ -133,41 +130,38 @@ model Post {
   excerpt     String?    @db.Text
   coverImage  String?
   status      PostStatus @default(DRAFT)
-  
-  // --- MÉTRICAS DE ÉXITO ---
-  views       Int        @default(0) // Contador de visitas
-  readingTime Int?       // Minutos estimados de lectura (Ej: 5)
-  
-  // SEO
+
+  views       Int        @default(0)
+  readingTime Int?
+
   metaTitle   String?
   metaDesc    String?
 
-  // Relaciones
   authorId    String
   author      ProfessionalProfile @relation(fields: [authorId], references: [id])
-  
+
   categoryId  String?
-  category    Category?           @relation(fields: [categoryId], references: [id])
+  category    Category? @relation(fields: [categoryId], references: [id])
 
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
-  
-  @@index([views]) // Índice para ordenar rápidamente los "Más Leídos"
+
+  @@index([views])
 }
 
 // --------------------------------------------------------
-// 4. NEGOCIO & CITAS
+// BUSINESS
 // --------------------------------------------------------
 
 model Service {
-  id            String    @id @default(cuid())
+  id            String   @id @default(cuid())
   title         String
-  description   String?   @db.Text
-  price         Decimal   @db.Decimal(10, 2)
-  durationMin   Int       
-  isActive      Boolean   @default(true)
-  
-  professionals ProfessionalProfile[] 
+  description   String?  @db.Text
+  price         Decimal  @db.Decimal(10, 2)
+  durationMin   Int
+  isActive      Boolean  @default(true)
+
+  professionals ProfessionalProfile[]
   appointments  Appointment[]
 
   createdAt     DateTime @default(now())
@@ -175,43 +169,48 @@ model Service {
 }
 
 model Availability {
-  id             String              @id @default(cuid())
-  dayOfWeek      Int                 
-  startTime      String              
-  endTime        String              
-  
+  id             String @id @default(cuid())
+
+  dayOfWeek      Int      // 0..6
+  startTime      String   // "HH:mm"
+  endTime        String   // "HH:mm"
+
   professionalId String
   professional   ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
 
-  @@index([professionalId, dayOfWeek]) 
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([professionalId, dayOfWeek])
+  @@unique([professionalId, dayOfWeek, startTime, endTime])
 }
 
 model Appointment {
   id             String            @id @default(cuid())
   date           DateTime
-  endDate        DateTime          
+  endDate        DateTime
   status         AppointmentStatus @default(PENDING)
-  
-  pricePaid      Decimal?          @db.Decimal(10, 2) 
+
+  pricePaid      Decimal?          @db.Decimal(10, 2)
   paymentStatus  PaymentStatus     @default(UNPAID)
-  commissionFee  Decimal?          @db.Decimal(10, 2) 
-  
-  gcalEventId    String?           
-  meetLink       String?           
+  commissionFee  Decimal?          @db.Decimal(10, 2)
+
+  gcalEventId    String?
+  meetLink       String?
 
   patientId      String
-  patient        User              @relation("PatientAppointments", fields: [patientId], references: [id])
-  
+  patient        User               @relation("PatientAppointments", fields: [patientId], references: [id])
+
   professionalId String
   professional   ProfessionalProfile @relation("ProAppointments", fields: [professionalId], references: [id])
-  
+
   serviceId      String?
-  service        Service?          @relation(fields: [serviceId], references: [id])
+  service        Service?           @relation(fields: [serviceId], references: [id])
 
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  @@index([date])          
-  @@index([patientId])     
+  @@index([date])
+  @@index([patientId])
   @@index([professionalId])
 }

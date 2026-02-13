@@ -1,66 +1,112 @@
-//Abre src/actions/availability-actions.js.
-'use server'
+// src/actions/availability-actions.js
+"use server";
 
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth"; // <--- 1. CORRECCIÓN: Import directo desde la librería
-import { revalidatePath } from "next/cache";
+import { getSession } from "@/lib/auth";
+
+function toStr(x) {
+  if (x === undefined || x === null) return null;
+  return String(x);
+}
+
+async function requireProfessionalProfileId() {
+  const session = await getSession();
+  if (!session) throw new Error("No autorizado: sesión requerida.");
+
+  const role = toStr(session.role);
+  if (role !== "PROFESSIONAL") throw new Error("No autorizado: rol PROFESSIONAL requerido.");
+
+  // 1) Ideal: viene en sesión (por login)
+  const profId = toStr(session.professionalProfileId);
+  if (profId) return profId;
+
+  // 2) Fallback por userId/sub (si alguien manipula el token viejo, igual funciona)
+  const userId = toStr(session.userId) || toStr(session.sub);
+  if (userId) {
+    const prof = await prisma.professionalProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    if (prof?.id) return prof.id;
+  }
+
+  // 3) Fallback por email
+  const email = toStr(session.email);
+  if (email) {
+    const prof = await prisma.professionalProfile.findFirst({
+      where: { user: { email } },
+      select: { id: true },
+    });
+    if (prof?.id) return prof.id;
+  }
+
+  throw new Error("No se encontró el perfil profesional asociado a esta sesión.");
+}
+
+function validateBlock(b) {
+  const dayOfWeek = Number(b.dayOfWeek);
+  const startTime = String(b.startTime);
+  const endTime = String(b.endTime);
+
+  if (!Number.isInteger(dayOfWeek) || dayOfWeek < 0 || dayOfWeek > 6) {
+    return { ok: false, error: `Día inválido (${b.dayOfWeek}). Usa 0..6.` };
+  }
+  if (!/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime)) {
+    return { ok: false, error: "Hora inválida. Usa HH:mm (ej: 09:00)." };
+  }
+  if (endTime <= startTime) {
+    return { ok: false, error: "La hora fin debe ser mayor que la hora inicio." };
+  }
+  return { ok: true, dayOfWeek, startTime, endTime };
+}
 
 export async function getAvailability() {
-  const session = await getSession();
-  
-  // Verificación estricta
-  if (!session || session.role !== 'PROFESSIONAL') return { error: "No autorizado" };
-
-  // 2. CORRECCIÓN: Usar el ID del nuevo token plano
-  const professionalId = session.professionalId;
-
   try {
-    const availability = await prisma.availability.findMany({
-      where: { professionalId: professionalId },
-      orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }]
+    const professionalId = await requireProfessionalProfileId();
+    const data = await prisma.availability.findMany({
+      where: { professionalId },
+      orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
     });
-    return { success: true, data: availability };
-  } catch (error) {
-    console.error("Error getAvailability:", error);
-    return { success: false, error: "Error al cargar horarios" };
+    return { success: true, data };
+  } catch (err) {
+    console.error("Error getting availability:", err);
+    return { success: false, data: [], error: "No se pudieron cargar horarios.", details: String(err?.message ?? err) };
   }
 }
 
-export async function updateAvailability(scheduleData) {
-  const session = await getSession();
-  if (!session || session.role !== 'PROFESSIONAL') return { error: 'No autorizado' };
-
-  // 2. CORRECCIÓN: Usar el ID correcto
-  const professionalId = session.professionalId;
-
+export async function updateAvailability(payload) {
   try {
-    // Usamos una transacción para asegurar que no queden horarios "huérfanos" si algo falla
-    await prisma.$transaction(async (tx) => {
-      // A. Limpiamos TODO el horario previo de este profesional
-      await tx.availability.deleteMany({
-        where: { professionalId }
-      });
+    const professionalId = await requireProfessionalProfileId();
 
-      // B. Insertamos los nuevos bloques
-      if (scheduleData && scheduleData.length > 0) {
-        await tx.availability.createMany({
-          data: scheduleData.map(slot => ({
-            professionalId,
-            dayOfWeek: Number(slot.dayOfWeek),
-            startTime: slot.startTime,
-            endTime: slot.endTime,
-          }))
-        });
-      }
+    if (!Array.isArray(payload)) {
+      return { success: false, error: "Formato inválido: se esperaba un arreglo." };
+    }
+
+    if (payload.length === 0) {
+      await prisma.availability.deleteMany({ where: { professionalId } });
+      return { success: true };
+    }
+
+    const normalized = [];
+    for (const b of payload) {
+      const v = validateBlock(b);
+      if (!v.ok) return { success: false, error: v.error };
+      normalized.push({
+        professionalId,
+        dayOfWeek: v.dayOfWeek,
+        startTime: v.startTime,
+        endTime: v.endTime,
+      });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.availability.deleteMany({ where: { professionalId } });
+      await tx.availability.createMany({ data: normalized });
     });
 
-    revalidatePath('/panel/profesional');
-    revalidatePath('/panel/profesional/horarios');
-    
-    return { success: true, message: 'Horarios actualizados correctamente.' };
-
-  } catch (error) {
-    console.error("Error saving availability:", error);
-    return { error: 'Error interno al guardar.' };
+    return { success: true };
+  } catch (err) {
+    console.error("Error saving availability:", err);
+    return { success: false, error: "Error interno al guardar", details: String(err?.message ?? err) };
   }
 }
