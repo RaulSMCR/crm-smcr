@@ -1,10 +1,9 @@
 // src/app/registro/usuario/page.js
-// src/app/registro/usuario/page.js
 "use client";
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { registerUser } from "@/actions/auth-actions"; 
+import { registerUser } from "@/actions/auth-actions";
 import Link from "next/link";
 
 export default function RegistroUsuarioPage() {
@@ -34,7 +33,7 @@ export default function RegistroUsuarioPage() {
       length: pwd.length >= 8,
       number: /\d/.test(pwd),
       special: /[!@#$%^&*(),.?":{}|<>]/.test(pwd),
-      match: pwd && pwd === form.confirmPassword
+      match: pwd && pwd === form.confirmPassword,
     };
   }, [form.password, form.confirmPassword]);
 
@@ -43,13 +42,19 @@ export default function RegistroUsuarioPage() {
   function handleChange(e) {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
-    if (name === 'password' || name === 'confirmPassword') setTouched(true);
+    if (name === "password" || name === "confirmPassword") setTouched(true);
   }
 
   async function onSubmit(e) {
     e.preventDefault();
     setErrorMsg("");
     setTouched(true);
+
+    // ✅ Blindaje: Teléfono obligatorio también en front (server ya lo exige)
+    if (!String(form.phone || "").trim()) {
+      setErrorMsg("⚠️ El teléfono es obligatorio.");
+      return;
+    }
 
     if (!isPasswordValid) return; // Validación visual ya muestra errores
 
@@ -79,7 +84,6 @@ export default function RegistroUsuarioPage() {
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl w-full space-y-8">
-        
         {/* ENCABEZADO */}
         <div className="text-center">
           <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
@@ -92,7 +96,6 @@ export default function RegistroUsuarioPage() {
 
         {/* TARJETA PRINCIPAL */}
         <div className="bg-white py-8 px-6 shadow-xl shadow-slate-200/50 rounded-2xl border border-slate-100 sm:px-10">
-          
           {errorMsg && (
             <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-md">
               <div className="flex">
@@ -105,7 +108,6 @@ export default function RegistroUsuarioPage() {
           )}
 
           <form className="space-y-6" onSubmit={onSubmit}>
-            
             {/* SECCIÓN 1: DATOS BÁSICOS */}
             <div>
               <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">
@@ -113,7 +115,9 @@ export default function RegistroUsuarioPage() {
               </h3>
               <div className="grid grid-cols-1 gap-y-6 gap-x-6 sm:grid-cols-2">
                 <div className="sm:col-span-2">
-                  <label htmlFor="name" className="block text-sm font-medium text-slate-700">Nombre Completo</label>
+                  <label htmlFor="name" className="block text-sm font-medium text-slate-700">
+                    Nombre Completo
+                  </label>
                   <input
                     id="name"
                     name="name"
@@ -126,7 +130,9 @@ export default function RegistroUsuarioPage() {
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label htmlFor="email" className="block text-sm font-medium text-slate-700">Correo Electrónico</label>
+                  <label htmlFor="email" className="block text-sm font-medium text-slate-700">
+                    Correo Electrónico
+                  </label>
                   <input
                     id="email"
                     name="email"
@@ -138,8 +144,28 @@ export default function RegistroUsuarioPage() {
                   />
                 </div>
 
+                {/* ✅ TELÉFONO OBLIGATORIO (nuevo) */}
+                <div className="sm:col-span-2">
+                  <label htmlFor="phone" className="block text-sm font-medium text-slate-700">
+                    Teléfono (obligatorio)
+                  </label>
+                  <input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    required
+                    inputMode="tel"
+                    placeholder="+506 8888 8888"
+                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5 px-3"
+                    value={form.phone}
+                    onChange={handleChange}
+                  />
+                </div>
+
                 <div>
-                  <label htmlFor="identification" className="block text-sm font-medium text-slate-700">DNI / Cédula</label>
+                  <label htmlFor="identification" className="block text-sm font-medium text-slate-700">
+                    DNI / Cédula
+                  </label>
                   <input
                     name="identification"
                     type="text"
@@ -150,7 +176,9 @@ export default function RegistroUsuarioPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="birthDate" className="block text-sm font-medium text-slate-700">Fecha de Nacimiento</label>
+                  <label htmlFor="birthDate" className="block text-sm font-medium text-slate-700">
+                    Fecha de Nacimiento
+                  </label>
                   <input
                     name="birthDate"
                     type="date"
@@ -197,8 +225,8 @@ export default function RegistroUsuarioPage() {
                     type="password"
                     required
                     className={`mt-1 block w-full rounded-lg shadow-sm focus:ring-indigo-500 sm:text-sm py-2.5 px-3 transition-colors ${
-                      touched && !passwordChecks.match 
-                        ? "border-red-300 focus:border-red-500 bg-red-50" 
+                      touched && !passwordChecks.match
+                        ? "border-red-300 focus:border-red-500 bg-red-50"
                         : "border-slate-300 focus:border-indigo-500"
                     }`}
                     value={form.confirmPassword}
@@ -224,9 +252,11 @@ export default function RegistroUsuarioPage() {
                 type="submit"
                 disabled={loading || !isPasswordValid}
                 className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white transition-all
-                  ${loading || !isPasswordValid 
-                    ? 'bg-slate-400 cursor-not-allowed' 
-                    : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200 hover:shadow-indigo-300'}`}
+                  ${
+                    loading || !isPasswordValid
+                      ? "bg-slate-400 cursor-not-allowed"
+                      : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200 hover:shadow-indigo-300"
+                  }`}
               >
                 {loading ? "Procesando registro..." : "Crear mi cuenta"}
               </button>
@@ -235,7 +265,7 @@ export default function RegistroUsuarioPage() {
 
           <div className="mt-6 text-center">
             <p className="text-sm text-slate-600">
-              ¿Ya tienes una cuenta?{' '}
+              ¿Ya tienes una cuenta?{" "}
               <Link href="/ingresar" className="font-medium text-indigo-600 hover:text-indigo-500">
                 Inicia sesión aquí
               </Link>
@@ -250,10 +280,12 @@ export default function RegistroUsuarioPage() {
 // Subcomponente Estético
 function StatusBadge({ valid, label }) {
   return (
-    <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium transition-colors ${
-      valid ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-500'
-    }`}>
-      <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${valid ? 'bg-green-500' : 'bg-slate-400'}`}></span>
+    <span
+      className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium transition-colors ${
+        valid ? "bg-green-100 text-green-700" : "bg-slate-200 text-slate-500"
+      }`}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${valid ? "bg-green-500" : "bg-slate-400"}`}></span>
       {label}
     </span>
   );

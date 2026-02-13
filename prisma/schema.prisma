@@ -47,7 +47,7 @@ model User {
   email         String   @unique
   passwordHash  String
   image         String?
-  phone         String?
+  phone         String
   role          Role     @default(USER)
 
   emailVerified Boolean  @default(false)

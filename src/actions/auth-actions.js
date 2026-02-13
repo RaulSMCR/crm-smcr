@@ -18,6 +18,23 @@ function normalizeEmail(v) {
   return String(v || "").trim().toLowerCase();
 }
 
+function normalizePhone(v) {
+  // Simple: permitimos +, números, espacios, guiones y paréntesis
+  const s = String(v || "").trim();
+  if (!s) return "";
+  return s.replace(/\s+/g, " ");
+}
+
+function isPhoneValid(v) {
+  // Validación flexible (no country-specific), pero evita basura:
+  // - mínimo 8 dígitos totales
+  // - solo permite +0-9 espacios () -
+  const s = normalizePhone(v);
+  if (!/^[+0-9()\-\s]+$/.test(s)) return false;
+  const digits = (s.match(/\d/g) || []).length;
+  return digits >= 8;
+}
+
 /* 0) SESIÓN */
 export async function getSession() {
   return await getLibSession();
@@ -50,9 +67,7 @@ export async function login(formData) {
     }
 
     if (user.role === "PROFESSIONAL") {
-      if (!user.professionalProfile) {
-        return { error: "Perfil profesional incompleto. Contacta soporte." };
-      }
+      if (!user.professionalProfile) return { error: "Perfil profesional incompleto. Contacta soporte." };
       if (!user.professionalProfile.isApproved) {
         return { error: "Tu cuenta profesional está pendiente de aprobación.", code: "PRO_NOT_APPROVED" };
       }
@@ -69,11 +84,8 @@ export async function login(formData) {
       role: user.role,
       emailVerified: user.emailVerified,
       name: user.name,
-
       professionalProfileId: user.professionalProfile?.id || null,
       slug: user.professionalProfile?.slug || null,
-
-      // útil (pero no lo uses como fuente de verdad para permisos)
       isApproved: user.role === "PROFESSIONAL" ? !!user.professionalProfile?.isApproved : true,
     };
 
@@ -98,11 +110,13 @@ export async function login(formData) {
 export async function registerProfessional(formData) {
   const name = String(formData.get("name") || "").trim();
   const email = normalizeEmail(formData.get("email"));
+  const phoneRaw = formData.get("phone");
+  const phone = normalizePhone(phoneRaw);
+
   const password = String(formData.get("password") || "");
   const confirmPassword = String(formData.get("confirmPassword") || "");
 
   const specialty = String(formData.get("specialty") || "").trim();
-  const phone = formData.get("phone") ? String(formData.get("phone")).trim() : null;
   const bio = formData.get("bio") ? String(formData.get("bio")).trim() : null;
   const coverLetter = formData.get("coverLetter") ? String(formData.get("coverLetter")).trim() : null;
   const cvUrl = formData.get("cvUrl") ? String(formData.get("cvUrl")).trim() : null;
@@ -113,6 +127,9 @@ export async function registerProfessional(formData) {
     : "Directo";
 
   if (!name || !email || !password || !specialty) return { error: "Faltan campos obligatorios." };
+  if (!phone) return { error: "El teléfono es obligatorio." };
+  if (!isPhoneValid(phone)) return { error: "Teléfono inválido. Usa un número real (mínimo 8 dígitos)." };
+
   if (password !== confirmPassword) return { error: "Las contraseñas no coinciden." };
   if (password.length < 8) return { error: "La contraseña debe tener al menos 8 caracteres." };
 
@@ -139,8 +156,8 @@ export async function registerProfessional(formData) {
         data: {
           name,
           email,
+          phone, // ✅ obligatorio
           passwordHash: hashedPassword,
-          phone,
           role: "PROFESSIONAL",
           emailVerified: false,
           isActive: true,
@@ -185,8 +202,6 @@ export async function registerProfessional(formData) {
         `,
       });
       if (error) console.error("❌ Error enviando email a Profesional:", error);
-    } else {
-      console.error("⚠️ RESEND_API_KEY no configurada.");
     }
 
     return { success: true };
@@ -200,15 +215,20 @@ export async function registerProfessional(formData) {
 export async function registerUser(formData) {
   const name = String(formData.get("name") || "").trim();
   const email = normalizeEmail(formData.get("email"));
+  const phoneRaw = formData.get("phone");
+  const phone = normalizePhone(phoneRaw);
+
   const password = String(formData.get("password") || "");
   const confirmPassword = String(formData.get("confirmPassword") || "");
-  const phone = formData.get("phone") ? String(formData.get("phone")).trim() : null;
 
   const acquisitionChannel = formData.get("acquisitionChannel")
     ? String(formData.get("acquisitionChannel")).trim()
     : "Directo";
 
   if (!name || !email || !password) return { error: "Datos incompletos." };
+  if (!phone) return { error: "El teléfono es obligatorio." };
+  if (!isPhoneValid(phone)) return { error: "Teléfono inválido. Usa un número real (mínimo 8 dígitos)." };
+
   if (password !== confirmPassword) return { error: "Las contraseñas no coinciden." };
   if (password.length < 8) return { error: "La contraseña debe tener al menos 8 caracteres." };
 
@@ -225,8 +245,8 @@ export async function registerUser(formData) {
       data: {
         name,
         email,
+        phone, // ✅ obligatorio
         passwordHash: hashedPassword,
-        phone,
         role: "USER",
         emailVerified: false,
         isActive: true,
@@ -255,8 +275,6 @@ export async function registerUser(formData) {
         `,
       });
       if (error) console.error("❌ RESEND API ERROR:", error);
-    } else {
-      console.error("⚠️ RESEND_API_KEY no configurada.");
     }
 
     return { success: true };
