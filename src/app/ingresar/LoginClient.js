@@ -1,17 +1,16 @@
-// PATH: src/app/ingresar/LoginClient.js
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { login } from '@/actions/auth-actions';
-import Link from 'next/link';
+import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { login } from "@/actions/auth-actions";
+import Link from "next/link";
 
 function safeNextPath(nextValue) {
   // Solo permitimos rutas relativas internas para evitar open-redirect
-  const next = String(nextValue || '');
+  const next = String(nextValue || "");
   if (!next) return null;
-  if (!next.startsWith('/')) return null;
-  if (next.startsWith('//')) return null;
+  if (!next.startsWith("/")) return null;
+  if (next.startsWith("//")) return null;
   return next;
 }
 
@@ -19,21 +18,18 @@ export default function LoginClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
 
-  useEffect(() => {
-    if (searchParams.get('registered') === 'true') {
-      setSuccessMessage('¡Cuenta creada con éxito! Revisa tu correo para verificarla y luego inicia sesión.');
-    }
-  }, [searchParams]);
+  // ✅ NUEVO: detecta tipo de registro para mostrar mensaje correcto
+  const registered = searchParams.get("registered");
+  const isProfessionalRegistered = registered === "professional";
+  const isGenericRegistered = registered === "true" || registered === "user";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
-    setSuccessMessage('');
+    setError("");
 
     const formData = new FormData(e.target);
     const res = await login(formData);
@@ -45,19 +41,19 @@ export default function LoginClient() {
     }
 
     if (res?.success) {
-      const next = safeNextPath(searchParams.get('next'));
+      const next = safeNextPath(searchParams.get("next"));
       if (next) {
         router.push(next);
         return;
       }
 
-      if (res.role === 'ADMIN') router.push('/panel/admin');
-      else if (res.role === 'PROFESSIONAL') router.push('/panel/profesional');
-      else router.push('/panel/paciente');
+      if (res.role === "ADMIN") router.push("/panel/admin");
+      else if (res.role === "PROFESSIONAL") router.push("/panel/profesional");
+      else router.push("/panel/paciente");
       return;
     }
 
-    setError('No se pudo iniciar sesión. Intenta de nuevo.');
+    setError("No se pudo iniciar sesión. Intenta de nuevo.");
     setLoading(false);
   };
 
@@ -72,9 +68,40 @@ export default function LoginClient() {
           <p className="text-sm text-gray-500 mt-1">Accede a tu cuenta de Salud Mental CR</p>
         </div>
 
-        {successMessage && (
+        {/* ✅ MENSAJE POST-REGISTRO PROFESIONAL (2 PASOS + LLAMADA) */}
+        {isProfessionalRegistered && (
+          <div className="bg-green-50 text-green-800 p-4 rounded-lg text-sm border border-green-200 font-medium">
+            <div className="flex items-center gap-2">
+              ✅ <span className="font-bold">Solicitud profesional enviada con éxito</span>
+            </div>
+
+            <p className="mt-2 text-green-900">
+              Tu proceso tiene <span className="font-bold">2 pasos</span>:
+            </p>
+
+            <ol className="mt-2 list-decimal list-inside space-y-1">
+              <li>
+                <span className="font-semibold">Verificación por correo:</span> revisa tu email (y carpeta de spam)
+                para confirmar tu cuenta.
+              </li>
+              <li>
+                <span className="font-semibold">Entrevista y aprobación:</span> luego, el{" "}
+                <span className="font-bold">director del equipo profesional</span> te estará{" "}
+                <span className="font-bold">llamando</span> al teléfono/WhatsApp que registraste para una breve
+                entrevista y finalizar la aprobación.
+              </li>
+            </ol>
+
+            <p className="mt-2 text-xs text-green-800">
+              Mientras se completa el paso 2, tu perfil puede aparecer como <span className="font-semibold">“en revisión”</span>.
+            </p>
+          </div>
+        )}
+
+        {/* ✅ MENSAJE POST-REGISTRO GENÉRICO (PACIENTE / OTROS) */}
+        {!isProfessionalRegistered && isGenericRegistered && (
           <div className="bg-green-50 text-green-700 p-4 rounded-lg text-sm border border-green-200 font-medium flex items-center gap-2">
-            ✅ {successMessage}
+            ✅ ¡Cuenta creada con éxito! Revisa tu correo para verificarla y luego inicia sesión.
           </div>
         )}
 
@@ -130,23 +157,23 @@ export default function LoginClient() {
                   fill="none"
                   viewBox="0 0 24 24"
                 >
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path
                     className="opacity-75"
                     fill="currentColor"
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
+                  />
                 </svg>
                 Ingresando...
               </span>
             ) : (
-              'Ingresar al Portal'
+              "Ingresar al Portal"
             )}
           </button>
         </div>
 
         <div className="text-center text-sm text-gray-500 mt-6 pt-4 border-t border-gray-100">
-          ¿No tienes cuenta?{' '}
+          ¿No tienes cuenta?{" "}
           <div className="flex justify-center gap-4 mt-2 font-medium">
             <Link href="/registro/usuario" className="text-blue-600 hover:text-blue-800 transition">
               Soy Paciente

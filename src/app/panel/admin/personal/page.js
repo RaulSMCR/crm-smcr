@@ -5,26 +5,20 @@ import { rejectUser } from "@/actions/admin-actions";
 export const dynamic = "force-dynamic";
 
 export default async function AdminPersonnelPage() {
-  // ✅ Profesionales aprobados: el flag vive en el perfil profesional
   const professionals = await prisma.user.findMany({
     where: {
       role: "PROFESSIONAL",
-      professionalProfile: {
-        isApproved: true,
-      },
+      professionalProfile: { isApproved: true },
     },
     include: {
       professionalProfile: true,
-      _count: {
-        select: { appointments: true }, // si esto existe en User, ok
-      },
+      _count: { select: { appointments: true } },
     },
     orderBy: { name: "asc" },
   });
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8">
-      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-slate-800">Gestión de Personal</h1>
@@ -35,7 +29,6 @@ export default async function AdminPersonnelPage() {
         </div>
       </div>
 
-      {/* Tabla */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <table className="w-full text-left border-collapse">
           <thead className="bg-slate-50 border-b border-slate-200">
