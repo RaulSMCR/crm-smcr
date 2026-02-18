@@ -10,7 +10,7 @@ async function main() {
   const name = process.env.ADMIN_NAME || "Admin SMCR";
 
   // Importante: si luego haces phone NOT NULL, esto evita que falle el seed
-  const phone = process.env.ADMIN_PHONE || "00000000";
+  const phone = process.env.ADMIN_PHONE || "71291909";
 
   const passwordHash = await bcrypt.hash(password, 12);
 
