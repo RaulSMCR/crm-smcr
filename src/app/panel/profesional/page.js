@@ -1,4 +1,3 @@
-
 // src/app/panel/profesional/page.js
 import { redirect } from "next/navigation";
 import { getSession, logout } from "@/actions/auth-actions"; // 👈 IMPORTANTE: Importamos logout

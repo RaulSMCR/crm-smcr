@@ -22,11 +22,10 @@ export async function approveUser(userId) {
   if (!userId) return { error: "ID de usuario requerido" };
 
   try {
-    // ✅ Seguridad real
     const session = await getSession();
     requireAdmin(session);
 
-    // 1) Traemos el user + profile
+    // 1) user + profile
     const user = await prisma.user.findUnique({
       where: { id: String(userId) },
       include: { professionalProfile: true },
@@ -36,13 +35,20 @@ export async function approveUser(userId) {
     if (user.role !== "PROFESSIONAL") return { error: "El usuario no es profesional." };
     if (!user.professionalProfile) return { error: "El profesional no tiene perfil profesional." };
 
-    // 2) Aprobamos el perfil profesional (NO user.isApproved, ya no existe)
+    // 2) Aprobar perfil profesional (fuente de verdad)
     await prisma.professionalProfile.update({
       where: { id: user.professionalProfile.id },
       data: { isApproved: true },
     });
 
-    // 3) Email de confirmación (igual que antes)
+    // 3) (Opcional pero recomendado) activar usuario si estaba suspendido
+    //    Si tu modelo User NO tiene isActive, elimina este bloque.
+    await prisma.user.update({
+      where: { id: String(userId) },
+      data: { isActive: true },
+    });
+
+    // 4) Email (opcional)
     if (process.env.RESEND_API_KEY && user.email) {
       await resend.emails.send({
         from: "Salud Mental Costa Rica <onboarding@resend.dev>",
@@ -60,9 +66,14 @@ export async function approveUser(userId) {
       });
     }
 
-    // 4) Revalidaciones
+    // 5) Revalidaciones (ADMIN + PROFESIONAL)
     revalidatePath("/panel/admin");
     revalidatePath("/panel/admin/personal");
+
+    revalidatePath("/panel/profesional");
+    revalidatePath("/panel/profesional/perfil");
+    revalidatePath("/panel/profesional/cuenta");
+    revalidatePath("/panel/profesional/agenda");
 
     return { success: true };
   } catch (error) {
@@ -78,7 +89,6 @@ export async function rejectUser(userId) {
     const session = await getSession();
     requireAdmin(session);
 
-    // Política conservadora (como ya tenías): desactivar usuario
     await prisma.user.update({
       where: { id: String(userId) },
       data: { isActive: false },
@@ -86,6 +96,12 @@ export async function rejectUser(userId) {
 
     revalidatePath("/panel/admin");
     revalidatePath("/panel/admin/personal");
+
+    revalidatePath("/panel/profesional");
+    revalidatePath("/panel/profesional/perfil");
+    revalidatePath("/panel/profesional/cuenta");
+    revalidatePath("/panel/profesional/agenda");
+
     return { success: true };
   } catch (error) {
     console.error("Error rechazando usuario:", error);
@@ -139,7 +155,6 @@ export async function updatePostStatus(postId, newStatus) {
     const session = await getSession();
     requireAdmin(session);
 
-    // newStatus esperado: "PUBLISHED" | "DRAFT" | "ARCHIVED"
     await prisma.post.update({
       where: { id: String(postId) },
       data: { status: String(newStatus) },
