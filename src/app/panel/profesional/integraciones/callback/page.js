@@ -1,5 +1,5 @@
 // src/app/panel/profesional/integraciones/callback/page.js
-'use client';
+"use client";
 
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -19,12 +19,12 @@ function CallbackContent() {
 
     if (error) {
       setStatus("Error: Acceso denegado por el usuario.");
-      setTimeout(() => router.push("/panel/profesional"), 2500);
+      setTimeout(() => router.push("/panel/profesional"), 2000);
       return;
     }
     if (!code) return;
 
-    const runExchange = async () => {
+    (async () => {
       setProcessed(true);
       const result = await guardarCredencialesGoogle(code);
 
@@ -35,10 +35,8 @@ function CallbackContent() {
       } else {
         setStatus("Error: " + (result?.error || "Fallo desconocido"));
       }
-    };
-
-    runExchange();
-  }, [searchParams, router, processed]);
+    })();
+  }, [processed, router, searchParams]);
 
   return (
     <div className="p-8 max-w-xl mx-auto">

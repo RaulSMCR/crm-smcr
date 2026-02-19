@@ -1,90 +1,105 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+// src/app/api/admin/professionals/route.js
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
 
-// Forzamos dinamismo para evitar errores de compilación
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-// GET: Listar profesionales (Ya lo tenías, pero lo incluyo por completitud)
-export async function GET(request) {
+export async function GET() {
   try {
-    const professionals = await prisma.professional.findMany({
-      orderBy: { createdAt: 'desc' },
-      include: {
-        services: {
-          select: {
-            id: true,
-            title: true
-          }
-        }
-      }
+    const session = await getSession();
+    if (!session) return NextResponse.json({ message: "No autorizado" }, { status: 401 });
+    if (session.role !== "ADMIN") {
+      return NextResponse.json({ message: "Acción no permitida" }, { status: 403 });
+    }
+
+    const professionals = await prisma.professionalProfile.findMany({
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        specialty: true,
+        isApproved: true,
+        createdAt: true,
+        user: { select: { name: true, email: true } },
+        services: { select: { id: true, title: true } },
+      },
+      take: 200,
     });
-    return NextResponse.json(professionals);
+
+    // Adapter compat
+    const out = professionals.map((p) => ({
+      id: p.id,
+      name: p.user?.name || "",
+      email: p.user?.email || "",
+      profession: p.specialty,
+      isApproved: p.isApproved,
+      createdAt: p.createdAt,
+      services: p.services || [],
+    }));
+
+    return NextResponse.json(out);
   } catch (error) {
-    console.error('Error fetching professionals:', error);
-    return NextResponse.json({ error: 'Error al obtener profesionales' }, { status: 500 });
+    console.error("Error fetching professionals:", error);
+    return NextResponse.json({ message: "Error al obtener profesionales" }, { status: 500 });
   }
 }
 
-// POST: Crear nuevo profesional
 export async function POST(request) {
   try {
-    const data = await request.json();
+    const session = await getSession();
+    if (!session) return NextResponse.json({ message: "No autorizado" }, { status: 401 });
+    if (session.role !== "ADMIN") {
+      return NextResponse.json({ message: "Acción no permitida" }, { status: 403 });
+    }
 
-    // 1. Validaciones básicas
-    if (!data.name || !data.email || !data.profession) {
+    const data = await request.json().catch(() => ({}));
+    const { professionalProfileId, email, serviceIds, isApproved } = data || {};
+
+    let profId = professionalProfileId ? String(professionalProfileId) : null;
+
+    if (!profId && email) {
+      const user = await prisma.user.findUnique({
+        where: { email: String(email) },
+        select: { id: true, professionalProfile: { select: { id: true } } },
+      });
+      profId = user?.professionalProfile?.id || null;
+    }
+
+    if (!profId) {
       return NextResponse.json(
-        { error: 'Nombre, Email y Profesión son obligatorios' },
+        { message: "Debes enviar professionalProfileId o email de un profesional existente." },
         { status: 400 }
       );
     }
 
-    // 2. Verificar duplicados
-    const existingPro = await prisma.professional.findUnique({
-      where: { email: data.email },
-    });
+    const ids = Array.isArray(serviceIds) ? serviceIds.map(String).filter(Boolean) : null;
 
-    if (existingPro) {
-      return NextResponse.json(
-        { error: 'Ya existe un profesional con este email.' },
-        { status: 409 }
-      );
-    }
-
-    // 3. Preparar conexión de servicios (si se enviaron IDs)
-    // El frontend debe enviar un array de IDs: serviceIds: ["id1", "id2"]
-    const servicesConnect = data.serviceIds && Array.isArray(data.serviceIds)
-      ? data.serviceIds.map((id) => ({ id }))
-      : [];
-
-    // 4. Crear en Base de Datos
-    // IMPORTANTE: Solo incluimos los campos que DEFINIMOS en el schema.prisma
-    const newPro = await prisma.professional.create({
+    const updated = await prisma.professionalProfile.update({
+      where: { id: profId },
       data: {
-        name: data.name,
-        email: data.email,
-        profession: data.profession,
-        // Si el frontend envía string vacío, guardamos null para mantener la DB limpia
-        introVideoUrl: data.introVideoUrl || null,
-        
-        // Campos por defecto o lógica de negocio
-        isApproved: true, // Si lo crea un admin, nace aprobado
-        
-        // Conexión con servicios (Many-to-Many)
-        services: {
-          connect: servicesConnect
-        }
+        ...(typeof isApproved === "boolean" ? { isApproved } : {}),
+        ...(ids ? { services: { set: ids.map((id) => ({ id })) } } : {}),
+      },
+      select: {
+        id: true,
+        specialty: true,
+        isApproved: true,
+        user: { select: { name: true, email: true } },
+        services: { select: { id: true, title: true } },
       },
     });
 
-    return NextResponse.json(newPro, { status: 201 });
-
+    return NextResponse.json({
+      id: updated.id,
+      name: updated.user?.name || "",
+      email: updated.user?.email || "",
+      profession: updated.specialty,
+      isApproved: updated.isApproved,
+      services: updated.services || [],
+    });
   } catch (error) {
-    console.error('Error creating professional:', error);
-    
-    // Devolvemos el error real de Prisma para que puedas verlo en la consola del navegador
-    return NextResponse.json(
-      { error: error.message || 'Error interno al crear profesional' }, 
-      { status: 500 }
-    );
+    console.error("Error updating professional via POST:", error);
+    return NextResponse.json({ message: error.message || "Error interno" }, { status: 500 });
   }
 }

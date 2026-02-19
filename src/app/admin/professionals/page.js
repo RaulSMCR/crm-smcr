@@ -28,221 +28,180 @@ function Pill({ tone = "neutral", children }) {
     blue: "bg-blue-100 text-blue-800",
   };
   return (
-    <span
-      className={
-        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium " +
-        (tones[tone] || tones.neutral)
-      }
-    >
+    <span className={`text-xs px-2 py-1 rounded-full ${tones[tone] || tones.neutral}`}>
       {children}
     </span>
   );
 }
 
-// Filtros por querystring:
 // ?tab=pending | approved | all
 export default async function AdminProfessionalsPage({ searchParams }) {
   const tab = (searchParams?.tab || "pending").toString();
 
   const where =
     tab === "pending"
-      ? { isApproved: false, emailVerified: true }
+      ? { isApproved: false, user: { emailVerified: true } }
       : tab === "approved"
       ? { isApproved: true }
       : {};
 
   const [countPending, countApproved, countAll] = await Promise.all([
-    prisma.professional.count({
-      where: { isApproved: false, emailVerified: true },
+    prisma.professionalProfile.count({
+      where: { isApproved: false, user: { emailVerified: true } },
     }),
-    prisma.professional.count({
-      where: { isApproved: true },
-    }),
-    prisma.professional.count(),
+    prisma.professionalProfile.count({ where: { isApproved: true } }),
+    prisma.professionalProfile.count(),
   ]);
 
-  const professionals = await prisma.professional.findMany({
+  const professionals = await prisma.professionalProfile.findMany({
     where,
     orderBy: { createdAt: "desc" },
     take: 100,
     select: {
       id: true,
-      name: true,
-      email: true,
-      profession: true,
-      phone: true,
+      slug: true,
+      specialty: true,
+      licenseNumber: true,
       avatarUrl: true,
-      resumeUrl: true,
-      emailVerified: true,
+      cvUrl: true,
       isApproved: true,
       createdAt: true,
-      updatedAt: true,
+      user: {
+        select: {
+          name: true,
+          email: true,
+          phone: true,
+          emailVerified: true,
+        },
+      },
     },
   });
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-10 space-y-6">
-      <header className="space-y-2">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-3xl font-bold text-neutral-900">Profesionales</h1>
-          <Link href="/admin" className="text-sm text-brand-700 underline">
-            ← Volver al dashboard
-          </Link>
-        </div>
+    <div className="p-8 max-w-6xl mx-auto space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold text-slate-800">Profesionales</h1>
+        <Link className="text-slate-600 hover:underline" href="/admin">
+          ← Volver al dashboard
+        </Link>
+      </div>
 
-        <p className="text-sm text-neutral-600">
-          Pendientes (email verificado), aprobados o todos. Máx 100 por vista.
-        </p>
+      <p className="text-slate-500">
+        Pendientes (email verificado), aprobados o todos. Máx 100 por vista.
+      </p>
 
-        <div className="flex flex-wrap gap-2 pt-2">
-          <Link
-            href="/admin/professionals?tab=pending"
-            className={
-              "rounded-full border px-3 py-1 text-sm hover:bg-neutral-50 " +
-              (tab === "pending"
-                ? "bg-neutral-900 text-white border-neutral-900"
-                : "bg-white")
-            }
-          >
-            Pendientes ({countPending})
-          </Link>
+      <div className="flex gap-2 flex-wrap">
+        <Link
+          className={`px-3 py-1 rounded-lg border ${
+            tab === "pending" ? "bg-slate-900 text-white" : "bg-white"
+          }`}
+          href="/admin/professionals?tab=pending"
+        >
+          Pendientes ({countPending})
+        </Link>
+        <Link
+          className={`px-3 py-1 rounded-lg border ${
+            tab === "approved" ? "bg-slate-900 text-white" : "bg-white"
+          }`}
+          href="/admin/professionals?tab=approved"
+        >
+          Aprobados ({countApproved})
+        </Link>
+        <Link
+          className={`px-3 py-1 rounded-lg border ${
+            tab === "all" ? "bg-slate-900 text-white" : "bg-white"
+          }`}
+          href="/admin/professionals?tab=all"
+        >
+          Todos ({countAll})
+        </Link>
+      </div>
 
-          <Link
-            href="/admin/professionals?tab=approved"
-            className={
-              "rounded-full border px-3 py-1 text-sm hover:bg-neutral-50 " +
-              (tab === "approved"
-                ? "bg-neutral-900 text-white border-neutral-900"
-                : "bg-white")
-            }
-          >
-            Aprobados ({countApproved})
-          </Link>
-
-          <Link
-            href="/admin/professionals?tab=all"
-            className={
-              "rounded-full border px-3 py-1 text-sm hover:bg-neutral-50 " +
-              (tab === "all"
-                ? "bg-neutral-900 text-white border-neutral-900"
-                : "bg-white")
-            }
-          >
-            Todos ({countAll})
-          </Link>
-        </div>
-      </header>
-
-      <section className="rounded-2xl border bg-white">
-        <div className="flex items-center justify-between px-5 py-4 border-b">
-          <h2 className="text-lg font-semibold">Listado</h2>
-          <Pill tone="neutral">{professionals.length} mostrado(s)</Pill>
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="p-4 border-b border-slate-200 text-sm text-slate-600">
+          {professionals.length} mostrado(s)
         </div>
 
         {professionals.length === 0 ? (
-          <div className="p-5 text-sm text-neutral-700">
-            No hay resultados para este filtro.
-          </div>
+          <div className="p-6 text-slate-600">No hay resultados para este filtro.</div>
         ) : (
-          <ul className="divide-y">
-            {professionals.map((p) => (
-              <li
-                key={p.id}
-                className="p-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
-              >
-                <div className="min-w-0 space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Link
-                      href={`/admin/professionals/${p.id}`}
-                      className="font-semibold text-brand-800 underline"
-                    >
-                      {p.name}
-                    </Link>
+          <ul className="divide-y divide-slate-200">
+            {professionals.map((p) => {
+              const u = p.user;
+              const canApprove = u?.emailVerified && !p.isApproved;
 
-                    <Pill tone={p.emailVerified ? "green" : "yellow"}>
-                      {p.emailVerified ? "Email verificado" : "Email NO verificado"}
-                    </Pill>
+              return (
+                <li key={p.id} className="p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="font-semibold text-slate-800">
+                          {u?.name || "(Sin nombre)"}
+                        </div>
+                        {u?.emailVerified ? (
+                          <Pill tone="green">Email verificado</Pill>
+                        ) : (
+                          <Pill tone="yellow">Email NO verificado</Pill>
+                        )}
+                        {p.isApproved ? <Pill tone="blue">Aprobado</Pill> : <Pill tone="red">Pendiente</Pill>}
+                      </div>
 
-                    <Pill tone={p.isApproved ? "green" : "yellow"}>
-                      {p.isApproved ? "Aprobado" : "Pendiente"}
-                    </Pill>
+                      <div className="text-slate-600 text-sm">
+                        <div><b>Especialidad:</b> {p.specialty}</div>
+                        {p.licenseNumber ? <div><b>Mat:</b> {p.licenseNumber}</div> : null}
+                        <div><b>Email:</b> {u?.email}</div>
+                        {u?.phone ? <div><b>Tel:</b> {u.phone}</div> : null}
+                        <div className="text-xs text-slate-500">
+                          Alta: {formatDateTime(new Date(p.createdAt))}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3 text-sm flex-wrap pt-1">
+                        {p.avatarUrl ? (
+                          <a className="text-blue-600 hover:underline" href={p.avatarUrl} target="_blank" rel="noreferrer">
+                            Ver foto
+                          </a>
+                        ) : (
+                          <span className="text-slate-400">Sin foto</span>
+                        )}
+                        {p.cvUrl ? (
+                          <a className="text-blue-600 hover:underline" href={p.cvUrl} target="_blank" rel="noreferrer">
+                            Ver CV
+                          </a>
+                        ) : (
+                          <span className="text-slate-400">Sin CV</span>
+                        )}
+                        <Link className="text-blue-600 hover:underline" href={`/admin/professionals/${p.id}`}>
+                          Ver detalle
+                        </Link>
+                      </div>
+
+                      {!u?.emailVerified && !p.isApproved ? (
+                        <div className="text-xs text-amber-700 mt-2">
+                          No se puede aprobar hasta que verifique su email.
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="shrink-0">
+                      {canApprove ? (
+                        <AdminApproveButton
+                          endpoint={`/api/admin/professionals/${p.id}/approve`}
+                          label="Aprobar"
+                        />
+                      ) : p.isApproved ? (
+                        <span className="text-xs text-slate-500">Ya aprobado</span>
+                      ) : (
+                        <span className="text-xs text-slate-500">No aprobable</span>
+                      )}
+                    </div>
                   </div>
-
-                  <div className="text-sm text-neutral-700">{p.profession}</div>
-                  <div className="text-sm text-neutral-600 truncate">{p.email}</div>
-                  {p.phone ? (
-                    <div className="text-xs text-neutral-500">Tel: {p.phone}</div>
-                  ) : null}
-
-                  <div className="flex flex-wrap gap-3 pt-1">
-                    {p.avatarUrl ? (
-                      <a
-                        href={p.avatarUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs text-brand-700 underline"
-                      >
-                        Ver foto
-                      </a>
-                    ) : (
-                      <span className="text-xs text-neutral-500">Sin foto</span>
-                    )}
-
-                    {p.resumeUrl ? (
-                      <a
-                        href={p.resumeUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs text-brand-700 underline"
-                      >
-                        Ver CV
-                      </a>
-                    ) : (
-                      <span className="text-xs text-neutral-500">Sin CV</span>
-                    )}
-
-                    <span className="text-xs text-neutral-500">
-                      Alta: {formatDateTime(new Date(p.createdAt))}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2 sm:items-end">
-                  <Link
-                    href={`/admin/professionals/${p.id}`}
-                    className="rounded-lg border px-4 py-2 text-sm hover:bg-neutral-50 text-center"
-                  >
-                    Ver detalle
-                  </Link>
-
-                  {/* Solo permitir aprobar si está verificado y no aprobado */}
-                  {!p.isApproved ? (
-                    <AdminApproveButton
-                      label="Aprobar"
-                      endpoint={`/api/admin/professionals/${p.id}/approve`}
-                      disabled={!p.emailVerified}
-                    />
-                  ) : (
-                    <button
-                      type="button"
-                      disabled
-                      className="rounded-lg border px-4 py-2 text-sm opacity-60 cursor-not-allowed"
-                    >
-                      Ya aprobado
-                    </button>
-                  )}
-
-                  {!p.emailVerified && !p.isApproved ? (
-                    <p className="text-[11px] text-yellow-800 bg-yellow-50 border border-yellow-200 rounded p-2 max-w-[240px]">
-                      No se puede aprobar hasta que verifique su email.
-                    </p>
-                  ) : null}
-                </div>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         )}
-      </section>
-    </main>
+      </div>
+    </div>
   );
 }

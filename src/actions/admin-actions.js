@@ -72,8 +72,7 @@ export async function approveUser(userId) {
 
     revalidatePath("/panel/profesional");
     revalidatePath("/panel/profesional/perfil");
-    revalidatePath("/panel/profesional/cuenta");
-    revalidatePath("/panel/profesional/agenda");
+    revalidatePath("/panel/profesional/horarios");
 
     return { success: true };
   } catch (error) {
@@ -99,8 +98,7 @@ export async function rejectUser(userId) {
 
     revalidatePath("/panel/profesional");
     revalidatePath("/panel/profesional/perfil");
-    revalidatePath("/panel/profesional/cuenta");
-    revalidatePath("/panel/profesional/agenda");
+    revalidatePath("/panel/profesional/horarios");
 
     return { success: true };
   } catch (error) {

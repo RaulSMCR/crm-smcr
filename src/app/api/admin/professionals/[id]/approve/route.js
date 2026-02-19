@@ -1,77 +1,45 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { verifyToken } from '@/lib/auth';
+// src/app/api/admin/professionals/[id]/approve/route.js
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
 
-export async function POST(request, { params }) {
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+export async function POST(_request, { params }) {
   try {
-    const { id: professionalId } = await params;
-
-    // 1. DEBUG: Ver qué cookies están llegando realmente
-    const cookieList = request.cookies.getAll();
-    console.log("🍪 Cookies recibidas:", cookieList.map(c => c.name));
-
-    // 2. Búsqueda inteligente del token (prueba varios nombres comunes)
-    const sessionToken = 
-      request.cookies.get('sessionToken')?.value || 
-      request.cookies.get('token')?.value || 
-      request.cookies.get('auth')?.value;
-
-    if (!sessionToken) {
-      console.error("❌ No se encontró ninguna cookie de sesión válida.");
-      return NextResponse.json({ 
-        message: 'No autorizado: No se detectó la sesión (Cookie faltante).' 
-      }, { status: 401 });
+    const session = await getSession();
+    if (!session) return NextResponse.json({ message: "No autorizado" }, { status: 401 });
+    if (session.role !== "ADMIN") {
+      return NextResponse.json({ message: "Acción no permitida" }, { status: 403 });
     }
 
-    // 3. Verificar el Token
-    let payload;
-    try {
-      payload = await verifyToken(sessionToken);
-      console.log("🔓 Token decodificado. Rol:", payload.role);
-    } catch (tokenError) {
-      console.error("❌ Error verificando token:", tokenError.message);
-      return NextResponse.json({ message: 'Sesión inválida o expirada.' }, { status: 401 });
-    }
-
-    // 4. Verificar Rol
-    if (payload.role !== 'ADMIN') {
-      console.error(`⛔ Acceso denegado. Rol detectado: ${payload.role}`);
-      return NextResponse.json({ 
-        message: `Permiso denegado. Tu usuario es '${payload.role}', se requiere 'ADMIN'.` 
-      }, { status: 403 });
-    }
-
-    const adminUserId = payload.userId; 
-    
+    const professionalId = params?.id;
     if (!professionalId) {
-      return NextResponse.json({ message: 'ID de profesional inválido' }, { status: 400 });
+      return NextResponse.json({ message: "ID de profesional inválido" }, { status: 400 });
     }
 
-    // 5. Aprobar profesional en BD
-    const updated = await prisma.professional.update({
-      where: { id: professionalId },
-      data: {
-        isApproved: true,
-        approvedById: adminUserId, 
-      },
+    const updated = await prisma.professionalProfile.update({
+      where: { id: String(professionalId) },
+      data: { isApproved: true },
       select: {
         id: true,
-        name: true,
         isApproved: true,
+        user: { select: { name: true, email: true } },
       },
     });
 
-    console.log(`✅ Profesional ${updated.name} aprobado por Admin ${adminUserId}`);
-    return NextResponse.json(updated);
-    
+    return NextResponse.json({
+      id: updated.id,
+      isApproved: updated.isApproved,
+      name: updated.user?.name || "",
+      email: updated.user?.email || "",
+    });
   } catch (e) {
-    if (e?.code === 'P2025') {
-      return NextResponse.json({ message: 'El profesional no existe en la base de datos.' }, { status: 404 });
+    if (e?.code === "P2025") {
+      return NextResponse.json({ message: "El profesional no existe en la base de datos." }, { status: 404 });
     }
-    
-    console.error('❌ Error CRÍTICO en aprobación:', e);
-    return NextResponse.json({ 
-      message: 'Error interno del servidor: ' + (e.message || 'Desconocido') 
-    }, { status: 500 });
+    console.error("Error approve professional:", e);
+    return NextResponse.json({ message: "Error interno del servidor" }, { status: 500 });
   }
 }

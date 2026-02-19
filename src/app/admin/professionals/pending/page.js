@@ -1,50 +1,50 @@
-import { prisma } from '@/lib/prisma';
-import PendingProfessionalsList from '@/components/admin/PendingProfessionalsList';
+// src/app/admin/professionals/pending/page.js
+import { prisma } from "@/lib/prisma";
+import PendingProfessionalsList from "@/components/admin/PendingProfessionalsList";
 
-// Forzamos que esta página no se guarde en caché estático, para ver siempre los nuevos registros
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: 'Profesionales Pendientes | Admin',
+  title: "Profesionales Pendientes | Admin",
 };
 
 export default async function PendingProfessionalsPage() {
-  // 1. Buscamos SOLO los profesionales NO aprobados (isApproved: false)
-  const pendingPros = await prisma.professional.findMany({
+  const users = await prisma.user.findMany({
     where: {
-      isApproved: false,
+      role: "PROFESSIONAL",
+      professionalProfile: {
+        is: { isApproved: false },
+      },
     },
-    orderBy: {
-      createdAt: 'desc', // Los más recientes primero
-    },
+    orderBy: { createdAt: "desc" },
     select: {
       id: true,
       name: true,
       email: true,
-      profession: true,
       phone: true,
+      professionalProfile: {
+        select: {
+          specialty: true,
+          licenseNumber: true,
+          bio: true,
+          cvUrl: true,
+        },
+      },
       createdAt: true,
-      resumeUrl: true,
-      // Agrega más campos si quieres verlos en la tabla
-    }
+    },
+    take: 200,
   });
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Solicitudes Pendientes</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Revisa y aprueba a los nuevos profesionales registrados.
-          </p>
-        </div>
-        <div className="bg-brand-50 text-brand-700 px-4 py-2 rounded-full text-sm font-bold">
-          {pendingPros.length} Pendiente{pendingPros.length !== 1 && 's'}
-        </div>
+    <div className="p-8 max-w-6xl mx-auto space-y-6">
+      <h1 className="text-3xl font-bold text-slate-800">Solicitudes Pendientes</h1>
+      <p className="text-slate-500">Revisa y aprueba a los nuevos profesionales registrados.</p>
+
+      <div className="text-sm text-slate-600">
+        {users.length} Pendiente{users.length !== 1 && "s"}
       </div>
 
-      {/* Renderizamos el componente cliente con los datos del servidor */}
-      <PendingProfessionalsList initialData={pendingPros} />
+      <PendingProfessionalsList users={users} />
     </div>
   );
 }

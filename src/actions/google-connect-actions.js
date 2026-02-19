@@ -1,19 +1,12 @@
 // src/actions/google-connect-actions.js
-'use server';
+"use server";
 
-import { getOAuth2Client } from "@/lib/google-oauth";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { getOAuth2Client } from "@/lib/google-oauth";
 import { revalidatePath } from "next/cache";
+import { requireProfessionalProfileId } from "@/lib/auth-guards";
 
-function getProIdOrFail(session) {
-  if (!session || session.role !== "PROFESSIONAL" || !session.professionalProfileId) {
-    return null;
-  }
-  return String(session.professionalProfileId);
-}
-
-/** 1) Generar URL de autorización (Botón "Conectar") */
+/** 1) Generar URL de autorización */
 export async function generarUrlConexionGoogle() {
   const oauth2Client = getOAuth2Client();
 
@@ -30,12 +23,9 @@ export async function generarUrlConexionGoogle() {
   return url;
 }
 
-/** 2) Intercambiar Code por Tokens y guardar refresh_token en ProfessionalProfile */
+/** 2) Intercambiar code por tokens y guardar refresh_token */
 export async function guardarCredencialesGoogle(code) {
-  const session = await getSession();
-  const proId = getProIdOrFail(session);
-
-  if (!proId) return { error: "No autorizado" };
+  const professionalId = await requireProfessionalProfileId();
   if (!code) return { error: "Falta el parámetro 'code'." };
 
   try {
@@ -45,19 +35,19 @@ export async function guardarCredencialesGoogle(code) {
     if (!tokens.refresh_token) {
       return {
         error:
-          "Google no devolvió refresh_token. Reintenta: desconecta la app en tu cuenta Google y vuelve a conectar.",
+          "Google no devolvió refresh_token. Solución típica: desconecta la app en tu cuenta Google y vuelve a conectar.",
       };
     }
 
     await prisma.professionalProfile.update({
-      where: { id: proId },
+      where: { id: String(professionalId) },
       data: { googleRefreshToken: tokens.refresh_token },
     });
 
     revalidatePath("/panel/profesional");
     return { success: true };
-  } catch (error) {
-    console.error("Error guardando tokens:", error);
-    return { error: "Error al conectar con Google" };
+  } catch (err) {
+    console.error("Error guardando tokens Google:", err);
+    return { error: "Error al conectar con Google." };
   }
 }

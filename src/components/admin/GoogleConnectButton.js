@@ -1,5 +1,5 @@
 // src/components/admin/GoogleConnectButton.js
-'use client';
+"use client";
 
 import { generarUrlConexionGoogle } from "@/actions/google-connect-actions";
 import { useState } from "react";
@@ -12,7 +12,8 @@ export default function GoogleConnectButton() {
     try {
       const url = await generarUrlConexionGoogle();
       window.location.href = url;
-    } catch (error) {
+    } catch (e) {
+      console.error(e);
       alert("Error al iniciar conexión con Google");
       setLoading(false);
     }

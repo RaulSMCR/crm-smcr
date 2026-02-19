@@ -1,14 +1,24 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+// src/app/api/admin/dashboard/summary/route.js
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
 
-// ESTA LÍNEA SOLUCIONA EL ERROR "Dynamic server usage"
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-export async function GET(request) {
+export async function GET() {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ message: "No autorizado" }, { status: 401 });
+    }
+    if (session.role !== "ADMIN") {
+      return NextResponse.json({ message: "Acción no permitida" }, { status: 403 });
+    }
+
     const [usersCount, prosCount, servicesCount, appointmentsCount] = await Promise.all([
       prisma.user.count(),
-      prisma.professional.count(),
+      prisma.professionalProfile.count(),
       prisma.service.count(),
       prisma.appointment.count(),
     ]);
@@ -20,7 +30,7 @@ export async function GET(request) {
       appointments: appointmentsCount,
     });
   } catch (error) {
-    console.error('Admin Dashboard Error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error("Admin Dashboard Error:", error);
+    return NextResponse.json({ message: "Internal Server Error" }, { status: 500 });
   }
 }

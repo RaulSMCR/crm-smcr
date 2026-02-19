@@ -1,134 +1,150 @@
+// src/app/api/admin/professionals/[id]/route.js
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyToken } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 
-// ----------------------------------------------------------------------
-// 1. GET: OBTENER DETALLES DEL PROFESIONAL
-// ----------------------------------------------------------------------
-export async function GET(request, { params }) {
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+function asStringArray(x) {
+  if (!x) return null;
+  if (!Array.isArray(x)) return null;
+  return x.map(String).filter(Boolean);
+}
+
+export async function GET(_request, { params }) {
   try {
-    // --- Validación de Seguridad ---
-    const sessionToken = request.cookies.get("sessionToken")?.value;
-    if (!sessionToken) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
-
-    const payload = await verifyToken(sessionToken);
-    if (payload.role !== "ADMIN") {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    if (session.role !== "ADMIN") {
       return NextResponse.json({ error: "Acción no permitida" }, { status: 403 });
     }
 
-    // --- Validación de ID ---
-    // NOTA: Si migraste a UUIDs, el ID es string. Si sigues con Int, usa Number().
-    // Asumimos String (UUID) por la nueva arquitectura.
-    const professionalId = params?.id; 
+    const professionalId = params?.id;
+    if (!professionalId) return NextResponse.json({ error: "ID inválido" }, { status: 400 });
 
-    if (!professionalId) {
-      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
-    }
-
-    // --- Consulta a la DB ---
-    const prof = await prisma.professional.findUnique({
-      where: { id: professionalId },
+    const prof = await prisma.professionalProfile.findUnique({
+      where: { id: String(professionalId) },
       select: {
         id: true,
-        name: true,
-        email: true,
-        
-        // CAMBIO 1: Usamos el nuevo nombre del campo
-        declaredJobTitle: true, 
-        
-        // CAMBIO 2: Traemos las categorías para mostrar los checkboxes marcados
-        categories: {
-            select: {
-                id: true,
-                name: true
-            }
-        },
-
-        phone: true,
+        slug: true,
+        specialty: true,
+        licenseNumber: true,
         bio: true,
-        avatarUrl: true,
-        resumeUrl: true,
+        cvUrl: true,
         introVideoUrl: true,
+        avatarUrl: true,
         calendarUrl: true,
         paymentLinkBase: true,
-        timeZone: true,
-        emailVerified: true,
-        
-        // Estado
-        isApproved: true, 
-        // Si ya migraste a Enum status, descomenta esto y comenta isApproved:
-        // status: true,
-
+        isApproved: true,
         createdAt: true,
         updatedAt: true,
-        approvedAt: true,
-        approvedByUserId: true,
+        services: { select: { id: true, title: true } },
+        user: { select: { name: true, email: true, phone: true, emailVerified: true } },
       },
     });
 
-    if (!prof) {
-      return NextResponse.json({ error: "Profesional no encontrado" }, { status: 404 });
-    }
+    if (!prof) return NextResponse.json({ error: "Profesional no encontrado" }, { status: 404 });
 
-    return NextResponse.json(prof, { status: 200 });
+    // Adapter compat con tu UI legacy
+    const out = {
+      id: prof.id,
+      name: prof.user?.name || "",
+      email: prof.user?.email || "",
+      phone: prof.user?.phone || "",
+      bio: prof.bio || null,
+      avatarUrl: prof.avatarUrl || null,
+      resumeUrl: prof.cvUrl || null,
+      introVideoUrl: prof.introVideoUrl || null,
+      calendarUrl: prof.calendarUrl || null,
+      paymentLinkBase: prof.paymentLinkBase || null,
+      timeZone: null, // no existe en schema actual
+      declaredJobTitle: prof.specialty || "", // legacy
+      licenseNumber: prof.licenseNumber || null,
+      emailVerified: !!prof.user?.emailVerified,
+      isApproved: !!prof.isApproved,
+      createdAt: prof.createdAt,
+      updatedAt: prof.updatedAt,
+      services: prof.services || [],
+      categories: [], // legacy (tu UI espera categories)
+    };
 
+    return NextResponse.json(out, { status: 200 });
   } catch (e) {
     console.error("ADMIN get professional detail error:", e);
     return NextResponse.json({ error: "Error al cargar profesional" }, { status: 500 });
   }
 }
 
-// ----------------------------------------------------------------------
-// 2. PATCH: ACTUALIZAR CATEGORÍAS Y ESTADO
-// ----------------------------------------------------------------------
 export async function PATCH(request, { params }) {
   try {
-    // --- Validación de Seguridad ---
-    const sessionToken = request.cookies.get("sessionToken")?.value;
-    if (!sessionToken) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
-    const payload = await verifyToken(sessionToken);
-    if (payload.role !== "ADMIN") {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    if (session.role !== "ADMIN") {
       return NextResponse.json({ error: "Acción no permitida" }, { status: 403 });
     }
 
     const professionalId = params?.id;
-    const body = await request.json();
+    if (!professionalId) return NextResponse.json({ error: "ID inválido" }, { status: 400 });
 
-    // Extraemos los datos que nos interesan del body
-    // categoryIds será un array: ["uuid-1", "uuid-2"]
-    const { categoryIds, isApproved, adminNotes } = body;
+    const body = await request.json().catch(() => ({}));
+    const { isApproved } = body;
 
-    // --- Actualización en DB ---
-    const updatedProf = await prisma.professional.update({
-      where: { id: professionalId },
-      data: {
-        // Actualizar aprobación si viene en el body
-        ...(isApproved !== undefined && { isApproved }),
-        
-        // Actualizar notas internas
-        ...(adminNotes && { adminNotes }),
+    // Compat: el UI viejo manda categoryIds; acá lo aceptamos como alias de serviceIds si corresponde
+    const serviceIds = asStringArray(body.serviceIds) || asStringArray(body.categoryIds);
 
-        // CAMBIO CRÍTICO: Actualización de Relación Muchos-a-Muchos
-        ...(categoryIds && {
-            categories: {
-                // 'set' borra las relaciones viejas y pone las nuevas.
-                // Es ideal para sincronizar selectores.
-                set: categoryIds.map(catId => ({ id: catId }))
-            }
-        })
+    const data = {};
+    if (typeof isApproved === "boolean") data.isApproved = isApproved;
+    if (serviceIds) {
+      data.services = { set: serviceIds.map((id) => ({ id })) };
+    }
+
+    const updated = await prisma.professionalProfile.update({
+      where: { id: String(professionalId) },
+      data,
+      select: {
+        id: true,
+        specialty: true,
+        licenseNumber: true,
+        bio: true,
+        cvUrl: true,
+        introVideoUrl: true,
+        avatarUrl: true,
+        calendarUrl: true,
+        paymentLinkBase: true,
+        isApproved: true,
+        createdAt: true,
+        updatedAt: true,
+        services: { select: { id: true, title: true } },
+        user: { select: { name: true, email: true, phone: true, emailVerified: true } },
       },
-      // Devolvemos los datos actualizados para confirmar en el front
-      include: {
-        categories: true
-      }
     });
 
-    return NextResponse.json(updatedProf, { status: 200 });
-
+    // devolver en formato compat
+    return NextResponse.json(
+      {
+        id: updated.id,
+        name: updated.user?.name || "",
+        email: updated.user?.email || "",
+        phone: updated.user?.phone || "",
+        bio: updated.bio || null,
+        avatarUrl: updated.avatarUrl || null,
+        resumeUrl: updated.cvUrl || null,
+        introVideoUrl: updated.introVideoUrl || null,
+        calendarUrl: updated.calendarUrl || null,
+        paymentLinkBase: updated.paymentLinkBase || null,
+        timeZone: null,
+        declaredJobTitle: updated.specialty || "",
+        licenseNumber: updated.licenseNumber || null,
+        emailVerified: !!updated.user?.emailVerified,
+        isApproved: !!updated.isApproved,
+        createdAt: updated.createdAt,
+        updatedAt: updated.updatedAt,
+        services: updated.services || [],
+        categories: [],
+      },
+      { status: 200 }
+    );
   } catch (e) {
     console.error("ADMIN update professional error:", e);
     return NextResponse.json({ error: "Error al actualizar profesional" }, { status: 500 });
