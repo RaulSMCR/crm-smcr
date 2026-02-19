@@ -6,6 +6,55 @@ import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
+function statusMeta(status) {
+  switch (status) {
+    case "PENDING":
+      return {
+        label: "Pendiente",
+        className: "bg-amber-50 text-amber-800 border border-amber-100",
+      };
+    case "CONFIRMED":
+      return {
+        label: "Confirmada",
+        className: "bg-green-50 text-green-700 border border-green-100",
+      };
+    case "CANCELLED_BY_USER":
+      return {
+        label: "Cancelada (paciente)",
+        className: "bg-red-50 text-red-700 border border-red-100",
+      };
+    case "CANCELLED_BY_PRO":
+      return {
+        label: "Cancelada (vos)",
+        className: "bg-red-50 text-red-700 border border-red-100",
+      };
+    case "COMPLETED":
+      return {
+        label: "Completada",
+        className: "bg-slate-100 text-slate-700 border border-slate-200",
+      };
+    case "NO_SHOW":
+      return {
+        label: "Ausente",
+        className: "bg-orange-50 text-orange-800 border border-orange-100",
+      };
+    default:
+      return {
+        label: String(status || "—"),
+        className: "bg-slate-100 text-slate-700 border border-slate-200",
+      };
+  }
+}
+
+function initials(name) {
+  const s = String(name || "").trim();
+  if (!s) return "?";
+  const parts = s.split(/\s+/).filter(Boolean);
+  const a = parts[0]?.[0] || "";
+  const b = parts[1]?.[0] || "";
+  return (a + b).toUpperCase() || a.toUpperCase() || "?";
+}
+
 export default async function ProfessionalDashboard() {
   // 1. Verificación de Sesión
   const session = await getSession();
@@ -28,18 +77,29 @@ export default async function ProfessionalDashboard() {
         select: { posts: true, appointments: true },
       },
       appointments: {
-        where: { date: { gte: new Date() } },
+        // Próximas citas (solo activas)
+        where: {
+          date: { gte: new Date() },
+          status: { in: ["PENDING", "CONFIRMED"] },
+        },
         orderBy: { date: "asc" },
         take: 5,
+        include: {
+          patient: { select: { name: true } },
+          service: { select: { title: true } },
+        },
       },
     },
   });
 
   if (!profile) return <div className="p-8 text-center">Error: No se encontró el perfil.</div>;
 
-  // 3. Serialización de fechas
+  // 3. Serialización de fechas + datos útiles para UI
   const safeAppointments = profile.appointments.map((appt) => ({
     id: appt.id,
+    status: appt.status,
+    patientName: appt.patient?.name || "Paciente",
+    serviceTitle: appt.service?.title || "Consulta",
     dateString: appt.date.toLocaleDateString("es-AR", {
       weekday: "long",
       day: "numeric",
@@ -47,6 +107,8 @@ export default async function ProfessionalDashboard() {
     }),
     timeString: appt.date.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
   }));
+
+  const pendingCount = safeAppointments.filter((a) => a.status === "PENDING").length;
 
   const isActive = profile.user.isActive;
 
@@ -167,6 +229,24 @@ export default async function ProfessionalDashboard() {
             <p className="text-xs text-slate-500 mt-1">Define tu disponibilidad semanal para citas.</p>
           </Link>
 
+          {/* ✅ NUEVO: CITAS */}
+          <Link
+            href="/panel/profesional/citas"
+            className="group bg-white p-6 rounded-xl shadow-sm border border-slate-100 hover:shadow-md hover:border-amber-300 transition-all relative overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity text-6xl text-amber-500">
+              📌
+            </div>
+            <div className="h-12 w-12 bg-amber-50 text-amber-700 rounded-xl flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform">
+              📋
+            </div>
+            <h3 className="font-bold text-slate-800">Citas</h3>
+            <p className="text-xs text-slate-500 mt-1">
+              Gestiona turnos y estados. <strong>({safeAppointments.length} próximos)</strong>
+            </p>
+          </Link>
+
+          {/* Rendimiento queda como tarjeta informativa; si querés, la movemos a otra fila luego */}
           <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
             <div className="flex items-center justify-between mb-4">
               <span className="text-xs font-bold uppercase text-slate-400">Rendimiento</span>
@@ -189,11 +269,21 @@ export default async function ProfessionalDashboard() {
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
             <h3 className="font-bold text-slate-800 flex items-center gap-2">📅 Próximos Turnos</h3>
-            {safeAppointments.length > 0 && (
-              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-bold">
-                {safeAppointments.length} pendientes
-              </span>
-            )}
+
+            <div className="flex items-center gap-3">
+              <Link
+                href="/panel/profesional/citas"
+                className="text-xs font-bold text-slate-600 hover:text-slate-900 underline"
+              >
+                Ver todas
+              </Link>
+
+              {safeAppointments.length > 0 && (
+                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-bold">
+                  {pendingCount} pendientes • {safeAppointments.length} próximos
+                </span>
+              )}
+            </div>
           </div>
 
           {safeAppointments.length === 0 ? (
@@ -204,28 +294,37 @@ export default async function ProfessionalDashboard() {
             </div>
           ) : (
             <div className="divide-y divide-slate-50">
-              {safeAppointments.map((appt) => (
-                <div
-                  key={appt.id}
-                  className="p-4 hover:bg-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 transition"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center font-bold text-sm">
-                      P
+              {safeAppointments.map((appt) => {
+                const meta = statusMeta(appt.status);
+
+                return (
+                  <div
+                    key={appt.id}
+                    className="p-4 hover:bg-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 transition"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="h-10 w-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center font-bold text-sm">
+                        {initials(appt.patientName)}
+                      </div>
+
+                      <div>
+                        <p className="font-bold text-slate-700 capitalize">{appt.dateString}</p>
+                        <p className="text-sm text-slate-600">
+                          {appt.patientName} •{" "}
+                          <span className="text-slate-500">{appt.serviceTitle}</span>
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-bold text-slate-700 capitalize">{appt.dateString}</p>
-                      <p className="text-sm text-slate-500">Consulta Agendada</p>
+
+                    <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                      <span className="text-lg font-bold text-blue-600">{appt.timeString} hs</span>
+                      <span className={`px-3 py-1 text-xs rounded-full font-medium ${meta.className}`}>
+                        {meta.label}
+                      </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
-                    <span className="text-lg font-bold text-blue-600">{appt.timeString} hs</span>
-                    <span className="px-3 py-1 bg-green-50 text-green-700 text-xs rounded-full border border-green-100 font-medium">
-                      Confirmada
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
