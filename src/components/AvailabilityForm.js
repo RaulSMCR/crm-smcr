@@ -14,52 +14,41 @@ const DAYS = [
   { id: 0, label: "Domingo" },
 ];
 
-const TIMES = [];
-for (let i = 6; i < 23; i++) {
-  const hour = i < 10 ? `0${i}` : String(i);
-  TIMES.push(`${hour}:00`);
-  TIMES.push(`${hour}:30`);
+function buildTimes() {
+  const times = [];
+  for (let i = 6; i < 23; i++) {
+    const h = i < 10 ? `0${i}` : String(i);
+    times.push(`${h}:00`);
+    times.push(`${h}:30`);
+  }
+  return times;
+}
+const TIMES = buildTimes();
+
+function addMinutes(time, minutes) {
+  const [hh, mm] = time.split(":").map((x) => parseInt(x, 10));
+  const total = hh * 60 + mm + minutes;
+  const nh = Math.floor(total / 60);
+  const nm = total % 60;
+  const H = nh < 10 ? `0${nh}` : String(nh);
+  const M = nm < 10 ? `0${nm}` : String(nm);
+  return `${H}:${M}`;
 }
 
 export default function AvailabilityForm({ initialData = [] }) {
   const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState(null); // { type: "success"|"error", text: string }
+  const [msg, setMsg] = useState(null); // { type, text }
 
   const [schedule, setSchedule] = useState(() => {
     const map = {};
-    DAYS.forEach((d) => {
-      const dayBlocks = initialData
-        .filter((item) => item.dayOfWeek === d.id)
-        .map((item) => ({ start: item.startTime, end: item.endTime }));
-      map[d.id] = dayBlocks;
-    });
+    for (const d of DAYS) {
+      map[d.id] = (initialData || [])
+        .filter((it) => it.dayOfWeek === d.id)
+        .map((it) => ({ start: it.startTime, end: it.endTime }))
+        .sort((a, b) => a.start.localeCompare(b.start));
+    }
     return map;
   });
-
-  const addBlock = (dayId) => {
-    setMsg(null);
-    setSchedule((prev) => ({
-      ...prev,
-      [dayId]: [...prev[dayId], { start: "09:00", end: "13:00" }],
-    }));
-  };
-
-  const removeBlock = (dayId, index) => {
-    setMsg(null);
-    setSchedule((prev) => ({
-      ...prev,
-      [dayId]: prev[dayId].filter((_, i) => i !== index),
-    }));
-  };
-
-  const updateBlock = (dayId, index, field, value) => {
-    setMsg(null);
-    setSchedule((prev) => {
-      const newBlocks = [...prev[dayId]];
-      newBlocks[index] = { ...newBlocks[index], [field]: value };
-      return { ...prev, [dayId]: newBlocks };
-    });
-  };
 
   const hasInvalidBlocks = useMemo(() => {
     for (const dayId of Object.keys(schedule)) {
@@ -71,30 +60,73 @@ export default function AvailabilityForm({ initialData = [] }) {
     return false;
   }, [schedule]);
 
+  const addBlock = (dayId) => {
+    setMsg(null);
+    setSchedule((prev) => {
+      const blocks = [...(prev[dayId] || [])];
+      const last = blocks[blocks.length - 1];
+
+      let start = "09:00";
+      let end = "13:00";
+
+      if (last?.end && TIMES.includes(last.end)) {
+        start = last.end;
+        const candidate = addMinutes(start, 60);
+        end = TIMES.includes(candidate) ? candidate : addMinutes(start, 30);
+      }
+
+      // Evitar duplicado exacto por defecto
+      const key = `${start}|${end}`;
+      const exists = blocks.some((b) => `${b.start}|${b.end}` === key);
+      blocks.push(exists ? { start: "14:00", end: "18:00" } : { start, end });
+
+      return { ...prev, [dayId]: blocks };
+    });
+  };
+
+  const removeBlock = (dayId, index) => {
+    setMsg(null);
+    setSchedule((prev) => ({
+      ...prev,
+      [dayId]: (prev[dayId] || []).filter((_, i) => i !== index),
+    }));
+  };
+
+  const updateBlock = (dayId, index, field, value) => {
+    setMsg(null);
+    setSchedule((prev) => {
+      const blocks = [...(prev[dayId] || [])];
+      blocks[index] = { ...blocks[index], [field]: value };
+      blocks.sort((a, b) => a.start.localeCompare(b.start));
+      return { ...prev, [dayId]: blocks };
+    });
+  };
+
   const handleSubmit = async () => {
     setMsg(null);
     setLoading(true);
 
     try {
       if (hasInvalidBlocks) {
-        setMsg({ type: "error", text: "Tenés bloques inválidos: la hora fin debe ser mayor que la hora inicio." });
-        setLoading(false);
+        setMsg({
+          type: "error",
+          text: "Tenés bloques inválidos: la hora fin debe ser mayor que la hora inicio.",
+        });
         return;
       }
 
       const payload = [];
-      Object.keys(schedule).forEach((dayId) => {
-        schedule[dayId].forEach((block) => {
+      for (const dayId of Object.keys(schedule)) {
+        for (const block of schedule[dayId]) {
           payload.push({
             dayOfWeek: Number(dayId),
             startTime: block.start,
             endTime: block.end,
           });
-        });
-      });
+        }
+      }
 
       const result = await updateAvailability(payload);
-
       if (result?.success) {
         setMsg({ type: "success", text: "✅ Horarios guardados con éxito." });
       } else {
@@ -109,44 +141,37 @@ export default function AvailabilityForm({ initialData = [] }) {
   };
 
   return (
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="text-lg font-bold text-gray-800">Definir Turnos de Trabajo</h3>
-        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-          Tip: Puedes agregar múltiples turnos por día (ej: mañana y tarde)
-        </span>
+    <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold text-slate-800">Definir turnos de trabajo</h3>
+        <p className="text-sm text-slate-500 mt-1">
+          Tip: podés agregar múltiples turnos por día (ej: mañana y tarde).
+        </p>
       </div>
 
       {msg && (
         <div
-          className={`mb-6 rounded-lg px-4 py-3 text-sm font-medium border ${
+          className={`rounded-xl border px-4 py-3 text-sm ${
             msg.type === "success"
-              ? "bg-green-50 text-green-800 border-green-200"
-              : "bg-red-50 text-red-800 border-red-200"
+              ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+              : "bg-rose-50 border-rose-200 text-rose-900"
           }`}
         >
           {msg.text}
         </div>
       )}
 
-      <div className="space-y-6">
+      <div className="space-y-4">
         {DAYS.map((day) => {
-          const blocks = schedule[day.id];
-          const hasBlocks = blocks.length > 0;
-
+          const blocks = schedule[day.id] || [];
           return (
-            <div
-              key={day.id}
-              className={`p-4 rounded-xl border transition-colors ${
-                hasBlocks ? "bg-white border-gray-200" : "bg-gray-50 border-gray-100"
-              }`}
-            >
-              <div className="flex justify-between items-start mb-2">
-                <div className="flex items-center gap-2">
-                  <span className={`font-bold text-lg ${hasBlocks ? "text-gray-800" : "text-gray-400"}`}>
-                    {day.label}
-                  </span>
-                  {!hasBlocks && <span className="text-xs text-gray-400 italic">(No laborable)</span>}
+            <div key={day.id} className="rounded-xl border border-slate-200 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="font-semibold text-slate-800">
+                  {day.label}{" "}
+                  {blocks.length === 0 && (
+                    <span className="ml-2 text-xs font-medium text-slate-500">(No laborable)</span>
+                  )}
                 </div>
 
                 <button
@@ -154,18 +179,21 @@ export default function AvailabilityForm({ initialData = [] }) {
                   onClick={() => addBlock(day.id)}
                   className="text-xs flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-1 rounded hover:bg-blue-100 font-medium transition-colors"
                 >
-                  + Agregar Bloque
+                  + Agregar bloque
                 </button>
               </div>
 
-              <div className="space-y-2">
-                {blocks.map((block, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+              {blocks.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {blocks.map((block, index) => (
+                    <div
+                      key={`${day.id}-${index}`}
+                      className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2"
+                    >
                       <select
                         value={block.start}
                         onChange={(e) => updateBlock(day.id, index, "start", e.target.value)}
-                        className="bg-transparent text-sm border-none p-0 focus:ring-0 text-gray-700 font-medium cursor-pointer"
+                        className="rounded-lg border-slate-300 bg-white text-sm py-2"
                       >
                         {TIMES.map((t) => (
                           <option key={t} value={t}>
@@ -174,12 +202,12 @@ export default function AvailabilityForm({ initialData = [] }) {
                         ))}
                       </select>
 
-                      <span className="text-gray-400">➜</span>
+                      <span className="text-slate-400 text-sm">➜</span>
 
                       <select
                         value={block.end}
                         onChange={(e) => updateBlock(day.id, index, "end", e.target.value)}
-                        className="bg-transparent text-sm border-none p-0 focus:ring-0 text-gray-700 font-medium cursor-pointer"
+                        className="rounded-lg border-slate-300 bg-white text-sm py-2"
                       >
                         {TIMES.map((t) => (
                           <option key={t} value={t}>
@@ -187,43 +215,38 @@ export default function AvailabilityForm({ initialData = [] }) {
                           </option>
                         ))}
                       </select>
+
+                      <button
+                        type="button"
+                        onClick={() => removeBlock(day.id, index)}
+                        className="ml-auto text-xs font-semibold text-slate-500 hover:text-rose-700 px-2 py-1 rounded hover:bg-rose-50"
+                        title="Eliminar este turno"
+                      >
+                        Quitar
+                      </button>
+
+                      {block.start >= block.end && (
+                        <span className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded">
+                          ⚠️ Hora inválida
+                        </span>
+                      )}
                     </div>
-
-                    <button
-                      type="button"
-                      onClick={() => removeBlock(day.id, index)}
-                      className="text-gray-400 hover:text-red-500 p-2 transition-colors"
-                      title="Eliminar este turno"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path
-                          fillRule="evenodd"
-                          d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </button>
-
-                    {block.start >= block.end && (
-                      <span className="text-xs text-red-500 font-medium">⚠️ Hora inválida</span>
-                    )}
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
       </div>
 
-      <div className="mt-8 flex justify-end pt-4 border-t border-gray-100">
+      <div className="flex justify-end">
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={loading || hasInvalidBlocks}
-          className="bg-gray-900 text-white px-8 py-3 rounded-lg font-bold hover:bg-black transition-transform active:scale-95 disabled:opacity-50 shadow-lg shadow-blue-900/10"
-          title={hasInvalidBlocks ? "Corrige los bloques inválidos antes de guardar." : ""}
+          disabled={loading}
+          className="rounded-xl bg-blue-600 text-white px-5 py-2.5 font-semibold shadow-sm hover:bg-blue-700 disabled:opacity-60"
         >
-          {loading ? "Guardando..." : "Guardar Todos los Horarios"}
+          {loading ? "Guardando..." : "Guardar todos los horarios"}
         </button>
       </div>
     </div>

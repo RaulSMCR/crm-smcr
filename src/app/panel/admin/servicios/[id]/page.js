@@ -1,155 +1,202 @@
 //src/app/panel/admin/servicios/[id]/page.js
 import { prisma } from "@/lib/prisma";
-import { updateServiceDetails, addProfessionalToService, removeProfessionalFromService, deleteService } from "@/actions/service-actions";
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import {
+  updateServiceDetails,
+  addProfessionalToService,
+  removeProfessionalFromService,
+  deleteService,
+} from "@/actions/service-actions";
+import DeleteServiceButton from "@/components/admin/DeleteServiceButton";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export default async function ServiceDetailPage({ params }) {
   const serviceId = params.id;
 
-  // 1. Obtener el servicio y sus profesionales actuales
   const service = await prisma.service.findUnique({
     where: { id: serviceId },
-    include: {
-      professionals: { // Relación Many-to-Many
-        include: { user: true }
-      }
-    }
+    include: { professionals: { include: { user: true } } },
   });
 
-  if (!service) return <div>Servicio no encontrado</div>;
+  if (!service) {
+    return (
+      <div className="p-8 max-w-4xl mx-auto">
+        <h1 className="text-2xl font-bold">Servicio no encontrado</h1>
+        <Link className="text-blue-600 underline" href="/panel/admin/servicios">
+          Volver
+        </Link>
+      </div>
+    );
+  }
 
-  // 2. Obtener TODOS los profesionales disponibles (para el selector de "Agregar")
-  // Excluimos los que YA están en el servicio
-  const currentProIds = service.professionals.map(p => p.id);
-  
+  const currentProIds = service.professionals.map((p) => p.id);
+
+  // ✅ Fix: isApproved vive en ProfessionalProfile, no en User
   const availablePros = await prisma.professionalProfile.findMany({
     where: {
-        id: { notIn: currentProIds },
-        user: { isActive: true, isApproved: true } // Solo mostrar gente apta
+      id: { notIn: currentProIds },
+      isApproved: true,
+      user: { isActive: true },
     },
     include: { user: true },
-    orderBy: { user: { name: 'asc' } }
+    orderBy: { user: { name: "asc" } },
   });
 
+  async function deleteAction() {
+    "use server";
+    await deleteService(serviceId);
+    redirect("/panel/admin/servicios");
+  }
+
+  async function updateDetailsAction(formData) {
+    "use server";
+    await updateServiceDetails(serviceId, formData);
+  }
+
+  async function addProAction(formData) {
+    "use server";
+    const proId = formData.get("professionalId");
+    if (proId) await addProfessionalToService(serviceId, String(proId));
+  }
+
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-8">
-      
-      {/* BREADCRUMB */}
-      <div className="flex items-center gap-2 text-sm text-slate-500">
-        <Link href="/panel/admin/servicios" className="hover:underline">Catálogo</Link>
-        <span>/</span>
-        <span className="font-bold text-slate-800">{service.title}</span>
-      </div>
-
-      <div className="flex justify-between items-start">
-        <h1 className="text-3xl font-bold text-slate-800">Gestionar Servicio</h1>
-        <form action={async () => {
-            'use server';
-            if(confirm('¿Borrar servicio?')) {
-                await deleteService(serviceId);
-                redirect('/panel/admin/servicios');
-            }
-        }}>
-            <button className="text-red-500 text-sm hover:underline font-bold">Eliminar Servicio</button>
-        </form>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* COLUMNA IZQUIERDA: EDICIÓN DE DATOS */}
-        <div className="lg:col-span-1 space-y-6">
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                <h3 className="font-bold text-slate-800 mb-4 border-b pb-2">Configuración General</h3>
-                <form action={updateServiceDetails.bind(null, serviceId)} className="space-y-4">
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">Título del Servicio</label>
-                        <input name="title" defaultValue={service.title} className="w-full border rounded p-2 text-sm" />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">Precio Base ($)</label>
-                        <input name="price" type="number" defaultValue={service.price} className="w-full border rounded p-2 text-sm" />
-                        <p className="text-[10px] text-slate-400 mt-1">*Precio sugerido por defecto</p>
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">Duración (minutos)</label>
-                        <input name="durationMin" type="number" defaultValue={service.durationMin} className="w-full border rounded p-2 text-sm" />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">Descripción</label>
-                        <textarea name="description" rows={4} defaultValue={service.description || ''} className="w-full border rounded p-2 text-sm"></textarea>
-                    </div>
-                    <button className="w-full bg-slate-900 text-white py-2 rounded font-bold text-sm hover:bg-black transition">
-                        Guardar Cambios
-                    </button>
-                </form>
-            </div>
+    <div className="p-8 max-w-6xl mx-auto space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="text-sm text-slate-500">
+            <Link className="text-blue-600 hover:underline" href="/panel/admin/servicios">
+              Catálogo
+            </Link>{" "}
+            / {service.title}
+          </div>
+          <h1 className="text-3xl font-bold text-slate-800 mt-1">Gestionar Servicio</h1>
         </div>
 
-        {/* COLUMNA DERECHA: GESTIÓN DE PROFESIONALES */}
-        <div className="lg:col-span-2 space-y-6">
-            
-            {/* 1. AGREGAR NUEVO PROFESIONAL */}
-            <div className="bg-blue-50 p-6 rounded-xl border border-blue-100">
-                <h3 className="font-bold text-blue-900 mb-2">➕ Agregar Profesional al Servicio</h3>
-                <p className="text-xs text-blue-700 mb-4">Selecciona un profesional para habilitarlo en {service.title}.</p>
-                
-                <form action={async (formData) => {
-                    'use server';
-                    const proId = formData.get('professionalId');
-                    if(proId) await addProfessionalToService(serviceId, proId);
-                }} className="flex gap-2">
-                    <select name="professionalId" className="flex-grow border-blue-200 rounded p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-                        <option value="">-- Seleccionar Profesional --</option>
-                        {availablePros.map(pro => (
-                            <option key={pro.id} value={pro.id}>
-                                {pro.user.name} ({pro.specialty || 'General'})
-                            </option>
-                        ))}
-                    </select>
-                    <button className="bg-blue-600 text-white px-4 py-2 rounded font-bold text-sm hover:bg-blue-700">
-                        Agregar
-                    </button>
-                </form>
+        <DeleteServiceButton action={deleteAction} />
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* IZQUIERDA: CONFIG */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
+          <h3 className="text-lg font-semibold text-slate-800">Configuración general</h3>
+
+          <form action={updateDetailsAction} className="mt-4 space-y-4">
+            <div>
+              <label className="text-sm font-medium text-slate-700">Título</label>
+              <input
+                name="title"
+                defaultValue={service.title}
+                className="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5"
+              />
             </div>
 
-            {/* 2. LISTA DE PROFESIONALES ACTUALES */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                    <h3 className="font-bold text-slate-700">Staff Asignado ({service.professionals.length})</h3>
-                </div>
-                
-                {service.professionals.length === 0 ? (
-                    <div className="p-8 text-center text-slate-400 text-sm">
-                        Nadie ofrece este servicio todavía.
-                    </div>
-                ) : (
-                    <table className="w-full text-left">
-                        <tbody className="divide-y divide-slate-100">
-                            {service.professionals.map(pro => (
-                                <tr key={pro.id} className="group hover:bg-slate-50">
-                                    <td className="p-3">
-                                        <div className="font-bold text-slate-800 text-sm">{pro.user.name}</div>
-                                        <div className="text-xs text-slate-500">{pro.specialty}</div>
-                                    </td>
-                                    <td className="p-3 text-right">
-                                        <form action={removeProfessionalFromService.bind(null, serviceId, pro.id)}>
-                                            <button className="text-red-400 hover:text-red-600 font-bold text-xs border border-transparent hover:border-red-200 px-2 py-1 rounded transition">
-                                                Quitar 🗑️
-                                            </button>
-                                        </form>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-slate-700">Precio base ($)</label>
+                <input
+                  name="price"
+                  defaultValue={String(service.price)}
+                  className="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-slate-700">Duración (min)</label>
+                <input
+                  name="durationMin"
+                  defaultValue={String(service.durationMin)}
+                  className="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5"
+                />
+              </div>
             </div>
 
+            <div>
+              <label className="text-sm font-medium text-slate-700">Descripción</label>
+              <textarea
+                name="description"
+                defaultValue={service.description || ""}
+                rows={5}
+                className="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
+
+            <button className="rounded-xl bg-blue-600 text-white px-5 py-2.5 font-semibold shadow-sm hover:bg-blue-700">
+              Guardar cambios
+            </button>
+          </form>
         </div>
 
+        {/* DERECHA: STAFF */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-6">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-800">Staff asignado</h3>
+            <p className="text-sm text-slate-500 mt-1">
+              Profesionales habilitados para <span className="font-medium">{service.title}</span>.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 p-4">
+            <div className="font-semibold text-slate-800">➕ Agregar profesional</div>
+            <form action={addProAction} className="mt-3 flex gap-2">
+              <select
+                name="professionalId"
+                className="flex-1 rounded-lg border-slate-300 bg-white py-2"
+                defaultValue=""
+              >
+                <option value="" disabled>
+                  -- Seleccionar profesional --
+                </option>
+                {availablePros.map((pro) => (
+                  <option key={pro.id} value={pro.id}>
+                    {pro.user?.name || "(Sin nombre)"} ({pro.specialty || "General"})
+                  </option>
+                ))}
+              </select>
+              <button className="rounded-xl bg-blue-600 text-white px-4 py-2 font-semibold hover:bg-blue-700">
+                Agregar
+              </button>
+            </form>
+          </div>
+
+          <div>
+            <div className="font-semibold text-slate-800 mb-2">
+              Staff actual ({service.professionals.length})
+            </div>
+
+            {service.professionals.length === 0 ? (
+              <div className="text-sm text-slate-500">Nadie ofrece este servicio todavía.</div>
+            ) : (
+              <div className="space-y-2">
+                {service.professionals.map((pro) => {
+                  async function removeAction() {
+                    "use server";
+                    await removeProfessionalFromService(serviceId, pro.id);
+                  }
+
+                  return (
+                    <div
+                      key={pro.id}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-4 py-3"
+                    >
+                      <div>
+                        <div className="font-semibold text-slate-800">{pro.user?.name}</div>
+                        <div className="text-sm text-slate-500">{pro.specialty || "General"}</div>
+                      </div>
+
+                      <form action={removeAction}>
+                        <button className="text-sm font-semibold text-rose-700 bg-rose-50 border border-rose-200 px-3 py-2 rounded-xl hover:bg-rose-100">
+                          Quitar
+                        </button>
+                      </form>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

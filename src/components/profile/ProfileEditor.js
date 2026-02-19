@@ -1,46 +1,40 @@
-// PATH: src/components/profile/ProfileEditor.js
+///src/components/profile/ProfileEditor.js
 "use client";
 
-import ChangePasswordCard from "@/components/auth/ChangePasswordCard";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import ChangePasswordCard from "@/components/auth/ChangePasswordCard";
 import { updateProfile } from "@/actions/profile-actions";
 import { supabase } from "@/lib/supabase-client";
-import { useRouter } from "next/navigation";
 
 export default function ProfileEditor({ profile, allServices = [] }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState({ type: "", text: "" });
 
-  // 1) Estado para datos de texto (nombre vive en User)
   const [form, setForm] = useState({
     name: profile.user?.name || "",
+    phone: profile.user?.phone || "",
     specialty: profile.specialty || "",
     licenseNumber: profile.licenseNumber || "",
     bio: profile.bio || "",
   });
 
-  // 2) Estado para Servicios (IDs)
   const [selectedServices, setSelectedServices] = useState(
-    profile.services ? profile.services.map((s) => s.id) : []
+    Array.isArray(profile.services) ? profile.services.map((s) => s.id) : []
   );
 
-  // 3) Estado para Imagen
   const [avatarFile, setAvatarFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(profile.user?.image || null);
 
-  // --- MANEJADORES ---
   const handleInputChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
   };
 
   const handleServiceToggle = (serviceId) => {
-    setSelectedServices((prev) => {
-      if (prev.includes(serviceId)) {
-        return prev.filter((id) => id !== serviceId);
-      }
-      return [...prev, serviceId];
-    });
+    setSelectedServices((prev) =>
+      prev.includes(serviceId) ? prev.filter((id) => id !== serviceId) : [...prev, serviceId]
+    );
   };
 
   const handleImageChange = (e) => {
@@ -58,42 +52,37 @@ export default function ProfileEditor({ profile, allServices = [] }) {
     try {
       let publicUrl = null;
 
-      // A. Si hay nueva imagen, subir a Supabase
       if (avatarFile) {
         const fileExt = avatarFile.name.split(".").pop();
         const fileName = `${profile.userId}-${Date.now()}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
           .from("avatars")
-          .upload(fileName, avatarFile);
+          .upload(fileName, avatarFile, { upsert: true });
 
         if (uploadError) throw new Error("Error subiendo imagen: " + uploadError.message);
 
-        // Obtener URL pública
         const { data } = supabase.storage.from("avatars").getPublicUrl(fileName);
         publicUrl = data.publicUrl;
       }
 
-      // B. Preparar FormData para el Server Action
-      const formData = new FormData();
-      formData.append("name", form.name);
-      formData.append("specialty", form.specialty);
-      formData.append("licenseNumber", form.licenseNumber);
-      formData.append("bio", form.bio);
+      const fd = new FormData();
+      fd.append("name", form.name);
+      fd.append("phone", form.phone);
+      fd.append("specialty", form.specialty);
+      fd.append("licenseNumber", form.licenseNumber);
+      fd.append("bio", form.bio);
+      if (publicUrl) fd.append("imageUrl", publicUrl);
 
-      if (publicUrl) formData.append("imageUrl", publicUrl);
+      selectedServices.forEach((id) => fd.append("serviceIds", id));
 
-      // Servicios seleccionados
-      selectedServices.forEach((id) => formData.append("serviceIds", id));
+      const res = await updateProfile(fd);
 
-      // C. Enviar al Backend
-      const res = await updateProfile(formData);
-
-      if (res.success) {
+      if (res?.success) {
         setMsg({ type: "success", text: "✅ Perfil guardado correctamente" });
-        router.refresh(); // Refrescar para ver cambios en header/dashboard
+        router.refresh();
       } else {
-        setMsg({ type: "error", text: "❌ " + (res.error || "No se pudo guardar") });
+        setMsg({ type: "error", text: "❌ " + (res?.error || "No se pudo guardar") });
       }
     } catch (error) {
       console.error(error);
@@ -104,210 +93,157 @@ export default function ProfileEditor({ profile, allServices = [] }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
-      {/* MENSAJE DE ESTADO */}
+    <div className="space-y-8">
       {msg.text && (
         <div
-          className={`p-4 rounded-lg font-medium text-center ${
+          className={`rounded-xl border px-4 py-3 text-sm ${
             msg.type === "success"
-              ? "bg-green-50 text-green-700"
-              : "bg-red-50 text-red-700"
+              ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+              : "bg-rose-50 border-rose-200 text-rose-900"
           }`}
         >
           {msg.text}
         </div>
       )}
 
-      <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-8">
-        {/* 1. SECCIÓN FOTO */}
-        <div className="md:col-span-1 flex flex-col items-center gap-4">
-          <div className="relative group w-48 h-48 rounded-full overflow-hidden border-4 border-slate-50 shadow-inner bg-slate-100">
-            {previewUrl ? (
-              <img src={previewUrl} alt="Avatar" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-5xl text-slate-300">
-                👤
-              </div>
-            )}
+      <form onSubmit={handleSubmit} className="space-y-8">
+        {/* FOTO */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
+          <h3 className="text-lg font-semibold text-slate-800">Foto</h3>
+          <p className="text-sm text-slate-500 mt-1">Recomendado 500×500px.</p>
 
-            {/* Overlay Hover */}
-            <label className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white">
-              <span className="text-2xl mb-1">📷</span>
-              <span className="text-xs font-bold uppercase tracking-wider">Cambiar Foto</span>
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleImageChange}
-              />
+          <div className="mt-4 flex items-center gap-4">
+            <div className="relative">
+              <div className="h-24 w-24 rounded-full overflow-hidden border border-slate-200 bg-slate-50">
+                {previewUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={previewUrl} alt="Avatar" className="h-full w-full object-cover" />
+                ) : null}
+              </div>
+            </div>
+
+            <label className="inline-flex items-center gap-2 cursor-pointer text-sm font-medium text-blue-700">
+              <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+              Cambiar foto
             </label>
           </div>
-          <p className="text-xs text-slate-400 text-center px-4">
-            Haz clic en la imagen para subir una nueva.
-            <br />
-            (Recomendado: 500x500px)
-          </p>
         </div>
 
-        {/* 2. DATOS PERSONALES */}
-        <div className="md:col-span-2 space-y-5">
-          <h3 className="text-lg font-bold text-slate-800 border-b pb-2 mb-4">
-            Información Pública
-          </h3>
+        {/* INFO PÚBLICA */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
+          <h3 className="text-lg font-semibold text-slate-800">Información pública</h3>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Nombre y Apellido
-            </label>
-            <input
-              name="name"
-              type="text"
-              required
-              value={form.name}
-              onChange={handleInputChange}
-              className="w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Especialidad (Título)
-              </label>
+              <label className="text-sm font-medium text-slate-700">Nombre y Apellido</label>
+              <input
+                name="name"
+                value={form.name}
+                onChange={handleInputChange}
+                className="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-slate-700">Teléfono</label>
+              <input
+                name="phone"
+                value={form.phone}
+                onChange={handleInputChange}
+                className="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5"
+                placeholder="+506 8888-8888"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-slate-700">Especialidad (Título)</label>
               <input
                 name="specialty"
-                type="text"
                 value={form.specialty}
                 onChange={handleInputChange}
-                placeholder="Ej: Psicólogo Clínico"
-                className="w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5"
+                className="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5"
               />
             </div>
+
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Matrícula / Licencia
-              </label>
+              <label className="text-sm font-medium text-slate-700">Matrícula / Licencia</label>
               <input
                 name="licenseNumber"
-                type="text"
                 value={form.licenseNumber}
                 onChange={handleInputChange}
-                className="w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5"
+                className="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Biografía
-            </label>
+            <label className="text-sm font-medium text-slate-700">Biografía</label>
             <textarea
               name="bio"
-              rows="4"
               value={form.bio}
               onChange={handleInputChange}
-              placeholder="Describe tu experiencia y enfoque terapéutico..."
-              className="w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3"
-            ></textarea>
+              rows={5}
+              className="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            />
           </div>
         </div>
-      </div>
 
-      {/* 3. SELECTOR DE SERVICIOS */}
-      <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-100">
-        <h3 className="text-lg font-bold text-slate-800 mb-2">Mis Servicios</h3>
-        <p className="text-slate-500 text-sm mb-6">
-          Selecciona los tipos de atención que brindas. Esto permitirá que los pacientes te
-          encuentren en los filtros.
-        </p>
+        {/* SERVICIOS */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
+          <h3 className="text-lg font-semibold text-slate-800">Mis servicios</h3>
+          <p className="text-sm text-slate-500 mt-1">
+            Selecciona los tipos de atención que brindas.
+          </p>
 
-        {allServices.length === 0 ? (
-          <div className="p-4 bg-yellow-50 text-yellow-800 rounded-md text-sm">
-            ⚠️ No hay servicios disponibles en el sistema. Contacta al administrador.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {allServices.map((service) => {
-              const isSelected = selectedServices.includes(service.id);
-              return (
-                <div
-                  key={service.id}
-                  onClick={() => handleServiceToggle(service.id)}
-                  className={`relative cursor-pointer border rounded-xl p-4 transition-all flex items-start gap-3 select-none
-                    ${
+          {allServices.length === 0 ? (
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              ⚠️ No hay servicios disponibles. Contacta al administrador.
+            </div>
+          ) : (
+            <div className="mt-4 grid md:grid-cols-2 gap-3">
+              {allServices.map((service) => {
+                const isSelected = selectedServices.includes(service.id);
+                return (
+                  <button
+                    type="button"
+                    key={service.id}
+                    onClick={() => handleServiceToggle(service.id)}
+                    className={`text-left border rounded-xl p-4 transition-all ${
                       isSelected
-                        ? "border-blue-600 bg-blue-50 shadow-sm ring-1 ring-blue-600"
+                        ? "border-blue-600 bg-blue-50 ring-1 ring-blue-600"
                         : "border-slate-200 hover:border-blue-400 hover:bg-slate-50"
                     }`}
-                >
-                  <div
-                    className={`mt-0.5 w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-colors
-                    ${isSelected ? "bg-blue-600 border-blue-600" : "bg-white border-slate-300"}`}
                   >
-                    {isSelected && <span className="text-white text-xs font-bold">✓</span>}
-                  </div>
-                  <div>
-                    <p
-                      className={`font-bold text-sm ${
-                        isSelected ? "text-blue-900" : "text-slate-700"
-                      }`}
-                    >
-                      {service.title}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1 line-clamp-2">
-                      {service.description || "Sin descripción"}
-                    </p>
-                    <div className="mt-2 flex items-center gap-2">
-                      <span className="text-xs font-semibold bg-white px-2 py-0.5 rounded border border-slate-200 text-slate-600">
-                        {service.durationMin} min
-                      </span>
-                      <span className="text-xs font-semibold text-green-700">
-                        Ref: ${service.price}
-                      </span>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-semibold text-slate-800">{service.title}</div>
+                        <div className="text-sm text-slate-500">
+                          {service.description || "Sin descripción"}
+                        </div>
+                      </div>
+                      <div className="text-xs text-slate-600 whitespace-nowrap">
+                        {service.durationMin} min · ${String(service.price)}
+                      </div>
                     </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* 4. CAMBIAR CONTRASEÑA (REUTILIZABLE) */}
-      <ChangePasswordCard title="Cambiar contraseña" />
-
-      {/* BOTÓN GUARDAR PERFIL */}
-      <div className="flex justify-end pt-4">
-        <button
-          type="submit"
-          disabled={loading}
-          className={`px-8 py-3 bg-blue-900 text-white rounded-xl font-bold text-lg shadow-lg hover:bg-blue-800 hover:shadow-xl transition-all transform hover:-translate-y-0.5
-            ${loading ? "opacity-70 cursor-wait" : ""}`}
-        >
-          {loading ? (
-            <span className="flex items-center gap-2">
-              <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-              Guardando...
-            </span>
-          ) : (
-            "Guardar Cambios"
+                  </button>
+                );
+              })}
+            </div>
           )}
-        </button>
-      </div>
-    </form>
+        </div>
+
+        <div className="flex items-center justify-end gap-3">
+          <button
+            type="submit"
+            disabled={loading}
+            className="rounded-xl bg-blue-600 text-white px-5 py-2.5 font-semibold shadow-sm hover:bg-blue-700 disabled:opacity-60"
+          >
+            {loading ? "Guardando..." : "Guardar cambios"}
+          </button>
+        </div>
+      </form>
+
+      <ChangePasswordCard />
+    </div>
   );
 }

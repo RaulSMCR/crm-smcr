@@ -1,76 +1,114 @@
 // src/actions/profile-actions.js
-'use server'
+'use server';
 
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth"; 
+import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+
+function toStr(x) {
+  if (x === undefined || x === null) return "";
+  return String(x);
+}
+
+function normalizePhone(v) {
+  const s = String(v || "").trim();
+  if (!s) return "";
+  return s.replace(/\s+/g, " ");
+}
+
+function isPhoneValid(v) {
+  const s = normalizePhone(v);
+  if (!s) return false;
+  if (!/^[+0-9()\-\s]+$/.test(s)) return false;
+  const digits = (s.match(/\d/g) || []).length;
+  return digits >= 8;
+}
+
+async function requireProfessionalProfileId() {
+  const session = await getSession();
+  if (!session) return { error: "No autorizado: sesión requerida." };
+
+  const role = toStr(session.role);
+  if (role !== "PROFESSIONAL") return { error: "No autorizado: rol PROFESSIONAL requerido." };
+
+  const profId =
+    toStr(session.professionalProfileId) ||
+    toStr(session.professionalId); // compat si quedó algo viejo en tokens
+
+  if (profId) return { session, professionalProfileId: profId };
+
+  const userId = toStr(session.userId) || toStr(session.sub);
+  if (userId) {
+    const prof = await prisma.professionalProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    if (prof?.id) return { session, professionalProfileId: prof.id };
+  }
+
+  return { error: "No se encontró el perfil profesional asociado a esta sesión." };
+}
 
 /**
  * ACTUALIZAR PERFIL COMPLETO
- * - Datos Personales (User): Nombre, Foto
- * - Datos Profesionales: Bio, Especialidad, Matrícula
- * - Servicios: Vinculación (Many-to-Many)
+ * - User: name, image (y opcional phone)
+ * - ProfessionalProfile: specialty, licenseNumber, bio
+ * - Services: set([...])
  */
 export async function updateProfile(formData) {
-  const session = await getSession();
-  
-  // Verificación de seguridad
-  if (!session || session.role !== 'PROFESSIONAL') {
-    return { error: "No autorizado" };
-  }
-
-  const professionalId = session.professionalId; // Usamos el ID del perfil linkeado en el token
-
   try {
-    // 1. Recoger datos simples
-    const name = formData.get('name');
-    const specialty = formData.get('specialty');
-    const licenseNumber = formData.get('licenseNumber');
-    const bio = formData.get('bio');
-    const imageUrl = formData.get('imageUrl'); // URL de la foto subida a Supabase
-    
-    // 2. Recoger los Servicios Seleccionados
-    // formData.getAll('serviceIds') nos da un array ej: ['id1', 'id2']
-    const serviceIds = formData.getAll('serviceIds');
+    const guard = await requireProfessionalProfileId();
+    if (guard.error) return { success: false, error: guard.error };
 
-    // 3. Ejecutar Update en Base de Datos
+    const { session, professionalProfileId } = guard;
+
+    const name = toStr(formData.get("name")).trim();
+    const phoneRaw = formData.get("phone");
+    const phone = normalizePhone(phoneRaw);
+
+    const specialty = toStr(formData.get("specialty")).trim();
+    const licenseNumber = toStr(formData.get("licenseNumber")).trim() || null;
+    const bio = toStr(formData.get("bio")).trim() || null;
+    const imageUrl = toStr(formData.get("imageUrl")).trim() || null;
+
+    if (!name) return { success: false, error: "El nombre es obligatorio." };
+    if (!specialty) return { success: false, error: "La especialidad es obligatoria." };
+
+    if (phoneRaw !== null && phoneRaw !== undefined) {
+      if (!phone) return { success: false, error: "El teléfono es obligatorio." };
+      if (!isPhoneValid(phone)) return { success: false, error: "Teléfono inválido." };
+    }
+
+    const serviceIds = (formData.getAll("serviceIds") || [])
+      .map((x) => toStr(x))
+      .filter(Boolean);
+
     await prisma.professionalProfile.update({
-      where: { id: professionalId },
+      where: { id: professionalProfileId },
       data: {
         specialty,
-        bio,
         licenseNumber,
-        
-        // A. Actualizamos el Usuario Padre (Nombre y Foto)
+        bio,
         user: {
           update: {
-            name: name,
-            ...(imageUrl && { image: imageUrl }), // Solo actualiza imagen si viene una nueva
-          }
+            name,
+            ...(phoneRaw !== null && phoneRaw !== undefined ? { phone } : {}),
+            ...(imageUrl ? { image: imageUrl } : {}),
+          },
         },
-
-        // B. Actualizamos la Relación con Servicios
-        // 'set' reemplaza cualquier conexión anterior por la nueva lista que enviamos.
-        // Si el array está vacío, el profesional se queda sin servicios (desvinculado).
         services: {
-          set: serviceIds.map(id => ({ id })) 
-        }
-      }
+          set: serviceIds.map((id) => ({ id })),
+        },
+      },
     });
 
-    // 4. Revalidar cachés para ver cambios inmediatos
-    revalidatePath('/panel/profesional/perfil');
-    revalidatePath('/panel/profesional');
-    
-    // Si existe slug en la sesión, revalidamos la página pública también
-    if (session.slug) {
-        revalidatePath(`/profesionales/${session.slug}`);
-    }
-    
-    return { success: true, message: "Perfil guardado correctamente." };
+    revalidatePath("/panel/profesional/perfil");
+    revalidatePath("/panel/profesional");
+    if (session?.slug) revalidatePath(`/profesionales/${session.slug}`);
 
+    return { success: true };
   } catch (error) {
     console.error("Error updating profile:", error);
-    return { error: "Error al actualizar perfil. Intenta nuevamente." };
+    return { success: false, error: "Error al actualizar perfil. Intenta nuevamente." };
   }
 }

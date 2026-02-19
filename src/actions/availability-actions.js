@@ -12,15 +12,12 @@ function toStr(x) {
 async function requireProfessionalProfileId() {
   const session = await getSession();
   if (!session) throw new Error("No autorizado: sesión requerida.");
-
   const role = toStr(session.role);
   if (role !== "PROFESSIONAL") throw new Error("No autorizado: rol PROFESSIONAL requerido.");
 
-  // 1) Ideal: viene en sesión (por login)
   const profId = toStr(session.professionalProfileId);
   if (profId) return profId;
 
-  // 2) Fallback por userId/sub (si alguien manipula el token viejo, igual funciona)
   const userId = toStr(session.userId) || toStr(session.sub);
   if (userId) {
     const prof = await prisma.professionalProfile.findUnique({
@@ -30,7 +27,6 @@ async function requireProfessionalProfileId() {
     if (prof?.id) return prof.id;
   }
 
-  // 3) Fallback por email
   const email = toStr(session.email);
   if (email) {
     const prof = await prisma.professionalProfile.findFirst({
@@ -60,6 +56,11 @@ function validateBlock(b) {
   return { ok: true, dayOfWeek, startTime, endTime };
 }
 
+function overlaps(a, b) {
+  // HH:mm lexicográfico funciona
+  return a.startTime < b.endTime && b.startTime < a.endTime;
+}
+
 export async function getAvailability() {
   try {
     const professionalId = await requireProfessionalProfileId();
@@ -70,7 +71,12 @@ export async function getAvailability() {
     return { success: true, data };
   } catch (err) {
     console.error("Error getting availability:", err);
-    return { success: false, data: [], error: "No se pudieron cargar horarios.", details: String(err?.message ?? err) };
+    return {
+      success: false,
+      data: [],
+      error: "No se pudieron cargar horarios.",
+      details: String(err?.message ?? err),
+    };
   }
 }
 
@@ -87,10 +93,18 @@ export async function updateAvailability(payload) {
       return { success: true };
     }
 
+    // 1) Normalizar + dedupe exactos
+    const seen = new Set();
     const normalized = [];
+
     for (const b of payload) {
       const v = validateBlock(b);
       if (!v.ok) return { success: false, error: v.error };
+
+      const key = `${v.dayOfWeek}|${v.startTime}|${v.endTime}`;
+      if (seen.has(key)) continue; // ignoramos duplicados exactos
+      seen.add(key);
+
       normalized.push({
         professionalId,
         dayOfWeek: v.dayOfWeek,
@@ -99,14 +113,42 @@ export async function updateAvailability(payload) {
       });
     }
 
+    // 2) Validar solapamientos por día
+    const byDay = new Map();
+    for (const b of normalized) {
+      if (!byDay.has(b.dayOfWeek)) byDay.set(b.dayOfWeek, []);
+      byDay.get(b.dayOfWeek).push(b);
+    }
+
+    for (const [day, blocks] of byDay.entries()) {
+      blocks.sort((a, b) => a.startTime.localeCompare(b.startTime));
+      for (let i = 1; i < blocks.length; i++) {
+        const prev = blocks[i - 1];
+        const curr = blocks[i];
+        if (overlaps(prev, curr)) {
+          return {
+            success: false,
+            error: `Bloques solapados en día ${day}: ${prev.startTime}-${prev.endTime} y ${curr.startTime}-${curr.endTime}.`,
+          };
+        }
+      }
+    }
+
     await prisma.$transaction(async (tx) => {
       await tx.availability.deleteMany({ where: { professionalId } });
-      await tx.availability.createMany({ data: normalized });
+      await tx.availability.createMany({
+        data: normalized,
+        skipDuplicates: true,
+      });
     });
 
     return { success: true };
   } catch (err) {
     console.error("Error saving availability:", err);
-    return { success: false, error: "Error interno al guardar", details: String(err?.message ?? err) };
+    return {
+      success: false,
+      error: "Error interno al guardar",
+      details: String(err?.message ?? err),
+    };
   }
 }
