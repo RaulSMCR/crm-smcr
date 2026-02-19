@@ -2,8 +2,8 @@
 'use server';
 
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { requireProfessionalContext } from "@/lib/auth-guards";
 
 function toStr(x) {
   if (x === undefined || x === null) return "";
@@ -24,31 +24,6 @@ function isPhoneValid(v) {
   return digits >= 8;
 }
 
-async function requireProfessionalProfileId() {
-  const session = await getSession();
-  if (!session) return { error: "No autorizado: sesión requerida." };
-
-  const role = toStr(session.role);
-  if (role !== "PROFESSIONAL") return { error: "No autorizado: rol PROFESSIONAL requerido." };
-
-  const profId =
-    toStr(session.professionalProfileId) ||
-    toStr(session.professionalId); // compat si quedó algo viejo en tokens
-
-  if (profId) return { session, professionalProfileId: profId };
-
-  const userId = toStr(session.userId) || toStr(session.sub);
-  if (userId) {
-    const prof = await prisma.professionalProfile.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-    if (prof?.id) return { session, professionalProfileId: prof.id };
-  }
-
-  return { error: "No se encontró el perfil profesional asociado a esta sesión." };
-}
-
 /**
  * ACTUALIZAR PERFIL COMPLETO
  * - User: name, image (y opcional phone)
@@ -57,10 +32,7 @@ async function requireProfessionalProfileId() {
  */
 export async function updateProfile(formData) {
   try {
-    const guard = await requireProfessionalProfileId();
-    if (guard.error) return { success: false, error: guard.error };
-
-    const { session, professionalProfileId } = guard;
+    const { session, professionalProfileId } = await requireProfessionalContext();
 
     const name = toStr(formData.get("name")).trim();
     const phoneRaw = formData.get("phone");
@@ -109,6 +81,13 @@ export async function updateProfile(formData) {
     return { success: true };
   } catch (error) {
     console.error("Error updating profile:", error);
+
+    // Si es un error de guard (auth), podés devolver el mensaje tal cual:
+    const msg = String(error?.message ?? "");
+    if (msg.startsWith("No autorizado") || msg.includes("perfil profesional")) {
+      return { success: false, error: msg };
+    }
+
     return { success: false, error: "Error al actualizar perfil. Intenta nuevamente." };
   }
 }

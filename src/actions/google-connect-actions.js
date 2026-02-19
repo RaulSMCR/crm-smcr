@@ -1,54 +1,61 @@
-'use server'
+// src/actions/google-connect-actions.js
+'use server';
 
 import { getOAuth2Client } from "@/lib/google-oauth";
-import { prisma } from "@/lib/prisma"; // Tu cliente prisma corregido
-import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
-// 1. Generar URL de autorización (El botón "Conectar")
+function getProIdOrFail(session) {
+  if (!session || session.role !== "PROFESSIONAL" || !session.professionalProfileId) {
+    return null;
+  }
+  return String(session.professionalProfileId);
+}
+
+/** 1) Generar URL de autorización (Botón "Conectar") */
 export async function generarUrlConexionGoogle() {
   const oauth2Client = getOAuth2Client();
 
   const url = oauth2Client.generateAuthUrl({
-    access_type: 'offline', // CRUCIAL: Esto nos da el Refresh Token
+    access_type: "offline",
     scope: [
-      'https://www.googleapis.com/auth/calendar',
-      'https://www.googleapis.com/auth/userinfo.email'
+      "https://www.googleapis.com/auth/calendar",
+      "https://www.googleapis.com/auth/userinfo.email",
     ],
-    prompt: 'consent', // Fuerza a Google a preguntar siempre (garantiza refresh_token)
-    include_granted_scopes: true
+    prompt: "consent",
+    include_granted_scopes: true,
   });
 
-  return url; // Retornamos la URL para que el cliente redirija
+  return url;
 }
 
-// 2. Intercambiar Código por Token (El Callback)
-export async function guardarCredencialesGoogle(code, professionalId) {
-  if (!code || !professionalId) return { error: "Faltan datos" };
+/** 2) Intercambiar Code por Tokens y guardar refresh_token en ProfessionalProfile */
+export async function guardarCredencialesGoogle(code) {
+  const session = await getSession();
+  const proId = getProIdOrFail(session);
+
+  if (!proId) return { error: "No autorizado" };
+  if (!code) return { error: "Falta el parámetro 'code'." };
 
   try {
     const oauth2Client = getOAuth2Client();
-    const { tokens } = await oauth2Client.getToken(code);
+    const { tokens } = await oauth2Client.getToken(String(code));
 
-    // Si Google no nos dio refresh_token, es porque el usuario ya autorizó antes
-    // y no forzamos el prompt='consent'. Pero nuestra URL de arriba lo fuerza.
     if (!tokens.refresh_token) {
-      console.warn("Google no devolvió refresh_token. Revisa el prompt.");
+      return {
+        error:
+          "Google no devolvió refresh_token. Reintenta: desconecta la app en tu cuenta Google y vuelve a conectar.",
+      };
     }
 
-    // Guardar en la DB
-    await prisma.professional.update({
-      where: { id: professionalId },
-      data: {
-        googleRefreshToken: tokens.refresh_token, // Guardamos la joya de la corona
-        googleAccessToken: tokens.access_token,   // Opcional, caduca rápido
-        emailVerified: true // Asumimos que si conectó Google, el email es válido
-      }
+    await prisma.professionalProfile.update({
+      where: { id: proId },
+      data: { googleRefreshToken: tokens.refresh_token },
     });
 
-    revalidatePath('/panel/profesional');
+    revalidatePath("/panel/profesional");
     return { success: true };
-
   } catch (error) {
     console.error("Error guardando tokens:", error);
     return { error: "Error al conectar con Google" };
