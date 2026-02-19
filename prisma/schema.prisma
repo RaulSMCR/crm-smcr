@@ -65,6 +65,9 @@ model User {
   professionalProfile ProfessionalProfile?
   appointments        Appointment[] @relation("PatientAppointments")
 
+  // BLOG ANALYTICS (nivel 3)
+  postViewEvents PostViewEvent[]
+
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
@@ -143,10 +146,58 @@ model Post {
   categoryId  String?
   category    Category? @relation(fields: [categoryId], references: [id])
 
+  // BLOG ANALYTICS (nivel 3)
+  viewEvents  PostViewEvent[]
+
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
   @@index([views])
+}
+
+// Eventos de marketing/lectura por post (Nivel 3)
+model PostViewEvent {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  postId String
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  // opcional si el lector está logueado
+  userId String?
+  user   User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // Identificador anónimo persistente (cookie 1 año)
+  anonId String
+
+  // Sesión (cookie corta, p.ej. 30 min sliding)
+  sessionId String
+
+  // Marketing/contexto
+  landingUrl  String? @db.Text
+  referrer    String? @db.Text
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmTerm     String?
+  utmContent  String?
+
+  userAgent String? @db.Text
+  country   String?
+
+  // Lectura real
+  isRead            Boolean  @default(false)
+  readAt            DateTime?
+  timeOnPageSeconds Int?
+  scrollDepth       Int?     // 0..100 (máximo)
+
+  @@index([postId, createdAt])
+  @@index([createdAt])
+  @@index([anonId])
+  @@index([utmSource, utmMedium, utmCampaign])
+
+  @@unique([sessionId, postId]) // 1 view por post por sesión
 }
 
 // --------------------------------------------------------

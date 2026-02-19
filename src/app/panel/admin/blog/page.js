@@ -1,76 +1,118 @@
 // src/app/panel/admin/blog/page.js
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { updatePostStatus } from "@/actions/admin-actions";
-import Link from "next/link";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-export default async function AdminBlogPage() {
-  const posts = await prisma.post.findMany({
-    orderBy: { createdAt: 'desc' },
-    include: {
-        author: { include: { user: true } }
-    }
-  });
+export default async function AdminBlogPage({ searchParams }) {
+  const authorId = typeof searchParams?.authorId === "string" ? searchParams.authorId : null;
+
+  const where = authorId ? { authorId } : undefined;
+
+  const [posts, author] = await Promise.all([
+    prisma.post.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      include: { author: { include: { user: true } } },
+    }),
+    authorId
+      ? prisma.professionalProfile.findUnique({
+          where: { id: authorId },
+          include: { user: true },
+        })
+      : Promise.resolve(null),
+  ]);
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-8">
-      <div className="flex justify-between items-center">
+    <div className="p-8 max-w-6xl mx-auto space-y-6">
+      <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold text-slate-800">Gestión Editorial</h1>
         <p className="text-slate-500">Revisa y aprueba los artículos de los profesionales.</p>
+
+        {authorId && (
+          <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl p-4">
+            <div className="text-sm text-slate-700">
+              Filtrando por profesional:{" "}
+              <span className="font-semibold">
+                {author?.user?.name || "Desconocido"}
+              </span>
+            </div>
+            <Link
+              href="/panel/admin/blog"
+              className="text-sm font-semibold text-blue-700 hover:underline"
+            >
+              Quitar filtro
+            </Link>
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <table className="w-full text-left">
-            <thead className="bg-slate-50 border-b border-slate-200">
-                <tr>
-                    <th className="p-4 text-xs font-bold text-slate-500 uppercase">Título</th>
-                    <th className="p-4 text-xs font-bold text-slate-500 uppercase">Autor</th>
-                    <th className="p-4 text-xs font-bold text-slate-500 uppercase">Fecha</th>
-                    <th className="p-4 text-xs font-bold text-slate-500 uppercase">Estado</th>
-                    <th className="p-4 text-right text-xs font-bold text-slate-500 uppercase">Acciones</th>
+          <thead className="bg-slate-50 border-b border-slate-200">
+            <tr className="text-xs font-semibold text-slate-600 uppercase tracking-wider">
+              <th className="p-4">Título</th>
+              <th className="p-4">Autor</th>
+              <th className="p-4">Fecha</th>
+              <th className="p-4">Estado</th>
+              <th className="p-4">Acciones</th>
+            </tr>
+          </thead>
+
+          <tbody className="divide-y divide-slate-100">
+            {posts.map((post) => {
+              const isPublished = post.status === "PUBLISHED";
+
+              return (
+                <tr key={post.id} className="hover:bg-slate-50">
+                  <td className="p-4 font-semibold text-slate-800">{post.title}</td>
+                  <td className="p-4 text-slate-700">
+                    {post.author?.user?.name || "Desconocido"}
+                  </td>
+                  <td className="p-4 text-slate-700">
+                    {new Date(post.createdAt).toLocaleDateString()}
+                  </td>
+                  <td className="p-4">
+                    <span
+                      className={[
+                        "inline-flex px-2 py-1 rounded-full text-xs font-semibold",
+                        isPublished
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-amber-50 text-amber-800",
+                      ].join(" ")}
+                    >
+                      {isPublished ? "PUBLICADO" : "BORRADOR"}
+                    </span>
+                  </td>
+                  <td className="p-4">
+                    <form
+                      action={async () => {
+                        "use server";
+                        await updatePostStatus(post.id, isPublished ? "DRAFT" : "PUBLISHED");
+                      }}
+                    >
+                      <button
+                        type="submit"
+                        className="text-sm font-semibold text-slate-900 hover:underline"
+                      >
+                        {isPublished ? "Despublicar" : "Aprobar"}
+                      </button>
+                    </form>
+                  </td>
                 </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-                {posts.map(post => {
-                    // LÓGICA CORREGIDA: Usamos status === 'PUBLISHED'
-                    const isPublished = post.status === 'PUBLISHED';
-                    
-                    return (
-                        <tr key={post.id} className="hover:bg-slate-50 transition">
-                            <td className="p-4">
-                                <Link href={`/blog/${post.slug}`} target="_blank" className="font-bold text-blue-600 hover:underline">
-                                    {post.title}
-                                </Link>
-                            </td>
-                            <td className="p-4 text-sm text-slate-600">
-                                {post.author?.user?.name || "Desconocido"}
-                            </td>
-                            <td className="p-4 text-sm text-slate-500">
-                                {new Date(post.createdAt).toLocaleDateString()}
-                            </td>
-                            <td className="p-4">
-                                <span className={`px-2 py-1 rounded text-xs font-bold ${isPublished ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                    {isPublished ? 'PUBLICADO' : 'BORRADOR'}
-                                </span>
-                            </td>
-                            <td className="p-4 text-right">
-                                <form action={async () => {
-                                    'use server';
-                                    // Enviamos el string del Enum contrario
-                                    await updatePostStatus(post.id, isPublished ? 'DRAFT' : 'PUBLISHED');
-                                }}>
-                                    <button className={`px-3 py-1 rounded text-xs font-bold text-white transition ${isPublished ? 'bg-red-500 hover:bg-red-600' : 'bg-green-600 hover:bg-green-700'}`}>
-                                        {isPublished ? 'Despublicar' : 'Aprobar'}
-                                    </button>
-                                </form>
-                            </td>
-                        </tr>
-                    );
-                })}
-            </tbody>
+              );
+            })}
+
+            {posts.length === 0 && (
+              <tr>
+                <td className="p-6 text-slate-500" colSpan={5}>
+                  No hay artículos para este criterio.
+                </td>
+              </tr>
+            )}
+          </tbody>
         </table>
-        {posts.length === 0 && <p className="p-8 text-center text-slate-400">No hay artículos escritos.</p>}
       </div>
     </div>
   );
