@@ -4,11 +4,19 @@ import { prisma } from "@/lib/prisma";
 import { randomBytes, createHash } from "crypto";
 import { sendResetPasswordEmail } from "@/lib/mail";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 function json(data, status = 200) {
   return NextResponse.json(data, { status });
 }
 
 export async function POST(request) {
+  const neutral = {
+    ok: true,
+    message: "Si el correo existe, te enviaremos un enlace para restablecer tu contraseña.",
+  };
+
   try {
     const ct = request.headers.get("content-type") || "";
     if (!ct.includes("application/json")) {
@@ -22,23 +30,16 @@ export async function POST(request) {
       return json({ error: "Email inválido." }, 400);
     }
 
-    // Respuesta neutra SIEMPRE (no revelar si existe el email)
-    const neutral = {
-      ok: true,
-      message: "Si el correo existe, te enviaremos un enlace para restablecer tu contraseña.",
-    };
-
     const user = await prisma.user.findUnique({
       where: { email },
       select: { id: true, email: true, isActive: true },
     });
 
-    // Si no existe o está inactivo, igual respondemos neutro
+    // Respuesta neutra SIEMPRE (no revelar si existe el email)
     if (!user || user.isActive === false) {
       return json(neutral, 200);
     }
 
-    // Token raw para el link + hash para DB
     const rawToken = randomBytes(32).toString("hex");
     const tokenHash = createHash("sha256").update(rawToken).digest("hex");
     const exp = new Date(Date.now() + 1000 * 60 * 60); // 1 hora
@@ -46,7 +47,7 @@ export async function POST(request) {
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        resetToken: tokenHash,
+        resetTokenHash: tokenHash,
         resetTokenExp: exp,
       },
     });
@@ -57,12 +58,6 @@ export async function POST(request) {
   } catch (e) {
     console.error("forgot-password error:", e);
     // neutro por seguridad
-    return json(
-      {
-        ok: true,
-        message: "Si el correo existe, te enviaremos un enlace para restablecer tu contraseña.",
-      },
-      200
-    );
+    return json(neutral, 200);
   }
 }
