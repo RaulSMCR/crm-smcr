@@ -8,26 +8,20 @@ export const dynamic = "force-dynamic";
 
 export default async function PerfilPage() {
   const session = await getSession();
-  if (!session || session.role !== "PROFESSIONAL") {
-    redirect("/ingresar");
-  }
+  if (!session || session.role !== "PROFESSIONAL") redirect("/ingresar");
 
-  const profile = await prisma.professionalProfile.findUnique({
-    where: { userId: session.sub },
+  const profileRaw = await prisma.professionalProfile.findUnique({
+    where: { userId: String(session.sub) },
     include: {
-      serviceAssignments: {
-        include: { service: true },
-      },
-      user: {
-        select: { name: true, email: true, image: true, phone: true },
-      },
+      serviceAssignments: { include: { service: true } },
+      user: { select: { name: true, email: true, image: true, phone: true } },
     },
   });
 
-  if (!profile) {
+  if (!profileRaw) {
     return (
-      <div className="max-w-3xl mx-auto p-8">
-        <h2 className="text-2xl font-bold">Error de Perfil</h2>
+      <div className="max-w-4xl mx-auto p-8">
+        <h2 className="text-2xl font-bold text-slate-800">Error de Perfil</h2>
         <p className="mt-2 text-slate-600">
           No se encontró el perfil asociado. Contacta a soporte.
         </p>
@@ -35,18 +29,28 @@ export default async function PerfilPage() {
     );
   }
 
-  const allServices = await prisma.service.findMany({
+  const allServicesRaw = await prisma.service.findMany({
     where: { isActive: true },
     orderBy: { title: "asc" },
   });
 
+  // ✅ Serializar Decimal -> number para props de componente client
+  const allServices = allServicesRaw.map((s) => ({ ...s, price: Number(s.price) }));
+
+  const profile = {
+    ...profileRaw,
+    serviceAssignments: (profileRaw.serviceAssignments || []).map((a) => ({
+      ...a,
+      service: a.service ? { ...a.service, price: Number(a.service.price) } : a.service,
+    })),
+  };
+
   return (
-    <div className="max-w-5xl mx-auto p-6 md:p-10 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">Mi Perfil Profesional</h1>
-        <p className="text-slate-600 mt-2">
-          Selecciona los servicios que ofreces. Los servicios nuevos quedan <b>en revisión</b> hasta que el
-          administrador los apruebe.
+    <div className="p-6">
+      <div className="max-w-5xl mx-auto mb-6">
+        <h1 className="text-3xl font-bold text-slate-800">Mi Perfil Profesional</h1>
+        <p className="text-slate-500 mt-2">
+          Selecciona los servicios que ofreces. Los servicios nuevos quedan en revisión hasta que el administrador los apruebe.
         </p>
       </div>
 

@@ -25,12 +25,14 @@ function isPhoneValid(v) {
 }
 
 /**
- * ACTUALIZAR PERFIL COMPLETO
- * - User: name, image, phone
+ * UPDATE PERFIL (Profesional)
+ * - User: name, phone, image
  * - ProfessionalProfile: specialty, licenseNumber, bio
  * - ServiceAssignment:
- *    - nuevos -> PENDING (requiere aprobación admin)
- *    - removidos -> se eliminan (remoción directa)
+ *    - si selecciona un servicio NUEVO => create PENDING
+ *    - si estaba REJECTED y lo re-selecciona => pasa a PENDING
+ *    - si deselecciona => delete assignment
+ *    - si está APPROVED y sigue seleccionado => se mantiene
  */
 export async function updateProfile(formData) {
   try {
@@ -39,7 +41,6 @@ export async function updateProfile(formData) {
     const name = toStr(formData.get("name")).trim();
     const phoneRaw = formData.get("phone");
     const phone = normalizePhone(phoneRaw);
-
     const specialty = toStr(formData.get("specialty")).trim();
     const licenseNumber = toStr(formData.get("licenseNumber")).trim() || null;
     const bio = toStr(formData.get("bio")).trim() || null;
@@ -53,35 +54,29 @@ export async function updateProfile(formData) {
       if (!isPhoneValid(phone)) return { success: false, error: "Teléfono inválido." };
     }
 
-    // IDs elegidos desde UI
-    const rawSelected = (formData.getAll("serviceIds") || [])
+    const requestedServiceIds = (formData.getAll("serviceIds") || [])
       .map((x) => toStr(x))
       .filter(Boolean);
 
-    const selectedUnique = [...new Set(rawSelected)];
-
-    // seguridad: sólo permitir servicios activos existentes
-    const activeServices = await prisma.service.findMany({
-      where: { id: { in: selectedUnique }, isActive: true },
+    // Validar que existan y estén activos (evita ids basura)
+    const validServices = await prisma.service.findMany({
+      where: { id: { in: requestedServiceIds }, isActive: true },
       select: { id: true },
     });
-    const allowedSelected = new Set(activeServices.map((s) => s.id));
-    const selectedServiceIds = selectedUnique.filter((id) => allowedSelected.has(id));
+    const selectedIds = new Set(validServices.map((s) => s.id));
 
-    const existing = await prisma.serviceAssignment.findMany({
+    // Leer asignaciones actuales
+    const currentAssignments = await prisma.serviceAssignment.findMany({
       where: { professionalId: professionalProfileId },
       select: { serviceId: true, status: true },
     });
+    const currentMap = new Map(currentAssignments.map((a) => [a.serviceId, a.status]));
 
-    const existingByService = new Map(existing.map((r) => [r.serviceId, r.status]));
-    const existingIds = new Set(existing.map((r) => r.serviceId));
+    const tx = [];
 
-    const toRemove = [...existingIds].filter((id) => !selectedServiceIds.includes(id));
-
-    let pendingRequested = 0;
-
-    await prisma.$transaction(async (tx) => {
-      await tx.professionalProfile.update({
+    // Update del perfil + user embebido
+    tx.push(
+      prisma.professionalProfile.update({
         where: { id: professionalProfileId },
         data: {
           specialty,
@@ -95,59 +90,74 @@ export async function updateProfile(formData) {
             },
           },
         },
-      });
+      })
+    );
 
-      // altas: crear PENDING o reintentar si estaba REJECTED
-      for (const serviceId of selectedServiceIds) {
-        const status = existingByService.get(serviceId);
+    // Deletes (deseleccionados)
+    for (const a of currentAssignments) {
+      if (!selectedIds.has(a.serviceId)) {
+        tx.push(
+          prisma.serviceAssignment.delete({
+            where: {
+              professionalId_serviceId: {
+                professionalId: professionalProfileId,
+                serviceId: a.serviceId,
+              },
+            },
+          })
+        );
+      }
+    }
 
-        if (!status) {
-          await tx.serviceAssignment.create({
+    // Creates / Updates (seleccionados)
+    for (const serviceId of selectedIds) {
+      const existingStatus = currentMap.get(serviceId);
+
+      if (!existingStatus) {
+        // Nuevo => PENDING
+        tx.push(
+          prisma.serviceAssignment.create({
             data: {
               professionalId: professionalProfileId,
               serviceId,
               status: "PENDING",
+              requestedAt: new Date(),
+              reviewedAt: null,
             },
-          });
-          pendingRequested += 1;
-        } else if (status === "REJECTED") {
-          await tx.serviceAssignment.update({
+          })
+        );
+        continue;
+      }
+
+      if (existingStatus === "REJECTED") {
+        // Re-solicitud => vuelve a PENDING
+        tx.push(
+          prisma.serviceAssignment.update({
             where: {
-              professionalId_serviceId: {
-                professionalId: professionalProfileId,
-                serviceId,
-              },
+              professionalId_serviceId: { professionalId: professionalProfileId, serviceId },
             },
             data: {
               status: "PENDING",
+              requestedAt: new Date(),
               reviewedAt: null,
             },
-          });
-          pendingRequested += 1;
-        }
-        // si PENDING o APPROVED -> no tocar
+          })
+        );
       }
 
-      // bajas: eliminar relación (directo)
-      if (toRemove.length > 0) {
-        await tx.serviceAssignment.deleteMany({
-          where: {
-            professionalId: professionalProfileId,
-            serviceId: { in: toRemove },
-          },
-        });
-      }
-    });
+      // APPROVED/PENDING se mantienen (no-op)
+    }
 
-    // revalidaciones
+    await prisma.$transaction(tx);
+
     revalidatePath("/panel/profesional/perfil");
     revalidatePath("/panel/profesional");
-    revalidatePath("/panel/admin/servicios");
     revalidatePath("/servicios");
 
+    // Si tenés la página pública del profesional por slug:
     if (session?.slug) revalidatePath(`/profesionales/${session.slug}`);
 
-    return { success: true, pendingRequested };
+    return { success: true };
   } catch (error) {
     console.error("Error updating profile:", error);
     const msg = String(error?.message ?? "");

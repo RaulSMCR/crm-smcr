@@ -1,4 +1,4 @@
-//src/app/servicios/page.js
+// src/app/servicios/page.js
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 
@@ -20,7 +20,12 @@ export default async function ServiciosPage() {
       professionalAssignments: {
         where: {
           status: "APPROVED",
-          professional: { isApproved: true, user: { isActive: true } },
+          professional: {
+            is: {
+              isApproved: true,
+              user: { is: { isActive: true } },
+            },
+          },
         },
         take: 5,
         select: {
@@ -37,60 +42,57 @@ export default async function ServiciosPage() {
   });
 
   return (
-    <div className="max-w-6xl mx-auto p-6 md:p-10 space-y-6">
+    <div className="max-w-6xl mx-auto p-8 space-y-8">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">Nuestros Servicios</h1>
+        <h1 className="text-4xl font-bold text-slate-800">Nuestros Servicios</h1>
         <p className="text-slate-600 mt-2">Encuentra el apoyo profesional que necesitas hoy.</p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid md:grid-cols-2 gap-6">
         {services.map((service) => {
           const pros = (service.professionalAssignments || []).map((a) => a.professional);
 
           return (
             <div key={service.id} className="bg-white rounded-2xl border border-slate-200 p-6">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-semibold text-slate-900">{service.title}</h2>
-                  <p className="text-slate-600 mt-1">
-                    {service.description || "Sin descripción disponible."}
-                  </p>
-                </div>
-                <div className="text-sm text-slate-700 whitespace-nowrap">
-                  ${Number(service.price)}
-                </div>
+              <h2 className="text-2xl font-bold text-slate-800">{service.title}</h2>
+              <p className="text-slate-600 mt-2">
+                {service.description || "Sin descripción disponible."}
+              </p>
+
+              <div className="mt-3 text-sm text-slate-700 font-semibold">
+                ${Number(service.price)}
               </div>
 
               {pros.length > 0 && (
                 <div className="mt-4">
-                  <div className="text-sm text-slate-600">Disponible con:</div>
+                  <div className="text-sm font-semibold text-slate-700">Disponible con:</div>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {pros.map((pro) => (
                       <div
                         key={pro.id}
-                        className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1"
+                        className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5"
                       >
-                        <div className="h-7 w-7 rounded-full bg-slate-100 overflow-hidden border border-slate-200 flex items-center justify-center">
+                        <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center">
                           {pro.user.image ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={pro.user.image} alt={pro.user.name} className="h-full w-full object-cover" />
+                            <img src={pro.user.image} alt={pro.user.name} className="w-full h-full object-cover" />
                           ) : (
-                            <span className="text-xs font-semibold text-slate-700">
+                            <span className="text-xs font-bold text-slate-600">
                               {pro.user.name?.charAt(0)}
                             </span>
                           )}
                         </div>
-                        <span className="text-sm text-slate-800">{pro.user.name}</span>
+                        <span className="text-sm text-slate-700">{pro.user.name}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              <div className="mt-5">
+              <div className="mt-6">
                 <Link
                   href={`/servicios/${service.id}`}
-                  className="inline-flex items-center justify-center rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold hover:bg-slate-800"
+                  className="inline-flex items-center justify-center rounded-xl bg-blue-600 text-white px-4 py-2 font-semibold hover:bg-blue-700"
                 >
                   Ver Detalles
                 </Link>

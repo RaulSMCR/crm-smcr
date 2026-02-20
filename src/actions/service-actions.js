@@ -16,7 +16,9 @@ function toNum(v) {
   return Number.isFinite(n) ? n : NaN;
 }
 
-// 1) CREAR SERVICIO
+/**
+ * 1) CREAR SERVICIO
+ */
 export async function createService(formData) {
   try {
     const session = await getSession();
@@ -39,7 +41,6 @@ export async function createService(formData) {
     });
 
     revalidatePath("/panel/admin/servicios");
-    revalidatePath("/servicios");
     return { success: true, newId: newService.id };
   } catch (error) {
     console.error("createService error:", error);
@@ -47,7 +48,9 @@ export async function createService(formData) {
   }
 }
 
-// 2) ACTUALIZAR DETALLES
+/**
+ * 2) ACTUALIZAR DETALLES DE SERVICIO
+ */
 export async function updateServiceDetails(serviceId, formData) {
   try {
     const session = await getSession();
@@ -75,8 +78,9 @@ export async function updateServiceDetails(serviceId, formData) {
 
     revalidatePath(`/panel/admin/servicios/${serviceId}`);
     revalidatePath(`/panel/admin/servicios`);
-    revalidatePath(`/servicios/${serviceId}`);
     revalidatePath(`/servicios`);
+    revalidatePath(`/servicios/${serviceId}`);
+
     return { success: true };
   } catch (error) {
     console.error("updateServiceDetails error:", error);
@@ -84,22 +88,23 @@ export async function updateServiceDetails(serviceId, formData) {
   }
 }
 
-// 3) ASIGNAR PROFESIONAL AL SERVICIO (admin lo deja APPROVED directo)
+/**
+ * 3) ADMIN: AGREGAR PROFESIONAL AL SERVICIO (FORZAR APPROVED)
+ * - Crea o actualiza la asignación a APPROVED.
+ */
 export async function addProfessionalToService(serviceId, professionalId) {
   try {
     const session = await getSession();
     requireAdmin(session);
 
+    const sid = String(serviceId);
+    const pid = String(professionalId);
+
     await prisma.serviceAssignment.upsert({
-      where: {
-        professionalId_serviceId: {
-          professionalId: String(professionalId),
-          serviceId: String(serviceId),
-        },
-      },
+      where: { professionalId_serviceId: { professionalId: pid, serviceId: sid } },
       create: {
-        professionalId: String(professionalId),
-        serviceId: String(serviceId),
+        professionalId: pid,
+        serviceId: sid,
         status: "APPROVED",
         reviewedAt: new Date(),
       },
@@ -109,9 +114,11 @@ export async function addProfessionalToService(serviceId, professionalId) {
       },
     });
 
-    revalidatePath(`/panel/admin/servicios/${serviceId}`);
-    revalidatePath(`/servicios/${serviceId}`);
+    revalidatePath(`/panel/admin/servicios/${sid}`);
+    revalidatePath(`/panel/admin/servicios`);
     revalidatePath(`/servicios`);
+    revalidatePath(`/servicios/${sid}`);
+
     return { success: true };
   } catch (error) {
     console.error("addProfessionalToService error:", error);
@@ -119,24 +126,27 @@ export async function addProfessionalToService(serviceId, professionalId) {
   }
 }
 
-// 4) REMOVER PROFESIONAL DEL SERVICIO (admin)
+/**
+ * 4) ADMIN: REMOVER PROFESIONAL DEL SERVICIO
+ * - Borra la asignación (sea PENDING/APPROVED/REJECTED)
+ */
 export async function removeProfessionalFromService(serviceId, professionalId) {
   try {
     const session = await getSession();
     requireAdmin(session);
 
+    const sid = String(serviceId);
+    const pid = String(professionalId);
+
     await prisma.serviceAssignment.delete({
-      where: {
-        professionalId_serviceId: {
-          professionalId: String(professionalId),
-          serviceId: String(serviceId),
-        },
-      },
+      where: { professionalId_serviceId: { professionalId: pid, serviceId: sid } },
     });
 
-    revalidatePath(`/panel/admin/servicios/${serviceId}`);
-    revalidatePath(`/servicios/${serviceId}`);
+    revalidatePath(`/panel/admin/servicios/${sid}`);
+    revalidatePath(`/panel/admin/servicios`);
     revalidatePath(`/servicios`);
+    revalidatePath(`/servicios/${sid}`);
+
     return { success: true };
   } catch (error) {
     console.error("removeProfessionalFromService error:", error);
@@ -144,28 +154,27 @@ export async function removeProfessionalFromService(serviceId, professionalId) {
   }
 }
 
-// ✅ 4.1) APROBAR SOLICITUD (PENDING -> APPROVED)
+/**
+ * 5) ADMIN: APROBAR REQUEST (PENDING -> APPROVED)
+ */
 export async function approveServiceAssignment(serviceId, professionalId) {
   try {
     const session = await getSession();
     requireAdmin(session);
 
+    const sid = String(serviceId);
+    const pid = String(professionalId);
+
     await prisma.serviceAssignment.update({
-      where: {
-        professionalId_serviceId: {
-          professionalId: String(professionalId),
-          serviceId: String(serviceId),
-        },
-      },
-      data: {
-        status: "APPROVED",
-        reviewedAt: new Date(),
-      },
+      where: { professionalId_serviceId: { professionalId: pid, serviceId: sid } },
+      data: { status: "APPROVED", reviewedAt: new Date() },
     });
 
-    revalidatePath(`/panel/admin/servicios/${serviceId}`);
-    revalidatePath(`/servicios/${serviceId}`);
+    revalidatePath(`/panel/admin/servicios/${sid}`);
+    revalidatePath(`/panel/admin/servicios`);
     revalidatePath(`/servicios`);
+    revalidatePath(`/servicios/${sid}`);
+
     return { success: true };
   } catch (error) {
     console.error("approveServiceAssignment error:", error);
@@ -173,26 +182,25 @@ export async function approveServiceAssignment(serviceId, professionalId) {
   }
 }
 
-// ✅ 4.2) RECHAZAR SOLICITUD (PENDING -> REJECTED)
+/**
+ * 6) ADMIN: RECHAZAR REQUEST (PENDING -> REJECTED)
+ */
 export async function rejectServiceAssignment(serviceId, professionalId) {
   try {
     const session = await getSession();
     requireAdmin(session);
 
+    const sid = String(serviceId);
+    const pid = String(professionalId);
+
     await prisma.serviceAssignment.update({
-      where: {
-        professionalId_serviceId: {
-          professionalId: String(professionalId),
-          serviceId: String(serviceId),
-        },
-      },
-      data: {
-        status: "REJECTED",
-        reviewedAt: new Date(),
-      },
+      where: { professionalId_serviceId: { professionalId: pid, serviceId: sid } },
+      data: { status: "REJECTED", reviewedAt: new Date() },
     });
 
-    revalidatePath(`/panel/admin/servicios/${serviceId}`);
+    revalidatePath(`/panel/admin/servicios/${sid}`);
+    revalidatePath(`/panel/admin/servicios`);
+
     return { success: true };
   } catch (error) {
     console.error("rejectServiceAssignment error:", error);
@@ -200,7 +208,9 @@ export async function rejectServiceAssignment(serviceId, professionalId) {
   }
 }
 
-// 5) ELIMINAR SERVICIO
+/**
+ * 7) ELIMINAR SERVICIO
+ */
 export async function deleteService(serviceId) {
   try {
     const session = await getSession();
@@ -210,6 +220,7 @@ export async function deleteService(serviceId) {
 
     revalidatePath("/panel/admin/servicios");
     revalidatePath("/servicios");
+
     return { success: true };
   } catch (e) {
     console.error("deleteService error:", e);

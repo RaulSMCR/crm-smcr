@@ -1,5 +1,7 @@
 // src/app/panel/admin/servicios/[id]/page.js
 import { prisma } from "@/lib/prisma";
+import Link from "next/link";
+import { redirect } from "next/navigation";
 import {
   updateServiceDetails,
   addProfessionalToService,
@@ -8,12 +10,10 @@ import {
   rejectServiceAssignment,
   deleteService,
 } from "@/actions/service-actions";
-import Link from "next/link";
-import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function ServiceDetailPage({ params }) {
+export default async function AdminServiceDetailPage({ params }) {
   const serviceId = params.id;
 
   const service = await prisma.service.findUnique({
@@ -23,6 +23,7 @@ export default async function ServiceDetailPage({ params }) {
         include: {
           professional: { include: { user: true } },
         },
+        orderBy: [{ status: "asc" }, { requestedAt: "desc" }],
       },
     },
   });
@@ -45,10 +46,12 @@ export default async function ServiceDetailPage({ params }) {
 
   const currentProIds = assignments.map((a) => a.professionalId);
 
+  // ✅ FIX Prisma relation filter (user.isActive -> user.is.isActive)
   const availablePros = await prisma.professionalProfile.findMany({
     where: {
       id: { notIn: currentProIds },
-      user: { isActive: true, isApproved: true },
+      isApproved: true,
+      user: { is: { isActive: true } },
     },
     include: { user: true },
     orderBy: { user: { name: "asc" } },
@@ -121,7 +124,7 @@ export default async function ServiceDetailPage({ params }) {
 
           <form action={handleUpdate} className="mt-4 space-y-3">
             <div>
-              <label className="text-sm font-medium text-slate-700">Título del Servicio</label>
+              <label className="text-sm font-medium text-slate-700">Título</label>
               <input
                 name="title"
                 defaultValue={service.title}
@@ -131,7 +134,7 @@ export default async function ServiceDetailPage({ params }) {
 
             <div className="grid md:grid-cols-2 gap-3">
               <div>
-                <label className="text-sm font-medium text-slate-700">Precio Base ($)</label>
+                <label className="text-sm font-medium text-slate-700">Precio</label>
                 <input
                   name="price"
                   defaultValue={String(service.price)}
@@ -164,13 +167,13 @@ export default async function ServiceDetailPage({ params }) {
           </form>
         </div>
 
-        {/* Staff */}
+        {/* Staff + Requests */}
         <div className="space-y-6">
           {/* Agregar directo (APPROVED) */}
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
             <h3 className="text-lg font-semibold text-slate-900">➕ Agregar Profesional (directo)</h3>
             <p className="text-sm text-slate-600 mt-1">
-              Esto crea la asignación en estado <b>APPROVED</b>.
+              Esto crea la asignación como <b>APPROVED</b> directamente.
             </p>
 
             <form action={handleAdd} className="mt-4 flex gap-2">
@@ -196,7 +199,9 @@ export default async function ServiceDetailPage({ params }) {
 
           {/* Pendientes */}
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
-            <h3 className="text-lg font-semibold text-slate-900">Solicitudes Pendientes ({pending.length})</h3>
+            <h3 className="text-lg font-semibold text-slate-900">
+              Solicitudes Pendientes ({pending.length})
+            </h3>
 
             {pending.length === 0 ? (
               <div className="mt-3 text-sm text-slate-600">No hay solicitudes pendientes.</div>
@@ -214,6 +219,7 @@ export default async function ServiceDetailPage({ params }) {
                           Aprobar
                         </button>
                       </form>
+
                       <form action={handleReject}>
                         <input type="hidden" name="professionalId" value={a.professionalId} />
                         <button className="rounded-xl bg-red-600 text-white px-3 py-2 text-sm font-semibold hover:bg-red-700">
@@ -232,11 +238,14 @@ export default async function ServiceDetailPage({ params }) {
             <h3 className="text-lg font-semibold text-slate-900">Staff Aprobado ({approved.length})</h3>
 
             {approved.length === 0 ? (
-              <div className="mt-3 text-sm text-slate-600">Nadie ofrece este servicio todavía.</div>
+              <div className="mt-3 text-sm text-slate-600">No hay profesionales aprobados.</div>
             ) : (
               <div className="mt-4 space-y-3">
                 {approved.map((a) => (
-                  <div key={a.professionalId} className="rounded-xl border border-slate-200 p-4 flex items-center justify-between">
+                  <div
+                    key={a.professionalId}
+                    className="rounded-xl border border-slate-200 p-4 flex items-center justify-between"
+                  >
                     <div>
                       <div className="font-semibold text-slate-900">{a.professional.user.name}</div>
                       <div className="text-sm text-slate-700">{a.professional.specialty}</div>
@@ -269,6 +278,7 @@ export default async function ServiceDetailPage({ params }) {
               </div>
             )}
           </div>
+
         </div>
       </div>
     </div>
