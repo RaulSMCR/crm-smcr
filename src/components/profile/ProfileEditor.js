@@ -1,7 +1,7 @@
 ///src/components/profile/ProfileEditor.js
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import ChangePasswordCard from "@/components/auth/ChangePasswordCard";
 import { updateProfile } from "@/actions/profile-actions";
@@ -12,6 +12,23 @@ export default function ProfileEditor({ profile, allServices = [] }) {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState({ type: "", text: "" });
 
+  const assignmentByServiceId = useMemo(() => {
+    const map = new Map();
+    (profile.serviceAssignments || []).forEach((a) => {
+      map.set(a.serviceId, a.status);
+    });
+    return map;
+  }, [profile.serviceAssignments]);
+
+  const initialSelected = useMemo(() => {
+    // seleccionados = APPROVED + PENDING (los REJECTED se dejan fuera para que puedan re-solicitarse)
+    const ids = [];
+    for (const [serviceId, status] of assignmentByServiceId.entries()) {
+      if (status === "APPROVED" || status === "PENDING") ids.push(serviceId);
+    }
+    return ids;
+  }, [assignmentByServiceId]);
+
   const [form, setForm] = useState({
     name: profile.user?.name || "",
     phone: profile.user?.phone || "",
@@ -20,10 +37,7 @@ export default function ProfileEditor({ profile, allServices = [] }) {
     bio: profile.bio || "",
   });
 
-  const [selectedServices, setSelectedServices] = useState(
-    Array.isArray(profile.services) ? profile.services.map((s) => s.id) : []
-  );
-
+  const [selectedServices, setSelectedServices] = useState(initialSelected);
   const [avatarFile, setAvatarFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(profile.user?.image || null);
 
@@ -42,6 +56,16 @@ export default function ProfileEditor({ profile, allServices = [] }) {
     if (!file) return;
     setPreviewUrl(URL.createObjectURL(file));
     setAvatarFile(file);
+  };
+
+  const badgeFor = (status) => {
+    if (status === "APPROVED")
+      return <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800 border border-green-200">Aprobado</span>;
+    if (status === "PENDING")
+      return <span className="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200">En revisión</span>;
+    if (status === "REJECTED")
+      return <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-800 border border-red-200">Rechazado</span>;
+    return null;
   };
 
   const handleSubmit = async (e) => {
@@ -73,13 +97,19 @@ export default function ProfileEditor({ profile, allServices = [] }) {
       fd.append("licenseNumber", form.licenseNumber);
       fd.append("bio", form.bio);
       if (publicUrl) fd.append("imageUrl", publicUrl);
-
       selectedServices.forEach((id) => fd.append("serviceIds", id));
 
       const res = await updateProfile(fd);
 
       if (res?.success) {
-        setMsg({ type: "success", text: "✅ Perfil guardado correctamente" });
+        if ((res.pendingRequested || 0) > 0) {
+          setMsg({
+            type: "success",
+            text: `✅ Perfil guardado. ${res.pendingRequested} servicio(s) quedaron en revisión del administrador.`,
+          });
+        } else {
+          setMsg({ type: "success", text: "✅ Perfil guardado correctamente" });
+        }
         router.refresh();
       } else {
         setMsg({ type: "error", text: "❌ " + (res?.error || "No se pudo guardar") });
@@ -93,54 +123,52 @@ export default function ProfileEditor({ profile, allServices = [] }) {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {msg.text && (
         <div
           className={`rounded-xl border px-4 py-3 text-sm ${
             msg.type === "success"
-              ? "bg-emerald-50 border-emerald-200 text-emerald-900"
-              : "bg-rose-50 border-rose-200 text-rose-900"
+              ? "border-green-200 bg-green-50 text-green-900"
+              : "border-red-200 bg-red-50 text-red-900"
           }`}
         >
           {msg.text}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-8">
+      <form onSubmit={handleSubmit} className="space-y-6">
         {/* FOTO */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <h3 className="text-lg font-semibold text-slate-800">Foto</h3>
           <p className="text-sm text-slate-500 mt-1">Recomendado 500×500px.</p>
 
           <div className="mt-4 flex items-center gap-4">
-            <div className="relative">
-              <div className="h-24 w-24 rounded-full overflow-hidden border border-slate-200 bg-slate-50">
-                {previewUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={previewUrl} alt="Avatar" className="h-full w-full object-cover" />
-                ) : null}
-              </div>
+            <div className="h-16 w-16 rounded-full overflow-hidden bg-slate-100 border border-slate-200">
+              {previewUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={previewUrl} alt="Preview" className="h-full w-full object-cover" />
+              ) : null}
             </div>
 
-            <label className="inline-flex items-center gap-2 cursor-pointer text-sm font-medium text-blue-700">
-              <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
               Cambiar foto
+              <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
             </label>
           </div>
         </div>
 
         {/* INFO PÚBLICA */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <h3 className="text-lg font-semibold text-slate-800">Información pública</h3>
 
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="mt-4 grid md:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium text-slate-700">Nombre y Apellido</label>
               <input
                 name="name"
                 value={form.name}
                 onChange={handleInputChange}
-                className="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5"
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2"
               />
             </div>
 
@@ -150,8 +178,7 @@ export default function ProfileEditor({ profile, allServices = [] }) {
                 name="phone"
                 value={form.phone}
                 onChange={handleInputChange}
-                className="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5"
-                placeholder="+506 8888-8888"
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2"
               />
             </div>
 
@@ -161,7 +188,7 @@ export default function ProfileEditor({ profile, allServices = [] }) {
                 name="specialty"
                 value={form.specialty}
                 onChange={handleInputChange}
-                className="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5"
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2"
               />
             </div>
 
@@ -171,20 +198,20 @@ export default function ProfileEditor({ profile, allServices = [] }) {
                 name="licenseNumber"
                 value={form.licenseNumber}
                 onChange={handleInputChange}
-                className="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5"
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2"
               />
             </div>
-          </div>
 
-          <div>
-            <label className="text-sm font-medium text-slate-700">Biografía</label>
-            <textarea
-              name="bio"
-              value={form.bio}
-              onChange={handleInputChange}
-              rows={5}
-              className="mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            />
+            <div className="md:col-span-2">
+              <label className="text-sm font-medium text-slate-700">Biografía</label>
+              <textarea
+                name="bio"
+                value={form.bio}
+                onChange={handleInputChange}
+                rows={5}
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2"
+              />
+            </div>
           </div>
         </div>
 
@@ -192,7 +219,7 @@ export default function ProfileEditor({ profile, allServices = [] }) {
         <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <h3 className="text-lg font-semibold text-slate-800">Mis servicios</h3>
           <p className="text-sm text-slate-500 mt-1">
-            Selecciona los tipos de atención que brindas.
+            Los servicios nuevos quedan <b>en revisión</b> hasta aprobación del admin.
           </p>
 
           {allServices.length === 0 ? (
@@ -203,6 +230,8 @@ export default function ProfileEditor({ profile, allServices = [] }) {
             <div className="mt-4 grid md:grid-cols-2 gap-3">
               {allServices.map((service) => {
                 const isSelected = selectedServices.includes(service.id);
+                const status = assignmentByServiceId.get(service.id) || null;
+
                 return (
                   <button
                     type="button"
@@ -216,7 +245,10 @@ export default function ProfileEditor({ profile, allServices = [] }) {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <div className="font-semibold text-slate-800">{service.title}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="font-semibold text-slate-800">{service.title}</div>
+                          {badgeFor(status)}
+                        </div>
                         <div className="text-sm text-slate-500">
                           {service.description || "Sin descripción"}
                         </div>

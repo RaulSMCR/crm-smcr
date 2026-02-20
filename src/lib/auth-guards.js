@@ -7,17 +7,14 @@ function toStr(x) {
   return String(x);
 }
 
-/**
- * Devuelve el ProfessionalProfile.id asociado a la sesión.
- * Orden:
- * 1) session.professionalProfileId
- * 2) session.userId / session.sub -> professionalProfile por userId
- * 3) session.email -> professionalProfile por user.email
- */
-export async function requireProfessionalProfileId() {
+export async function requireSession() {
   const session = await getSession();
   if (!session) throw new Error("No autorizado: sesión requerida.");
+  return session;
+}
 
+export async function requireProfessionalProfileId() {
+  const session = await requireSession();
   const role = toStr(session.role);
   if (role !== "PROFESSIONAL") {
     throw new Error("No autorizado: rol PROFESSIONAL requerido.");
@@ -45,4 +42,14 @@ export async function requireProfessionalProfileId() {
   }
 
   throw new Error("No se encontró el perfil profesional asociado a esta sesión.");
+}
+
+export async function requireProfessionalContext() {
+  const session = await requireSession();
+  const role = toStr(session.role);
+  if (role !== "PROFESSIONAL") {
+    throw new Error("No autorizado: rol PROFESSIONAL requerido.");
+  }
+  const professionalProfileId = await requireProfessionalProfileId();
+  return { session, professionalProfileId };
 }
