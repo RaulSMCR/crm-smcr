@@ -4,6 +4,7 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useState } from 'react';
+import Link from 'next/link';
 
 // Si tuvieras una acción para cancelar, la importarías aquí:
 // import { cancelAppointment } from '@/actions/agenda-actions';
@@ -46,15 +47,15 @@ export default function UserAppointmentsPanel({ initialAppointments = [] }) {
       {/* Cabecera del Panel con Filtros */}
       <div className="p-6 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
         <h2 className="text-xl font-bold text-gray-800">Mis Citas</h2>
-        
+
         <div className="flex bg-gray-100 p-1 rounded-lg">
           {['ALL', 'UPCOMING', 'PAST'].map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
               className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
-                filter === f 
-                  ? 'bg-white text-gray-900 shadow-sm' 
+                filter === f
+                  ? 'bg-white text-gray-900 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
@@ -69,24 +70,24 @@ export default function UserAppointmentsPanel({ initialAppointments = [] }) {
         {filteredAppointments.length > 0 ? (
           filteredAppointments.map((apt) => (
             <div key={apt.id} className="p-6 hover:bg-gray-50 transition-colors flex flex-col sm:flex-row justify-between gap-4">
-              
+
               {/* Información Principal */}
               <div className="flex gap-4">
                 {/* Avatar del Profesional (Placeholder si es null) */}
                 <div className="flex-shrink-0">
-                   {apt.professional.avatarUrl ? (
-                     <img src={apt.professional.avatarUrl} alt={apt.professional.name} className="w-12 h-12 rounded-full object-cover border" />
-                   ) : (
-                     <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-lg">
-                       {apt.professional.name.charAt(0)}
-                     </div>
-                   )}
+                  {apt.professional.avatarUrl ? (
+                    <img src={apt.professional.avatarUrl} alt={apt.professional.name} className="w-12 h-12 rounded-full object-cover border" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-lg">
+                      {apt.professional.name.charAt(0)}
+                    </div>
+                  )}
                 </div>
 
                 <div>
                   <h3 className="font-semibold text-gray-900">{apt.professional.name}</h3>
                   <p className="text-sm text-gray-500">{apt.service?.title || 'Consulta General'}</p>
-                  
+
                   <div className="mt-2 flex items-center gap-3 text-sm text-gray-600">
                     <div className="flex items-center gap-1">
                       {/* Icono Calendario */}
@@ -105,7 +106,7 @@ export default function UserAppointmentsPanel({ initialAppointments = [] }) {
               {/* Estado y Acciones */}
               <div className="flex flex-col items-end gap-2">
                 {getStatusBadge(apt.status)}
-                
+
                 {/* Precio */}
                 {apt.service?.price && (
                   <span className="text-sm font-medium text-gray-900">
@@ -115,13 +116,13 @@ export default function UserAppointmentsPanel({ initialAppointments = [] }) {
 
                 {/* Botón de Cancelar (Solo si es pendiente o confirmada y futura) */}
                 {(apt.status === 'PENDING' || apt.status === 'CONFIRMED') && new Date(apt.date) > new Date() && (
-                  <button 
+                  <button
                     className="text-xs text-red-600 hover:text-red-800 underline mt-1"
                     onClick={() => {
-                        if(confirm('¿Seguro que deseas cancelar esta cita?')) {
-                            // Aquí llamarías a tu Server Action: cancelAppointment(apt.id)
-                            alert("Funcionalidad pendiente de conectar con Server Action");
-                        }
+                      if (confirm('¿Seguro que deseas cancelar esta cita?')) {
+                        // Aquí llamarías a tu Server Action: cancelAppointment(apt.id)
+                        alert("Funcionalidad pendiente de conectar con Server Action");
+                      }
                     }}
                   >
                     Cancelar Cita
@@ -138,12 +139,30 @@ export default function UserAppointmentsPanel({ initialAppointments = [] }) {
             </div>
             <h3 className="text-lg font-medium text-gray-900">No hay citas en esta lista</h3>
             <p className="text-gray-500 max-w-sm mx-auto mt-1">
-              {filter === 'ALL' 
-                ? 'Aún no has agendado ninguna cita con nuestros profesionales.' 
+              {filter === 'ALL'
+                ? 'Aún no has agendado ninguna cita con nuestros profesionales.'
                 : 'No tienes citas que coincidan con este filtro.'}
             </p>
           </div>
         )}
+      </div>
+
+      {/* Accesos rápidos debajo del reporte */}
+      <div className="p-6 border-t border-gray-100 bg-white">
+        <div className="flex flex-col sm:flex-row gap-3 justify-center sm:justify-end">
+          <Link
+            href="/servicios"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors text-center"
+          >
+            Explorar servicios
+          </Link>
+          <Link
+            href="/blog"
+            className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-100 transition-colors text-center"
+          >
+            Seguir aprendiendo
+          </Link>
+        </div>
       </div>
     </div>
   );
