@@ -7,8 +7,12 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL") // recomendado
+  directUrl = env("DIRECT_URL")
 }
+
+// --------------------
+// ENUMS
+// --------------------
 
 enum Role {
   USER
@@ -19,22 +23,10 @@ enum Role {
 enum AppointmentStatus {
   PENDING
   CONFIRMED
+  COMPLETED
   CANCELLED_BY_USER
   CANCELLED_BY_PRO
-  COMPLETED
   NO_SHOW
-}
-
-enum PaymentStatus {
-  UNPAID
-  PAID
-  REFUNDED
-}
-
-enum PostStatus {
-  DRAFT
-  PUBLISHED
-  ARCHIVED
 }
 
 enum ServiceAssignmentStatus {
@@ -43,20 +35,38 @@ enum ServiceAssignmentStatus {
   REJECTED
 }
 
-// --------------------------------------------------------
-// USERS
-// --------------------------------------------------------
+enum PostStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISHED
+  REJECTED
+}
+
+// --------------------
+// MODELS
+// --------------------
+
 model User {
-  id                 String   @id @default(cuid())
-  name               String
-  email              String   @unique
-  passwordHash       String
-  image              String?
-  phone              String
-  role               Role     @default(USER)
-  emailVerified      Boolean  @default(false)
-  isActive           Boolean  @default(true)
-  lastLogin          DateTime?
+  id    String @id @default(cuid())
+  name  String
+  email String @unique
+
+  phone          String? @db.VarChar(32)
+  identification String? @db.VarChar(32) // ✅ agregado (cédula/DNI/etc.)
+
+  birthDate DateTime?
+  gender    String?
+  interests String?
+
+  passwordHash String?
+  image        String?
+
+  role Role @default(USER)
+
+  emailVerified DateTime?
+  isActive      Boolean  @default(true)
+  lastLogin     DateTime?
+
   acquisitionChannel String?
   campaignName       String?
 
@@ -65,203 +75,186 @@ model User {
   resetTokenHash  String?
   resetTokenExp   DateTime?
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   professionalProfile ProfessionalProfile?
-  appointments        Appointment[] @relation("PatientAppointments")
+  appointments        Appointment[]
+  postViewEvents      PostViewEvent[]
 
-  // BLOG ANALYTICS (nivel 3)
-  postViewEvents PostViewEvent[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  @@index([role])
+  @@index([identification])
 }
 
-// --------------------------------------------------------
-// PROFESSIONAL PROFILE
-// --------------------------------------------------------
 model ProfessionalProfile {
-  id            String @id @default(cuid())
-  userId        String @unique
-  user          User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String @unique
 
-  slug          String @unique
-  specialty     String
-  licenseNumber String?
-  bio           String? @db.Text
-  coverLetter   String? @db.Text
-  cvUrl         String?
-  introVideoUrl String?
-  avatarUrl     String?
-  calendarUrl   String?
-  googleRefreshToken String? @db.Text
-  paymentLinkBase    String?
-  isApproved    Boolean @default(false)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  rating     Decimal? @db.Decimal(2, 1)
-  commission Int      @default(10)
+  specialty String?
+  bio       String?
 
-  // ✅ NUEVO: asignaciones con estado (PENDING/APPROVED/REJECTED)
-  serviceAssignments ServiceAssignment[]
+  // Aprobación / visibilidad
+  isApproved Boolean @default(false)
+  approvedAt DateTime?
+  rejectedAt DateTime?
+  rejectionReason String?
 
+  // Integraciones (Google Calendar, etc.)
+  calendarUrl        String?
+  googleRefreshToken String?
+  googleCalendarId   String?
+  googleConnectedAt  DateTime?
+
+  // Pagos (link base para crear links por cita/servicio)
+  paymentLinkBase String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  services     ServiceAssignment[]
   availability Availability[]
-  posts        Post[]
-  appointments Appointment[] @relation("ProAppointments")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// --------------------------------------------------------
-// BLOG
-// --------------------------------------------------------
-model Category {
-  id          String @id @default(cuid())
-  name        String @unique
-  slug        String @unique
-  description String?
-  posts       Post[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model Post {
-  id         String @id @default(cuid())
-  title      String
-  slug       String @unique
-  content    String @db.Text
-  excerpt    String? @db.Text
-  coverImage String?
-  status     PostStatus @default(DRAFT)
-  views      Int @default(0)
-  readingTime Int?
-  metaTitle  String?
-  metaDesc   String?
-
-  authorId String
-  author   ProfessionalProfile @relation(fields: [authorId], references: [id])
-
-  categoryId String?
-  category   Category? @relation(fields: [categoryId], references: [id])
-
-  // BLOG ANALYTICS (nivel 3)
-  viewEvents PostViewEvent[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([views])
-}
-
-model PostViewEvent {
-  id        String @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  postId String
-  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
-
-  userId String?
-  user   User? @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  anonId    String
-  sessionId String
-
-  landingUrl   String? @db.Text
-  referrer     String? @db.Text
-  utmSource    String?
-  utmMedium    String?
-  utmCampaign  String?
-  utmTerm      String?
-  utmContent   String?
-  userAgent    String? @db.Text
-  country      String?
-
-  isRead           Boolean @default(false)
-  readAt           DateTime?
-  timeOnPageSeconds Int?
-  scrollDepth      Int?
-
-  @@index([postId, createdAt])
-  @@index([createdAt])
-  @@index([anonId])
-  @@index([utmSource, utmMedium, utmCampaign])
-  @@unique([sessionId, postId])
-}
-
-// --------------------------------------------------------
-// BUSINESS
-// --------------------------------------------------------
-model Service {
-  id          String @id @default(cuid())
-  title       String
-  description String? @db.Text
-  price       Decimal @db.Decimal(10, 2)
-  durationMin Int
-  isActive    Boolean @default(true)
-
-  // ✅ NUEVO: asignaciones con estado
-  professionalAssignments ServiceAssignment[]
-
   appointments Appointment[]
+  posts        Post[]
+}
+
+model Service {
+  id          String  @id @default(cuid())
+  title       String
+  description String?
+
+  durationMin Int
+
+  // Precio (Postgres numeric)
+  price    Decimal @db.Numeric(10, 2)
+  isActive Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  professionals ServiceAssignment[]
+  appointments  Appointment[]
+
+  @@index([isActive])
+  @@index([title])
 }
 
-// ✅ NUEVO: relación con estado (admin valida altas)
 model ServiceAssignment {
   professionalId String
   serviceId      String
 
-  status      ServiceAssignmentStatus @default(PENDING)
-  requestedAt DateTime @default(now())
-  reviewedAt  DateTime?
-
-  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
-  service      Service             @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-
-  @@id([professionalId, serviceId])
-  @@index([serviceId, status])
-  @@index([professionalId, status])
-}
-
-model Availability {
-  id            String @id @default(cuid())
-  dayOfWeek     Int
-  startTime     String
-  endTime       String
-  professionalId String
-  professional  ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@index([professionalId, dayOfWeek])
-  @@unique([professionalId, dayOfWeek, startTime, endTime])
-}
-
-model Appointment {
-  id            String @id @default(cuid())
-  date          DateTime
-  endDate       DateTime
-  status        AppointmentStatus @default(PENDING)
-  pricePaid     Decimal? @db.Decimal(10, 2)
-  paymentStatus PaymentStatus @default(UNPAID)
-  commissionFee Decimal? @db.Decimal(10, 2)
-  gcalEventId   String?
-  meetLink      String?
-
-  patientId String
-  patient   User @relation("PatientAppointments", fields: [patientId], references: [id])
-
-  professionalId String
-  professional   ProfessionalProfile @relation("ProAppointments", fields: [professionalId], references: [id])
-
-  serviceId String?
-  service   Service? @relation(fields: [serviceId], references: [id])
+  status ServiceAssignmentStatus @default(PENDING)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([date])
-  @@index([patientId])
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  service      Service             @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@id([professionalId, serviceId]) // usado por: professionalId_serviceId
+  @@index([serviceId])
   @@index([professionalId])
+  @@index([status])
+}
+
+model Availability {
+  id             String @id @default(cuid())
+  professionalId String
+
+  // 0=Domingo ... 6=Sábado (o tu convención)
+  dayOfWeek Int
+
+  // "HH:MM" (simple y ordenable)
+  startTime String @db.VarChar(5)
+  endTime   String @db.VarChar(5)
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([professionalId])
+  @@index([dayOfWeek])
+  @@index([isActive])
+}
+
+model Appointment {
+  id String @id @default(cuid())
+
+  userId         String
+  professionalId String
+  serviceId      String
+
+  date    DateTime
+  endDate DateTime
+
+  status AppointmentStatus @default(PENDING)
+
+  notes        String?
+  cancelReason String?
+  cancelledAt  DateTime?
+
+  // Para idempotencia con Google Calendar
+  googleEventId    String?
+  googleCalendarId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  service      Service            @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([professionalId])
+  @@index([serviceId])
+  @@index([status])
+  @@index([date])
+}
+
+model Post {
+  id      String @id @default(cuid())
+  title   String
+  slug    String @unique
+  excerpt String?
+  content String
+
+  status PostStatus @default(DRAFT)
+
+  publishedAt DateTime?
+
+  authorId String
+  author   ProfessionalProfile @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  postViewEvents PostViewEvent[]
+
+  @@index([status])
+  @@index([authorId])
+  @@index([publishedAt])
+}
+
+model PostViewEvent {
+  id String @id @default(cuid())
+
+  postId String
+  userId String?
+
+  // opcional: trazabilidad light
+  ipHash    String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([postId])
+  @@index([userId])
+  @@index([createdAt])
 }
