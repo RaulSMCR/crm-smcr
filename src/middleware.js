@@ -44,14 +44,30 @@ function getEncodedKeySafe() {
   }
 
   // Dev/Preview: fallback para no caerse
-  const effective =
-    secret && secret.length >= 16 ? secret : "dev-only-insecure-secret";
+  const effective = secret && secret.length >= 16 ? secret : "dev-only-insecure-secret";
   return new TextEncoder().encode(effective);
 }
 
 function isPublicPath(pathname) {
   if (PUBLIC_EXACT.has(pathname)) return true;
   return PUBLIC_PREFIX.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+function getSafeNext(nextValue) {
+  if (!nextValue) return null;
+  const next = String(nextValue);
+
+  // Debe ser ruta relativa interna
+  if (!next.startsWith("/")) return null;
+  if (next.startsWith("//")) return null;
+
+  // Evitar redirigir a APIs
+  if (next.startsWith("/api")) return null;
+
+  // Evitar bucles raros
+  if (next.startsWith("/ingresar")) return null;
+
+  return next;
 }
 
 async function getPayloadFromCookie(request, encodedKey) {
@@ -86,17 +102,31 @@ export async function middleware(request) {
 
   // B) Permitir públicas y /api/auth
   if (isPublic || isApiAuth) {
-    // si está logueado e intenta /ingresar, mandarlo a su panel
+    // si está logueado e intenta /ingresar, mandarlo al "next" si existe, si no a su panel
     const encodedKey = getEncodedKeySafe();
     if (encodedKey && pathname === "/ingresar") {
       const payload = await getPayloadFromCookie(request, encodedKey);
-      if (payload?.role === "ADMIN")
-        return NextResponse.redirect(new URL("/panel/admin", request.url));
-      if (payload?.role === "PROFESSIONAL")
-        return NextResponse.redirect(new URL("/panel/profesional", request.url));
-      if (payload?.role === "USER")
-        return NextResponse.redirect(new URL("/panel/paciente", request.url));
+
+      if (payload?.role) {
+        const nextParam = request.nextUrl.searchParams.get("next");
+        const safeNext = getSafeNext(nextParam);
+
+        if (safeNext) {
+          return NextResponse.redirect(new URL(safeNext, request.url));
+        }
+
+        if (payload.role === "ADMIN") {
+          return NextResponse.redirect(new URL("/panel/admin", request.url));
+        }
+        if (payload.role === "PROFESSIONAL") {
+          return NextResponse.redirect(new URL("/panel/profesional", request.url));
+        }
+        if (payload.role === "USER") {
+          return NextResponse.redirect(new URL("/panel/paciente", request.url));
+        }
+      }
     }
+
     return NextResponse.next();
   }
 
@@ -108,10 +138,7 @@ export async function middleware(request) {
   const encodedKey = getEncodedKeySafe();
   if (!encodedKey) {
     if (pathname.startsWith("/api")) {
-      return NextResponse.json(
-        { error: "Server misconfigured (SESSION_SECRET)" },
-        { status: 503 }
-      );
+      return NextResponse.json({ error: "Server misconfigured (SESSION_SECRET)" }, { status: 503 });
     }
     const url = new URL("/ingresar", request.url);
     url.searchParams.set("error", "server_misconfigured");
