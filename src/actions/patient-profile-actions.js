@@ -41,7 +41,7 @@ export async function updatePatientProfile(formData) {
   if (!phone) return { error: "El teléfono es obligatorio." };
   if (!isPhoneValid(phone)) return { error: "Teléfono inválido (mínimo 8 dígitos)." };
 
-  // Si querés que sea obligatorio:
+  // obligatoria a nivel app
   if (!identification) return { error: "La identificación es obligatoria." };
   if (!isIdentificationValid(identification)) return { error: "Identificación inválida." };
 

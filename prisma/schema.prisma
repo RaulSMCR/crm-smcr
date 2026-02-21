@@ -52,10 +52,10 @@ model User {
 
   identification String? @db.VarChar(32)
 
-  // ✅ NUEVOS (para que el panel paciente no rompa)
+  // ✅ NUEVOS: el panel paciente los pide
   birthDate DateTime?
-  gender    String? @db.VarChar(16)
-  interests String? @db.Text
+  gender    String?  @db.VarChar(16)
+  interests String?  @db.Text
 
   emailVerified Boolean  @default(false)
   isActive      Boolean  @default(true)
@@ -71,14 +71,15 @@ model User {
 
   professionalProfile ProfessionalProfile?
   appointments        Appointment[] @relation("PatientAppointments")
-  postViewEvents      PostViewEvent[]
+
+  // BLOG ANALYTICS (nivel 3)
+  postViewEvents PostViewEvent[]
 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   @@index([identification])
 }
-
 
 // --------------------------------------------------------
 // PROFESSIONAL PROFILE
@@ -198,14 +199,14 @@ model PostViewEvent {
   isRead            Boolean  @default(false)
   readAt            DateTime?
   timeOnPageSeconds Int?
-  scrollDepth       Int?     // 0..100 (máximo)
+  scrollDepth       Int?
 
   @@index([postId, createdAt])
   @@index([createdAt])
   @@index([anonId])
   @@index([utmSource, utmMedium, utmCampaign])
 
-  @@unique([sessionId, postId]) // 1 view por post por sesión
+  @@unique([sessionId, postId])
 }
 
 // --------------------------------------------------------
@@ -230,9 +231,9 @@ model Service {
 model Availability {
   id             String @id @default(cuid())
 
-  dayOfWeek      Int      // 0..6
-  startTime      String   // "HH:mm"
-  endTime        String   // "HH:mm"
+  dayOfWeek      Int
+  startTime      String
+  endTime        String
 
   professionalId String
   professional   ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
