@@ -1,109 +1,128 @@
-// src/app/panel/admin/servicios/page.js
-import { prisma } from "@/lib/prisma";
-import { createService } from "@/actions/service-actions";
-import Link from "next/link";
+// src/app/panel/admin/personal/page.js
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { prisma } from "@/lib/prisma";
+import { getSession } from "@/actions/auth-actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminServicesPage() {
-  const services = await prisma.service.findMany({
-    orderBy: { title: "asc" },
+export default async function AdminPersonalPage() {
+  const session = await getSession();
+  if (!session) redirect("/ingresar");
+  if (session.role !== "ADMIN") redirect("/panel");
+
+  const professionals = await prisma.professionalProfile.findMany({
+    orderBy: { createdAt: "desc" },
     select: {
       id: true,
-      title: true,
-      description: true,
-      isActive: true,
-      // Contamos APPROVED sin depender de _count.professionals (que ya no existe)
-      professionalAssignments: {
-        where: { status: "APPROVED" },
-        select: { professionalId: true },
+      slug: true,
+      specialty: true,
+      isApproved: true,
+      createdAt: true,
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          isActive: true,
+        },
       },
-      // Para mostrar pendientes (opcional)
-      pending: {
-        where: { status: "PENDING" },
-        select: { professionalId: true },
+      services: {
+        orderBy: { title: "asc" },
+        select: { id: true, title: true, isActive: true },
       },
     },
   });
 
-  async function handleCreate(formData) {
-    "use server";
-    const res = await createService(formData);
-    if (res?.success) redirect(`/panel/admin/servicios/${res.newId}`);
-  }
-
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8">
-      <div className="flex justify-between items-start gap-6">
+      <div className="flex items-start justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">Catálogo de Servicios</h1>
-          <p className="text-slate-500 mt-2">Define qué ofrece la plataforma.</p>
+          <h1 className="text-3xl font-bold text-slate-900">Personal (Profesionales)</h1>
+          <p className="text-slate-600 mt-2">
+            Vista administrativa de profesionales y servicios vinculados (M2M).
+          </p>
         </div>
+
+        <Link
+          href="/panel/admin"
+          className="rounded-xl border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-800 hover:bg-slate-50"
+        >
+          Volver al panel
+        </Link>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 p-6">
-        <h2 className="text-lg font-semibold text-slate-800">✨ Nuevo Servicio</h2>
-        <form action={handleCreate} className="mt-4 grid md:grid-cols-3 gap-3">
-          <input
-            name="title"
-            placeholder="Título"
-            className="rounded-xl border border-slate-300 px-3 py-2"
-            required
-          />
-          <input
-            name="price"
-            placeholder="Precio Base"
-            className="rounded-xl border border-slate-300 px-3 py-2"
-            type="number"
-            step="0.01"
-            required
-          />
-          <button className="rounded-xl bg-blue-600 text-white px-4 py-2 font-semibold hover:bg-blue-700">
-            Crear y Configurar →
-          </button>
-        </form>
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-6">
-        {services.map((service) => {
-          const approvedCount = service.professionalAssignments?.length || 0;
-          const pendingCount = service.pending?.length || 0;
-
-          return (
-            <div key={service.id} className="bg-white rounded-2xl border border-slate-200 p-6">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="text-xl font-bold text-slate-800">{service.title}</h3>
-                  <p className="text-sm text-slate-500 mt-1">
-                    {service.isActive ? "ACTIVO" : "INACTIVO"}
-                  </p>
+      <div className="space-y-4">
+        {professionals.map((p) => (
+          <div key={p.id} className="bg-white rounded-2xl border border-slate-200 p-6">
+            <div className="flex items-start justify-between gap-6">
+              <div>
+                <div className="text-lg font-bold text-slate-900">{p.user?.name}</div>
+                <div className="text-sm text-slate-600">
+                  {p.specialty} · {p.user?.email} · {p.user?.phone}
                 </div>
 
-                <Link
-                  href={`/panel/admin/servicios/${service.id}`}
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold hover:bg-slate-50"
-                >
-                  Gestionar ⚙️
-                </Link>
+                <div className="mt-3 flex gap-2 items-center">
+                  <span
+                    className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${
+                      p.isApproved
+                        ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                        : "bg-amber-50 text-amber-800 border border-amber-200"
+                    }`}
+                  >
+                    {p.isApproved ? "Aprobado" : "Pendiente"}
+                  </span>
+
+                  <span
+                    className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${
+                      p.user?.isActive
+                        ? "bg-slate-50 text-slate-800 border border-slate-200"
+                        : "bg-rose-50 text-rose-800 border border-rose-200"
+                    }`}
+                  >
+                    {p.user?.isActive ? "Activo" : "Inactivo"}
+                  </span>
+
+                  <span className="text-xs text-slate-500">
+                    Servicios vinculados: <b>{p.services.length}</b>
+                  </span>
+                </div>
               </div>
 
-              <p className="text-slate-600 mt-3">{service.description || "Sin descripción."}</p>
-
-              <div className="mt-4 flex flex-wrap gap-2 text-sm">
-                <span className="rounded-full border border-slate-200 px-3 py-1">
-                  {approvedCount} aprobados
-                </span>
-                <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-amber-900">
-                  {pendingCount} pendientes
-                </span>
+              <div className="text-sm text-slate-500 whitespace-nowrap">
+                {new Date(p.createdAt).toLocaleDateString()}
               </div>
             </div>
-          );
-        })}
 
-        {services.length === 0 && (
-          <div className="text-slate-600">No hay servicios. Crea el primero arriba.</div>
+            <div className="mt-5">
+              <div className="text-sm font-semibold text-slate-800">Servicios</div>
+              {p.services.length === 0 ? (
+                <p className="text-sm text-slate-600 mt-2">Sin servicios vinculados.</p>
+              ) : (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {p.services.map((s) => (
+                    <span
+                      key={s.id}
+                      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold border ${
+                        s.isActive
+                          ? "bg-emerald-50 text-emerald-900 border-emerald-200"
+                          : "bg-slate-50 text-slate-800 border-slate-200"
+                      }`}
+                    >
+                      {s.title}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+
+        {professionals.length === 0 && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 text-slate-700">
+            No hay profesionales.
+          </div>
         )}
       </div>
     </div>

@@ -1,104 +1,102 @@
 // src/app/servicios/[id]/page.js
-import { prisma } from "@/lib/prisma";
-import { notFound } from "next/navigation";
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-export default async function ServiceDetailPage({ params }) {
+export default async function ServicioDetallePage({ params }) {
+  const serviceId = String(params?.id || "");
+  if (!serviceId) notFound();
+
   const service = await prisma.service.findUnique({
-    where: { id: params.id },
+    where: { id: serviceId },
     select: {
       id: true,
       title: true,
       description: true,
       price: true,
       durationMin: true,
-      professionalAssignments: {
+      isActive: true,
+      professionals: {
         where: {
-          status: "APPROVED",
-          professional: {
-            is: {
-              isApproved: true,
-              user: { is: { isActive: true } },
-            },
-          },
+          isApproved: true,
+          user: { is: { isActive: true } },
         },
         select: {
-          professional: {
-            select: {
-              id: true,
-              specialty: true,
-              bio: true,
-              user: { select: { name: true, image: true } },
-            },
-          },
+          id: true,
+          specialty: true,
+          bio: true,
+          user: { select: { name: true, image: true } },
         },
+        take: 50,
       },
     },
   });
 
-  if (!service) notFound();
+  if (!service || !service.isActive) notFound();
 
-  const pros = (service.professionalAssignments || []).map((a) => a.professional);
+  const priceStr = service.price?.toString?.() ?? String(service.price);
 
   return (
-    <div className="max-w-5xl mx-auto p-6 md:p-10 space-y-6">
-      <Link href="/servicios" className="text-sm text-slate-600 hover:text-slate-900">
-        ← Volver a Servicios
-      </Link>
+    <div className="max-w-6xl mx-auto p-6 md:p-10 space-y-8">
+      <div className="flex items-start justify-between gap-6">
+        <div>
+          <div className="text-sm text-slate-600">
+            <Link href="/servicios" className="hover:underline">
+              ← Volver a servicios
+            </Link>
+          </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 p-6">
-        <h1 className="text-3xl font-bold text-slate-900">{service.title}</h1>
-        <div className="mt-2 flex items-center gap-4 text-slate-700">
-          <span>⏱ {service.durationMin} min</span>
-          <span className="font-semibold">${Number(service.price)}</span>
+          <h1 className="text-3xl font-bold text-slate-900 mt-2">{service.title}</h1>
+
+          <div className="text-sm text-slate-700 mt-3">
+            <b>Duración:</b> {service.durationMin} min · <b>Precio:</b> ₡{priceStr}
+          </div>
+
+          {service.description ? (
+            <p className="text-slate-700 mt-4">{service.description}</p>
+          ) : (
+            <p className="text-slate-500 mt-4">Sin descripción.</p>
+          )}
         </div>
-        <p className="mt-4 text-slate-700">
-          {service.description || "No hay descripción disponible para este servicio."}
-        </p>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 p-6">
-        <h2 className="text-2xl font-bold text-slate-900">Profesionales Disponibles</h2>
+        <h2 className="text-xl font-bold text-slate-900">Profesionales disponibles</h2>
+        <p className="text-slate-600 mt-1 text-sm">
+          Solo se muestran profesionales aprobados y activos.
+        </p>
 
-        {pros.length > 0 ? (
-          <div className="mt-4 grid md:grid-cols-2 gap-4">
-            {pros.map((pro) => (
-              <div key={pro.id} className="rounded-2xl border border-slate-200 p-5">
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-full bg-slate-100 overflow-hidden border border-slate-200 flex items-center justify-center">
-                    {pro.user.image ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={pro.user.image} alt={pro.user.name} className="h-full w-full object-cover" />
+        {service.professionals.length === 0 ? (
+          <p className="mt-4 text-slate-700">
+            Aún no hay profesionales aprobados para este servicio.
+          </p>
+        ) : (
+          <div className="mt-5 grid md:grid-cols-2 gap-4">
+            {service.professionals.map((p) => (
+              <div key={p.id} className="rounded-xl border border-slate-200 p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="font-semibold text-slate-900">{p.user?.name || "Profesional"}</div>
+                    <div className="text-sm text-slate-600">{p.specialty}</div>
+
+                    {p.bio ? (
+                      <p className="text-sm text-slate-700 mt-3 line-clamp-4">{p.bio}</p>
                     ) : (
-                      <span className="text-sm font-semibold text-slate-700">
-                        {pro.user.name?.charAt(0)}
-                      </span>
+                      <p className="text-sm text-slate-500 mt-3">Sin biografía.</p>
                     )}
                   </div>
-                  <div>
-                    <div className="text-lg font-semibold text-slate-900">{pro.user.name}</div>
-                    <div className="text-sm text-slate-600">{pro.specialty || "Profesional"}</div>
-                  </div>
-                </div>
 
-                {pro.bio && <p className="mt-3 text-sm text-slate-700">{pro.bio}</p>}
-
-                <div className="mt-4">
                   <Link
-                    href={`/panel/paciente/agendar?serviceId=${service.id}&professionalId=${pro.id}`}
-                    className="inline-flex items-center justify-center rounded-xl bg-blue-600 text-white px-4 py-2 text-sm font-semibold hover:bg-blue-700"
+                    href={`/panel/paciente/agendar?serviceId=${service.id}&professionalId=${p.id}`}
+                    className="rounded-xl bg-blue-600 text-white px-3 py-2 text-sm font-semibold hover:bg-blue-700 whitespace-nowrap"
                   >
-                    Agendar Cita
+                    Agendar
                   </Link>
                 </div>
               </div>
             ))}
-          </div>
-        ) : (
-          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            Actualmente no hay profesionales asignados a este servicio.
           </div>
         )}
       </div>
