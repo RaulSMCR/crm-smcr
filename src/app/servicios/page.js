@@ -29,9 +29,10 @@ export default async function ServiciosPage() {
     },
   });
 
-  // Adapter: si tu UI estaba armado con professionalAssignments[].professional
   const services = servicesRaw.map((s) => ({
     ...s,
+    // ✅ evita cualquier rareza con Decimal
+    price: s.price?.toString?.() ?? String(s.price),
     professionalAssignments: (s.professionals || []).map((p) => ({ professional: p })),
   }));
 
@@ -56,7 +57,7 @@ export default async function ServiciosPage() {
                   <p className="text-slate-500 mt-2">Sin descripción.</p>
                 )}
                 <div className="text-sm text-slate-700 mt-3">
-                  <b>Duración:</b> {s.durationMin} min · <b>Precio:</b> ₡{s.price.toString()}
+                  <b>Duración:</b> {s.durationMin} min · <b>Precio:</b> ₡{s.price}
                 </div>
               </div>
 
