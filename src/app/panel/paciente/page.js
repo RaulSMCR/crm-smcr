@@ -19,7 +19,7 @@ export default async function PacientePanelPage({ searchParams }) {
   if (!session) redirect("/ingresar");
   if (session.role !== "USER") redirect("/panel");
 
-  const userId = String(session.sub);
+  const userId = String(session.userId || session.sub); // ✅ robusto
 
   const [user, appointments] = await Promise.all([
     prisma.user.findUnique({
@@ -29,7 +29,7 @@ export default async function PacientePanelPage({ searchParams }) {
         name: true,
         email: true,
         phone: true,
-        identification: true,
+        identification: true, // ✅ debe existir en schema
         birthDate: true,
         gender: true,
         interests: true,

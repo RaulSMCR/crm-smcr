@@ -12,7 +12,9 @@ import { signToken, getSession as getLibSession } from "@/lib/auth";
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_URL ||
-  (process.env.NODE_ENV === "development" ? "http://localhost:3000" : "https://saludmentalcostarica.com");
+  (process.env.NODE_ENV === "development"
+    ? "http://localhost:3000"
+    : "https://saludmentalcostarica.com");
 
 function normalizeEmail(v) {
   return String(v || "").trim().toLowerCase();
@@ -33,6 +35,22 @@ function isPhoneValid(v) {
   if (!/^[+0-9()\-\s]+$/.test(s)) return false;
   const digits = (s.match(/\d/g) || []).length;
   return digits >= 8;
+}
+
+function normalizeIdentification(v) {
+  return String(v || "").trim();
+}
+
+function isIdentificationValid(v) {
+  const s = normalizeIdentification(v);
+  if (!s) return false;
+
+  // Flexible: letras/números/.- espacios
+  if (!/^[A-Za-z0-9.\-\s]+$/.test(s)) return false;
+
+  // Longitud razonable
+  const compact = s.replace(/\s+/g, "");
+  return compact.length >= 5 && compact.length <= 32;
 }
 
 /* 0) SESIÓN */
@@ -116,6 +134,9 @@ export async function registerProfessional(formData) {
   const password = String(formData.get("password") || "");
   const confirmPassword = String(formData.get("confirmPassword") || "");
 
+  // opcional: si alguna vez querés pedir identificación también al profesional
+  const identification = normalizeIdentification(formData.get("identification"));
+
   const specialty = String(formData.get("specialty") || "").trim();
   const bio = formData.get("bio") ? String(formData.get("bio")).trim() : null;
   const coverLetter = formData.get("coverLetter") ? String(formData.get("coverLetter")).trim() : null;
@@ -130,6 +151,10 @@ export async function registerProfessional(formData) {
   if (!phone) return { error: "El teléfono es obligatorio." };
   if (!isPhoneValid(phone)) return { error: "Teléfono inválido. Usa un número real (mínimo 8 dígitos)." };
 
+  if (identification && !isIdentificationValid(identification)) {
+    return { error: "Identificación inválida." };
+  }
+
   if (password !== confirmPassword) return { error: "Las contraseñas no coinciden." };
   if (password.length < 8) return { error: "La contraseña debe tener al menos 8 caracteres." };
 
@@ -141,7 +166,11 @@ export async function registerProfessional(formData) {
     let slug = slugBase || "profesional";
     let count = 0;
 
-    while (await prisma.professionalProfile.findUnique({ where: { slug: count === 0 ? slug : `${slug}-${count}` } })) {
+    while (
+      await prisma.professionalProfile.findUnique({
+        where: { slug: count === 0 ? slug : `${slug}-${count}` },
+      })
+    ) {
       count++;
     }
     slug = count === 0 ? slug : `${slug}-${count}`;
@@ -156,7 +185,8 @@ export async function registerProfessional(formData) {
         data: {
           name,
           email,
-          phone, // ✅ obligatorio
+          phone,
+          identification: identification || null,
           passwordHash: hashedPassword,
           role: "PROFESSIONAL",
           emailVerified: false,
@@ -218,6 +248,8 @@ export async function registerUser(formData) {
   const phoneRaw = formData.get("phone");
   const phone = normalizePhone(phoneRaw);
 
+  const identification = normalizeIdentification(formData.get("identification"));
+
   const password = String(formData.get("password") || "");
   const confirmPassword = String(formData.get("confirmPassword") || "");
 
@@ -228,6 +260,10 @@ export async function registerUser(formData) {
   if (!name || !email || !password) return { error: "Datos incompletos." };
   if (!phone) return { error: "El teléfono es obligatorio." };
   if (!isPhoneValid(phone)) return { error: "Teléfono inválido. Usa un número real (mínimo 8 dígitos)." };
+
+  // ✅ identificación obligatoria a nivel app (sin romper DB existente)
+  if (!identification) return { error: "La identificación es obligatoria." };
+  if (!isIdentificationValid(identification)) return { error: "Identificación inválida." };
 
   if (password !== confirmPassword) return { error: "Las contraseñas no coinciden." };
   if (password.length < 8) return { error: "La contraseña debe tener al menos 8 caracteres." };
@@ -245,7 +281,8 @@ export async function registerUser(formData) {
       data: {
         name,
         email,
-        phone, // ✅ obligatorio
+        phone,
+        identification,
         passwordHash: hashedPassword,
         role: "USER",
         emailVerified: false,
@@ -279,6 +316,10 @@ export async function registerUser(formData) {
 
     return { success: true };
   } catch (error) {
+    // Manejo de unique si más adelante lo volvés @unique
+    if (error?.code === "P2002") {
+      return { error: "Ya existe un usuario con ese dato único. Revisa email/identificación." };
+    }
     console.error("Error registro usuario:", error);
     return { error: "Error al registrarse. Inténtalo de nuevo." };
   }
