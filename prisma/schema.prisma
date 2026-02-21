@@ -7,7 +7,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL") // recomendado
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {
@@ -31,21 +31,21 @@ enum PaymentStatus {
   REFUNDED
 }
 
-enum PostStatus {
-  DRAFT
-  PUBLISHED
-  ARCHIVED
-}
-
 enum ServiceAssignmentStatus {
   PENDING
   APPROVED
   REJECTED
 }
 
-// --------------------------------------------------------
-// USERS
-// --------------------------------------------------------
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+// --------------------
+// MODELS
+// --------------------
 
 model User {
   id           String  @id @default(cuid())
@@ -56,13 +56,10 @@ model User {
   phone        String
   role         Role    @default(USER)
 
-  // ✅ Identificación (cédula/DNI/pasaporte)
-  identification String? @db.VarChar(32)
-
-  // ✅ Campos perfil paciente
-  birthDate DateTime?
-  gender    String?   @db.VarChar(16)
-  interests String?   @db.Text
+  identification String?   @db.VarChar(32)
+  birthDate      DateTime?
+  gender         String?   @db.VarChar(16)
+  interests      String?   @db.Text
 
   emailVerified Boolean   @default(false)
   isActive      Boolean   @default(true)
@@ -77,20 +74,17 @@ model User {
   resetTokenExp   DateTime?
 
   professionalProfile ProfessionalProfile?
-  appointments        Appointment[]        @relation("PatientAppointments")
 
-  // BLOG ANALYTICS (nivel 3)
+  appointments Appointment[] @relation("PatientAppointments")
+
   postViewEvents PostViewEvent[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([identification])
+  @@index([role])
 }
-
-// --------------------------------------------------------
-// PROFESSIONAL PROFILE
-// --------------------------------------------------------
 
 model ProfessionalProfile {
   id String @id @default(cuid())
@@ -116,120 +110,28 @@ model ProfessionalProfile {
   rating     Decimal? @db.Decimal(2, 1)
   commission Int      @default(10)
 
-  // ✅ Pivot con estado por servicio
+  // ✅ Lo que tu código espera
   serviceAssignments ServiceAssignment[]
 
   availability Availability[]
   posts        Post[]
-  appointments Appointment[]  @relation("ProAppointments")
+
+  appointments Appointment[] @relation("ProAppointments")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
-
-// --------------------------------------------------------
-// BLOG
-// --------------------------------------------------------
-
-model Category {
-  id          String  @id @default(cuid())
-  name        String  @unique
-  slug        String  @unique
-  description String?
-
-  posts Post[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Post {
-  id         String     @id @default(cuid())
-  title      String
-  slug       String     @unique
-  content    String     @db.Text
-  excerpt    String?    @db.Text
-  coverImage String?
-  status     PostStatus @default(DRAFT)
-
-  views       Int  @default(0)
-  readingTime Int?
-
-  metaTitle String?
-  metaDesc  String?
-
-  authorId String
-  author   ProfessionalProfile @relation(fields: [authorId], references: [id])
-
-  categoryId String?
-  category   Category? @relation(fields: [categoryId], references: [id])
-
-  // BLOG ANALYTICS (nivel 3)
-  viewEvents PostViewEvent[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([views])
-}
-
-// Eventos de marketing/lectura por post (Nivel 3)
-model PostViewEvent {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  postId String
-  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
-
-  // opcional si el lector está logueado
-  userId String?
-  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  // Identificador anónimo persistente (cookie 1 año)
-  anonId String
-
-  // Sesión (cookie corta, p.ej. 30 min sliding)
-  sessionId String
-
-  // Marketing/contexto
-  landingUrl  String? @db.Text
-  referrer    String? @db.Text
-  utmSource   String?
-  utmMedium   String?
-  utmCampaign String?
-  utmTerm     String?
-  utmContent  String?
-
-  userAgent String? @db.Text
-  country   String?
-
-  // Lectura real
-  isRead            Boolean   @default(false)
-  readAt            DateTime?
-  timeOnPageSeconds Int?
-  scrollDepth       Int?
-
-  @@unique([sessionId, postId])
-  @@index([postId, createdAt])
-  @@index([createdAt])
-  @@index([anonId])
-  @@index([utmSource, utmMedium, utmCampaign])
-}
-
-// --------------------------------------------------------
-// BUSINESS
-// --------------------------------------------------------
 
 model Service {
   id          String  @id @default(cuid())
   title       String
   description String? @db.Text
+
   price       Decimal @db.Decimal(10, 2)
   durationMin Int
   isActive    Boolean @default(true)
 
-  // ✅ Pivot con estado por profesional
+  // ✅ Lo que tu código espera
   professionalAssignments ServiceAssignment[]
 
   appointments Appointment[]
@@ -241,14 +143,13 @@ model Service {
   @@index([title])
 }
 
-// Pivot: solicitudes / aprobaciones / rechazos por servicio
 model ServiceAssignment {
   professionalId String
   serviceId      String
 
   status ServiceAssignmentStatus @default(PENDING)
 
-  // ✅ para flujos de solicitud / revisión
+  // ✅ usados por admin/profile-actions
   requestedAt DateTime  @default(now())
   reviewedAt  DateTime?
 
@@ -263,28 +164,28 @@ model ServiceAssignment {
   @@index([professionalId])
   @@index([status])
   @@index([requestedAt])
-  @@index([reviewedAt])
 }
 
 model Availability {
-  id String @id @default(cuid())
-
-  dayOfWeek Int // 0..6
-  startTime String // "HH:mm"
-  endTime   String // "HH:mm"
-
+  id             String @id @default(cuid())
   professionalId String
-  professional   ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  dayOfWeek Int
+  startTime String @db.VarChar(5)
+  endTime   String @db.VarChar(5)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
 
   @@unique([professionalId, dayOfWeek, startTime, endTime])
   @@index([professionalId, dayOfWeek])
 }
 
 model Appointment {
-  id      String            @id @default(cuid())
+  id String @id @default(cuid())
+
   date    DateTime
   endDate DateTime
   status  AppointmentStatus @default(PENDING)
@@ -297,13 +198,13 @@ model Appointment {
   meetLink    String?
 
   patientId String
-  patient   User   @relation("PatientAppointments", fields: [patientId], references: [id])
+  patient   User   @relation("PatientAppointments", fields: [patientId], references: [id], onDelete: Cascade)
 
   professionalId String
-  professional   ProfessionalProfile @relation("ProAppointments", fields: [professionalId], references: [id])
+  professional   ProfessionalProfile @relation("ProAppointments", fields: [professionalId], references: [id], onDelete: Cascade)
 
   serviceId String?
-  service   Service? @relation(fields: [serviceId], references: [id])
+  service   Service? @relation(fields: [serviceId], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -312,4 +213,61 @@ model Appointment {
   @@index([patientId])
   @@index([professionalId])
   @@index([serviceId])
+  @@index([status])
+}
+
+model Post {
+  id         String     @id @default(cuid())
+  title      String
+  slug       String     @unique
+  content    String     @db.Text
+  excerpt    String?    @db.Text
+  coverImage String?
+  status     PostStatus @default(DRAFT)
+
+  authorId String
+  author   ProfessionalProfile @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  viewEvents PostViewEvent[]
+
+  @@index([status])
+  @@index([authorId])
+}
+
+model PostViewEvent {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  anonId      String
+  sessionId   String
+  landingUrl  String? @db.Text
+  referrer    String? @db.Text
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmTerm     String?
+  utmContent  String?
+
+  userAgent String? @db.Text
+  country   String?
+
+  isRead            Boolean   @default(false)
+  readAt            DateTime?
+  timeOnPageSeconds Int?
+  scrollDepth       Int?
+
+  @@unique([sessionId, postId])
+  @@index([postId, createdAt])
+  @@index([createdAt])
+  @@index([anonId])
 }
