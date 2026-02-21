@@ -50,8 +50,12 @@ model User {
   phone         String
   role          Role     @default(USER)
 
-  // ✅ NUEVO
   identification String? @db.VarChar(32)
+
+  // ✅ NUEVOS (para que el panel paciente no rompa)
+  birthDate DateTime?
+  gender    String? @db.VarChar(16)
+  interests String? @db.Text
 
   emailVerified Boolean  @default(false)
   isActive      Boolean  @default(true)
@@ -67,8 +71,7 @@ model User {
 
   professionalProfile ProfessionalProfile?
   appointments        Appointment[] @relation("PatientAppointments")
-
-  postViewEvents PostViewEvent[]
+  postViewEvents      PostViewEvent[]
 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
