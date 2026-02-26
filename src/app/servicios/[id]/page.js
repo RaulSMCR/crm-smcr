@@ -90,7 +90,7 @@ export default async function ServiceDetailPage({ params }) {
                 {pro.bio && <p className="text-sm text-slate-700 mt-3">{pro.bio}</p>}
 
                 <Link
-                  href={`/panel/paciente/agendar?serviceId=${service.id}&professionalId=${pro.id}`}
+                  href={`/agendar/${pro.id}?serviceId=${service.id}`}
                   className="inline-block mt-4 rounded-xl bg-blue-600 text-white px-4 py-2 font-semibold hover:bg-blue-700"
                 >
                   Agendar cita
