@@ -19,15 +19,18 @@ export default async function AdminServiciosPage() {
       isActive: true,
       durationMin: true,
       price: true,
-      // Total profesionales vinculados al servicio
-      _count: { select: { professionals: true } },
-      // Profesionales "válidos" (aprobados + usuario activo) para contar “aprobados”
-      professionals: {
+      // Total solicitudes/asignaciones vinculadas al servicio
+      _count: { select: { professionalAssignments: true } },
+      // Asignaciones "válidas" (aprobadas + profesional aprobado + usuario activo)
+      professionalAssignments: {
         where: {
-          isApproved: true,
-          user: { is: { isActive: true } },
+          status: "APPROVED",
+          professional: {
+            isApproved: true,
+            user: { is: { isActive: true } },
+          },
         },
-        select: { id: true },
+        select: { professionalId: true },
       },
     },
   });
@@ -66,8 +69,8 @@ export default async function AdminServiciosPage() {
           <tbody>
             {services.map((s) => {
               const priceStr = s.price?.toString?.() ?? String(s.price);
-              const total = s._count.professionals;
-              const approved = s.professionals.length;
+              const total = s._count.professionalAssignments;
+              const approved = s.professionalAssignments.length;
 
               return (
                 <tr key={s.id} className="border-t border-slate-200 text-sm">
@@ -112,8 +115,8 @@ export default async function AdminServiciosPage() {
       </div>
 
       <div className="text-xs text-slate-500">
-        Nota: En este esquema no existe “asignación con estado”. Solo vínculo M2M entre servicios y
-        profesionales.
+        Nota: La relación servicio-profesional usa asignaciones con estado
+        (`professionalAssignments`).
       </div>
     </div>
   );

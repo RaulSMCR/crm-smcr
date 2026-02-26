@@ -59,7 +59,12 @@ export async function GET(request) {
       const services = await prisma.service.findMany({
         where: {
           ...titleFilter,
-          professionals: { some: { id: String(proId) } },
+          professionalAssignments: {
+            some: {
+              professionalId: String(proId),
+              status: "APPROVED",
+            },
+          },
         },
         orderBy: { title: "asc" },
         take,
