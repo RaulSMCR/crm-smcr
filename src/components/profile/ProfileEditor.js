@@ -62,6 +62,13 @@ export default function ProfileEditor({ profile, allServices = [] }) {
       .map((a) => a.serviceId);
     return Array.from(new Set(base));
   });
+  const [proposedPrices, setProposedPrices] = useState(() => {
+    const base = {};
+    (profile.serviceAssignments || []).forEach((a) => {
+      base[a.serviceId] = a.proposedSessionPrice ?? "";
+    });
+    return base;
+  });
 
   const [avatarFile, setAvatarFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(profile.user?.image || null);
@@ -113,7 +120,10 @@ export default function ProfileEditor({ profile, allServices = [] }) {
       fd.append("bio", form.bio);
       if (publicUrl) fd.append("imageUrl", publicUrl);
 
-      selectedServices.forEach((id) => fd.append("serviceIds", id));
+      selectedServices.forEach((id) => {
+        fd.append("serviceIds", id);
+        fd.append("proposedPrice", `${id}:${proposedPrices[id] ?? ""}`);
+      });
 
       const res = await updateProfile(fd);
 
@@ -274,6 +284,30 @@ export default function ProfileEditor({ profile, allServices = [] }) {
                         {service.durationMin} min · ${String(service.price)}
                       </div>
                     </div>
+
+                    {isSelected && (
+                      <div className="mt-3">
+                        <label className="text-xs font-semibold text-slate-700">Costo propuesto por sesión (₡)</label>
+                        <input
+                          onClick={(e) => e.stopPropagation()}
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={proposedPrices[service.id] ?? ""}
+                          onChange={(e) =>
+                            setProposedPrices((prev) => ({ ...prev, [service.id]: e.target.value }))
+                          }
+                          className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1 text-sm"
+                        />
+                      </div>
+                    )}
+
+                    {assignment?.approvedSessionPrice ? (
+                      <div className="mt-2 text-xs text-emerald-700">Costo aprobado: ₡{String(assignment.approvedSessionPrice)}</div>
+                    ) : null}
+                    {assignment?.adminReviewNote ? (
+                      <div className="mt-1 text-xs text-slate-600">Nota admin: {assignment.adminReviewNote}</div>
+                    ) : null}
 
                     {status === "REJECTED" && !isSelected && (
                       <div className="mt-3 text-xs text-rose-700">
