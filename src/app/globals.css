@@ -13,34 +13,34 @@
 
 /* Fondo crema del sitio */
 :root {
-  --app-bg: 224 227 213; /* #e0e3d5 */
+  --app-bg: 246 239 223; /* #F6EFDF (neutral crema del logo) */
 
   /* BRAND: Hoja Monstera (verde azulado) #326d70 => rgb(50,109,112) */
   /* Escala aproximada alrededor del color base para 50..950 */
-  --brand-50:  232 242 243; /* #e8f2f3 */
-  --brand-100: 213 232 233; /* #d5e8e9 */
-  --brand-200: 170 206 207; /* #aacecf */
-  --brand-300: 127 180 182; /* #7fb4b6 */
-  --brand-400:  92 149 152; /* #5c9598 */
-  --brand-500:  69 126 128; /* #457e80 */
-  --brand-600:  50 109 112; /* #326d70 (DEFAULT) */
-  --brand-700:  43  93  96; /* #2b5d60 */
-  --brand-800:  33  72  75; /* #21484b */
-  --brand-900:  26  59  62; /* #1a3b3e */
-  --brand-950:  15  38  40; /* #0f2628 */
+  --brand-50:  233 244 244;
+  --brand-100: 210 234 235;
+  --brand-200: 168 214 216;
+  --brand-300: 125 193 195;
+  --brand-400:  84 160 163;
+  --brand-500:  56 134 138;
+  --brand-600:  43 112 115; /* #2B7073 (verde del logo) */
+  --brand-700:  35  92  95;
+  --brand-800:  28  74  76;
+  --brand-900:  22  58  60;
+  --brand-950:  12  34  35;
 
   /* ACCENT: Coral #f47c6b => rgb(244,124,107) */
-  --accent-50:  255 243 241; /* #fff3f1 */
-  --accent-100: 255 227 223; /* #ffe3df */
-  --accent-200: 255 200 192; /* #ffc8c0 */
-  --accent-300: 255 163 154; /* #ffa39a */
-  --accent-400: 255 139 129; /* #ff8b81 */
-  --accent-500: 249 122 110; /* #f97a6e */
-  --accent-600: 244 124 107; /* #f47c6b (DEFAULT) */
-  --accent-700: 220 107  93; /* #dc6b5d */
-  --accent-800: 184  86  76; /* #b8564c */
-  --accent-900: 150  62  55; /* #963e37 */
-  --accent-950:  90  33  29; /* #5a211d */
+  --accent-50:  255 245 242;
+  --accent-100: 255 231 224;
+  --accent-200: 255 203 191;
+  --accent-300: 255 174 158;
+  --accent-400: 255 145 125;
+  --accent-500: 251 122  98;
+  --accent-600: 251 122  98; /* #FB7A62 (coral del logo) */
+  --accent-700: 221 104  81;
+  --accent-800: 184  84  66;
+  --accent-900: 144  63  49;
+  --accent-950:  89  35  27;
 
   /* NEUTRAL (texto y grises) — anclado en tu texto #2f3133 */
   --neutral-50:  245 246 242; /* #f5f6f2 */
@@ -59,6 +59,44 @@
   --success-600:  22 163  74; /* green-600 */
   --warning-600: 217 119   6; /* amber-600 */
   --danger-600:  220  38  38; /* red-600 */
+}
+
+/*
+  Capa de compatibilidad para clases heredadas fuera de la paleta.
+  Fuerza todos los estados base/hover/focus/active de botones y carteles
+  a neutral + brand + accent.
+*/
+@layer utilities {
+  [class*="bg-blue-"], [class*="bg-indigo-"], [class*="bg-cyan-"], [class*="bg-sky-"], [class*="bg-teal-"] { background-color: rgb(var(--brand-600) / 1) !important; }
+  [class*="bg-green-"], [class*="bg-emerald-"] { background-color: rgb(var(--brand-100) / 1) !important; }
+  [class*="bg-red-"], [class*="bg-rose-"], [class*="bg-pink-"], [class*="bg-orange-"], [class*="bg-amber-"] { background-color: rgb(var(--accent-100) / 1) !important; }
+  [class*="bg-slate-"], [class*="bg-gray-"], [class*="bg-zinc-"], [class*="bg-stone-"], [class*="bg-white"] { background-color: rgb(var(--app-bg) / 1) !important; }
+
+  [class*="text-blue-"], [class*="text-indigo-"], [class*="text-cyan-"], [class*="text-sky-"] { color: rgb(var(--brand-700) / 1) !important; }
+  [class*="text-green-"], [class*="text-emerald-"], [class*="text-teal-"] { color: rgb(var(--brand-800) / 1) !important; }
+  [class*="text-red-"], [class*="text-rose-"], [class*="text-pink-"], [class*="text-orange-"], [class*="text-amber-"] { color: rgb(var(--accent-800) / 1) !important; }
+  [class*="text-slate-"], [class*="text-gray-"], [class*="text-zinc-"] { color: rgb(var(--neutral-900) / 1) !important; }
+
+  [class*="border-blue-"], [class*="border-indigo-"], [class*="border-cyan-"], [class*="border-sky-"] { border-color: rgb(var(--brand-300) / 1) !important; }
+  [class*="border-green-"], [class*="border-emerald-"], [class*="border-teal-"] { border-color: rgb(var(--brand-200) / 1) !important; }
+  [class*="border-red-"], [class*="border-rose-"], [class*="border-pink-"], [class*="border-orange-"], [class*="border-amber-"] { border-color: rgb(var(--accent-300) / 1) !important; }
+  [class*="border-slate-"], [class*="border-gray-"], [class*="border-zinc-"] { border-color: rgb(var(--neutral-300) / 1) !important; }
+
+  [class*="hover:bg-blue-"]:hover, [class*="hover:bg-indigo-"]:hover, [class*="hover:bg-cyan-"]:hover, [class*="hover:bg-sky-"]:hover, [class*="hover:bg-teal-"]:hover,
+  [class*="active:bg-blue-"]:active, [class*="active:bg-indigo-"]:active, [class*="active:bg-cyan-"]:active, [class*="active:bg-sky-"]:active, [class*="active:bg-teal-"]:active {
+    background-color: rgb(var(--brand-700) / 1) !important;
+  }
+  [class*="hover:bg-red-"]:hover, [class*="hover:bg-rose-"]:hover, [class*="hover:bg-pink-"]:hover, [class*="hover:bg-orange-"]:hover, [class*="hover:bg-amber-"]:hover,
+  [class*="active:bg-red-"]:active, [class*="active:bg-rose-"]:active, [class*="active:bg-pink-"]:active, [class*="active:bg-orange-"]:active, [class*="active:bg-amber-"]:active {
+    background-color: rgb(var(--accent-700) / 1) !important;
+  }
+
+  [class*="focus:ring-blue-"], [class*="focus:ring-indigo-"], [class*="focus:ring-cyan-"], [class*="focus:ring-sky-"], [class*="focus:ring-teal-"] {
+    --tw-ring-color: rgb(var(--brand-300) / 1) !important;
+  }
+  [class*="focus:ring-red-"], [class*="focus:ring-rose-"], [class*="focus:ring-pink-"], [class*="focus:ring-orange-"], [class*="focus:ring-amber-"] {
+    --tw-ring-color: rgb(var(--accent-300) / 1) !important;
+  }
 }
 
 /* Modo oscuro opcional (si activás .dark en <html>) */
