@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/actions/auth-actions";
+import ServiceAssignmentsReviewPanel from "@/components/admin/ServiceAssignmentsReviewPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,9 @@ export default async function AdminServicioDetallePage({ params }) {
         orderBy: { professional: { user: { name: "asc" } } },
         select: {
           status: true,
+          proposedSessionPrice: true,
+          approvedSessionPrice: true,
+          adminReviewNote: true,
           professional: {
             select: {
               id: true,
@@ -95,53 +99,15 @@ export default async function AdminServicioDetallePage({ params }) {
         {service.professionalAssignments.length === 0 ? (
           <p className="mt-4 text-slate-700">No hay profesionales vinculados a este servicio.</p>
         ) : (
-          <div className="mt-5 overflow-hidden rounded-xl border border-slate-200">
-            <table className="w-full text-left">
-              <thead className="bg-slate-50">
-                <tr className="text-sm text-slate-700">
-                  <th className="px-4 py-3">Profesional</th>
-                  <th className="px-4 py-3">Especialidad</th>
-                  <th className="px-4 py-3">Email</th>
-                  <th className="px-4 py-3">Teléfono</th>
-                  <th className="px-4 py-3">Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {service.professionalAssignments.map((a) => {
-                  const p = a.professional;
-                  return (
-                    <tr key={p.id} className="border-t border-slate-200 text-sm">
-                      <td className="px-4 py-3 font-semibold text-slate-900">{p.user?.name}</td>
-                      <td className="px-4 py-3 text-slate-700">{p.specialty}</td>
-                      <td className="px-4 py-3 text-slate-700">{p.user?.email}</td>
-                      <td className="px-4 py-3 text-slate-700">{p.user?.phone}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-2 items-center">
-                          <span
-                            className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${
-                              a.status === "APPROVED"
-                                ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                                : "bg-amber-50 text-amber-800 border border-amber-200"
-                            }`}
-                          >
-                            {a.status === "APPROVED" ? "Aprobado" : "Pendiente"}
-                          </span>
-                          <span
-                            className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${
-                              p.user?.isActive
-                                ? "bg-slate-50 text-slate-800 border border-slate-200"
-                                : "bg-rose-50 text-rose-800 border border-rose-200"
-                            }`}
-                          >
-                            {p.user?.isActive ? "Activo" : "Inactivo"}
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="mt-5">
+            <ServiceAssignmentsReviewPanel
+              serviceId={service.id}
+              assignments={service.professionalAssignments.map((a) => ({
+                ...a,
+                proposedSessionPrice: a.proposedSessionPrice?.toString?.() ?? null,
+                approvedSessionPrice: a.approvedSessionPrice?.toString?.() ?? null,
+              }))}
+            />
           </div>
         )}
 

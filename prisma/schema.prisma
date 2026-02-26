@@ -147,7 +147,10 @@ model ServiceAssignment {
   professionalId String
   serviceId      String
 
-  status ServiceAssignmentStatus @default(PENDING)
+  status               ServiceAssignmentStatus @default(PENDING)
+  proposedSessionPrice Decimal?                @db.Decimal(10, 2)
+  approvedSessionPrice Decimal?                @db.Decimal(10, 2)
+  adminReviewNote      String?                 @db.Text
 
   // ✅ usados por admin/profile-actions
   requestedAt DateTime  @default(now())

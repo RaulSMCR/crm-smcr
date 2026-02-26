@@ -50,7 +50,7 @@ export default async function PerfilPage() {
       <div className="max-w-5xl mx-auto mb-6">
         <h1 className="text-3xl font-bold text-slate-800">Mi Perfil Profesional</h1>
         <p className="text-slate-500 mt-2">
-          Selecciona los servicios que ofreces. Los servicios nuevos quedan en revisión hasta que el administrador los apruebe.
+          Selecciona los servicios que ofreces y propone tu costo por sesión. El administrador puede aprobar, rechazar o ajustar cada solicitud.
         </p>
       </div>
 

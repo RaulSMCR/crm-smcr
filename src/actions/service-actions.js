@@ -167,7 +167,11 @@ export async function approveServiceAssignment(serviceId, professionalId) {
 
     await prisma.serviceAssignment.update({
       where: { professionalId_serviceId: { professionalId: pid, serviceId: sid } },
-      data: { status: "APPROVED", reviewedAt: new Date() },
+      data: {
+        status: "APPROVED",
+        reviewedAt: new Date(),
+        approvedSessionPrice: { set: null },
+      },
     });
 
     revalidatePath(`/panel/admin/servicios/${sid}`);
@@ -205,6 +209,91 @@ export async function rejectServiceAssignment(serviceId, professionalId) {
   } catch (error) {
     console.error("rejectServiceAssignment error:", error);
     return { error: "No se pudo rechazar la solicitud." };
+  }
+}
+
+export async function reviewServiceAssignment(serviceId, professionalId, payload = {}) {
+  try {
+    const session = await getSession();
+    requireAdmin(session);
+
+    const sid = String(serviceId || "");
+    const pid = String(professionalId || "");
+    if (!sid || !pid) return { error: "Datos incompletos para revisar la solicitud." };
+
+    const decision = payload?.decision === "REJECTED" ? "REJECTED" : "APPROVED";
+    const approvedPriceRaw = payload?.approvedSessionPrice;
+    const approvedPrice =
+      approvedPriceRaw === "" || approvedPriceRaw === null || approvedPriceRaw === undefined
+        ? null
+        : Number(approvedPriceRaw);
+
+    if (approvedPrice !== null && (!Number.isFinite(approvedPrice) || approvedPrice < 0)) {
+      return { error: "Precio aprobado inválido." };
+    }
+
+    const note = String(payload?.adminReviewNote || "").trim();
+
+    const current = await prisma.serviceAssignment.findUnique({
+      where: { professionalId_serviceId: { professionalId: pid, serviceId: sid } },
+      select: { proposedSessionPrice: true },
+    });
+
+    if (!current) return { error: "No se encontró la solicitud." };
+
+    await prisma.serviceAssignment.update({
+      where: { professionalId_serviceId: { professionalId: pid, serviceId: sid } },
+      data: {
+        status: decision,
+        reviewedAt: new Date(),
+        approvedSessionPrice:
+          decision === "APPROVED"
+            ? approvedPrice ?? current.proposedSessionPrice ?? null
+            : null,
+        adminReviewNote: note || null,
+      },
+    });
+
+    revalidatePath(`/panel/admin/servicios/${sid}`);
+    revalidatePath(`/panel/admin/servicios`);
+    revalidatePath(`/panel/admin/personal`);
+    revalidatePath(`/panel/profesional/perfil`);
+    revalidatePath(`/servicios`);
+    revalidatePath(`/servicios/${sid}`);
+
+    return { success: true };
+  } catch (error) {
+    console.error("reviewServiceAssignment error:", error);
+    return { error: "No se pudo revisar la solicitud." };
+  }
+}
+
+export async function bulkReviewServiceAssignments(serviceId, assignmentUpdates = []) {
+  try {
+    const session = await getSession();
+    requireAdmin(session);
+
+    const sid = String(serviceId || "");
+    if (!sid) return { error: "Servicio inválido." };
+    if (!Array.isArray(assignmentUpdates) || assignmentUpdates.length === 0) {
+      return { error: "No hay solicitudes para procesar." };
+    }
+
+    for (const item of assignmentUpdates) {
+      const professionalId = String(item?.professionalId || "");
+      if (!professionalId) continue;
+      const decision = item?.decision === "REJECTED" ? "REJECTED" : "APPROVED";
+      await reviewServiceAssignment(sid, professionalId, {
+        decision,
+        approvedSessionPrice: item?.approvedSessionPrice,
+        adminReviewNote: item?.adminReviewNote,
+      });
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("bulkReviewServiceAssignments error:", error);
+    return { error: "No se pudo procesar la revisión masiva." };
   }
 }
 

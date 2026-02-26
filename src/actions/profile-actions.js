@@ -58,6 +58,14 @@ export async function updateProfile(formData) {
       .map((x) => toStr(x))
       .filter(Boolean);
 
+    const proposedPricesEntries = (formData.getAll("proposedPrice") || [])
+      .map((entry) => toStr(entry).split(":", 2))
+      .filter(([serviceId, amount]) => serviceId && amount !== undefined)
+      .map(([serviceId, amount]) => [serviceId, Number(amount)]);
+    const proposedPricesByService = new Map(
+      proposedPricesEntries.filter(([, amount]) => Number.isFinite(amount) && amount >= 0)
+    );
+
     // Validar que existan y estén activos (evita ids basura)
     const validServices = await prisma.service.findMany({
       where: { id: { in: requestedServiceIds }, isActive: true },
@@ -123,6 +131,9 @@ export async function updateProfile(formData) {
               status: "PENDING",
               requestedAt: new Date(),
               reviewedAt: null,
+              proposedSessionPrice: proposedPricesByService.get(serviceId) ?? null,
+              approvedSessionPrice: null,
+              adminReviewNote: null,
             },
           })
         );
@@ -140,6 +151,9 @@ export async function updateProfile(formData) {
               status: "PENDING",
               requestedAt: new Date(),
               reviewedAt: null,
+              proposedSessionPrice: proposedPricesByService.get(serviceId) ?? null,
+              approvedSessionPrice: null,
+              adminReviewNote: null,
             },
           })
         );
