@@ -3,11 +3,9 @@
 
 import { prisma } from "@/lib/prisma";
 import { startOfDay, endOfDay, addMinutes, format, parse, isBefore } from "date-fns";
-import { es } from "date-fns/locale";
 import { getSession } from "@/lib/auth"; // <--- 1. CORRECCIÓN IMPORT
 import { revalidatePath } from "next/cache";
-import { resend } from "@/lib/resend";
-import { emailNuevaSolicitud } from "@/lib/email-templates";
+import { sendAppointmentNotifications, syncGoogleCalendarEvent } from "@/lib/appointments";
 
 /**
  * Calcula los slots disponibles
@@ -127,40 +125,32 @@ export async function requestAppointment(professionalId, dateString, timeString,
         date: startDateTime,
         endDate: endDateTime,
         status: 'PENDING',
-        patientId: session.sub, // <--- CAMBIO CLAVE: patientId, no userId
+        patientId: session.sub,
         professionalId: professionalId,
         serviceId: serviceId || undefined,
-        // pricePaid, commissionFee se calculan luego o al pagar
       }
     });
 
-    // 5. Notificación (CORRECCIÓN DE SCHEMA)
-    try {
-      // Buscamos el perfil Y el usuario asociado para tener el email
-      const proProfile = await prisma.professionalProfile.findUnique({
-        where: { id: professionalId },
-        include: { user: true } // <--- Necesitamos el User para el email
-      });
+    const fullAppointment = await prisma.appointment.findUnique({
+      where: { id: appointment.id },
+      include: {
+        patient: { select: { name: true, email: true } },
+        professional: {
+          select: {
+            id: true,
+            googleRefreshToken: true,
+            user: { select: { name: true, email: true } },
+          },
+        },
+        service: { select: { title: true } },
+      },
+    });
 
-      if (proProfile && proProfile.user?.email) {
-        const fechaLegible = format(startDateTime, "EEEE d 'de' MMMM", { locale: es });
-        const appUrl = process.env.NEXT_PUBLIC_URL || 'https://crm-smcr.vercel.app';
-
-        await resend.emails.send({
-          from: 'Salud Mental Costa Rica <onboarding@resend.dev>',
-          to: proProfile.user.email, // <--- Email real del médico
-          subject: '📅 Nueva Solicitud de Cita',
-          html: emailNuevaSolicitud(
-             proProfile.user.name, 
-             session.name, // Nombre del paciente desde la sesión
-             fechaLegible, 
-             timeString, 
-             `${appUrl}/panel/profesional`
-          )
-        });
-      }
-    } catch (emailError) {
-      console.error("Fallo al enviar email (no bloqueante):", emailError);
+    if (fullAppointment) {
+      await Promise.allSettled([
+        syncGoogleCalendarEvent(fullAppointment),
+        sendAppointmentNotifications(fullAppointment, "Se creó una nueva cita en estado pendiente."),
+      ]);
     }
 
     revalidatePath(`/agendar/${professionalId}`);

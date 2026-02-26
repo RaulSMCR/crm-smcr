@@ -4,6 +4,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/actions/auth-actions";
+import { sendAppointmentNotifications, syncGoogleCalendarEvent } from "@/lib/appointments";
 
 export async function createAppointmentForPatient({ professionalId, serviceId, startISO }) {
   try {
@@ -70,10 +71,26 @@ export async function createAppointmentForPatient({ professionalId, serviceId, s
         paymentStatus: "UNPAID",
         pricePaid: service.price,
       },
-      select: { id: true },
+      include: {
+        patient: { select: { name: true, email: true } },
+        professional: {
+          select: {
+            id: true,
+            googleRefreshToken: true,
+            user: { select: { name: true, email: true } },
+          },
+        },
+        service: { select: { title: true } },
+      },
     });
 
+    await Promise.allSettled([
+      syncGoogleCalendarEvent(appt),
+      sendAppointmentNotifications(appt, "Se creó una nueva cita en estado pendiente."),
+    ]);
+
     revalidatePath("/panel/paciente");
+    revalidatePath("/panel/profesional/citas");
     return { success: true, appointmentId: appt.id };
   } catch (e) {
     console.error("createAppointmentForPatient error:", e);

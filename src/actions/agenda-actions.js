@@ -4,6 +4,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { sendAppointmentNotifications, syncGoogleCalendarEvent } from "@/lib/appointments";
 
 function toStr(x) {
   if (x === undefined || x === null) return "";
@@ -62,14 +63,32 @@ export async function updateAppointmentStatus(appointmentId, newStatus) {
       return { success: false, error: `Transición inválida: ${from} → ${status}` };
     }
 
-    await prisma.appointment.update({
+    const updatedAppointment = await prisma.appointment.update({
       where: { id },
       data: { status },
+      include: {
+        patient: { select: { name: true, email: true } },
+        professional: {
+          select: {
+            id: true,
+            googleRefreshToken: true,
+            user: { select: { name: true, email: true } },
+          },
+        },
+        service: { select: { title: true } },
+      },
     });
+
+    await Promise.allSettled([
+      syncGoogleCalendarEvent(updatedAppointment),
+      sendAppointmentNotifications(updatedAppointment, `La cita cambió de estado a ${status}.`),
+    ]);
 
     // Refrescar vistas relevantes
     revalidatePath("/panel/profesional/citas");
     revalidatePath("/panel/profesional"); // dashboard muestra próximos turnos
+    revalidatePath("/panel/paciente");
+    revalidatePath("/admin/appointments");
 
     return { success: true };
   } catch (err) {
