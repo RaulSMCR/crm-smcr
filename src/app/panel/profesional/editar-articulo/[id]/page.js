@@ -1,45 +1,49 @@
-// src/app/dashboard-profesional/editar-articulo/[id]/page.js
-import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import { prisma } from '@/lib/prisma';
-import PostEditor from '@/components/PostEditor';
+import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
+import PostEditor from "@/components/PostEditor";
 
-async function getPostOrNull(idParam) {
-  // Permitimos "new" para crear
-  if (!idParam || idParam === 'new' || idParam === 'nuevo') return null;
+export const dynamic = "force-dynamic";
 
-  const id = Number(idParam);
-  if (!Number.isInteger(id)) return null;
+async function getPostOrNull(idParam, authorId) {
+  if (!idParam || idParam === "new" || idParam === "nuevo") return null;
 
-  const post = await prisma.post.findUnique({
-    where: { id },
+  return prisma.post.findFirst({
+    where: { id: String(idParam), authorId: String(authorId) },
     select: {
       id: true,
       title: true,
       content: true,
-      imageUrl: true,
-      postType: true,
-      mediaUrl: true,
-      serviceId: true,
-      slug: true,
+      coverImage: true,
       status: true,
+      slug: true,
       createdAt: true,
     },
   });
-
-  return post;
 }
 
 export default async function EditarArticuloPage({ params }) {
+  const session = await getSession();
+  if (!session?.sub || session.role !== "PROFESSIONAL") redirect("/ingresar");
+
+  const profile = await prisma.professionalProfile.findUnique({
+    where: { userId: String(session.sub) },
+    select: { id: true },
+  });
+
+  if (!profile?.id) redirect("/panel/profesional/perfil");
+
   const idParam = params?.id;
   if (!idParam) notFound();
 
-  const post = await getPostOrNull(idParam);
+  const post = await getPostOrNull(idParam, profile.id);
+  if (idParam !== "new" && !post) notFound();
 
   return (
     <main className="max-w-3xl mx-auto px-4 py-10">
       <div className="mb-6">
-        <Link href="/dashboard-profesional" className="text-sm text-blue-600 underline">
+        <Link href="/panel/profesional" className="text-sm text-blue-600 underline">
           ← Volver al panel
         </Link>
       </div>
