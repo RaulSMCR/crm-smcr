@@ -19,8 +19,6 @@ export default async function AdminServiciosPage() {
       isActive: true,
       durationMin: true,
       price: true,
-      // Total solicitudes/asignaciones vinculadas al servicio
-      _count: { select: { professionalAssignments: true } },
       // Asignaciones "válidas" (aprobadas + profesional aprobado + usuario activo)
       professionalAssignments: {
         where: {
@@ -34,6 +32,13 @@ export default async function AdminServiciosPage() {
       },
     },
   });
+
+  const totalsByService = await prisma.serviceAssignment.groupBy({
+    by: ["serviceId"],
+    _count: { _all: true },
+  });
+
+  const totalsMap = new Map(totalsByService.map((row) => [row.serviceId, row._count._all]));
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8">
@@ -69,7 +74,7 @@ export default async function AdminServiciosPage() {
           <tbody>
             {services.map((s) => {
               const priceStr = s.price?.toString?.() ?? String(s.price);
-              const total = s._count.professionalAssignments;
+              const total = totalsMap.get(s.id) ?? 0;
               const approved = s.professionalAssignments.length;
 
               return (
