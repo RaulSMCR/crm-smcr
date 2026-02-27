@@ -21,9 +21,11 @@ export default function RegistroProfesionalPage() {
     phone: "",
     password: "",
     confirmPassword: "",
-    specialty: "", 
+    specialty: "",
     licenseNumber: "",
     bio: "",
+    coverLetter: "",
+    introVideoUrl: "",
   });
 
   const [file, setFile] = useState(null);
@@ -208,9 +210,15 @@ export default function RegistroProfesionalPage() {
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Teléfono Móvil</label>
                   <input
-                    name="phone" type="tel" required placeholder="+506 8888 8888"
+                    name="phone"
+                    type="tel"
+                    required
+                    inputMode="tel"
+                    autoComplete="tel"
+                    placeholder="+506 8888 8888"
                     className="w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5 px-3"
-                    value={form.phone} onChange={handleChange}
+                    value={form.phone}
+                    onChange={handleChange}
                   />
                 </div>
 
@@ -292,10 +300,36 @@ export default function RegistroProfesionalPage() {
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Biografía Pública</label>
                   <textarea
-                    name="bio" rows="3"
+                    name="bio"
+                    rows="3"
                     className="w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5 px-3"
                     placeholder="Describe tu enfoque y experiencia..."
-                    value={form.bio} onChange={handleChange}
+                    value={form.bio}
+                    onChange={handleChange}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Carta de presentación (opcional)</label>
+                  <textarea
+                    name="coverLetter"
+                    rows="3"
+                    className="w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5 px-3"
+                    placeholder="Cuéntanos por qué quieres formar parte de la red."
+                    value={form.coverLetter}
+                    onChange={handleChange}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Video de introducción (URL, opcional)</label>
+                  <input
+                    name="introVideoUrl"
+                    type="url"
+                    placeholder="https://..."
+                    className="w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5 px-3"
+                    value={form.introVideoUrl}
+                    onChange={handleChange}
                   />
                 </div>
 

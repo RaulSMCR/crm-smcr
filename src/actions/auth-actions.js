@@ -141,6 +141,7 @@ export async function registerProfessional(formData) {
   const bio = formData.get("bio") ? String(formData.get("bio")).trim() : null;
   const coverLetter = formData.get("coverLetter") ? String(formData.get("coverLetter")).trim() : null;
   const cvUrl = formData.get("cvUrl") ? String(formData.get("cvUrl")).trim() : null;
+  const introVideoUrl = formData.get("introVideoUrl") ? String(formData.get("introVideoUrl")).trim() : null;
   const licenseNumber = formData.get("licenseNumber") ? String(formData.get("licenseNumber")).trim() : null;
 
   const acquisitionChannel = formData.get("acquisitionChannel")
@@ -206,6 +207,7 @@ export async function registerProfessional(formData) {
           bio,
           coverLetter,
           cvUrl,
+          introVideoUrl,
           licenseNumber,
           isApproved: false,
         },
@@ -249,6 +251,10 @@ export async function registerUser(formData) {
   const phone = normalizePhone(phoneRaw);
 
   const identification = normalizeIdentification(formData.get("identification"));
+  const birthDateRaw = String(formData.get("birthDate") || "").trim();
+  const birthDate = birthDateRaw ? new Date(`${birthDateRaw}T00:00:00.000Z`) : null;
+  const gender = String(formData.get("gender") || "").trim() || null;
+  const interests = String(formData.get("interests") || "").trim() || null;
 
   const password = String(formData.get("password") || "");
   const confirmPassword = String(formData.get("confirmPassword") || "");
@@ -264,6 +270,9 @@ export async function registerUser(formData) {
   // ✅ identificación obligatoria a nivel app (sin romper DB existente)
   if (!identification) return { error: "La identificación es obligatoria." };
   if (!isIdentificationValid(identification)) return { error: "Identificación inválida." };
+  if (birthDateRaw && Number.isNaN(birthDate?.getTime?.())) {
+    return { error: "Fecha de nacimiento inválida." };
+  }
 
   if (password !== confirmPassword) return { error: "Las contraseñas no coinciden." };
   if (password.length < 8) return { error: "La contraseña debe tener al menos 8 caracteres." };
@@ -283,6 +292,9 @@ export async function registerUser(formData) {
         email,
         phone,
         identification,
+        birthDate,
+        gender,
+        interests,
         passwordHash: hashedPassword,
         role: "USER",
         emailVerified: false,
