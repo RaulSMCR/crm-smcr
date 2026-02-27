@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/actions/auth-actions";
 
@@ -54,6 +54,8 @@ export async function POST(request) {
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+
+    const supabaseAdmin = getSupabaseAdmin();
 
     const { error: upErr } = await supabaseAdmin.storage
       .from("avatars")
