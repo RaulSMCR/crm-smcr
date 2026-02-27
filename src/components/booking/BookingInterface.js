@@ -115,6 +115,9 @@ export default function BookingInterface({ professionalId, servicePrice, service
           <label className="block text-sm font-medium text-gray-700 mb-2">
             2. Horarios Disponibles
           </label>
+          <p className="text-xs text-gray-500 mb-3">
+            Todos los horarios están expresados en hora de Costa Rica; si usted se encuentra en otro huso horario, tenga en cuenta la diferencia de hora.
+          </p>
           
           {loading ? (
             <div className="py-8 text-center text-gray-400 animate-pulse flex flex-col items-center">
