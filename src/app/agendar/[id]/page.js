@@ -21,10 +21,15 @@ export default async function AgendarPage({ params, searchParams }) {
           image: true
         }
       },
-      // Cruzamos a Services para obtener precios y títulos
-      services: {
-        select: { id: true, title: true, price: true } 
-      }
+      // Cruzamos a asignaciones aprobadas para obtener precios y títulos
+      serviceAssignments: {
+        where: { status: 'APPROVED' },
+        select: {
+          service: {
+            select: { id: true, title: true, price: true },
+          },
+        },
+      },
     }
   });
 
@@ -32,14 +37,18 @@ export default async function AgendarPage({ params, searchParams }) {
     return notFound();
   }
 
+  const services = professional.serviceAssignments
+    .map((assignment) => assignment.service)
+    .filter(Boolean);
+
   // 2. Lógica para determinar el servicio activo (por defecto el primero o el seleccionado)
   let selectedService = null;
   
   if (preSelectedServiceId) {
-    selectedService = professional.services.find(s => s.id === preSelectedServiceId);
+    selectedService = services.find((s) => s.id === preSelectedServiceId);
   }
   
-  const activeService = selectedService || professional.services[0] || { 
+  const activeService = selectedService || services[0] || {
     id: null,
     title: "Consulta General", 
     price: 50 

@@ -39,7 +39,10 @@ export async function GET(_request, { params }) {
         isApproved: true,
         createdAt: true,
         updatedAt: true,
-        services: { select: { id: true, title: true } },
+        serviceAssignments: {
+          where: { status: "APPROVED" },
+          select: { service: { select: { id: true, title: true } } },
+        },
         user: { select: { name: true, email: true, phone: true, emailVerified: true } },
       },
     });
@@ -65,7 +68,7 @@ export async function GET(_request, { params }) {
       isApproved: !!prof.isApproved,
       createdAt: prof.createdAt,
       updatedAt: prof.updatedAt,
-      services: prof.services || [],
+      services: prof.serviceAssignments.map((a) => a.service),
       categories: [], // legacy (tu UI espera categories)
     };
 
@@ -93,31 +96,50 @@ export async function PATCH(request, { params }) {
     // Compat: el UI viejo manda categoryIds; acá lo aceptamos como alias de serviceIds si corresponde
     const serviceIds = asStringArray(body.serviceIds) || asStringArray(body.categoryIds);
 
-    const data = {};
-    if (typeof isApproved === "boolean") data.isApproved = isApproved;
-    if (serviceIds) {
-      data.services = { set: serviceIds.map((id) => ({ id })) };
-    }
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.professionalProfile.update({
+        where: { id: String(professionalId) },
+        data: {
+          ...(typeof isApproved === "boolean" ? { isApproved } : {}),
+        },
+      });
 
-    const updated = await prisma.professionalProfile.update({
-      where: { id: String(professionalId) },
-      data,
-      select: {
-        id: true,
-        specialty: true,
-        licenseNumber: true,
-        bio: true,
-        cvUrl: true,
-        introVideoUrl: true,
-        avatarUrl: true,
-        calendarUrl: true,
-        paymentLinkBase: true,
-        isApproved: true,
-        createdAt: true,
-        updatedAt: true,
-        services: { select: { id: true, title: true } },
-        user: { select: { name: true, email: true, phone: true, emailVerified: true } },
-      },
+      if (serviceIds) {
+        await tx.serviceAssignment.deleteMany({ where: { professionalId: String(professionalId) } });
+        if (serviceIds.length) {
+          await tx.serviceAssignment.createMany({
+            data: serviceIds.map((id) => ({
+              professionalId: String(professionalId),
+              serviceId: id,
+              status: "APPROVED",
+            })),
+            skipDuplicates: true,
+          });
+        }
+      }
+
+      return tx.professionalProfile.findUnique({
+        where: { id: String(professionalId) },
+        select: {
+          id: true,
+          specialty: true,
+          licenseNumber: true,
+          bio: true,
+          cvUrl: true,
+          introVideoUrl: true,
+          avatarUrl: true,
+          calendarUrl: true,
+          paymentLinkBase: true,
+          isApproved: true,
+          createdAt: true,
+          updatedAt: true,
+          serviceAssignments: {
+            where: { status: "APPROVED" },
+            select: { service: { select: { id: true, title: true } } },
+          },
+          user: { select: { name: true, email: true, phone: true, emailVerified: true } },
+        },
+      });
     });
 
     // devolver en formato compat
@@ -140,7 +162,7 @@ export async function PATCH(request, { params }) {
         isApproved: !!updated.isApproved,
         createdAt: updated.createdAt,
         updatedAt: updated.updatedAt,
-        services: updated.services || [],
+        services: updated.serviceAssignments.map((a) => a.service),
         categories: [],
       },
       { status: 200 }

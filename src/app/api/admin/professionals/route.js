@@ -22,7 +22,10 @@ export async function GET() {
         isApproved: true,
         createdAt: true,
         user: { select: { name: true, email: true } },
-        services: { select: { id: true, title: true } },
+        serviceAssignments: {
+          where: { status: "APPROVED" },
+          select: { service: { select: { id: true, title: true } } },
+        },
       },
       take: 200,
     });
@@ -35,7 +38,7 @@ export async function GET() {
       profession: p.specialty,
       isApproved: p.isApproved,
       createdAt: p.createdAt,
-      services: p.services || [],
+      services: p.serviceAssignments.map((a) => a.service),
     }));
 
     return NextResponse.json(out);
@@ -75,19 +78,41 @@ export async function POST(request) {
 
     const ids = Array.isArray(serviceIds) ? serviceIds.map(String).filter(Boolean) : null;
 
-    const updated = await prisma.professionalProfile.update({
-      where: { id: profId },
-      data: {
-        ...(typeof isApproved === "boolean" ? { isApproved } : {}),
-        ...(ids ? { services: { set: ids.map((id) => ({ id })) } } : {}),
-      },
-      select: {
-        id: true,
-        specialty: true,
-        isApproved: true,
-        user: { select: { name: true, email: true } },
-        services: { select: { id: true, title: true } },
-      },
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.professionalProfile.update({
+        where: { id: profId },
+        data: {
+          ...(typeof isApproved === "boolean" ? { isApproved } : {}),
+        },
+      });
+
+      if (ids) {
+        await tx.serviceAssignment.deleteMany({ where: { professionalId: profId } });
+        if (ids.length) {
+          await tx.serviceAssignment.createMany({
+            data: ids.map((id) => ({
+              professionalId: profId,
+              serviceId: id,
+              status: "APPROVED",
+            })),
+            skipDuplicates: true,
+          });
+        }
+      }
+
+      return tx.professionalProfile.findUnique({
+        where: { id: profId },
+        select: {
+          id: true,
+          specialty: true,
+          isApproved: true,
+          user: { select: { name: true, email: true } },
+          serviceAssignments: {
+            where: { status: "APPROVED" },
+            select: { service: { select: { id: true, title: true } } },
+          },
+        },
+      });
     });
 
     return NextResponse.json({
@@ -96,7 +121,7 @@ export async function POST(request) {
       email: updated.user?.email || "",
       profession: updated.specialty,
       isApproved: updated.isApproved,
-      services: updated.services || [],
+      services: updated.serviceAssignments.map((a) => a.service),
     });
   } catch (error) {
     console.error("Error updating professional via POST:", error);
