@@ -145,7 +145,7 @@ export default function AvailabilityForm({ initialData = [] }) {
       <div>
         <h3 className="text-lg font-semibold text-slate-800">Definir turnos de trabajo</h3>
         <p className="text-sm text-slate-500 mt-1">
-          Tip: podés agregar múltiples turnos por día (ej: mañana y tarde).
+          Tip: podés agregar múltiples turnos por día (ej: mañana y tarde). Todas las horas se guardan en hora de Costa Rica.
         </p>
       </div>
 
