@@ -1,6 +1,6 @@
 // src/app/blog/page.js
 import Link from 'next/link';
-import Image from 'next/image'; 
+import Image from 'next/image';
 import { prisma } from '@/lib/prisma';
 
 const formatDate = (date) => {
@@ -13,33 +13,39 @@ const formatDate = (date) => {
 
 export const dynamic = 'force-dynamic';
 
-export default async function BlogPage() {
+export default async function BlogPage({ searchParams }) {
+  const selectedAuthor = typeof searchParams?.autor === 'string' ? searchParams.autor : null;
+
   const posts = await prisma.post.findMany({
-    where: { status: 'PUBLISHED' },
+    where: {
+      status: 'PUBLISHED',
+      ...(selectedAuthor ? { author: { slug: selectedAuthor } } : {}),
+    },
     orderBy: { createdAt: 'desc' },
-    take: 20, 
+    take: 20,
     select: {
       id: true,
       slug: true,
       title: true,
-      coverImage: true, 
-      excerpt: true,    
+      coverImage: true,
+      excerpt: true,
       createdAt: true,
-      // Relación con el Autor (ProfessionalProfile)
       author: {
         select: {
-          specialty: true, 
-          // 1. CORRECCIÓN: Viajamos a User para obtener nombre e imagen
+          slug: true,
+          specialty: true,
           user: {
             select: {
               name: true,
-              image: true 
-            }
-          }
+              image: true,
+            },
+          },
         },
       },
     },
   });
+
+  const authorName = selectedAuthor && posts[0]?.author?.user?.name ? posts[0].author.user.name : null;
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-12">
@@ -48,6 +54,16 @@ export default async function BlogPage() {
         <p className="text-lg text-gray-600 mt-3 max-w-2xl mx-auto">
           Artículos, novedades y consejos de nuestros profesionales.
         </p>
+        {selectedAuthor && (
+          <div className="mt-4">
+            <p className="text-sm text-gray-600">
+              Mostrando artículos de {authorName || 'este profesional'}.
+            </p>
+            <Link href="/blog" className="text-sm text-blue-600 hover:underline">
+              Ver todos los artículos
+            </Link>
+          </div>
+        )}
       </header>
 
       {posts.length === 0 ? (
@@ -62,8 +78,6 @@ export default async function BlogPage() {
         <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
           {posts.map((p) => (
             <article key={p.id} className="group flex flex-col bg-white border border-gray-200 rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300">
-              
-              {/* Imagen Clicable */}
               <Link href={`/blog/${p.slug}`} className="relative h-56 w-full overflow-hidden bg-gray-100 block">
                 {p.coverImage ? (
                   <Image
@@ -81,48 +95,32 @@ export default async function BlogPage() {
               </Link>
 
               <div className="p-6 flex flex-col flex-grow">
-                {/* Metadatos Superiores */}
                 <div className="flex items-center gap-2 text-xs font-medium text-blue-600 mb-3">
-                   <time dateTime={p.createdAt.toISOString()} className="bg-blue-50 px-2 py-1 rounded">
+                  <time dateTime={p.createdAt.toISOString()} className="bg-blue-50 px-2 py-1 rounded">
                     {formatDate(p.createdAt)}
-                   </time>
+                  </time>
                 </div>
 
-                {/* Título */}
                 <Link href={`/blog/${p.slug}`} className="block mb-3">
                   <h2 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2 leading-tight">
                     {p.title}
                   </h2>
                 </Link>
 
-                {/* Excerpt (Resumen) */}
-                {p.excerpt && (
-                    <p className="text-gray-600 text-sm line-clamp-3 mb-4 flex-grow">
-                        {p.excerpt}
-                    </p>
-                )}
+                {p.excerpt && <p className="text-gray-600 text-sm line-clamp-3 mb-4 flex-grow">{p.excerpt}</p>}
 
-                {/* Autor */}
                 <div className="mt-auto pt-4 border-t border-gray-100 flex items-center gap-3">
-                   <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-bold uppercase overflow-hidden">
-                      {/* 2. CORRECCIÓN JSX: Acceder a image o name en user */}
-                      {p.author?.user?.image ? (
-                         <img src={p.author.user.image} alt="" className="w-full h-full object-cover"/>
-                      ) : (
-                         <span>{p.author?.user?.name ? p.author.user.name.charAt(0) : 'A'}</span>
-                      )}
-                   </div>
-                   <div className="flex flex-col">
-                      <span className="text-sm font-medium text-gray-900">
-                        {/* 3. CORRECCIÓN JSX: user.name */}
-                        {p.author?.user?.name || 'Redacción'}
-                      </span>
-                      {p.author?.specialty && (
-                        <span className="text-xs text-gray-500">
-                          {p.author.specialty}
-                        </span>
-                      )}
-                   </div>
+                  <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-bold uppercase overflow-hidden">
+                    {p.author?.user?.image ? (
+                      <img src={p.author.user.image} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <span>{p.author?.user?.name ? p.author.user.name.charAt(0) : 'A'}</span>
+                    )}
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-gray-900">{p.author?.user?.name || 'Redacción'}</span>
+                    {p.author?.specialty && <span className="text-xs text-gray-500">{p.author.specialty}</span>}
+                  </div>
                 </div>
               </div>
             </article>
