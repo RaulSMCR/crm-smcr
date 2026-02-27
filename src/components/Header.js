@@ -1,5 +1,6 @@
 // PATH: src/components/Header.js
 import Link from "next/link";
+import Image from "next/image";
 import LogoutButton from "@/components/LogoutButton";
 import { getSession } from "@/lib/auth";
 
@@ -35,8 +36,15 @@ export default async function Header() {
     <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
       <div className="container flex h-16 items-center justify-between">
         {/* LOGO */}
-        <Link href="/" className="flex items-center space-x-2 font-bold text-xl text-blue-900">
-          <span>SMCR</span>
+        <Link href="/" className="flex items-center">
+          <Image
+            src="/logo.svg"
+            alt="Logo Salud Mental Costa Rica"
+            width={52}
+            height={52}
+            className="h-11 w-auto"
+            priority
+          />
         </Link>
 
         {/* NAVEGACIÓN (Desktop) */}
