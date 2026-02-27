@@ -22,6 +22,7 @@ export default async function ServiciosPage() {
       professionalAssignments: {
         where: {
           status: "APPROVED",
+          approvedSessionPrice: { not: null },
           professional: {
             is: {
               isApproved: true,
@@ -31,6 +32,7 @@ export default async function ServiciosPage() {
         },
         take: 5,
         select: {
+          approvedSessionPrice: true,
           professional: {
             select: {
               id: true,
@@ -53,6 +55,16 @@ export default async function ServiciosPage() {
       <div className="grid md:grid-cols-2 gap-6">
         {services.map((service) => {
           const pros = (service.professionalAssignments || []).map((a) => a.professional);
+          const minApprovedPrice = (service.professionalAssignments || []).reduce((min, assignment) => {
+            const current = Number(assignment?.approvedSessionPrice);
+            if (!Number.isFinite(current)) return min;
+            return min === null ? current : Math.min(min, current);
+          }, null);
+
+          const priceLabel = Number.isFinite(minApprovedPrice)
+            ? `Desde ₡${minApprovedPrice}`
+            : `Desde ₡${Number(service.price)}`;
+
           return (
             <div key={service.id} className="bg-white rounded-2xl border border-slate-200 p-6">
               <div className="flex items-start justify-between gap-4">
@@ -62,7 +74,7 @@ export default async function ServiciosPage() {
                     {service.description || "Sin descripción disponible."}
                   </p>
                   <div className="text-sm text-slate-700 mt-3">
-                    ₡{Number(service.price)} · {service.durationMin} min
+                    {priceLabel} · {service.durationMin} min
                   </div>
                 </div>
 
