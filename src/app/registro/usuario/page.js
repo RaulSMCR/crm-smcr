@@ -180,11 +180,46 @@ export default function RegistroUsuarioPage() {
                     Fecha de Nacimiento
                   </label>
                   <input
+                    id="birthDate"
                     name="birthDate"
                     type="date"
                     max={new Date().toISOString().split("T")[0]}
                     className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5 px-3"
                     value={form.birthDate}
+                    onChange={handleChange}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="gender" className="block text-sm font-medium text-slate-700">
+                    Género
+                  </label>
+                  <select
+                    id="gender"
+                    name="gender"
+                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5 px-3"
+                    value={form.gender}
+                    onChange={handleChange}
+                  >
+                    <option value="">Prefiero no indicar</option>
+                    <option value="femenino">Femenino</option>
+                    <option value="masculino">Masculino</option>
+                    <option value="no_binario">No binario</option>
+                    <option value="otro">Otro</option>
+                  </select>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label htmlFor="interests" className="block text-sm font-medium text-slate-700">
+                    Intereses terapéuticos
+                  </label>
+                  <textarea
+                    id="interests"
+                    name="interests"
+                    rows={3}
+                    placeholder="Ej: manejo de ansiedad, terapia de pareja, autoestima..."
+                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5 px-3"
+                    value={form.interests}
                     onChange={handleChange}
                   />
                 </div>
