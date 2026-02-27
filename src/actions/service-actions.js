@@ -60,6 +60,7 @@ export async function updateServiceDetails(serviceId, formData) {
     const description = String(formData.get("description") || "").trim();
     const price = toNum(formData.get("price"));
     const durationMin = toNum(formData.get("durationMin"));
+    const isActive = String(formData.get("isActive") || "false") === "true";
 
     if (!serviceId) return { error: "ID requerido." };
     if (!title) return { error: "El título es obligatorio." };
@@ -73,6 +74,7 @@ export async function updateServiceDetails(serviceId, formData) {
         description: description || null,
         price,
         durationMin: Math.trunc(durationMin),
+        isActive,
       },
     });
 
@@ -85,6 +87,70 @@ export async function updateServiceDetails(serviceId, formData) {
   } catch (error) {
     console.error("updateServiceDetails error:", error);
     return { error: "Error actualizando servicio." };
+  }
+}
+
+/**
+ * 2.1) ACTUALIZAR ASIGNACIONES DE UN SERVICIO (LISTA EXACTA)
+ */
+export async function syncServiceAssignments(serviceId, professionalIds = []) {
+  try {
+    const session = await getSession();
+    requireAdmin(session);
+
+    const sid = String(serviceId || "");
+    if (!sid) return { error: "ID de servicio inválido." };
+
+    const requestedIds = [...new Set((professionalIds || []).map((id) => String(id).trim()))].filter(
+      Boolean,
+    );
+
+    const approvedProfessionals = await prisma.professionalProfile.findMany({
+      where: {
+        id: { in: requestedIds },
+        isApproved: true,
+        user: { isActive: true },
+      },
+      select: { id: true },
+    });
+
+    const validIds = approvedProfessionals.map((p) => p.id);
+
+    await prisma.$transaction([
+      prisma.serviceAssignment.deleteMany({
+        where: {
+          serviceId: sid,
+          ...(validIds.length > 0 ? { professionalId: { notIn: validIds } } : {}),
+        },
+      }),
+      ...validIds.map((professionalId) =>
+        prisma.serviceAssignment.upsert({
+          where: { professionalId_serviceId: { professionalId, serviceId: sid } },
+          create: {
+            professionalId,
+            serviceId: sid,
+            status: "APPROVED",
+            reviewedAt: new Date(),
+          },
+          update: {
+            status: "APPROVED",
+            reviewedAt: new Date(),
+          },
+        }),
+      ),
+    ]);
+
+    revalidatePath(`/panel/admin/servicios/${sid}`);
+    revalidatePath(`/panel/admin/servicios/${sid}/asignaciones`);
+    revalidatePath(`/panel/admin/servicios`);
+    revalidatePath(`/panel/admin/personal`);
+    revalidatePath(`/servicios`);
+    revalidatePath(`/servicios/${sid}`);
+
+    return { success: true };
+  } catch (error) {
+    console.error("syncServiceAssignments error:", error);
+    return { error: "No se pudieron actualizar las asignaciones." };
   }
 }
 
