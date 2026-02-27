@@ -37,9 +37,26 @@ export default async function PacientePanelPage({ searchParams }) {
     }),
     prisma.appointment.findMany({
       where: { patientId: userId },
-      include: {
-        service: true,
-        professional: { include: { user: true } },
+      select: {
+        id: true,
+        date: true,
+        endDate: true,
+        status: true,
+        service: {
+          select: {
+            title: true,
+          },
+        },
+        professional: {
+          select: {
+            specialty: true,
+            user: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
       },
       orderBy: { date: "desc" },
     }),
