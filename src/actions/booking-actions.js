@@ -93,11 +93,37 @@ export async function requestAppointment(professionalId, dateString, timeString,
   }
 
   try {
-    // 2. Calcular Duración Real
+    // 2. Calcular duración y precio aprobados
     let duration = 60; // Default
+    let pricePaid = null;
+
     if (serviceId) {
-        const service = await prisma.service.findUnique({ where: { id: serviceId }});
-        if (service) duration = service.durationMin;
+      const assignment = await prisma.serviceAssignment.findUnique({
+        where: {
+          professionalId_serviceId: {
+            professionalId,
+            serviceId,
+          },
+        },
+        select: {
+          status: true,
+          approvedSessionPrice: true,
+          service: { select: { durationMin: true, price: true } },
+        },
+      });
+
+      if (!assignment || assignment.status !== "APPROVED") {
+        return { error: "El servicio seleccionado no está disponible para este profesional." };
+      }
+
+      duration = assignment.service?.durationMin || 60;
+      const approvedPrice = Number(assignment.approvedSessionPrice);
+      const fallbackPrice = Number(assignment.service?.price);
+      pricePaid = Number.isFinite(approvedPrice)
+        ? approvedPrice
+        : Number.isFinite(fallbackPrice)
+          ? fallbackPrice
+          : null;
     }
 
     const startDateTime = new Date(`${dateString}T${timeString}:00`);
@@ -128,6 +154,7 @@ export async function requestAppointment(professionalId, dateString, timeString,
         patientId: session.sub,
         professionalId: professionalId,
         serviceId: serviceId || undefined,
+        pricePaid,
       }
     });
 

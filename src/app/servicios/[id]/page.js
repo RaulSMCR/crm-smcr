@@ -56,7 +56,10 @@ export default async function ServiceDetailPage({ params }) {
 
   if (!service) notFound();
 
-  const pros = (service.professionalAssignments || []).map((a) => a.professional);
+  const pros = (service.professionalAssignments || []).map((a) => ({
+    ...a.professional,
+    approvedSessionPrice: a.approvedSessionPrice,
+  }));
   const minApprovedPrice = (service.professionalAssignments || []).reduce((min, assignment) => {
     const current = Number(assignment?.approvedSessionPrice);
     if (!Number.isFinite(current)) return min;
@@ -99,6 +102,9 @@ export default async function ServiceDetailPage({ params }) {
                 <div className="font-semibold text-slate-900">{pro.user?.name}</div>
                 <div className="text-sm text-slate-600">{pro.specialty || "Profesional de Salud"}</div>
                 {pro.bio && <p className="text-sm text-slate-700 mt-3">{pro.bio}</p>}
+                <p className="text-sm font-semibold text-emerald-700 mt-2">
+                  Valor de la cita: ₡{Number(pro.approvedSessionPrice).toLocaleString("es-CR")}
+                </p>
 
                 <Link
                   href={`/agendar/${pro.id}?serviceId=${service.id}`}

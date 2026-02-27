@@ -32,7 +32,7 @@ function isPhoneValid(v) {
  *    - si selecciona un servicio NUEVO => create PENDING
  *    - si estaba REJECTED y lo re-selecciona => pasa a PENDING
  *    - si deselecciona => delete assignment
- *    - si está APPROVED y sigue seleccionado => se mantiene
+ *    - si está APPROVED y cambia el precio => vuelve a PENDING para revisión admin
  */
 export async function updateProfile(formData) {
   try {
@@ -76,9 +76,9 @@ export async function updateProfile(formData) {
     // Leer asignaciones actuales
     const currentAssignments = await prisma.serviceAssignment.findMany({
       where: { professionalId: professionalProfileId },
-      select: { serviceId: true, status: true },
+      select: { serviceId: true, status: true, proposedSessionPrice: true, approvedSessionPrice: true },
     });
-    const currentMap = new Map(currentAssignments.map((a) => [a.serviceId, a.status]));
+    const currentMap = new Map(currentAssignments.map((a) => [a.serviceId, a]));
 
     const tx = [];
 
@@ -119,7 +119,9 @@ export async function updateProfile(formData) {
 
     // Creates / Updates (seleccionados)
     for (const serviceId of selectedIds) {
-      const existingStatus = currentMap.get(serviceId);
+      const existingAssignment = currentMap.get(serviceId);
+      const existingStatus = existingAssignment?.status;
+      const nextProposedPrice = proposedPricesByService.get(serviceId) ?? null;
 
       if (!existingStatus) {
         // Nuevo => PENDING
@@ -131,7 +133,7 @@ export async function updateProfile(formData) {
               status: "PENDING",
               requestedAt: new Date(),
               reviewedAt: null,
-              proposedSessionPrice: proposedPricesByService.get(serviceId) ?? null,
+              proposedSessionPrice: nextProposedPrice,
               approvedSessionPrice: null,
               adminReviewNote: null,
             },
@@ -151,15 +153,61 @@ export async function updateProfile(formData) {
               status: "PENDING",
               requestedAt: new Date(),
               reviewedAt: null,
-              proposedSessionPrice: proposedPricesByService.get(serviceId) ?? null,
+              proposedSessionPrice: nextProposedPrice,
               approvedSessionPrice: null,
               adminReviewNote: null,
             },
           })
         );
+        continue;
       }
 
-      // APPROVED/PENDING se mantienen (no-op)
+      if (existingStatus === "PENDING") {
+        tx.push(
+          prisma.serviceAssignment.update({
+            where: {
+              professionalId_serviceId: { professionalId: professionalProfileId, serviceId },
+            },
+            data: {
+              proposedSessionPrice: nextProposedPrice,
+            },
+          })
+        );
+        continue;
+      }
+
+      if (existingStatus === "APPROVED") {
+        const currentApproved =
+          existingAssignment?.approvedSessionPrice == null
+            ? null
+            : Number(existingAssignment.approvedSessionPrice);
+        const currentProposed =
+          existingAssignment?.proposedSessionPrice == null
+            ? null
+            : Number(existingAssignment.proposedSessionPrice);
+        const hasRequestedChange = nextProposedPrice !== null;
+        const approvedChanged = hasRequestedChange && currentApproved !== nextProposedPrice;
+        const proposalChanged = currentProposed !== nextProposedPrice;
+
+        if (approvedChanged || proposalChanged) {
+          tx.push(
+            prisma.serviceAssignment.update({
+              where: {
+                professionalId_serviceId: { professionalId: professionalProfileId, serviceId },
+              },
+              data: {
+                status: "PENDING",
+                requestedAt: new Date(),
+                reviewedAt: null,
+                proposedSessionPrice: nextProposedPrice,
+                approvedSessionPrice: null,
+                adminReviewNote: null,
+              },
+            })
+          );
+        }
+      }
+
     }
 
     await prisma.$transaction(tx);
