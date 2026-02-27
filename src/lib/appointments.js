@@ -1,10 +1,9 @@
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import { resend } from "@/lib/resend";
 import { getCalendarClient } from "@/lib/google";
 import { prisma } from "@/lib/prisma";
+import { DEFAULT_TZ, formatDateTimeInTZ, toGoogleDateTime } from "@/lib/timezone";
 
-const TZ = process.env.APP_TIMEZONE || "America/Costa_Rica";
+const TZ = process.env.APP_TIMEZONE || DEFAULT_TZ;
 const FROM_EMAIL = process.env.NOTIFICATIONS_FROM_EMAIL || "Salud Mental Costa Rica <onboarding@resend.dev>";
 
 const CANCELLED_STATUSES = new Set(["CANCELLED_BY_USER", "CANCELLED_BY_PRO"]);
@@ -25,10 +24,8 @@ function getStatusLabel(status) {
 function buildNotificationHtml({ recipientName, appointment, reason }) {
   const start = new Date(appointment.date);
   const end = new Date(appointment.endDate);
-
-  const fecha = format(start, "EEEE d 'de' MMMM 'de' yyyy", { locale: es });
-  const horaInicio = format(start, "HH:mm", { locale: es });
-  const horaFin = format(end, "HH:mm", { locale: es });
+  const fechaHoraInicio = formatDateTimeInTZ(start, "es-CR", TZ);
+  const fechaHoraFin = formatDateTimeInTZ(end, "es-CR", TZ);
 
   return `
     <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;line-height:1.4;color:#0f172a;">
@@ -39,8 +36,8 @@ function buildNotificationHtml({ recipientName, appointment, reason }) {
         <li><strong>Servicio:</strong> ${appointment.service?.title || "Consulta"}</li>
         <li><strong>Profesional:</strong> ${appointment.professional?.user?.name || "N/D"}</li>
         <li><strong>Paciente:</strong> ${appointment.patient?.name || "N/D"}</li>
-        <li><strong>Fecha:</strong> ${fecha}</li>
-        <li><strong>Horario:</strong> ${horaInicio} - ${horaFin} (${TZ})</li>
+        <li><strong>Inicio:</strong> ${fechaHoraInicio} (${TZ})</li>
+        <li><strong>Fin:</strong> ${fechaHoraFin} (${TZ})</li>
         <li><strong>Estado:</strong> ${getStatusLabel(appointment.status)}</li>
       </ul>
       <p style="font-size:12px;color:#475569;">Este correo fue generado automáticamente por el sistema de agenda.</p>
@@ -96,11 +93,11 @@ function buildGoogleEvent(appointment) {
     summary: title,
     description,
     start: {
-      dateTime: new Date(appointment.date).toISOString(),
+      dateTime: toGoogleDateTime(appointment.date, TZ),
       timeZone: TZ,
     },
     end: {
-      dateTime: new Date(appointment.endDate).toISOString(),
+      dateTime: toGoogleDateTime(appointment.endDate, TZ),
       timeZone: TZ,
     },
     attendees: [
