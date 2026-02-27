@@ -31,6 +31,7 @@ export default async function ServiceDetailPage({ params }) {
       professionalAssignments: {
         where: {
           status: "APPROVED",
+          approvedSessionPrice: { not: null },
           professional: {
             is: {
               isApproved: true,
@@ -39,6 +40,7 @@ export default async function ServiceDetailPage({ params }) {
           },
         },
         select: {
+          approvedSessionPrice: true,
           professional: {
             select: {
               id: true,
@@ -55,6 +57,15 @@ export default async function ServiceDetailPage({ params }) {
   if (!service) notFound();
 
   const pros = (service.professionalAssignments || []).map((a) => a.professional);
+  const minApprovedPrice = (service.professionalAssignments || []).reduce((min, assignment) => {
+    const current = Number(assignment?.approvedSessionPrice);
+    if (!Number.isFinite(current)) return min;
+    return min === null ? current : Math.min(min, current);
+  }, null);
+
+  const priceLabel = Number.isFinite(minApprovedPrice)
+    ? `Desde ₡${minApprovedPrice}`
+    : `Desde ₡${Number(service.price)}`;
 
   return (
     <div className="max-w-6xl mx-auto p-6 md:p-10 space-y-8">
@@ -65,7 +76,7 @@ export default async function ServiceDetailPage({ params }) {
       <div>
         <h1 className="text-3xl font-bold text-slate-900">{service.title}</h1>
         <div className="text-sm text-slate-700 mt-3">
-          ⏱ {service.durationMin} min · ₡{Number(service.price)}
+          ⏱ {service.durationMin} min · {priceLabel}
         </div>
       </div>
 

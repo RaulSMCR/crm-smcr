@@ -35,13 +35,13 @@ export async function createAppointmentForPatient({ professionalId, serviceId, s
       }),
       prisma.serviceAssignment.findUnique({
         where: { professionalId_serviceId: { professionalId: pid, serviceId: sid } },
-        select: { status: true },
+        select: { status: true, approvedSessionPrice: true },
       }),
     ]);
 
     if (!service || !service.isActive) return { success: false, error: "Servicio no disponible." };
     if (!pro || !pro.isApproved || !pro.user?.isActive) return { success: false, error: "Profesional no disponible." };
-    if (!assignment || assignment.status !== "APPROVED") {
+    if (!assignment || assignment.status !== "APPROVED" || assignment.approvedSessionPrice == null) {
       return { success: false, error: "Este profesional no está habilitado para este servicio." };
     }
 
@@ -69,7 +69,7 @@ export async function createAppointmentForPatient({ professionalId, serviceId, s
         endDate: end,
         status: "PENDING",
         paymentStatus: "UNPAID",
-        pricePaid: service.price,
+        pricePaid: assignment.approvedSessionPrice,
       },
       include: {
         patient: { select: { name: true, email: true } },

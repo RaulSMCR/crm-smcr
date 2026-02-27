@@ -31,7 +31,7 @@ export default async function PacienteAgendarPage({ searchParams }) {
     }),
     prisma.serviceAssignment.findUnique({
       where: { professionalId_serviceId: { professionalId, serviceId } },
-      select: { status: true },
+      select: { status: true, approvedSessionPrice: true },
     }),
     prisma.availability.findMany({
       where: { professionalId },
@@ -51,7 +51,7 @@ export default async function PacienteAgendarPage({ searchParams }) {
   if (!service?.isActive) redirect("/servicios");
   if (!professional?.isApproved || !professional.user?.isActive) redirect("/servicios");
 
-  if (!assignment || assignment.status !== "APPROVED") {
+  if (!assignment || assignment.status !== "APPROVED" || assignment.approvedSessionPrice == null) {
     return (
       <div className="max-w-4xl mx-auto p-8">
         <h1 className="text-2xl font-bold text-slate-900">Agenda no disponible</h1>
@@ -85,8 +85,8 @@ export default async function PacienteAgendarPage({ searchParams }) {
 
         <h1 className="text-3xl font-bold text-slate-900 mt-2">Agendar cita</h1>
         <p className="text-slate-600 mt-1">
-          Servicio: <b>{service.title}</b> · Duración: <b>{service.durationMin} min</b> · Precio:{" "}
-          <b>${Number(service.price)}</b>
+          Servicio: <b>{service.title}</b> · Duración: <b>{service.durationMin} min</b> · Desde:{" "}
+          <b>₡{Number(assignment.approvedSessionPrice)}</b>
         </p>
       </div>
 
