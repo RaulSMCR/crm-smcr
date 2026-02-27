@@ -28,11 +28,18 @@ export default async function NosotrosPage() {
           image: true 
         }
       },
-      services: {
+      serviceAssignments: {
         take: 3,
+        where: {
+          status: 'APPROVED',
+        },
         select: {
-          id: true,
-          title: true,
+          service: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
         },
       },
     },
@@ -91,10 +98,10 @@ export default async function NosotrosPage() {
               {/* Servicios (Badges) */}
               <div className="mt-auto">
                 <div className="flex flex-wrap justify-center gap-2 mb-4">
-                  {pro.services.length > 0 ? (
-                    pro.services.map((s) => (
-                      <span key={s.id} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                        {s.title}
+                  {pro.serviceAssignments.length > 0 ? (
+                    pro.serviceAssignments.map((assignment) => (
+                      <span key={assignment.service.id} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
+                        {assignment.service.title}
                       </span>
                     ))
                   ) : (
