@@ -25,6 +25,7 @@ export default async function AgendarPage({ params, searchParams }) {
       serviceAssignments: {
         where: { status: 'APPROVED' },
         select: {
+          approvedSessionPrice: true,
           service: {
             select: { id: true, title: true, price: true }
           }
@@ -38,7 +39,14 @@ export default async function AgendarPage({ params, searchParams }) {
   }
 
   const services = professional.serviceAssignments
-    .map((assignment) => assignment.service)
+    .map((assignment) => {
+      if (!assignment.service) return null;
+
+      return {
+        ...assignment.service,
+        displayPrice: assignment.approvedSessionPrice ?? assignment.service.price,
+      };
+    })
     .filter(Boolean);
 
   // 2. Lógica para determinar el servicio activo (por defecto el primero o el seleccionado)
@@ -51,7 +59,8 @@ export default async function AgendarPage({ params, searchParams }) {
   const activeService = selectedService || services[0] || {
     id: null,
     title: "Consulta General", 
-    price: 50 
+    price: 50,
+    displayPrice: 50,
   };
 
   return (
@@ -85,13 +94,18 @@ export default async function AgendarPage({ params, searchParams }) {
 
             {/* Tarjeta de Garantía / Confianza */}
             <div className="bg-blue-50 rounded-xl p-5 border border-blue-100">
-                <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                <h4 className="font-semibold text-accent-600 mb-2 flex items-center gap-2">
                     🛡️ Reserva Segura
                 </h4>
-                <ul className="text-sm text-blue-800 space-y-2">
+                <ul className="text-sm text-accent-600 space-y-2">
                     <li>✓ Confirmación inmediata</li>
                     <li>✓ Recordatorios por email</li>
-                    <li>✓ Cancelación flexible</li>
+                    <li>
+                      ✓ Cancelación sin costo hasta 24 horas antes de la cita
+                      <p className="text-xs text-white mt-1">
+                        Se debe tener en cuenta que en caso de cancelación dentro de las 24 horas anteriores a la cita se cobrará un 50% del valor de la consulta.
+                      </p>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -100,7 +114,7 @@ export default async function AgendarPage({ params, searchParams }) {
         <div className="md:col-span-7 lg:col-span-8">
             <BookingInterface 
                 professionalId={professional.id}
-                servicePrice={Number(activeService.price)}
+                servicePrice={Number(activeService.displayPrice)}
                 serviceTitle={activeService.title}
                 serviceId={activeService.id}
             />
