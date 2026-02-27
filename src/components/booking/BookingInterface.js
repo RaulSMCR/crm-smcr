@@ -86,7 +86,7 @@ export default function BookingInterface({ professionalId, servicePrice, service
                 <p className="text-sm opacity-70">Duración: 60 min</p>
             </div>
             <div className="text-right">
-                <span className="block text-xl font-bold">${servicePrice}</span>
+                <span className="block text-xl font-bold">₡{Number(servicePrice).toLocaleString('es-CR')}</span>
             </div>
         </div>
       </div>

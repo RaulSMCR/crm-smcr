@@ -25,6 +25,7 @@ export default async function AgendarPage({ params, searchParams }) {
       serviceAssignments: {
         where: { status: 'APPROVED' },
         select: {
+          approvedSessionPrice: true,
           service: {
             select: { id: true, title: true, price: true }
           }
@@ -38,7 +39,16 @@ export default async function AgendarPage({ params, searchParams }) {
   }
 
   const services = professional.serviceAssignments
-    .map((assignment) => assignment.service)
+    .map((assignment) => {
+      if (!assignment.service) return null;
+      const approvedPrice = Number(assignment.approvedSessionPrice);
+      return {
+        ...assignment.service,
+        bookingPrice: Number.isFinite(approvedPrice)
+          ? approvedPrice
+          : Number(assignment.service.price),
+      };
+    })
     .filter(Boolean);
 
   // 2. Lógica para determinar el servicio activo (por defecto el primero o el seleccionado)
@@ -51,7 +61,7 @@ export default async function AgendarPage({ params, searchParams }) {
   const activeService = selectedService || services[0] || {
     id: null,
     title: "Consulta General", 
-    price: 50 
+    bookingPrice: 50,
   };
 
   return (
@@ -100,7 +110,7 @@ export default async function AgendarPage({ params, searchParams }) {
         <div className="md:col-span-7 lg:col-span-8">
             <BookingInterface 
                 professionalId={professional.id}
-                servicePrice={Number(activeService.price)}
+                servicePrice={Number(activeService.bookingPrice)}
                 serviceTitle={activeService.title}
                 serviceId={activeService.id}
             />
