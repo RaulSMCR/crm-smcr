@@ -1,85 +1,53 @@
 // src/app/panel/profesional/page.js
-import { redirect } from "next/navigation";
-import { getSession, logout } from "@/actions/auth-actions"; // usamos logout
-import { prisma } from "@/lib/prisma";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { getSession } from "@/actions/auth-actions";
 
 export const dynamic = "force-dynamic";
 
-function statusMeta(status) {
-  switch (status) {
-    case "PENDING":
-      return {
-        label: "Pendiente",
-        className: "bg-amber-50 text-amber-800 border border-amber-100",
-      };
-    case "CONFIRMED":
-      return {
-        label: "Confirmada",
-        className: "bg-green-50 text-green-700 border border-green-100",
-      };
-    case "CANCELLED_BY_USER":
-      return {
-        label: "Cancelada (paciente)",
-        className: "bg-red-50 text-red-700 border border-red-100",
-      };
-    case "CANCELLED_BY_PRO":
-      return {
-        label: "Cancelada (vos)",
-        className: "bg-red-50 text-red-700 border border-red-100",
-      };
-    case "COMPLETED":
-      return {
-        label: "Completada",
-        className: "bg-slate-100 text-slate-700 border border-slate-200",
-      };
-    case "NO_SHOW":
-      return {
-        label: "Ausente",
-        className: "bg-orange-50 text-orange-800 border border-orange-100",
-      };
-    default:
-      return {
-        label: String(status || "—"),
-        className: "bg-slate-100 text-slate-700 border border-slate-200",
-      };
+function formatDateTime(d) {
+  try {
+    return new Intl.DateTimeFormat("es-CR", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(d);
+  } catch {
+    return String(d);
   }
 }
 
-function initials(name) {
-  const s = String(name || "").trim();
-  if (!s) return "?";
-  const parts = s.split(/\s+/).filter(Boolean);
-  const a = parts[0]?.[0] || "";
-  const b = parts[1]?.[0] || "";
-  return (a + b).toUpperCase() || a.toUpperCase() || "?";
-}
-
-export default async function ProfessionalDashboard() {
-  // 1. Verificación de Sesión
+export default async function ProfesionalDashboardPage() {
   const session = await getSession();
 
-  if (!session) {
-    redirect("/ingresar");
-  }
+  if (!session?.user?.id) redirect("/ingresar");
+  if (session.user.role !== "PROFESSIONAL") redirect("/");
 
-  if (session.role !== "PROFESSIONAL") {
-    return redirect(session.role === "ADMIN" ? "/panel/admin" : "/panel/paciente");
-  }
+  const now = new Date();
 
-  // 2. Consulta a Base de Datos
   const profile = await prisma.professionalProfile.findUnique({
-    where: { userId: session.sub },
+    where: { userId: session.user.id },
     include: {
       user: true,
-      services: true,
-      _count: {
-        select: { posts: true, appointments: true },
+
+      // ✅ Antes tenías `services: true` (NO existe).
+      // Prisma te indica que el campo real es `serviceAssignments`.
+      serviceAssignments: {
+        include: {
+          service: true, // para poder leer title/isActive/durationMin/price etc.
+        },
       },
+
+      _count: {
+        select: {
+          posts: true,
+          appointments: true,
+        },
+      },
+
       appointments: {
-        // Próximas citas (solo activas)
         where: {
-          date: { gte: new Date() },
+          date: { gte: now },
           status: { in: ["PENDING", "CONFIRMED"] },
         },
         orderBy: { date: "asc" },
@@ -92,242 +60,177 @@ export default async function ProfessionalDashboard() {
     },
   });
 
-  if (!profile) return <div className="p-8 text-center">Error: No se encontró el perfil.</div>;
+  // Si el profesional todavía no tiene perfil (o está en onboarding), mandalo a su perfil / espera
+  if (!profile) redirect("/espera-aprobacion");
 
-  // 3. Serialización de fechas + datos útiles para UI
-  const safeAppointments = profile.appointments.map((appt) => ({
-    id: appt.id,
-    status: appt.status,
-    patientName: appt.patient?.name || "Paciente",
-    serviceTitle: appt.service?.title || "Consulta",
-    dateString: appt.date.toLocaleDateString("es-AR", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-    }),
-    timeString: appt.date.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }),
-  }));
+  const assignedServices = (profile.serviceAssignments || [])
+    .map((sa) => sa.service)
+    .filter(Boolean);
 
-  const pendingCount = safeAppointments.filter((a) => a.status === "PENDING").length;
+  const activeAssignedServices = assignedServices.filter((s) => s.isActive);
 
-  const isActive = profile.user.isActive;
+  return (
+    <div className="p-8 max-w-6xl mx-auto space-y-8">
+      {/* Header */}
+      <div className="flex flex-col gap-2">
+        <h1 className="text-3xl font-bold text-slate-800">
+          Panel Profesional
+        </h1>
+        <p className="text-slate-500">
+          Hola, <span className="font-medium text-slate-700">{profile.user?.name || "Profesional"}</span>.
+          Aquí tenés un resumen de tu actividad.
+        </p>
+      </div>
 
-  // ✅ FIX: la aprobación ya NO vive en user.isApproved; vive en professionalProfile.isApproved
-  const isApproved = Boolean(profile.isApproved);
+      {/* KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <div className="text-sm text-slate-500">Servicios asignados</div>
+          <div className="mt-1 text-3xl font-bold text-slate-800">
+            {assignedServices.length}
+          </div>
+          <div className="mt-2 text-xs text-slate-500">
+            Activos: {activeAssignedServices.length}
+          </div>
+        </div>
 
-  // 4. PANTALLA DE BLOQUEO (Si no está aprobado)
-  if (!isApproved) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-xl shadow-lg border border-yellow-200 text-center max-w-md">
-          <span className="text-5xl">⏳</span>
-          <h1 className="text-xl font-bold mt-4 text-slate-800">Perfil en Revisión</h1>
-          <p className="text-slate-600 mt-2 text-sm">
-            Ya verificaste tu correo: el siguiente paso es la entrevista y aprobación final.
-            <br />
-            Te contactará el director del equipo profesional al teléfono/WhatsApp registrado.
-          </p>
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <div className="text-sm text-slate-500">Citas (total)</div>
+          <div className="mt-1 text-3xl font-bold text-slate-800">
+            {profile._count?.appointments ?? 0}
+          </div>
+          <div className="mt-2 text-xs text-slate-500">
+            Próximas: {profile.appointments?.length ?? 0}
+          </div>
+        </div>
 
-          <div className="mt-6 border-t pt-4">
-            <form action={logout}>
-              <button type="submit" className="text-blue-600 text-sm hover:underline font-bold">
-                Cerrar Sesión
-              </button>
-            </form>
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <div className="text-sm text-slate-500">Publicaciones</div>
+          <div className="mt-1 text-3xl font-bold text-slate-800">
+            {profile._count?.posts ?? 0}
+          </div>
+          <div className="mt-2">
+            <Link
+              href="/panel/profesional/editar-articulo"
+              className="text-sm inline-flex items-center rounded-xl border border-slate-200 px-3 py-1 hover:bg-slate-50"
+            >
+              Crear / editar artículo
+            </Link>
           </div>
         </div>
       </div>
-    );
-  }
 
-  // 5. DASHBOARD OPERATIVO
-  return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-6xl mx-auto space-y-8">
-        {/* A. ENCABEZADO */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
+      {/* Servicios */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">
-              Hola, {String(profile.user.name || "").split(" ")[0]} 👋
-            </h1>
-            <p className="text-slate-500 text-sm">Panel de Control • {profile.specialty}</p>
+            <h2 className="text-lg font-semibold text-slate-800">Mis servicios</h2>
+            <p className="text-sm text-slate-500">Servicios vinculados a tu perfil.</p>
           </div>
-          <div className="flex gap-3 items-center">
-            {/* BOTÓN SALIR */}
-            <form action={logout}>
-              <button
-                type="submit"
-                className="text-red-500 text-xs font-bold border border-red-100 px-3 py-2 rounded-lg hover:bg-red-50 transition"
-              >
-                Salir
-              </button>
-            </form>
-
-            <Link
-              href={`/profesionales/${profile.slug}`}
-              target="_blank"
-              className="px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-medium hover:bg-indigo-100 transition flex items-center gap-2"
-            >
-              👁️ Ver mi Perfil Público
-            </Link>
-
-            <span
-              className={`px-3 py-1 rounded-full text-xs font-bold border ${
-                isActive
-                  ? "bg-green-100 text-green-700 border-green-200"
-                  : "bg-red-100 text-red-700 border-red-200"
-              }`}
-            >
-              {isActive ? "ONLINE" : "OFFLINE"}
-            </span>
-          </div>
-        </div>
-
-        {/* B. CENTRO DE COMANDO */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Link
             href="/panel/profesional/perfil"
-            className="group bg-white p-6 rounded-xl shadow-sm border border-slate-100 hover:shadow-md hover:border-blue-300 transition-all relative overflow-hidden"
+            className="text-sm inline-flex items-center rounded-xl bg-slate-900 px-4 py-2 text-white hover:bg-slate-800"
           >
-            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity text-6xl text-blue-500">
-              👤
-            </div>
-            <div className="h-12 w-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform">
-              ⚙️
-            </div>
-            <h3 className="font-bold text-slate-800">Editar Perfil</h3>
-            <p className="text-xs text-slate-500 mt-1">
-              Bio, foto, precio y <strong>asignar servicios</strong>.
-            </p>
+            Editar perfil
           </Link>
+        </div>
 
-          <Link
-            href="/panel/profesional/posts"
-            className="group bg-white p-6 rounded-xl shadow-sm border border-slate-100 hover:shadow-md hover:border-purple-300 transition-all relative overflow-hidden"
-          >
-            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity text-6xl text-purple-500">
-              ✍️
-            </div>
-            <div className="h-12 w-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform">
-              📝
-            </div>
-            <h3 className="font-bold text-slate-800">Blog y Artículos</h3>
-            <p className="text-xs text-slate-500 mt-1">Gestiona tus publicaciones. ({profile._count.posts} activos)</p>
-          </Link>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-slate-50 text-sm text-slate-600">
+              <tr>
+                <th className="px-6 py-3 font-semibold">Título</th>
+                <th className="px-6 py-3 font-semibold">Estado</th>
+                <th className="px-6 py-3 font-semibold">Duración</th>
+                <th className="px-6 py-3 font-semibold">Precio</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {assignedServices.length === 0 ? (
+                <tr>
+                  <td className="px-6 py-5 text-slate-500" colSpan={4}>
+                    Aún no tenés servicios asignados.
+                  </td>
+                </tr>
+              ) : (
+                assignedServices.map((s) => (
+                  <tr key={s.id} className="text-slate-800">
+                    <td className="px-6 py-4 font-medium">{s.title}</td>
+                    <td className="px-6 py-4">
+                      {s.isActive ? (
+                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-emerald-700 text-xs font-semibold border border-emerald-200">
+                          Activo
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-slate-700 text-xs font-semibold border border-slate-200">
+                          Inactivo
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">{s.durationMin ? `${s.durationMin} min` : "-"}</td>
+                    <td className="px-6 py-4">
+                      {s.price != null ? Number(s.price).toLocaleString("es-CR") : "-"}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-          <Link
-            href="/panel/profesional/horarios"
-            className="group bg-white p-6 rounded-xl shadow-sm border border-slate-100 hover:shadow-md hover:border-green-300 transition-all relative overflow-hidden"
-          >
-            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity text-6xl text-green-500">
-              📅
-            </div>
-            <div className="h-12 w-12 bg-green-50 text-green-600 rounded-xl flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform">
-              ⏰
-            </div>
-            <h3 className="font-bold text-slate-800">Mis Horarios</h3>
-            <p className="text-xs text-slate-500 mt-1">Define tu disponibilidad semanal para citas.</p>
-          </Link>
-
-          {/* ✅ NUEVO: CITAS */}
+      {/* Próximas citas */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-800">Próximas citas</h2>
+            <p className="text-sm text-slate-500">Pendientes o confirmadas.</p>
+          </div>
           <Link
             href="/panel/profesional/citas"
-            className="group bg-white p-6 rounded-xl shadow-sm border border-slate-100 hover:shadow-md hover:border-amber-300 transition-all relative overflow-hidden"
+            className="text-sm inline-flex items-center rounded-xl border border-slate-200 px-4 py-2 hover:bg-slate-50"
           >
-            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity text-6xl text-amber-500">
-              📌
-            </div>
-            <div className="h-12 w-12 bg-amber-50 text-amber-700 rounded-xl flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform">
-              📋
-            </div>
-            <h3 className="font-bold text-slate-800">Citas</h3>
-            <p className="text-xs text-slate-500 mt-1">
-              Gestiona turnos y estados. <strong>({safeAppointments.length} próximos)</strong>
-            </p>
+            Ver todas
           </Link>
-
-          {/* Rendimiento queda como tarjeta informativa; si querés, la movemos a otra fila luego */}
-          <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-bold uppercase text-slate-400">Rendimiento</span>
-              <span className="text-xl">⭐ {profile.rating ? Number(profile.rating).toFixed(1) : "-"}</span>
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm text-slate-600">
-                <span>Servicios:</span>
-                <span className="font-bold">{profile.services.length}</span>
-              </div>
-              <div className="flex justify-between text-sm text-slate-600">
-                <span>Matrícula:</span>
-                <span className="font-bold text-green-600">Verificada</span>
-              </div>
-            </div>
-          </div>
         </div>
 
-        {/* C. AGENDA PRÓXIMA */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-            <h3 className="font-bold text-slate-800 flex items-center gap-2">📅 Próximos Turnos</h3>
-
-            <div className="flex items-center gap-3">
-              <Link
-                href="/panel/profesional/citas"
-                className="text-xs font-bold text-slate-600 hover:text-slate-900 underline"
-              >
-                Ver todas
-              </Link>
-
-              {safeAppointments.length > 0 && (
-                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-bold">
-                  {pendingCount} pendientes • {safeAppointments.length} próximos
-                </span>
-              )}
-            </div>
-          </div>
-
-          {safeAppointments.length === 0 ? (
-            <div className="p-12 text-center">
-              <div className="text-4xl mb-3">🍃</div>
-              <p className="text-slate-500 font-medium">Tu agenda está libre por ahora.</p>
-              <p className="text-xs text-slate-400 mt-1">Asegúrate de tener tus horarios configurados.</p>
-            </div>
+        <div className="divide-y divide-slate-100">
+          {(profile.appointments || []).length === 0 ? (
+            <div className="px-6 py-5 text-slate-500">No tenés citas próximas.</div>
           ) : (
-            <div className="divide-y divide-slate-50">
-              {safeAppointments.map((appt) => {
-                const meta = statusMeta(appt.status);
-
-                return (
-                  <div
-                    key={appt.id}
-                    className="p-4 hover:bg-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 transition"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="h-10 w-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center font-bold text-sm">
-                        {initials(appt.patientName)}
-                      </div>
-
-                      <div>
-                        <p className="font-bold text-slate-700 capitalize">{appt.dateString}</p>
-                        <p className="text-sm text-slate-600">
-                          {appt.patientName} •{" "}
-                          <span className="text-slate-500">{appt.serviceTitle}</span>
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
-                      <span className="text-lg font-bold text-blue-600">{appt.timeString} hs</span>
-                      <span className={`px-3 py-1 text-xs rounded-full font-medium ${meta.className}`}>
-                        {meta.label}
-                      </span>
-                    </div>
+            profile.appointments.map((a) => (
+              <div key={a.id} className="px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                  <div className="font-medium text-slate-800">
+                    {a.service?.title || "Servicio"} · {a.patient?.name || "Paciente"}
                   </div>
-                );
-              })}
-            </div>
+                  <div className="text-sm text-slate-500">{formatDateTime(a.date)}</div>
+                </div>
+                <div className="text-xs">
+                  <span className="inline-flex items-center rounded-full bg-slate-50 px-3 py-1 text-slate-700 font-semibold border border-slate-200">
+                    {a.status}
+                  </span>
+                </div>
+              </div>
+            ))
           )}
         </div>
+      </div>
+
+      {/* Accesos rápidos */}
+      <div className="flex flex-wrap gap-2">
+        <Link
+          href="/panel/profesional/horarios"
+          className="text-sm inline-flex items-center rounded-xl border border-slate-200 px-4 py-2 hover:bg-slate-50"
+        >
+          Gestionar horarios
+        </Link>
+        <Link
+          href="/panel/profesional/integraciones"
+          className="text-sm inline-flex items-center rounded-xl border border-slate-200 px-4 py-2 hover:bg-slate-50"
+        >
+          Integraciones
+        </Link>
       </div>
     </div>
   );
