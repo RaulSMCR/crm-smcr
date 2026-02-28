@@ -90,22 +90,20 @@ export default function RegistroProfesionalPage() {
       // 1. SUBIDA A SUPABASE (BUCKET 'CVS' EN MAYÚSCULA)
       setLoadingText("Subiendo documentación...");
       
-      const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, '');
-      const uniqueName = `${Date.now()}-${cleanName}`;
+      const cvFile = file;
 
-      // 👇 AQUÍ ESTÁ EL CAMBIO CRÍTICO: 'CVS'
-      const { error: uploadError } = await supabase
-        .storage
-        .from('CVS') 
-        .upload(uniqueName, file);
+      const uploadData = new FormData();
+      uploadData.append("file", cvFile);
+      uploadData.append("userId", crypto.randomUUID()); // ID temporal hasta que se cree el usuario
 
-      if (uploadError) throw new Error("Error al subir el CV: " + uploadError.message);
+      const res = await fetch("/api/upload/cv", {
+        method: "POST",
+        body: uploadData,
+      });
 
-      // 👇 AQUÍ TAMBIÉN: 'CVS'
-      const { data: { publicUrl } } = supabase
-        .storage
-        .from('CVS')
-        .getPublicUrl(uniqueName);
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Error subiendo CV.");
+      const cvUrl = result.url;
 
       // 2. REGISTRO EN BACKEND
       setLoadingText("Creando perfil...");
@@ -114,7 +112,7 @@ export default function RegistroProfesionalPage() {
       Object.entries(form).forEach(([key, value]) => {
         formData.append(key, value);
       });
-      formData.append('cvUrl', publicUrl);
+      formData.append('cvUrl', cvUrl);
 
       const res = await registerProfessional(formData);
 

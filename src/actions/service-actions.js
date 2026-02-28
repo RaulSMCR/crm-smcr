@@ -236,7 +236,7 @@ export async function approveServiceAssignment(serviceId, professionalId) {
       data: {
         status: "APPROVED",
         reviewedAt: new Date(),
-        approvedSessionPrice: { set: null },
+        approvedSessionPrice: data.approvedSessionPrice ?? data.proposedSessionPrice ?? null,
       },
     });
 

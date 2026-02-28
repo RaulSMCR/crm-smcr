@@ -189,8 +189,8 @@ model Availability {
 model Appointment {
   id String @id @default(cuid())
 
-  date    DateTime
-  endDate DateTime
+  date    DateTime  @db.Timestamptz(6)
+  endDate DateTime  @db.Timestamptz(6)
   status  AppointmentStatus @default(PENDING)
 
   pricePaid     Decimal?      @db.Decimal(10, 2)

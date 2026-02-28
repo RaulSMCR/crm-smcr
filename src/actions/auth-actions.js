@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 import { resend } from "@/lib/resend";
 import { signToken, getSession as getLibSession } from "@/lib/auth";
+import { createClient } from "@supabase/supabase-js";
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_URL ||
@@ -52,6 +53,11 @@ function isIdentificationValid(v) {
   const compact = s.replace(/\s+/g, "");
   return compact.length >= 5 && compact.length <= 32;
 }
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 /* 0) SESIÓN */
 export async function getSession() {
@@ -181,8 +187,9 @@ export async function registerProfessional(formData) {
     const verifyToken = crypto.randomBytes(32).toString("hex");
     const verifyTokenHash = crypto.createHash("sha256").update(verifyToken).digest("hex");
 
+    let createdUser = null;
     await prisma.$transaction(async (tx) => {
-      const newUser = await tx.user.create({
+      createdUser = await tx.user.create({
         data: {
           name,
           email,
@@ -201,7 +208,7 @@ export async function registerProfessional(formData) {
 
       await tx.professionalProfile.create({
         data: {
-          userId: newUser.id,
+          userId: createdUser.id,
           specialty,
           slug,
           bio,
@@ -213,6 +220,41 @@ export async function registerProfessional(formData) {
         },
       });
     });
+
+    // Si hubo un CV subido con ID temporal, intentamos mover/renombrar el archivo
+    try {
+      if (cvUrl && createdUser) {
+        // Intentar extraer la ruta dentro del bucket desde la publicUrl
+        // formato esperado: /storage/v1/object/public/CVS/{path}
+        const parsed = new URL(cvUrl);
+        const marker = '/CVS/';
+        const idx = parsed.pathname.indexOf(marker);
+        if (idx !== -1) {
+          const srcPath = parsed.pathname.substring(idx + marker.length);
+          // conservar extensión
+          const parts = srcPath.split('.');
+          const ext = parts.length > 1 ? parts.pop() : 'pdf';
+          const destPath = `${createdUser.id}/cv.${ext}`;
+
+          const { error: moveError } = await supabaseAdmin.storage
+            .from('CVS')
+            .move(srcPath, destPath);
+
+          if (moveError) {
+            console.error('Error moviendo CV en Supabase:', moveError);
+          } else {
+            // actualizar cvUrl con la nueva ruta pública
+            const { data } = supabaseAdmin.storage.from('CVS').getPublicUrl(destPath);
+            if (data?.publicUrl) {
+              await prisma.user.update({ where: { id: createdUser.id }, data: {} }).catch(() => {});
+              await prisma.professionalProfile.update({ where: { userId: createdUser.id }, data: { cvUrl: data.publicUrl } }).catch(() => {});
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error handling CV move:', err);
+    }
 
     if (process.env.RESEND_API_KEY) {
       const { error } = await resend.emails.send({
