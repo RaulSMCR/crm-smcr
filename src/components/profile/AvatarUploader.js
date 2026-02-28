@@ -1,9 +1,8 @@
-//src/components/profile/AvatarUploader.js
+// src/components/profile/AvatarUploader.js
 "use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
 import { updateMyAvatar } from "@/actions/profile-actions";
 
 export default function AvatarUploader({ userId, currentUrl }) {
@@ -17,7 +16,6 @@ export default function AvatarUploader({ userId, currentUrl }) {
 
     setError("");
 
-    // Validaciones básicas
     if (!file.type.startsWith("image/")) {
       setError("El archivo debe ser una imagen.");
       return;
@@ -29,32 +27,26 @@ export default function AvatarUploader({ userId, currentUrl }) {
 
     setLoading(true);
     try {
-      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-      const path = `${userId}/avatar.${ext}`; // upsert reemplaza
+      // Enviar a nuestra API Route
+      const formData = new FormData();
+      formData.append("file", file);
 
-      const { error: upErr } = await supabase
-        .storage
-        .from("avatars")
-        .upload(path, file, {
-          upsert: true,
-          contentType: file.type,
-          cacheControl: "3600",
-        });
+      const res = await fetch("/api/upload/avatar", {
+        method: "POST",
+        body: formData,
+      });
 
-      if (upErr) throw upErr;
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error inesperado.");
 
-      const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-      const publicUrl = data.publicUrl;
-
-      // Persistir en DB
-      await updateMyAvatar(publicUrl);
-
-      router.refresh(); // refresca server components
+      // Persistir URL en DB
+      await updateMyAvatar(data.url);
+      router.refresh();
     } catch (err) {
       setError(err?.message || "Error inesperado al subir la imagen.");
     } finally {
       setLoading(false);
-      e.target.value = ""; // reset input
+      e.target.value = "";
     }
   }
 
@@ -71,7 +63,6 @@ export default function AvatarUploader({ userId, currentUrl }) {
           {loading ? "Subiendo..." : "Cambiar foto"}
         </label>
       </div>
-
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
     </div>
   );
