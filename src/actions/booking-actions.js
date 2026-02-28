@@ -3,7 +3,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { startOfDay, endOfDay, addMinutes, format, parse, isBefore } from "date-fns";
-import { zonedTimeToUtc } from "date-fns-tz";
+import { fromZonedTime } from "date-fns-tz";
 import { getSession } from "@/lib/auth"; // <--- 1. CORRECCIÓN IMPORT
 import { revalidatePath } from "next/cache";
 import { sendAppointmentNotifications, syncGoogleCalendarEvent } from "@/lib/appointments";
@@ -130,7 +130,7 @@ export async function requestAppointment(professionalId, dateString, timeString,
     const dateTimeString = `${dateString}T${timeString}:00`;
     const localDateTime = parse(dateTimeString, "yyyy-MM-dd'T'HH:mm:ss", new Date());
     const costaRicaTimeZone = 'America/Costa_Rica';
-    const startDateTime = zonedTimeToUtc(localDateTime, costaRicaTimeZone);
+    const startDateTime = fromZonedTime(localDateTime, costaRicaTimeZone);
     const endDateTime = new Date(startDateTime.getTime() + duration * 60000); 
 
     // 3. Race Condition Check
