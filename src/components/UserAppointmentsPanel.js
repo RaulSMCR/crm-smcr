@@ -136,12 +136,18 @@ export default function UserAppointmentsPanel({ initialAppointments = [] }) {
                 {/* Botones de acción (Solo si es pendiente o confirmada y futura) */}
                 {(apt.status === 'PENDING' || apt.status === 'CONFIRMED') && new Date(apt.date) > new Date() && (
                   <>
-                    <button
-                      onClick={() => setReschedulingApt(apt)}
-                      className="mt-2 w-full px-3 py-2 rounded-xl border border-blue-200 bg-blue-50 text-blue-600 text-sm font-semibold hover:bg-blue-100 transition-colors"
-                    >
-                      Reagendar
-                    </button>
+                    {apt.status === 'CONFIRMED' ? (
+                      <button
+                        onClick={() => setReschedulingApt(apt)}
+                        className="mt-2 w-full px-3 py-2 rounded-xl border border-blue-200 bg-blue-50 text-blue-600 text-sm font-semibold hover:bg-blue-100 transition-colors"
+                      >
+                        Reagendar
+                      </button>
+                    ) : (
+                      <div className="mt-2 w-full px-3 py-2 rounded-xl border border-yellow-200 bg-yellow-50 text-yellow-700 text-sm font-semibold text-center cursor-default">
+                        Pendiente de confirmación
+                      </div>
+                    )}
                     <button
                       onClick={() => setCancelingApt(apt)}
                       className="mt-2 w-full px-3 py-2 rounded-xl border border-red-200 bg-red-50 text-red-600 text-sm font-semibold hover:bg-red-100 transition-colors"
