@@ -114,10 +114,10 @@ export default function RegistroProfesionalPage() {
       });
       formData.append('cvUrl', cvUrl);
 
-      const res = await registerProfessional(formData);
+      const registerRes = await registerProfessional(formData);
 
-      if (res?.error) {
-        setErrorMsg(res.error);
+      if (registerRes?.error) {
+        setErrorMsg(registerRes.error);
         setLoading(false);
       } else {
         setSuccess(true);
