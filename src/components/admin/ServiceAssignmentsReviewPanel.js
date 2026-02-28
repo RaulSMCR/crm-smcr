@@ -18,7 +18,7 @@ export default function ServiceAssignmentsReviewPanel({ serviceId, assignments }
     const base = {};
     for (const a of assignments) {
       base[a.professional.id] = {
-        approvedSessionPrice: a.approvedSessionPrice ?? a.proposedSessionPrice ?? "",
+        approvedSessionPrice: a.proposedSessionPrice ?? "",
         adminReviewNote: a.adminReviewNote ?? "",
       };
     }

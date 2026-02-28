@@ -258,7 +258,7 @@ export async function registerProfessional(formData) {
 
     if (process.env.RESEND_API_KEY) {
       const { error } = await resend.emails.send({
-        from: "Salud Mental Costa Rica <onboarding@resend.dev>",
+        from: `Salud Mental Costa Rica <noreply@${process.env.EMAIL_FROM_DOMAIN || 'test.saludmentalcostarica.com'}>`,
         to: email,
         subject: "Recibimos tu solicitud profesional",
         html: `
