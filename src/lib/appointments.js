@@ -165,5 +165,6 @@ export async function syncGoogleCalendarEvent(appointment) {
     });
   } catch (error) {
     console.error("Error sincronizando evento con Google Calendar:", error);
+    console.error("SYNC ERROR DETAILS:", JSON.stringify(error?.response?.data || error?.message || error, null, 2));
   }
 }
