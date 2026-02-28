@@ -5,7 +5,6 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import ChangePasswordCard from "@/components/auth/ChangePasswordCard";
 import { updateProfile } from "@/actions/profile-actions";
-import { supabase } from "@/lib/supabase-client";
 
 function badgeFor(status, isSelected) {
   // status puede ser null si nunca se solicitó
@@ -99,17 +98,17 @@ export default function ProfileEditor({ profile, allServices = [] }) {
       let publicUrl = null;
 
       if (avatarFile) {
-        const fileExt = avatarFile.name.split(".").pop();
-        const fileName = `${profile.userId}-${Date.now()}.${fileExt}`;
+        const uploadData = new FormData();
+        uploadData.append("file", avatarFile);
 
-        const { error: uploadError } = await supabase.storage
-          .from("avatars")
-          .upload(fileName, avatarFile, { upsert: true });
+        const res = await fetch("/api/upload/avatar", {
+          method: "POST",
+          body: uploadData,
+        });
 
-        if (uploadError) throw new Error("Error subiendo imagen: " + uploadError.message);
-
-        const { data } = supabase.storage.from("avatars").getPublicUrl(fileName);
-        publicUrl = data.publicUrl;
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || "Error subiendo imagen.");
+        publicUrl = result.url;
       }
 
       const fd = new FormData();
