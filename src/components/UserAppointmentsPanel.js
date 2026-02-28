@@ -92,17 +92,17 @@ export default function UserAppointmentsPanel({ initialAppointments = [] }) {
               <div className="flex gap-4">
                 {/* Avatar del Profesional (Placeholder si es null) */}
                 <div className="flex-shrink-0">
-                  {apt.professional.avatarUrl ? (
-                    <img src={apt.professional.avatarUrl} alt={apt.professional.name} className="w-12 h-12 rounded-full object-cover border" />
+                  {apt.professional.user?.image ? (
+                    <img src={apt.professional.user.image} alt={apt.professional.user?.name} className="w-12 h-12 rounded-full object-cover border" />
                   ) : (
                     <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-lg">
-                      {apt.professional.name.charAt(0)}
+                      {apt.professional.user?.name?.charAt(0) ?? '?'}
                     </div>
                   )}
                 </div>
 
                 <div>
-                  <h3 className="font-semibold text-gray-900">{apt.professional.name}</h3>
+                  <h3 className="font-semibold text-gray-900">{apt.professional.user?.name}</h3>
                   <p className="text-sm text-gray-500">{apt.service?.title || 'Consulta General'}</p>
 
                   <div className="mt-2 flex items-center gap-3 text-sm text-gray-600">
