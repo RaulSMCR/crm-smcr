@@ -162,3 +162,116 @@ export async function cancelAppointmentByPatient(appointmentId, reason) {
     return { error: "Error interno al cancelar. Intenta nuevamente." };
   }
 }
+
+export async function getAppointmentRescheduleData(appointmentId) {
+  const session = await getSession();
+  if (!session || session.role !== "USER") return { error: "No autorizado." };
+
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: String(appointmentId || "") },
+    include: {
+      service: { select: { durationMin: true } },
+      professional: {
+        include: {
+          availability: true,
+          appointments: {
+            where: {
+              id: { not: String(appointmentId || "") },
+              status: { notIn: ["CANCELLED_BY_USER", "CANCELLED_BY_PRO"] },
+              date: { gte: new Date() },
+            },
+            select: { date: true, endDate: true },
+          },
+        },
+      },
+    },
+  });
+
+  if (!appointment) return { error: "Cita no encontrada." };
+  if (appointment.patientId !== String(session.sub)) return { error: "No autorizado." };
+
+  return {
+    professionalId: appointment.professionalId,
+    durationMin: appointment.service?.durationMin ?? 60,
+    availability: appointment.professional.availability,
+    booked: appointment.professional.appointments.map((a) => ({
+      startISO: a.date.toISOString(),
+      endISO: a.endDate.toISOString(),
+    })),
+  };
+}
+
+export async function rescheduleAppointmentByPatient(appointmentId, newStartISO) {
+  const session = await getSession();
+  if (!session || session.role !== "USER") return { error: "No autorizado." };
+
+  const id = String(appointmentId || "");
+  if (!id) return { error: "ID de cita inválido." };
+
+  const appointment = await prisma.appointment.findUnique({
+    where: { id },
+    include: {
+      service: { select: { durationMin: true } },
+      professional: {
+        include: { user: { select: { name: true, email: true } } },
+      },
+      patient: { select: { name: true, email: true } },
+    },
+  });
+
+  if (!appointment) return { error: "Cita no encontrada." };
+  if (appointment.patientId !== String(session.sub)) return { error: "No autorizado." };
+  if (!["PENDING", "CONFIRMED"].includes(appointment.status)) {
+    return { error: "Esta cita no puede reagendarse." };
+  }
+
+  const newStart = new Date(String(newStartISO || ""));
+  if (isNaN(newStart.getTime()) || newStart <= new Date()) {
+    return { error: "Horario inválido." };
+  }
+
+  const durationMin = appointment.service?.durationMin ?? 60;
+  const newEnd = new Date(newStart.getTime() + durationMin * 60000);
+
+  const conflict = await prisma.appointment.findFirst({
+    where: {
+      id: { not: id },
+      professionalId: appointment.professionalId,
+      status: { notIn: ["CANCELLED_BY_USER", "CANCELLED_BY_PRO"] },
+      date: { lt: newEnd },
+      endDate: { gt: newStart },
+    },
+    select: { id: true },
+  });
+
+  if (conflict) return { error: "Ese horario ya está ocupado. Elige otro." };
+
+  const updated = await prisma.appointment.update({
+    where: { id },
+    data: {
+      date: newStart,
+      endDate: newEnd,
+      status: "PENDING",
+    },
+    include: {
+      patient: { select: { name: true, email: true } },
+      professional: {
+        select: {
+          id: true,
+          googleRefreshToken: true,
+          user: { select: { name: true, email: true } },
+        },
+      },
+      service: { select: { title: true } },
+    },
+  });
+
+  await Promise.allSettled([
+    syncGoogleCalendarEvent(updated),
+    sendAppointmentNotifications(updated, "La cita fue reagendada por el paciente."),
+  ]);
+
+  revalidatePath("/panel/paciente");
+  revalidatePath("/panel/profesional/citas");
+  return { success: true };
+}

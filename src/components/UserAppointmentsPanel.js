@@ -5,6 +5,7 @@ import { formatDateTimeInTZ, DEFAULT_TZ } from '@/lib/timezone';
 import { useState } from 'react';
 import Link from 'next/link';
 import CancelAppointmentModal from './appointments/CancelAppointmentModal';
+import RescheduleAppointmentModal from './appointments/RescheduleAppointmentModal';
 import { cancelAppointmentByPatient } from '@/actions/patient-booking-actions';
 
 // Helpers para formatear con timezone de Costa Rica
@@ -31,6 +32,7 @@ export default function UserAppointmentsPanel({ initialAppointments = [] }) {
   const [appointments, setAppointments] = useState(initialAppointments);
   const [filter, setFilter] = useState('ALL'); // 'ALL', 'UPCOMING', 'PAST'
   const [cancelingApt, setCancelingApt] = useState(null);
+  const [reschedulingApt, setReschedulingApt] = useState(null);
 
   // Helper para mostrar estados bonitos en español
   const getStatusBadge = (status) => {
@@ -131,14 +133,22 @@ export default function UserAppointmentsPanel({ initialAppointments = [] }) {
                   </span>
                 )}
 
-                {/* Botón de Cancelar (Solo si es pendiente o confirmada y futura) */}
+                {/* Botones de acción (Solo si es pendiente o confirmada y futura) */}
                 {(apt.status === 'PENDING' || apt.status === 'CONFIRMED') && new Date(apt.date) > new Date() && (
-                  <button
-                    onClick={() => setCancelingApt(apt)}
-                    className="mt-3 w-full px-3 py-2 rounded-xl border border-red-200 bg-red-50 text-red-600 text-sm font-semibold hover:bg-red-100 transition-colors"
-                  >
-                    Cancelar cita
-                  </button>
+                  <>
+                    <button
+                      onClick={() => setReschedulingApt(apt)}
+                      className="mt-2 w-full px-3 py-2 rounded-xl border border-blue-200 bg-blue-50 text-blue-600 text-sm font-semibold hover:bg-blue-100 transition-colors"
+                    >
+                      Reagendar
+                    </button>
+                    <button
+                      onClick={() => setCancelingApt(apt)}
+                      className="mt-2 w-full px-3 py-2 rounded-xl border border-red-200 bg-red-50 text-red-600 text-sm font-semibold hover:bg-red-100 transition-colors"
+                    >
+                      Cancelar cita
+                    </button>
+                  </>
                 )}
               </div>
 
@@ -176,6 +186,14 @@ export default function UserAppointmentsPanel({ initialAppointments = [] }) {
           </Link>
         </div>
       </div>
+
+      {/* Modal de reagendamiento */}
+      {reschedulingApt && (
+        <RescheduleAppointmentModal
+          appointment={reschedulingApt}
+          onClose={() => setReschedulingApt(null)}
+        />
+      )}
 
       {/* Modal de cancelación */}
       {cancelingApt && (
