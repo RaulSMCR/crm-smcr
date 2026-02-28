@@ -34,15 +34,25 @@ export default function UserAppointmentsPanel({ initialAppointments = [] }) {
   const [cancelingApt, setCancelingApt] = useState(null);
   const [reschedulingApt, setReschedulingApt] = useState(null);
 
+  async function handleCancel(appointmentId, reason) {
+    const result = await cancelAppointmentByPatient(appointmentId, reason);
+    if (result?.success) {
+      setAppointments(prev =>
+        prev.map(a => a.id === appointmentId ? { ...a, status: 'CANCELLED_BY_USER' } : a)
+      );
+    }
+    return result;
+  }
+
   // Helper para mostrar estados bonitos en español
   const getStatusBadge = (status) => {
     const config = {
-      PENDING: { label: 'Pendiente', style: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
-      CONFIRMED: { label: 'Confirmada', style: 'bg-green-100 text-green-800 border-green-200' },
-      CANCELLED_BY_USER: { label: 'Cancelada', style: 'bg-red-50 text-red-600 border-red-100' },
-      CANCELLED_BY_PRO: { label: 'Cancelada por Prof.', style: 'bg-red-50 text-red-600 border-red-100' },
-      COMPLETED: { label: 'Completada', style: 'bg-gray-100 text-gray-600 border-gray-200' },
-      NO_SHOW: { label: 'Ausente', style: 'bg-purple-50 text-purple-600 border-purple-100' }
+      PENDING: { label: 'Pendiente', style: 'bg-amber-500 text-white border-amber-500' },
+      CONFIRMED: { label: 'Confirmada', style: 'bg-green-600 text-white border-green-600' },
+      CANCELLED_BY_USER: { label: 'Cancelada', style: 'bg-red-600 text-white border-red-600' },
+      CANCELLED_BY_PRO: { label: 'Cancelada por Prof.', style: 'bg-red-600 text-white border-red-600' },
+      COMPLETED: { label: 'Completada', style: 'bg-slate-600 text-white border-slate-600' },
+      NO_SHOW: { label: 'Ausente', style: 'bg-purple-600 text-white border-purple-600' }
     };
 
     const current = config[status] || { label: status, style: 'bg-gray-100' };
@@ -75,7 +85,7 @@ export default function UserAppointmentsPanel({ initialAppointments = [] }) {
               className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
                 filter === f
                   ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
+                  : 'text-slate-700 hover:text-slate-900'
               }`}
             >
               {f === 'ALL' ? 'Todas' : f === 'UPCOMING' ? 'Próximas' : 'Historial'}
@@ -139,18 +149,18 @@ export default function UserAppointmentsPanel({ initialAppointments = [] }) {
                     {apt.status === 'CONFIRMED' ? (
                       <button
                         onClick={() => setReschedulingApt(apt)}
-                        className="mt-2 w-full px-3 py-2 rounded-xl border border-blue-200 bg-blue-50 text-blue-600 text-sm font-semibold hover:bg-blue-100 transition-colors"
+                        className="mt-2 w-full px-3 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
                       >
                         Reagendar
                       </button>
                     ) : (
-                      <div className="mt-2 w-full px-3 py-2 rounded-xl border border-yellow-200 bg-yellow-50 text-yellow-700 text-sm font-semibold text-center cursor-default">
+                      <div className="mt-2 w-full px-3 py-2 rounded-xl bg-amber-500 text-white text-sm font-semibold text-center cursor-default">
                         Pendiente de confirmación
                       </div>
                     )}
                     <button
                       onClick={() => setCancelingApt(apt)}
-                      className="mt-2 w-full px-3 py-2 rounded-xl border border-red-200 bg-red-50 text-red-600 text-sm font-semibold hover:bg-red-100 transition-colors"
+                      className="mt-2 w-full px-3 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors"
                     >
                       Cancelar cita
                     </button>
@@ -205,7 +215,7 @@ export default function UserAppointmentsPanel({ initialAppointments = [] }) {
       {cancelingApt && (
         <CancelAppointmentModal
           appointment={cancelingApt}
-          onCancel={cancelAppointmentByPatient}
+          onCancel={handleCancel}
           onClose={() => setCancelingApt(null)}
           role="patient"
         />

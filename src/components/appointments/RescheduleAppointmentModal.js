@@ -163,7 +163,7 @@ export default function RescheduleAppointmentModal({ appointment, onClose }) {
                   className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
                     selectedDayIdx === i
                       ? "bg-blue-600 text-white border-blue-600"
-                      : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                      : "border-slate-300 text-slate-800 hover:bg-slate-100"
                   }`}
                 >
                   {formatDayTab(d.day)}
@@ -184,7 +184,7 @@ export default function RescheduleAppointmentModal({ appointment, onClose }) {
                       className={`px-3 py-2 rounded-xl text-sm font-semibold border transition-colors ${
                         isSelected
                           ? "bg-blue-600 text-white border-blue-600"
-                          : "border-slate-200 text-slate-700 hover:bg-blue-50 hover:border-blue-200"
+                          : "border-slate-300 text-slate-800 hover:bg-blue-600 hover:text-white hover:border-blue-600"
                       }`}
                     >
                       {formatSlotTime(slot.start)}
@@ -196,7 +196,7 @@ export default function RescheduleAppointmentModal({ appointment, onClose }) {
 
             {/* Horario seleccionado */}
             {selectedISO && (
-              <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-800">
+              <div className="rounded-xl border-l-4 border-blue-600 bg-slate-50 px-4 py-2 text-sm text-slate-800">
                 Nuevo horario: <strong>{formatSelectedLabel(new Date(selectedISO))}</strong>
               </div>
             )}
@@ -208,7 +208,7 @@ export default function RescheduleAppointmentModal({ appointment, onClose }) {
         <div className="flex gap-3 justify-end pt-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            className="px-4 py-2 rounded-xl border border-slate-300 text-sm font-semibold text-slate-800 hover:bg-slate-100"
           >
             Volver
           </button>

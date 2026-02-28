@@ -60,11 +60,11 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
   // Badge de Estado
   const getStatusBadge = (status) => {
     const config = {
-      PENDING: { label: 'Pendiente', style: 'bg-yellow-100 text-yellow-800' },
-      CONFIRMED: { label: 'Confirmada', style: 'bg-blue-100 text-blue-800' },
-      COMPLETED: { label: 'Completada', style: 'bg-green-100 text-green-800' },
-      NO_SHOW: { label: 'Ausente', style: 'bg-red-100 text-red-800' },
-      CANCELLED_BY_USER: { label: 'Cancelada (P)', style: 'bg-gray-100 text-gray-500 line-through' },
+      PENDING: { label: 'Pendiente', style: 'bg-amber-500 text-white' },
+      CONFIRMED: { label: 'Confirmada', style: 'bg-blue-600 text-white' },
+      COMPLETED: { label: 'Completada', style: 'bg-green-600 text-white' },
+      NO_SHOW: { label: 'Ausente', style: 'bg-red-600 text-white' },
+      CANCELLED_BY_USER: { label: 'Cancelada (P)', style: 'bg-slate-500 text-white line-through' },
     };
     const current = config[status] || { label: status, style: 'bg-gray-100' };
     return <span className={`px-2 py-1 rounded text-xs font-bold ${current.style}`}>{current.label}</span>;
@@ -80,7 +80,7 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
                 key={f}
                 onClick={() => setFilter(f)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                    filter === f ? 'bg-white text-blue-600 shadow ring-1 ring-blue-100' : 'text-gray-500 hover:text-gray-700'
+                    filter === f ? 'bg-white text-blue-600 shadow ring-1 ring-blue-200' : 'text-slate-700 hover:text-slate-900'
                 }`}
             >
                 {f === 'TODAY' ? 'Hoy' : f === 'UPCOMING' ? 'Futuras' : f === 'PENDING' ? 'Solicitudes' : 'Historial'}
@@ -152,7 +152,7 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
                                         <button 
                                             onClick={() => handleStatusChange(apt.id, 'NO_SHOW')}
                                             disabled={loadingId === apt.id}
-                                            className="text-xs bg-gray-200 text-gray-700 px-3 py-1 rounded hover:bg-gray-300 disabled:opacity-50"
+                                            className="text-xs bg-slate-600 text-white px-3 py-1 rounded hover:bg-slate-700 disabled:opacity-50"
                                         >
                                             Ausente
                                         </button>

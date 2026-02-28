@@ -31,7 +31,7 @@ export default function CancelAppointmentModal({ appointment, onCancel, onClose 
         <h2 className="text-lg font-bold text-slate-800">Cancelar cita</h2>
 
         {isLateCancel && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          <div className="rounded-xl border-l-4 border-amber-500 bg-slate-50 p-4 text-sm text-slate-800">
             <p><strong>⚠️ Cancelación con menos de 24 horas de antelación</strong></p>
             <p className="mt-1">Según nuestra política, las cancelaciones con menos de 24 horas
             de anticipación pueden estar sujetas a penalización.</p>
@@ -56,7 +56,7 @@ export default function CancelAppointmentModal({ appointment, onCancel, onClose 
         <div className="flex gap-3 justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            className="px-4 py-2 rounded-xl border border-slate-300 text-sm font-semibold text-slate-800 hover:bg-slate-100"
           >
             Volver
           </button>
