@@ -2,9 +2,26 @@
 'use client';
 
 import { useState } from 'react';
-import { format, isToday, isFuture, isPast } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { isToday, isFuture, isPast } from 'date-fns';
+import { DEFAULT_TZ } from '@/lib/timezone';
 import { updateAppointmentStatus } from '@/actions/agenda-actions';
+
+// Helpers para formatear con timezone de Costa Rica
+const formatTimeInTZ = (date) => {
+  return new Intl.DateTimeFormat('es-CR', {
+    timeZone: DEFAULT_TZ,
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(date));
+};
+
+const formatDateShortInTZ = (date) => {
+  return new Intl.DateTimeFormat('es-CR', {
+    timeZone: DEFAULT_TZ,
+    day: '2-digit',
+    month: 'short',
+  }).format(new Date(date));
+};
 
 export default function ProfessionalAppointmentsPanel({ initialAppointments = [] }) {
   const [appointments, setAppointments] = useState(initialAppointments);
@@ -86,8 +103,8 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
                     filteredAppointments.map((apt) => (
                         <tr key={apt.id} className="hover:bg-gray-50 transition-colors">
                             <td className="px-6 py-4">
-                                <p className="font-bold text-gray-900">{format(new Date(apt.date), 'HH:mm', { locale: es })}</p>
-                                <p className="text-xs text-gray-500">{format(new Date(apt.date), 'dd MMM', { locale: es })}</p>
+                                <p className="font-bold text-gray-900">{formatTimeInTZ(apt.date)}</p>
+                                <p className="text-xs text-gray-500">{formatDateShortInTZ(apt.date)}</p>
                             </td>
                             <td className="px-6 py-4">
                                 <p className="font-medium text-gray-900">{apt.user.name}</p>

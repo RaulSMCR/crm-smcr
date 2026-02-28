@@ -1,10 +1,27 @@
 //src/components/UserAppointmentsPanel.js
 'use client';
 
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { formatDateTimeInTZ, DEFAULT_TZ } from '@/lib/timezone';
 import { useState } from 'react';
 import Link from 'next/link';
+
+// Helpers para formatear con timezone de Costa Rica
+const formatDateInTZ = (date) => {
+  return new Intl.DateTimeFormat('es-CR', {
+    timeZone: DEFAULT_TZ,
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  }).format(new Date(date));
+};
+
+const formatTimeInTZ = (date) => {
+  return new Intl.DateTimeFormat('es-CR', {
+    timeZone: DEFAULT_TZ,
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(date));
+};
 
 // Si tuvieras una acción para cancelar, la importarías aquí:
 // import { cancelAppointment } from '@/actions/agenda-actions';
@@ -92,12 +109,12 @@ export default function UserAppointmentsPanel({ initialAppointments = [] }) {
                     <div className="flex items-center gap-1">
                       {/* Icono Calendario */}
                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                      {format(new Date(apt.date), "EEEE d 'de' MMMM", { locale: es })}
+                      {formatDateInTZ(apt.date)}
                     </div>
                     <div className="flex items-center gap-1">
                       {/* Icono Reloj */}
                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                      {format(new Date(apt.date), "HH:mm", { locale: es })} hs
+                      {formatTimeInTZ(apt.date)} hs
                     </div>
                   </div>
                 </div>
