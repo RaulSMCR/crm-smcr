@@ -4,6 +4,8 @@
 import { formatDateTimeInTZ, DEFAULT_TZ } from '@/lib/timezone';
 import { useState } from 'react';
 import Link from 'next/link';
+import CancelAppointmentModal from './appointments/CancelAppointmentModal';
+import { cancelAppointmentByPatient } from '@/actions/patient-booking-actions';
 
 // Helpers para formatear con timezone de Costa Rica
 const formatDateInTZ = (date) => {
@@ -23,14 +25,12 @@ const formatTimeInTZ = (date) => {
   }).format(new Date(date));
 };
 
-// Si tuvieras una acción para cancelar, la importarías aquí:
-// import { cancelAppointment } from '@/actions/agenda-actions';
-
 export default function UserAppointmentsPanel({ initialAppointments = [] }) {
   // Inicializamos el estado con los datos que vienen del servidor (Page)
   // Usamos estado por si luego queremos filtrar/ordenar sin recargar la página
   const [appointments, setAppointments] = useState(initialAppointments);
   const [filter, setFilter] = useState('ALL'); // 'ALL', 'UPCOMING', 'PAST'
+  const [cancelingApt, setCancelingApt] = useState(null);
 
   // Helper para mostrar estados bonitos en español
   const getStatusBadge = (status) => {
@@ -135,12 +135,7 @@ export default function UserAppointmentsPanel({ initialAppointments = [] }) {
                 {(apt.status === 'PENDING' || apt.status === 'CONFIRMED') && new Date(apt.date) > new Date() && (
                   <button
                     className="text-xs text-red-600 hover:text-red-800 underline mt-1"
-                    onClick={() => {
-                      if (confirm('¿Seguro que deseas cancelar esta cita?')) {
-                        // Aquí llamarías a tu Server Action: cancelAppointment(apt.id)
-                        alert("Funcionalidad pendiente de conectar con Server Action");
-                      }
-                    }}
+                    onClick={() => setCancelingApt(apt)}
                   >
                     Cancelar Cita
                   </button>
@@ -181,6 +176,16 @@ export default function UserAppointmentsPanel({ initialAppointments = [] }) {
           </Link>
         </div>
       </div>
+
+      {/* Modal de cancelación */}
+      {cancelingApt && (
+        <CancelAppointmentModal
+          appointment={cancelingApt}
+          onCancel={cancelAppointmentByPatient}
+          onClose={() => setCancelingApt(null)}
+          role="patient"
+        />
+      )}
     </div>
   );
 }

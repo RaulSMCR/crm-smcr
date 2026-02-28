@@ -96,3 +96,66 @@ export async function updateAppointmentStatus(appointmentId, newStatus) {
     return { success: false, error: "Error interno al actualizar cita." };
   }
 }
+export async function cancelAppointmentByProfessional(appointmentId, reason) {
+  try {
+    const professionalId = await requireProfessionalProfileId();
+    const id = toStr(appointmentId);
+    const reasonStr = toStr(reason).trim();
+
+    if (!id) return { error: "ID de cita inválido." };
+    if (!reasonStr) return { error: "Debes indicar el motivo de cancelación." };
+
+    const appointment = await prisma.appointment.findUnique({
+      where: { id },
+      include: {
+        professional: { include: { user: true } },
+        patient: true,
+        service: true,
+      },
+    });
+
+    if (!appointment) return { error: "Cita no encontrada." };
+    if (appointment.professionalId !== professionalId) {
+      return { error: "No puedes cancelar citas de otro profesional." };
+    }
+    if (!["PENDING", "CONFIRMED"].includes(appointment.status)) {
+      return { error: "Esta cita no puede cancelarse (estado inválido)." };
+    }
+
+    const updated = await prisma.appointment.update({
+      where: { id },
+      data: {
+        status: "CANCELLED_BY_PRO",
+        cancelReason: reasonStr,
+        canceledBy: "PROFESSIONAL",
+        canceledAt: new Date(),
+      },
+      include: {
+        patient: { select: { name: true, email: true } },
+        professional: {
+          select: {
+            id: true,
+            googleRefreshToken: true,
+            user: { select: { name: true, email: true } },
+          },
+        },
+        service: { select: { title: true } },
+      },
+    });
+
+    await Promise.allSettled([
+      syncGoogleCalendarEvent(updated),
+      sendAppointmentNotifications(updated, `La cita fue cancelada por el profesional: "${reasonStr}"`),
+    ]);
+
+    revalidatePath("/panel/profesional/citas");
+    revalidatePath("/panel/profesional");
+    revalidatePath("/panel/paciente");
+    revalidatePath("/admin/appointments");
+
+    return { success: true };
+  } catch (err) {
+    console.error("Error cancelAppointmentByProfessional:", err);
+    return { error: "Error interno al cancelar. Intenta nuevamente." };
+  }
+}

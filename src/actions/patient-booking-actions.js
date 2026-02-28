@@ -97,3 +97,88 @@ export async function createAppointmentForPatient({ professionalId, serviceId, s
     return { success: false, error: "Error interno al agendar. Intenta nuevamente." };
   }
 }
+export async function cancelAppointmentByPatient(appointmentId, reason) {
+  try {
+    const session = await getSession();
+    if (!session) return { error: "No autorizado: sesión requerida." };
+    if (session.role !== "USER") return { error: "No autorizado." };
+
+    const patientId = String(session.sub);
+    const id = String(appointmentId || "");
+
+    if (!id) return { error: "ID de cita inválido." };
+    if (!reason || !String(reason).trim()) return { error: "Debes indicar el motivo de cancelación." };
+
+    const appointment = await prisma.appointment.findUnique({
+      where: { id },
+      include: {
+        professional: { include: { user: true } },
+        service: true,
+        patient: true,
+      },
+    });
+
+    if (!appointment) return { error: "Cita no encontrada." };
+    if (appointment.patientId !== patientId) return { error: "No puedes cancelar citas de otros usuarios." };
+    if (!["PENDING", "CONFIRMED"].includes(appointment.status)) {
+      return { error: "Esta cita no puede cancelarse (estado inválido)." };
+    }
+
+    const now = new Date();
+    const hoursUntilAppointment = (new Date(appointment.date) - now) / (1000 * 60 * 60);
+    const isLateCancel = hoursUntilAppointment < 24;
+
+    const updated = await prisma.appointment.update({
+      where: { id },
+      data: {
+        status: "CANCELLED_BY_USER",
+        cancelReason: String(reason).trim(),
+        canceledBy: "PATIENT",
+        canceledAt: now,
+      },
+      include: {
+        patient: { select: { name: true, email: true } },
+        professional: {
+          select: {
+            id: true,
+            googleRefreshToken: true,
+            user: { select: { name: true, email: true } },
+          },
+        },
+        service: { select: { title: true } },
+      },
+export async function cancelAppointmentByPatient(appointmentId, reason) {
+  const session = await getSession();
+  if (!session || session.role !== 'USER') return { error: 'No autorizado.' };
+
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    include: { 
+      professional: { include: { user: true } }, 
+      service: true, 
+      patient: true 
+    }
+  });
+
+  if (!appointment) return { error: 'Cita no encontrada.' };
+  if (appointment.patientId !== session.userId) return { error: 'No autorizado.' };
+  if (!['PENDING', 'CONFIRMED'].includes(appointment.status)) {
+    return { error: 'Esta cita no puede cancelarse.' };
+  }
+
+  const hoursUntil = (new Date(appointment.date) - new Date()) / (1000 * 60 * 60);
+  const isLateCancel = hoursUntil < 24;
+
+  await prisma.appointment.update({
+    where: { id: appointmentId },
+    data: {
+      status: 'CANCELLED_BY_USER',
+      cancelReason: reason,
+      canceledBy: 'PATIENT',
+      canceledAt: new Date(),
+    }
+  });
+
+  revalidatePath('/panel/paciente');
+  return { success: true, isLateCancel };
+}

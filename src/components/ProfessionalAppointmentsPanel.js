@@ -4,7 +4,8 @@
 import { useState } from 'react';
 import { isToday, isFuture, isPast } from 'date-fns';
 import { DEFAULT_TZ } from '@/lib/timezone';
-import { updateAppointmentStatus } from '@/actions/agenda-actions';
+import { updateAppointmentStatus, cancelAppointmentByProfessional } from '@/actions/agenda-actions';
+import CancelAppointmentModal from './appointments/CancelAppointmentModal';
 
 // Helpers para formatear con timezone de Costa Rica
 const formatTimeInTZ = (date) => {
@@ -27,6 +28,7 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
   const [appointments, setAppointments] = useState(initialAppointments);
   const [filter, setFilter] = useState('TODAY'); // 'TODAY', 'UPCOMING', 'PENDING', 'ALL'
   const [loadingId, setLoadingId] = useState(null); // Para mostrar spinner en el botón que se clickea
+  const [cancelingApt, setCancelingApt] = useState(null);
 
   // Función para manejar cambios de estado (Server Action)
   const handleStatusChange = async (id, newStatus) => {
@@ -120,13 +122,22 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
                             <td className="px-6 py-4 text-right space-x-2">
                                 {/* Lógica de Botones según estado */}
                                 {apt.status === 'PENDING' && (
-                                    <button 
-                                        onClick={() => handleStatusChange(apt.id, 'CONFIRMED')}
-                                        disabled={loadingId === apt.id}
-                                        className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 disabled:opacity-50"
-                                    >
-                                        Aceptar
-                                    </button>
+                                    <>
+                                        <button 
+                                            onClick={() => handleStatusChange(apt.id, 'CONFIRMED')}
+                                            disabled={loadingId === apt.id}
+                                            className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 disabled:opacity-50"
+                                        >
+                                            Aceptar
+                                        </button>
+                                        <button 
+                                            onClick={() => setCancelingApt(apt)}
+                                            disabled={loadingId === apt.id}
+                                            className="text-xs bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 disabled:opacity-50"
+                                        >
+                                            Cancelar
+                                        </button>
+                                    </>
                                 )}
                                 
                                 {apt.status === 'CONFIRMED' && (
@@ -145,6 +156,13 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
                                         >
                                             Ausente
                                         </button>
+                                        <button 
+                                            onClick={() => setCancelingApt(apt)}
+                                            disabled={loadingId === apt.id}
+                                            className="text-xs bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 disabled:opacity-50"
+                                        >
+                                            Cancelar
+                                        </button>
                                     </>
                                 )}
                             </td>
@@ -160,6 +178,16 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
             </tbody>
         </table>
       </div>
+
+      {/* Modal de cancelación */}
+      {cancelingApt && (
+        <CancelAppointmentModal
+          appointment={cancelingApt}
+          onCancel={cancelAppointmentByProfessional}
+          onClose={() => setCancelingApt(null)}
+          role="professional"
+        />
+      )}
     </div>
   );
 }
