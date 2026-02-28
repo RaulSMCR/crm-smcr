@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/actions/auth-actions";
 import PatientProfileEditorCard from "@/components/paciente/PatientProfileEditorCard";
+import UserAppointmentsPanel from "@/components/UserAppointmentsPanel";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -42,19 +43,15 @@ export default async function PacientePanelPage({ searchParams }) {
         date: true,
         endDate: true,
         status: true,
+        pricePaid: true,
         service: {
           select: {
             title: true,
           },
         },
         professional: {
-          select: {
-            specialty: true,
-            user: {
-              select: {
-                name: true,
-              },
-            },
+          include: {
+            user: true,
           },
         },
       },
@@ -94,38 +91,7 @@ export default async function PacientePanelPage({ searchParams }) {
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
             <h2 className="text-xl font-bold text-slate-900">Mis citas</h2>
 
-            {appointments.length === 0 ? (
-              <p className="mt-3 text-slate-700">
-                Aún no tienes citas. Ve a{" "}
-                <Link href="/servicios" className="text-blue-600 hover:underline">
-                  Servicios
-                </Link>{" "}
-                para agendar.
-              </p>
-            ) : (
-              <div className="mt-4 space-y-3">
-                {appointments.map((a) => (
-                  <div key={a.id} className="rounded-xl border border-slate-200 p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <div className="font-semibold text-slate-900">{a.service?.title || "Cita"}</div>
-                        <div className="text-sm text-slate-600">
-                          Con <b>{a.professional?.user?.name}</b> · {a.professional?.specialty}
-                        </div>
-                        <div className="text-sm text-slate-700 mt-2">
-                          {new Date(a.date).toLocaleString()} –{" "}
-                          {new Date(a.endDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        </div>
-                      </div>
-
-                      <div className="text-xs font-semibold text-slate-700 whitespace-nowrap">
-                        {String(a.status)}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <UserAppointmentsPanel initialAppointments={appointments} />
           </div>
         </div>
 

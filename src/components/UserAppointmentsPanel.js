@@ -134,10 +134,10 @@ export default function UserAppointmentsPanel({ initialAppointments = [] }) {
                 {/* Botón de Cancelar (Solo si es pendiente o confirmada y futura) */}
                 {(apt.status === 'PENDING' || apt.status === 'CONFIRMED') && new Date(apt.date) > new Date() && (
                   <button
-                    className="text-xs text-red-600 hover:text-red-800 underline mt-1"
                     onClick={() => setCancelingApt(apt)}
+                    className="mt-3 w-full px-3 py-2 rounded-xl border border-red-200 bg-red-50 text-red-600 text-sm font-semibold hover:bg-red-100 transition-colors"
                   >
-                    Cancelar Cita
+                    Cancelar cita
                   </button>
                 )}
               </div>
