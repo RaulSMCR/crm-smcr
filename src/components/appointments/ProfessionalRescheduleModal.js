@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { getAppointmentRescheduleData, rescheduleAppointmentByPatient } from "@/actions/patient-booking-actions";
+import { getProfessionalRescheduleData, rescheduleAppointmentByProfessional } from "@/actions/agenda-actions";
 import {
   buildSlots,
   formatDayTab,
@@ -11,7 +11,7 @@ import {
 import { RECURRENCE_RULES } from "@/lib/appointment-recurrence";
 import RecurrenceFields from "@/components/appointments/RecurrenceFields";
 
-export default function RescheduleAppointmentModal({ appointment, onClose }) {
+export default function ProfessionalRescheduleModal({ appointment, onClose, onSuccess }) {
   const [data, setData] = useState(null);
   const [loadingData, setLoadingData] = useState(true);
   const [dataError, setDataError] = useState("");
@@ -25,7 +25,7 @@ export default function RescheduleAppointmentModal({ appointment, onClose }) {
   useEffect(() => {
     let mounted = true;
 
-    getAppointmentRescheduleData(appointment.id).then((result) => {
+    getProfessionalRescheduleData(appointment.id).then((result) => {
       if (!mounted) return;
 
       if (result.error) {
@@ -60,24 +60,26 @@ export default function RescheduleAppointmentModal({ appointment, onClose }) {
 
     setError("");
     startTransition(async () => {
-      const result = await rescheduleAppointmentByPatient(
+      const result = await rescheduleAppointmentByProfessional(
         appointment.id,
         selectedISO,
         recurrenceRule,
         recurrenceCount
       );
 
-      if (result?.error) {
-        setError(result.error);
-      } else {
-        onClose();
+      if (!result?.success) {
+        setError(result?.error || "No se pudo reagendar.");
+        return;
       }
+
+      onSuccess?.();
+      onClose();
     });
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-2xl bg-white p-6">
+      <div className="max-h-[90vh] w-full max-w-xl space-y-4 overflow-y-auto rounded-2xl bg-white p-6">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-slate-800">Reagendar cita</h2>
           <button
@@ -89,8 +91,8 @@ export default function RescheduleAppointmentModal({ appointment, onClose }) {
         </div>
 
         <p className="text-sm text-slate-600">
-          Selecciona un nuevo horario para tu cita de <strong>{appointment.service?.title || "consulta"}</strong>.
-          La cita quedará en estado <strong>Pendiente</strong> hasta que el profesional la confirme.
+          Vas a reagendar la cita de <strong>{appointment.user?.name}</strong> para{" "}
+          <strong>{appointment.service?.title || "consulta"}</strong>.
         </p>
 
         {loadingData && <div className="py-8 text-center text-sm text-slate-500">Cargando disponibilidad...</div>}

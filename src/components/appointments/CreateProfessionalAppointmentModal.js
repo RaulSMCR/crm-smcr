@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
-import { getAppointmentRescheduleData, rescheduleAppointmentByPatient } from "@/actions/patient-booking-actions";
+import { useMemo, useState, useTransition } from "react";
+import { createAppointmentByProfessional } from "@/actions/agenda-actions";
 import {
   buildSlots,
   formatDayTab,
@@ -11,10 +11,16 @@ import {
 import { RECURRENCE_RULES } from "@/lib/appointment-recurrence";
 import RecurrenceFields from "@/components/appointments/RecurrenceFields";
 
-export default function RescheduleAppointmentModal({ appointment, onClose }) {
-  const [data, setData] = useState(null);
-  const [loadingData, setLoadingData] = useState(true);
-  const [dataError, setDataError] = useState("");
+export default function CreateProfessionalAppointmentModal({
+  patients = [],
+  services = [],
+  availability = [],
+  booked = [],
+  onClose,
+  onSuccess,
+}) {
+  const [patientId, setPatientId] = useState(patients[0]?.id || "");
+  const [serviceId, setServiceId] = useState(services[0]?.id || "");
   const [selectedDayIdx, setSelectedDayIdx] = useState(0);
   const [selectedISO, setSelectedISO] = useState("");
   const [recurrenceRule, setRecurrenceRule] = useState(RECURRENCE_RULES.NONE);
@@ -22,64 +28,47 @@ export default function RescheduleAppointmentModal({ appointment, onClose }) {
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  useEffect(() => {
-    let mounted = true;
-
-    getAppointmentRescheduleData(appointment.id).then((result) => {
-      if (!mounted) return;
-
-      if (result.error) {
-        setDataError(result.error);
-      } else {
-        setData(result);
-      }
-      setLoadingData(false);
-    });
-
-    return () => {
-      mounted = false;
-    };
-  }, [appointment.id]);
-
+  const selectedService = services.find((service) => service.id === serviceId) || null;
   const days = useMemo(() => {
-    if (!data) return [];
     return buildSlots({
-      availability: data.availability,
-      durationMin: data.durationMin,
-      booked: data.booked,
+      availability,
+      durationMin: selectedService?.durationMin ?? 60,
+      booked,
     });
-  }, [data]);
-
+  }, [availability, booked, selectedService]);
   const activeDay = days[selectedDayIdx] ?? null;
 
   function handleConfirm() {
-    if (!selectedISO) {
-      setError("Selecciona un horario.");
+    if (!patientId || !serviceId || !selectedISO) {
+      setError("Completa paciente, servicio y horario.");
       return;
     }
 
     setError("");
     startTransition(async () => {
-      const result = await rescheduleAppointmentByPatient(
-        appointment.id,
-        selectedISO,
+      const result = await createAppointmentByProfessional({
+        patientId,
+        serviceId,
+        startISO: selectedISO,
         recurrenceRule,
-        recurrenceCount
-      );
+        recurrenceCount,
+      });
 
-      if (result?.error) {
-        setError(result.error);
-      } else {
-        onClose();
+      if (!result?.success) {
+        setError(result?.error || "No se pudo crear la cita.");
+        return;
       }
+
+      onSuccess?.();
+      onClose();
     });
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-2xl bg-white p-6">
+      <div className="max-h-[90vh] w-full max-w-3xl space-y-4 overflow-y-auto rounded-2xl bg-white p-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-slate-800">Reagendar cita</h2>
+          <h2 className="text-lg font-bold text-slate-800">Nueva cita</h2>
           <button
             onClick={onClose}
             className="text-xl font-bold leading-none text-slate-400 hover:text-slate-600"
@@ -88,24 +77,47 @@ export default function RescheduleAppointmentModal({ appointment, onClose }) {
           </button>
         </div>
 
-        <p className="text-sm text-slate-600">
-          Selecciona un nuevo horario para tu cita de <strong>{appointment.service?.title || "consulta"}</strong>.
-          La cita quedará en estado <strong>Pendiente</strong> hasta que el profesional la confirme.
-        </p>
-
-        {loadingData && <div className="py-8 text-center text-sm text-slate-500">Cargando disponibilidad...</div>}
-
-        {dataError && (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{dataError}</div>
-        )}
-
-        {!loadingData && !dataError && days.length === 0 && (
-          <div className="py-8 text-center text-sm text-slate-500">
-            No hay horarios disponibles en los próximos 14 días.
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-800">Paciente</label>
+            <select
+              value={patientId}
+              onChange={(event) => setPatientId(event.target.value)}
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+            >
+              {patients.map((patient) => (
+                <option key={patient.id} value={patient.id}>
+                  {patient.name} · {patient.email}
+                </option>
+              ))}
+            </select>
           </div>
-        )}
 
-        {!loadingData && !dataError && days.length > 0 && (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-800">Servicio</label>
+            <select
+              value={serviceId}
+              onChange={(event) => {
+                setServiceId(event.target.value);
+                setSelectedDayIdx(0);
+                setSelectedISO("");
+              }}
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+            >
+              {services.map((service) => (
+                <option key={service.id} value={service.id}>
+                  {service.title} · {service.durationMin} min
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {days.length === 0 ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            No hay horarios disponibles en los próximos 14 días para este servicio.
+          </div>
+        ) : (
           <>
             <div className="flex gap-2 overflow-x-auto pb-1">
               {days.map((dayItem, index) => (
@@ -148,22 +160,21 @@ export default function RescheduleAppointmentModal({ appointment, onClose }) {
                 })}
               </div>
             )}
-
-            {selectedISO && (
-              <div className="rounded-xl border-l-4 border-blue-600 bg-slate-50 px-4 py-2 text-sm text-slate-800">
-                Nuevo horario: <strong>{formatSelectedLabel(new Date(selectedISO))}</strong>
-              </div>
-            )}
-
-            <RecurrenceFields
-              recurrenceRule={recurrenceRule}
-              recurrenceCount={recurrenceCount}
-              onRuleChange={setRecurrenceRule}
-              onCountChange={setRecurrenceCount}
-              compact
-            />
           </>
         )}
+
+        {selectedISO && (
+          <div className="rounded-xl border-l-4 border-blue-600 bg-slate-50 px-4 py-2 text-sm text-slate-800">
+            Horario elegido: <strong>{formatSelectedLabel(new Date(selectedISO))}</strong>
+          </div>
+        )}
+
+        <RecurrenceFields
+          recurrenceRule={recurrenceRule}
+          recurrenceCount={recurrenceCount}
+          onRuleChange={setRecurrenceRule}
+          onCountChange={setRecurrenceCount}
+        />
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -172,14 +183,14 @@ export default function RescheduleAppointmentModal({ appointment, onClose }) {
             onClick={onClose}
             className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-100"
           >
-            Volver
+            Cancelar
           </button>
           <button
             onClick={handleConfirm}
-            disabled={isPending || !selectedISO}
+            disabled={isPending || !selectedISO || !patientId || !serviceId}
             className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
           >
-            {isPending ? "Guardando..." : "Confirmar reagendamiento"}
+            {isPending ? "Creando..." : "Crear cita"}
           </button>
         </div>
       </div>

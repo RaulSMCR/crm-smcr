@@ -14,15 +14,26 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_
  * @param {Date|string} opts.sendAt - Momento en que debe enviarse
  */
 export async function scheduleReminder({ appointmentId, type, sendAt }) {
-  if (!process.env.QSTASH_TOKEN || !APP_URL) return;
+  if (!process.env.QSTASH_TOKEN || !APP_URL) {
+    console.log(`[QStash] SKIPPED - TOKEN: ${!!process.env.QSTASH_TOKEN}, URL: ${APP_URL}`);
+    return;
+  }
 
   const delaySec = Math.floor((new Date(sendAt).getTime() - Date.now()) / 1000);
-  if (delaySec <= 0) return; // Ya pasó el momento del recordatorio
+  if (delaySec <= 0) {
+    console.log(`[QStash] SKIPPED ${type} - delay negativo: ${delaySec}s`);
+    return;
+  }
 
-  console.log(`[QStash] Scheduling ${type} reminder for appointment ${appointmentId} at ${new Date(sendAt).toISOString()}`);
-  await qstash.publishJSON({
-    url: `${APP_URL}/api/reminders/send`,
-    delay: delaySec,
-    body: { appointmentId, type },
-  });
+  try {
+    console.log(`[QStash] Scheduling ${type} for ${appointmentId} delay: ${delaySec}s URL: ${APP_URL}/api/reminders/send`);
+    const result = await qstash.publishJSON({
+      url: `${APP_URL}/api/reminders/send`,
+      delay: delaySec,
+      body: { appointmentId, type },
+    });
+    console.log(`[QStash] SUCCESS ${type}:`, result);
+  } catch (err) {
+    console.error(`[QStash] ERROR ${type}:`, err);
+  }
 }

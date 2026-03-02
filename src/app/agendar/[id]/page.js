@@ -41,12 +41,25 @@ export default async function AgendarPage({ params, searchParams }) {
   const services = professional.serviceAssignments
     .map((assignment) => {
       if (!assignment.service) return null;
+<<<<<<< ours
+<<<<<<< ours
       const approvedPrice = Number(assignment.approvedSessionPrice);
       return {
         ...assignment.service,
         bookingPrice: Number.isFinite(approvedPrice)
           ? approvedPrice
           : Number(assignment.service.price),
+=======
+=======
+>>>>>>> theirs
+
+      return {
+        ...assignment.service,
+        displayPrice: assignment.approvedSessionPrice ?? assignment.service.price,
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
       };
     })
     .filter(Boolean);
@@ -61,7 +74,17 @@ export default async function AgendarPage({ params, searchParams }) {
   const activeService = selectedService || services[0] || {
     id: null,
     title: "Consulta General", 
+<<<<<<< ours
+<<<<<<< ours
     bookingPrice: 50,
+=======
+    price: 50,
+    displayPrice: 50,
+>>>>>>> theirs
+=======
+    price: 50,
+    displayPrice: 50,
+>>>>>>> theirs
   };
 
   return (
@@ -95,13 +118,18 @@ export default async function AgendarPage({ params, searchParams }) {
 
             {/* Tarjeta de Garantía / Confianza */}
             <div className="bg-blue-50 rounded-xl p-5 border border-blue-100">
-                <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                <h4 className="font-semibold text-accent-600 mb-2 flex items-center gap-2">
                     🛡️ Reserva Segura
                 </h4>
-                <ul className="text-sm text-blue-800 space-y-2">
+                <ul className="text-sm text-accent-600 space-y-2">
                     <li>✓ Confirmación inmediata</li>
                     <li>✓ Recordatorios por email</li>
-                    <li>✓ Cancelación flexible</li>
+                    <li>
+                      ✓ Cancelación sin costo hasta 24 horas antes de la cita
+                      <p className="text-xs text-white mt-1">
+                        Se debe tener en cuenta que en caso de cancelación dentro de las 24 horas anteriores a la cita se cobrará un 50% del valor de la consulta.
+                      </p>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -110,7 +138,15 @@ export default async function AgendarPage({ params, searchParams }) {
         <div className="md:col-span-7 lg:col-span-8">
             <BookingInterface 
                 professionalId={professional.id}
+<<<<<<< ours
+<<<<<<< ours
                 servicePrice={Number(activeService.bookingPrice)}
+=======
+                servicePrice={Number(activeService.displayPrice)}
+>>>>>>> theirs
+=======
+                servicePrice={Number(activeService.displayPrice)}
+>>>>>>> theirs
                 serviceTitle={activeService.title}
                 serviceId={activeService.id}
             />
