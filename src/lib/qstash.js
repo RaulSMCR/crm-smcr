@@ -4,7 +4,7 @@ const qstash = new Client({
   token: process.env.QSTASH_TOKEN,
 });
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || process.env.APP_URL;
+const APP_URL = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://crm-smcr.vercel.app";
 
 /**
  * Programa un recordatorio de cita vía QStash.
