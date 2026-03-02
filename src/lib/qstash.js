@@ -19,6 +19,7 @@ export async function scheduleReminder({ appointmentId, type, sendAt }) {
   const delaySec = Math.floor((new Date(sendAt).getTime() - Date.now()) / 1000);
   if (delaySec <= 0) return; // Ya pasó el momento del recordatorio
 
+  console.log(`[QStash] Scheduling ${type} reminder for appointment ${appointmentId} at ${new Date(sendAt).toISOString()}`);
   await qstash.publishJSON({
     url: `${APP_URL}/api/reminders/send`,
     delay: delaySec,
