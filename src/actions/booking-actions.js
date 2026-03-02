@@ -1,26 +1,108 @@
-//src/actions/booking-actions.js
 'use server'
 
 import { prisma } from "@/lib/prisma";
 import { startOfDay, endOfDay, addMinutes, format, parse, isBefore } from "date-fns";
 import { fromZonedTime } from "date-fns-tz";
-import { getSession } from "@/lib/auth"; // <--- 1. CORRECCIÓN IMPORT
+import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { sendAppointmentNotifications, syncGoogleCalendarEvent } from "@/lib/appointments";
 import { scheduleReminder } from "@/lib/qstash";
+import {
+  buildRecurringStarts,
+  normalizeRecurrenceCount,
+  normalizeRecurrenceRule,
+  RECURRENCE_RULES,
+} from "@/lib/appointment-recurrence";
 
-/**
- * Calcula los slots disponibles
- */
+const CANCELLED_STATUSES = ['CANCELLED_BY_USER', 'CANCELLED_BY_PRO'];
+
+function buildOccurrenceEnds(starts, durationMin) {
+  return starts.map((start) => new Date(start.getTime() + durationMin * 60000));
+}
+
+function formatConflictDate(date) {
+  return new Intl.DateTimeFormat("es-CR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+async function findRecurringConflict({ professionalId, starts, ends }) {
+  if (!starts.length) return null;
+
+  const minStart = starts.reduce((min, current) => (current < min ? current : min), starts[0]);
+  const maxEnd = ends.reduce((max, current) => (current > max ? current : max), ends[0]);
+
+  const existingAppointments = await prisma.appointment.findMany({
+    where: {
+      professionalId,
+      status: { notIn: CANCELLED_STATUSES },
+      date: { lt: maxEnd },
+      endDate: { gt: minStart },
+    },
+    select: { date: true, endDate: true },
+  });
+
+  for (let index = 0; index < starts.length; index += 1) {
+    const start = starts[index];
+    const end = ends[index];
+    const hasConflict = existingAppointments.some(
+      (appointment) => appointment.date < end && appointment.endDate > start
+    );
+
+    if (hasConflict) {
+      return `Hay un conflicto en ${formatConflictDate(start)}. Ajusta la recurrencia e intenta nuevamente.`;
+    }
+  }
+
+  return null;
+}
+
+async function hydrateAppointments(appointmentIds) {
+  if (!appointmentIds.length) return [];
+
+  return prisma.appointment.findMany({
+    where: { id: { in: appointmentIds } },
+    include: {
+      patient: { select: { name: true, email: true } },
+      professional: {
+        select: {
+          id: true,
+          googleRefreshToken: true,
+          user: { select: { name: true, email: true } },
+        },
+      },
+      service: { select: { title: true } },
+    },
+    orderBy: { date: "asc" },
+  });
+}
+
+async function notifyAppointments(appointments, reason) {
+  await Promise.allSettled(
+    appointments.flatMap((appointment) => {
+      const appointmentMs = appointment.date.getTime();
+      return [
+        syncGoogleCalendarEvent(appointment),
+        sendAppointmentNotifications(appointment, reason),
+        scheduleReminder({ appointmentId: appointment.id, type: "24h", sendAt: new Date(appointmentMs - 24 * 60 * 60 * 1000) }),
+        scheduleReminder({ appointmentId: appointment.id, type: "1h", sendAt: new Date(appointmentMs - 60 * 60 * 1000) }),
+      ];
+    })
+  );
+}
+
 export async function getAvailableSlots(professionalId, dateString, durationMin = 60) {
   try {
     const searchDate = new Date(dateString + "T00:00:00");
-    const dayOfWeek = searchDate.getDay(); 
+    const dayOfWeek = searchDate.getDay();
 
-    // A. Disponibilidad base (ProfessionalProfile -> Availability)
     const availability = await prisma.availability.findMany({
       where: {
-        professionalId, // ID del Perfil
+        professionalId,
         dayOfWeek: dayOfWeek
       },
       orderBy: { startTime: 'asc' }
@@ -30,11 +112,10 @@ export async function getAvailableSlots(professionalId, dateString, durationMin 
       return { success: true, slots: [] };
     }
 
-    // B. Citas ocupadas (ProfessionalProfile -> Appointment)
     const appointments = await prisma.appointment.findMany({
       where: {
         professionalId,
-        status: { notIn: ['CANCELLED_BY_USER', 'CANCELLED_BY_PRO'] }, // Ignoramos canceladas
+        status: { notIn: CANCELLED_STATUSES },
         date: {
           gte: startOfDay(searchDate),
           lte: endOfDay(searchDate)
@@ -43,9 +124,8 @@ export async function getAvailableSlots(professionalId, dateString, durationMin 
       select: { date: true, endDate: true }
     });
 
-    // C. Generación de Slots
     let freeSlots = [];
-    const now = new Date(); 
+    const now = new Date();
 
     for (const block of availability) {
       let currentSlot = parse(`${dateString}T${block.startTime}`, "yyyy-MM-dd'T'HH:mm", new Date());
@@ -54,15 +134,13 @@ export async function getAvailableSlots(professionalId, dateString, durationMin 
       while (isBefore(addMinutes(currentSlot, durationMin), addMinutes(blockEnd, 1))) {
         const slotEnd = addMinutes(currentSlot, durationMin);
 
-        // Pasado
         if (isBefore(currentSlot, now)) {
-            currentSlot = slotEnd;
-            continue;
+          currentSlot = slotEnd;
+          continue;
         }
 
-        // Colisión
         const isOccupied = appointments.some(app => {
-            return (currentSlot < app.endDate) && (slotEnd > app.date);
+          return (currentSlot < app.endDate) && (slotEnd > app.date);
         });
 
         if (!isOccupied) {
@@ -82,21 +160,22 @@ export async function getAvailableSlots(professionalId, dateString, durationMin 
   }
 }
 
-/**
- * SOLICITAR CITA
- */
-export async function requestAppointment(professionalId, dateString, timeString, serviceId) {
-  // 1. Verificar Sesión
+export async function requestAppointment(
+  professionalId,
+  dateString,
+  timeString,
+  serviceId,
+  recurrenceRule,
+  recurrenceCount
+) {
   const session = await getSession();
-  
-  // Usamos 'sub' que es el ID del usuario en nuestro JWT estándar
+
   if (!session || !session.sub) {
     return { error: "Debes iniciar sesión para agendar.", errorCode: "UNAUTHENTICATED" };
   }
 
   try {
-    // 2. Calcular duración y precio aprobados
-    let duration = 60; // Default
+    let duration = 60;
     let pricePaid = null;
 
     if (serviceId) {
@@ -130,68 +209,54 @@ export async function requestAppointment(professionalId, dateString, timeString,
 
     const dateTimeString = `${dateString}T${timeString}:00`;
     const localDateTime = parse(dateTimeString, "yyyy-MM-dd'T'HH:mm:ss", new Date());
-    const costaRicaTimeZone = 'America/Costa_Rica';
-    const startDateTime = fromZonedTime(localDateTime, costaRicaTimeZone);
-    const endDateTime = new Date(startDateTime.getTime() + duration * 60000); 
+    const startDateTime = fromZonedTime(localDateTime, 'America/Costa_Rica');
+    const rule = normalizeRecurrenceRule(recurrenceRule);
+    const count = rule === RECURRENCE_RULES.NONE ? 1 : normalizeRecurrenceCount(recurrenceCount);
+    const starts = buildRecurringStarts(startDateTime, rule, count);
+    const ends = buildOccurrenceEnds(starts, duration);
 
-    // 3. Race Condition Check
-    const conflict = await prisma.appointment.findFirst({
-      where: {
-        professionalId,
-        status: { notIn: ['CANCELLED_BY_USER', 'CANCELLED_BY_PRO'] },
-        OR: [
-          { date: { lte: startDateTime }, endDate: { gt: startDateTime } },
-          { date: { lt: endDateTime }, endDate: { gte: endDateTime } }
-        ]
-      }
-    });
-
-    if (conflict) {
-      return { error: "Lo sentimos, este horario acaba de ser ocupado." };
+    if (starts.some((start) => start <= new Date())) {
+      return { error: "Uno de los horarios de la serie ya pasó." };
     }
 
-    // 4. Crear Cita (CORRECCIÓN DE SCHEMA)
-    const appointment = await prisma.appointment.create({
-      data: {
-        date: startDateTime,
-        endDate: endDateTime,
-        status: 'PENDING',
-        patientId: session.sub,
-        professionalId: professionalId,
-        serviceId: serviceId || undefined,
-        pricePaid,
-      }
+    const conflictError = await findRecurringConflict({
+      professionalId,
+      starts,
+      ends,
     });
 
-    const fullAppointment = await prisma.appointment.findUnique({
-      where: { id: appointment.id },
-      include: {
-        patient: { select: { name: true, email: true } },
-        professional: {
-          select: {
-            id: true,
-            googleRefreshToken: true,
-            user: { select: { name: true, email: true } },
+    if (conflictError) {
+      return { error: conflictError };
+    }
+
+    const createdAppointments = await prisma.$transaction(
+      starts.map((start, index) =>
+        prisma.appointment.create({
+          data: {
+            date: start,
+            endDate: ends[index],
+            status: 'PENDING',
+            patientId: session.sub,
+            professionalId: professionalId,
+            serviceId: serviceId || undefined,
+            pricePaid,
           },
-        },
-        service: { select: { title: true } },
-      },
-    });
+          select: { id: true }
+        })
+      )
+    );
 
-    if (fullAppointment) {
-      const apptMs = fullAppointment.date.getTime();
-      await Promise.allSettled([
-        syncGoogleCalendarEvent(fullAppointment),
-        sendAppointmentNotifications(fullAppointment, "Se creó una nueva cita en estado pendiente."),
-        scheduleReminder({ appointmentId: fullAppointment.id, type: "24h", sendAt: new Date(apptMs - 24 * 60 * 60 * 1000) }),
-        scheduleReminder({ appointmentId: fullAppointment.id, type: "1h", sendAt: new Date(apptMs - 60 * 60 * 1000) }),
-      ]);
-    }
+    const hydratedAppointments = await hydrateAppointments(createdAppointments.map((item) => item.id));
+    await notifyAppointments(hydratedAppointments, "Se creó una nueva cita en estado pendiente.");
 
     revalidatePath(`/agendar/${professionalId}`);
     revalidatePath('/panel/paciente');
-    
-    return { success: true, appointmentId: appointment.id };
+
+    return {
+      success: true,
+      appointmentId: hydratedAppointments[0]?.id || null,
+      createdCount: hydratedAppointments.length,
+    };
 
   } catch (error) {
     console.error("Error creating appointment:", error);

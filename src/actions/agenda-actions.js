@@ -347,6 +347,96 @@ export async function rescheduleAppointmentByProfessional(
   }
 }
 
+export async function confirmAppointmentByProfessional(
+  appointmentId,
+  recurrenceRule,
+  recurrenceCount
+) {
+  try {
+    const professionalId = await requireProfessionalProfileId();
+    const id = toStr(appointmentId);
+    const rule = normalizeRecurrenceRule(recurrenceRule);
+    const count = rule === RECURRENCE_RULES.NONE ? 1 : normalizeRecurrenceCount(recurrenceCount);
+
+    if (!id) return { success: false, error: "ID inválido." };
+
+    const appointment = await prisma.appointment.findUnique({
+      where: { id },
+      include: {
+        service: { select: { durationMin: true } },
+      },
+    });
+
+    if (!appointment) return { success: false, error: "Cita no encontrada." };
+    if (appointment.professionalId !== professionalId) {
+      return { success: false, error: "No puedes modificar citas de otro profesional." };
+    }
+    if (appointment.status !== "PENDING") {
+      return { success: false, error: "Solo puedes confirmar citas pendientes." };
+    }
+
+    const durationMin =
+      appointment.service?.durationMin ??
+      Math.max(1, Math.round((new Date(appointment.endDate) - new Date(appointment.date)) / 60000));
+
+    const starts = buildRecurringStarts(new Date(appointment.date), rule, count);
+    const ends = buildOccurrenceEnds(starts, durationMin);
+
+    const conflictError = await findRecurringConflict({
+      professionalId,
+      starts,
+      ends,
+      ignoreAppointmentId: id,
+    });
+
+    if (conflictError) return { success: false, error: conflictError };
+
+    const extraStarts = starts.slice(1);
+    const extraEnds = ends.slice(1);
+
+    const changedAppointments = await prisma.$transaction(async (tx) => {
+      const updatedAppointment = await tx.appointment.update({
+        where: { id },
+        data: {
+          status: "CONFIRMED",
+          date: starts[0],
+          endDate: ends[0],
+        },
+        select: { id: true },
+      });
+
+      const createdAppointments = [];
+      for (let index = 0; index < extraStarts.length; index += 1) {
+        const createdAppointment = await tx.appointment.create({
+          data: {
+            patientId: appointment.patientId,
+            professionalId: appointment.professionalId,
+            serviceId: appointment.serviceId || undefined,
+            date: extraStarts[index],
+            endDate: extraEnds[index],
+            status: "CONFIRMED",
+            paymentStatus: appointment.paymentStatus,
+            pricePaid: appointment.pricePaid,
+          },
+          select: { id: true },
+        });
+        createdAppointments.push(createdAppointment);
+      }
+
+      return [updatedAppointment, ...createdAppointments];
+    });
+
+    const hydratedAppointments = await hydrateAppointments(changedAppointments.map((item) => item.id));
+    await notifyAppointments(hydratedAppointments, "La cita fue confirmada por el profesional.");
+    revalidateAgendaPaths();
+
+    return { success: true, createdCount: hydratedAppointments.length };
+  } catch (error) {
+    console.error("confirmAppointmentByProfessional error:", error);
+    return { success: false, error: "Error interno al confirmar cita." };
+  }
+}
+
 export async function updateAppointmentStatus(appointmentId, newStatus) {
   try {
     const professionalId = await requireProfessionalProfileId();

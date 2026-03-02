@@ -7,6 +7,7 @@ import { updateAppointmentStatus, cancelAppointmentByProfessional } from '@/acti
 import CancelAppointmentModal from './appointments/CancelAppointmentModal';
 import ProfessionalRescheduleModal from './appointments/ProfessionalRescheduleModal';
 import CreateProfessionalAppointmentModal from './appointments/CreateProfessionalAppointmentModal';
+import AcceptRecurringAppointmentModal from './appointments/AcceptRecurringAppointmentModal';
 
 const formatTimeInTZ = (date) =>
   new Intl.DateTimeFormat('es-CR', {
@@ -29,6 +30,7 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
   const [cancelingApt, setCancelingApt] = useState(null);
   const [reschedulingApt, setReschedulingApt] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [acceptingApt, setAcceptingApt] = useState(null);
 
   const handleStatusChange = async (id, newStatus) => {
     if (!confirm('¿Confirmas el cambio de estado de esta cita?')) return;
@@ -133,7 +135,7 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
                     {appointment.status === 'PENDING' && (
                       <>
                         <button
-                          onClick={() => handleStatusChange(appointment.id, 'CONFIRMED')}
+                          onClick={() => setAcceptingApt(appointment)}
                           disabled={loadingId === appointment.id}
                           className="rounded bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700 disabled:opacity-50"
                         >
@@ -203,6 +205,14 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
         <ProfessionalRescheduleModal
           appointment={reschedulingApt}
           onClose={() => setReschedulingApt(null)}
+          onSuccess={() => window.location.reload()}
+        />
+      )}
+
+      {acceptingApt && (
+        <AcceptRecurringAppointmentModal
+          appointment={acceptingApt}
+          onClose={() => setAcceptingApt(null)}
           onSuccess={() => window.location.reload()}
         />
       )}

@@ -1,39 +1,39 @@
-//src/components/booking/BookingInterface.js
-
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation'; // Necesario para redirigir
-import { getAvailableSlots, requestAppointment } from '@/actions/booking-actions'; // Importamos la acción real
+import { useRouter } from 'next/navigation';
+import { getAvailableSlots, requestAppointment } from '@/actions/booking-actions';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { RECURRENCE_RULES } from '@/lib/appointment-recurrence';
+import RecurrenceFields from '@/components/appointments/RecurrenceFields';
 
 export default function BookingInterface({ professionalId, servicePrice, serviceTitle, serviceId }) {
   const router = useRouter();
-  
-  // Estado para fecha seleccionada (inicia mañana)
+
   const [selectedDate, setSelectedDate] = useState(() => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     return tomorrow.toISOString().split('T')[0];
   });
 
-  const [slots, setSlots] = useState([]); // Horarios disponibles
-  const [loading, setLoading] = useState(false); // Cargando slots
-  const [selectedSlot, setSelectedSlot] = useState(null); // Hora elegida
-  const [isBooking, setIsBooking] = useState(false); // Procesando reserva (Spinner)
+  const [slots, setSlots] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [isBooking, setIsBooking] = useState(false);
+  const [recurrenceRule, setRecurrenceRule] = useState(RECURRENCE_RULES.NONE);
+  const [recurrenceCount, setRecurrenceCount] = useState(4);
 
-  // 1. Cargar huecos disponibles cuando cambia la fecha
   useEffect(() => {
     const fetchSlots = async () => {
       setLoading(true);
       setSlots([]);
       setSelectedSlot(null);
-      
-      const res = await getAvailableSlots(professionalId, selectedDate);
-      
-      if (res.success) {
-        setSlots(res.slots);
+
+      const result = await getAvailableSlots(professionalId, selectedDate);
+
+      if (result.success) {
+        setSlots(result.slots);
       }
       setLoading(false);
     };
@@ -41,99 +41,85 @@ export default function BookingInterface({ professionalId, servicePrice, service
     if (selectedDate) fetchSlots();
   }, [selectedDate, professionalId]);
 
-  // 2. Manejar la reserva real en Base de Datos
   const handleBooking = async () => {
     if (!selectedSlot) return;
     setIsBooking(true);
 
     const result = await requestAppointment(
-      professionalId, 
-      selectedDate, 
-      selectedSlot, 
-      serviceId
+      professionalId,
+      selectedDate,
+      selectedSlot,
+      serviceId,
+      recurrenceRule,
+      recurrenceCount
     );
 
     if (result.success) {
-      // Éxito: Redirigir al panel del paciente
-      router.push('/panel/paciente?new_appointment=true');
+      router.push(`/panel/paciente?new_appointment=true&series=${result.createdCount || 1}`);
+    } else if (result.errorCode === 'UNAUTHENTICATED') {
+      const callbackUrl = encodeURIComponent(`/agendar/${professionalId}`);
+      router.push(`/ingresar?callbackUrl=${callbackUrl}`);
     } else {
-      // Error
-      if (result.errorCode === 'UNAUTHENTICATED') {
-        // Si no está logueado, lo mandamos al login y luego lo devolvemos aquí
-        const callbackUrl = encodeURIComponent(`/agendar/${professionalId}`);
-        router.push(`/ingresar?callbackUrl=${callbackUrl}`);
-      } else {
-        alert("❌ " + result.error);
-        // Si el horario se ocupó mientras elegía, refrescamos
-        if (result.error && result.error.includes('ocupado')) {
-           setSelectedSlot(null);
-           // Podríamos recargar los slots aquí si quisiéramos
-        }
+      alert(`Error: ${result.error}`);
+      if (result.error && result.error.includes('ocup')) {
+        setSelectedSlot(null);
       }
     }
+
     setIsBooking(false);
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-      
-      {/* Cabecera del Servicio */}
+    <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg">
       <div className="bg-gray-900 p-6 text-white">
-        <h3 className="text-lg font-semibold opacity-90">Agendar Cita</h3>
-        <div className="flex justify-between items-end mt-2">
-            <div>
-                <p className="font-bold text-2xl">{serviceTitle}</p>
-                <p className="text-sm opacity-70">Duración: 60 min</p>
-            </div>
-            <div className="text-right">
-                <span className="block text-xl font-bold">₡{Number(servicePrice).toLocaleString('es-CR')}</span>
-            </div>
+        <h3 className="text-lg font-semibold opacity-90">Agendar cita</h3>
+        <div className="mt-2 flex items-end justify-between">
+          <div>
+            <p className="text-2xl font-bold">{serviceTitle}</p>
+            <p className="text-sm opacity-70">Duración: 60 min</p>
+          </div>
+          <div className="text-right">
+            <span className="block text-xl font-bold">₡{Number(servicePrice).toLocaleString('es-CR')}</span>
+          </div>
         </div>
       </div>
 
-      <div className="p-6 space-y-6">
-        
-        {/* PASO 1: Selector de Fecha */}
+      <div className="space-y-6 p-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            1. Selecciona el día
-          </label>
-          <input 
-            type="date" 
+          <label className="mb-2 block text-sm font-medium text-gray-700">1. Selecciona el día</label>
+          <input
+            type="date"
             value={selectedDate}
             min={new Date().toISOString().split('T')[0]}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+            onChange={(event) => setSelectedDate(event.target.value)}
+            className="w-full rounded-lg border border-gray-300 p-3 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
           />
-          <p className="text-xs text-gray-500 mt-2 capitalize">
-            {selectedDate && format(new Date(selectedDate + 'T00:00:00'), "EEEE d 'de' MMMM, yyyy", { locale: es })}
+          <p className="mt-2 text-xs capitalize text-gray-500">
+            {selectedDate && format(new Date(`${selectedDate}T00:00:00`), "EEEE d 'de' MMMM, yyyy", { locale: es })}
           </p>
         </div>
 
-        {/* PASO 2: Grilla de Horarios */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            2. Horarios Disponibles
-          </label>
-          <p className="text-xs text-gray-500 mb-3">
-            Todos los horarios están expresados en hora de Costa Rica; si usted se encuentra en otro huso horario, tenga en cuenta la diferencia de hora.
+          <label className="mb-2 block text-sm font-medium text-gray-700">2. Horarios disponibles</label>
+          <p className="mb-3 text-xs text-gray-500">
+            Todos los horarios están expresados en hora de Costa Rica; si estás en otro huso horario, tenlo en cuenta.
           </p>
-          
+
           {loading ? (
-            <div className="py-8 text-center text-gray-400 animate-pulse flex flex-col items-center">
-              <span className="h-4 w-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin mb-2"></span>
+            <div className="flex flex-col items-center py-8 text-center text-gray-400 animate-pulse">
+              <span className="mb-2 h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent"></span>
               Buscando espacios libres...
             </div>
           ) : slots.length > 0 ? (
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
               {slots.map((time) => (
                 <button
                   key={time}
                   onClick={() => setSelectedSlot(time)}
-                  className={`py-2 px-1 rounded-lg text-sm font-medium transition-all border ${
+                  className={`rounded-lg border px-1 py-2 text-sm font-medium transition-all ${
                     selectedSlot === time
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
-                      : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                      ? 'scale-105 border-blue-600 bg-blue-600 text-white shadow-md'
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50'
                   }`}
                 >
                   {time}
@@ -141,35 +127,45 @@ export default function BookingInterface({ professionalId, servicePrice, service
               ))}
             </div>
           ) : (
-            <div className="py-8 text-center bg-gray-50 rounded-lg border border-dashed border-gray-300">
-              <p className="text-gray-500 text-sm">No hay horarios disponibles.</p>
-              <p className="text-xs text-gray-400 mt-1">Prueba seleccionando otro día.</p>
+            <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 py-8 text-center">
+              <p className="text-sm text-gray-500">No hay horarios disponibles.</p>
+              <p className="mt-1 text-xs text-gray-400">Prueba seleccionando otro día.</p>
             </div>
           )}
         </div>
 
-        {/* PASO 3: Botón de Acción */}
-        <div className="pt-4 border-t border-gray-100">
+        <div>
+          <label className="mb-2 block text-sm font-medium text-gray-700">3. Repetición de la cita</label>
+          <RecurrenceFields
+            recurrenceRule={recurrenceRule}
+            recurrenceCount={recurrenceCount}
+            onRuleChange={setRecurrenceRule}
+            onCountChange={setRecurrenceCount}
+            compact
+          />
+        </div>
+
+        <div className="border-t border-gray-100 pt-4">
           <button
             disabled={!selectedSlot || isBooking}
             onClick={handleBooking}
-            className="w-full py-4 rounded-xl font-bold text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-green-900/20 flex justify-center items-center gap-2"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 py-4 text-lg font-bold text-white shadow-lg transition-all hover:bg-green-700 hover:shadow-green-900/20 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isBooking ? (
-               <>
-                 <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
-                 Procesando...
-               </>
+              <>
+                <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                Procesando...
+              </>
             ) : selectedSlot ? (
-               `Solicitar Reserva (${selectedSlot})`
+              `Solicitar reserva (${selectedSlot})`
             ) : (
-               'Selecciona un horario'
+              'Selecciona un horario'
             )}
           </button>
-          
+
           {selectedSlot && (
-            <p className="text-center text-xs text-gray-500 mt-3 animate-fadeIn">
-              * La cita quedará pendiente de confirmación por el profesional.
+            <p className="mt-3 text-center text-xs text-gray-500">
+              La cita quedará pendiente de confirmación por el profesional.
             </p>
           )}
         </div>
