@@ -7,6 +7,7 @@ import { fromZonedTime } from "date-fns-tz";
 import { getSession } from "@/lib/auth"; // <--- 1. CORRECCIÓN IMPORT
 import { revalidatePath } from "next/cache";
 import { sendAppointmentNotifications, syncGoogleCalendarEvent } from "@/lib/appointments";
+import { scheduleReminder } from "@/lib/qstash";
 
 /**
  * Calcula los slots disponibles
@@ -178,9 +179,12 @@ export async function requestAppointment(professionalId, dateString, timeString,
     });
 
     if (fullAppointment) {
+      const apptMs = fullAppointment.date.getTime();
       await Promise.allSettled([
         syncGoogleCalendarEvent(fullAppointment),
         sendAppointmentNotifications(fullAppointment, "Se creó una nueva cita en estado pendiente."),
+        scheduleReminder({ appointmentId: fullAppointment.id, type: "24h", sendAt: new Date(apptMs - 24 * 60 * 60 * 1000) }),
+        scheduleReminder({ appointmentId: fullAppointment.id, type: "1h", sendAt: new Date(apptMs - 60 * 60 * 1000) }),
       ]);
     }
 

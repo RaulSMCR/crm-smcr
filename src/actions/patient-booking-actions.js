@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/actions/auth-actions";
 import { sendAppointmentNotifications, syncGoogleCalendarEvent } from "@/lib/appointments";
+import { scheduleReminder } from "@/lib/qstash";
 
 export async function createAppointmentForPatient({ professionalId, serviceId, startISO }) {
   try {
@@ -84,9 +85,12 @@ export async function createAppointmentForPatient({ professionalId, serviceId, s
       },
     });
 
+    const apptMs = appt.date.getTime();
     await Promise.allSettled([
       syncGoogleCalendarEvent(appt),
       sendAppointmentNotifications(appt, "Se creó una nueva cita en estado pendiente."),
+      scheduleReminder({ appointmentId: appt.id, type: "24h", sendAt: new Date(apptMs - 24 * 60 * 60 * 1000) }),
+      scheduleReminder({ appointmentId: appt.id, type: "1h", sendAt: new Date(apptMs - 60 * 60 * 1000) }),
     ]);
 
     revalidatePath("/panel/paciente");
@@ -266,9 +270,12 @@ export async function rescheduleAppointmentByPatient(appointmentId, newStartISO)
     },
   });
 
+  const updatedMs = updated.date.getTime();
   await Promise.allSettled([
     syncGoogleCalendarEvent(updated),
     sendAppointmentNotifications(updated, "La cita fue reagendada por el paciente."),
+    scheduleReminder({ appointmentId: updated.id, type: "24h", sendAt: new Date(updatedMs - 24 * 60 * 60 * 1000) }),
+    scheduleReminder({ appointmentId: updated.id, type: "1h", sendAt: new Date(updatedMs - 60 * 60 * 1000) }),
   ]);
 
   revalidatePath("/panel/paciente");
