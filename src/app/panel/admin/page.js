@@ -32,7 +32,7 @@ export default async function AdminDashboard() {
   };
 
   // 2. Obtener Datos Clave (sin usar User.isApproved porque ya no existe)
-  const [pendingCount, postsPendingCount, servicesCount, professionalsCount, pendingUsers] =
+  const [pendingCount, postsPendingCount, servicesCount, professionalsCount, activeAppointmentsCount, pendingUsers] =
     await Promise.all([
       // A. Profesionales pendientes de aprobación
       prisma.user.count({ where: wherePendingProsUsers }),
@@ -46,7 +46,10 @@ export default async function AdminDashboard() {
       // D. Profesionales activos/aprobados
       prisma.user.count({ where: whereApprovedProsUsers }),
 
-      // E. Lista de usuarios pendientes (incluye el perfil)
+      // E. Citas activas (pendientes + confirmadas)
+      prisma.appointment.count({ where: { status: { in: ["PENDING", "CONFIRMED"] } } }),
+
+      // F. Lista de usuarios pendientes (incluye el perfil)
       prisma.user.findMany({
         where: wherePendingProsUsers,
         include: { professionalProfile: true },
@@ -70,8 +73,8 @@ export default async function AdminDashboard() {
           </span>
         </div>
 
-        {/* CENTRO DE COMANDO (GRID DE 4 MÓDULOS) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* CENTRO DE COMANDO (GRID DE MÓDULOS) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
           {/* 1. SERVICIOS */}
           <Link
             href="/panel/admin/servicios"
@@ -157,6 +160,28 @@ export default async function AdminDashboard() {
               Contabilidad
             </h3>
             <p className="text-xs text-slate-500 mt-1">Ingresos y reportes.</p>
+          </Link>
+
+          {/* 5. CITAS */}
+          <Link
+            href="/panel/admin/citas"
+            className="group bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:border-indigo-400 hover:shadow-md transition-all relative overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 text-6xl text-indigo-500">
+              📅
+            </div>
+            <div className="flex justify-between items-start mb-4">
+              <div className="h-12 w-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-2xl">
+                📅
+              </div>
+              <span className="bg-indigo-100 text-indigo-800 text-xs font-bold px-2 py-1 rounded-full">
+                {activeAppointmentsCount}
+              </span>
+            </div>
+            <h3 className="font-bold text-slate-800 group-hover:text-indigo-600">
+              Citas
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">Gestión y seguimiento de agenda.</p>
           </Link>
         </div>
 
