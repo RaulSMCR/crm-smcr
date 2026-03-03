@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/actions/auth-actions";
+import AdminApproveButton from "@/components/AdminApproveButton";
 
 export const dynamic = "force-dynamic";
 
@@ -73,7 +74,7 @@ export default async function AdminPersonalPage() {
                     {p.specialty} · {p.user?.email} · {p.user?.phone}
                   </div>
 
-                  <div className="mt-3 flex gap-2 items-center">
+                  <div className="mt-3 flex gap-2 items-center flex-wrap">
                     <span
                       className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${
                         p.isApproved
@@ -97,6 +98,14 @@ export default async function AdminPersonalPage() {
                     <span className="text-xs text-slate-500">
                       Servicios aprobados: <b>{approvedServices.length}</b>
                     </span>
+
+                    {!p.isApproved && (
+                      <AdminApproveButton
+                        endpoint={`/api/admin/professionals/${p.id}/approve`}
+                        label="Aprobar"
+                        className="ml-2"
+                      />
+                    )}
                   </div>
                 </div>
 

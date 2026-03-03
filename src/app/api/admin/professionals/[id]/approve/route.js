@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -25,9 +26,19 @@ export async function POST(_request, { params }) {
       select: {
         id: true,
         isApproved: true,
-        user: { select: { name: true, email: true } },
+        user: { select: { id: true, name: true, email: true } },
       },
     });
+
+    // Activar cuenta de usuario si estaba inactiva
+    await prisma.user.update({
+      where: { id: updated.user.id },
+      data: { isActive: true },
+    });
+
+    revalidatePath("/panel/admin/personal");
+    revalidatePath("/admin/professionals");
+    revalidatePath("/servicios");
 
     return NextResponse.json({
       id: updated.id,

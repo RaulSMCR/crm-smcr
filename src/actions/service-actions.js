@@ -105,22 +105,14 @@ export async function syncServiceAssignments(serviceId, professionalIds = []) {
       Boolean,
     );
 
-    const [approvedProfessionals, service] = await Promise.all([
-      prisma.professionalProfile.findMany({
-        where: {
-          id: { in: requestedIds },
-          isApproved: true,
-          user: { isActive: true },
-        },
-        select: { id: true },
-      }),
-      prisma.service.findUnique({
-        where: { id: sid },
-        select: { price: true },
-      }),
-    ]);
-
-    if (!service) return { error: "Servicio no encontrado." };
+    const approvedProfessionals = await prisma.professionalProfile.findMany({
+      where: {
+        id: { in: requestedIds },
+        isApproved: true,
+        user: { isActive: true },
+      },
+      select: { id: true },
+    });
 
     const validIds = approvedProfessionals.map((p) => p.id);
 
@@ -139,12 +131,11 @@ export async function syncServiceAssignments(serviceId, professionalIds = []) {
             serviceId: sid,
             status: "APPROVED",
             reviewedAt: new Date(),
-            approvedSessionPrice: service.price,
+            approvedSessionPrice: null,
           },
           update: {
             status: "APPROVED",
             reviewedAt: new Date(),
-            approvedSessionPrice: service.price,
           },
         }),
       ),
@@ -175,13 +166,6 @@ export async function addProfessionalToService(serviceId, professionalId) {
     const sid = String(serviceId);
     const pid = String(professionalId);
 
-    const service = await prisma.service.findUnique({
-      where: { id: sid },
-      select: { price: true },
-    });
-
-    if (!service) return { error: "Servicio no encontrado." };
-
     await prisma.serviceAssignment.upsert({
       where: { professionalId_serviceId: { professionalId: pid, serviceId: sid } },
       create: {
@@ -189,12 +173,11 @@ export async function addProfessionalToService(serviceId, professionalId) {
         serviceId: sid,
         status: "APPROVED",
         reviewedAt: new Date(),
-        approvedSessionPrice: service.price,
+        approvedSessionPrice: null,
       },
       update: {
         status: "APPROVED",
         reviewedAt: new Date(),
-        approvedSessionPrice: service.price,
       },
     });
 

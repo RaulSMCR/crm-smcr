@@ -11,7 +11,9 @@ export async function generateMetadata({ params }) {
     where: { id },
     select: { title: true, description: true },
   });
+
   if (!service) return { title: "Servicio no encontrado" };
+
   return {
     title: `${service.title} | Salud Mental`,
     description: (service.description || "").substring(0, 160),
@@ -26,7 +28,6 @@ export default async function ServiceDetailPage({ params }) {
       id: true,
       title: true,
       description: true,
-      price: true,
       durationMin: true,
       professionalAssignments: {
         where: {
@@ -56,10 +57,11 @@ export default async function ServiceDetailPage({ params }) {
 
   if (!service) notFound();
 
-  const pros = (service.professionalAssignments || []).map((a) => ({
-    ...a.professional,
-    approvedSessionPrice: a.approvedSessionPrice,
+  const professionals = (service.professionalAssignments || []).map((assignment) => ({
+    ...assignment.professional,
+    approvedSessionPrice: assignment.approvedSessionPrice,
   }));
+
   const minApprovedPrice = (service.professionalAssignments || []).reduce((min, assignment) => {
     const current = Number(assignment?.approvedSessionPrice);
     if (!Number.isFinite(current)) return min;
@@ -67,48 +69,48 @@ export default async function ServiceDetailPage({ params }) {
   }, null);
 
   const priceLabel = Number.isFinite(minApprovedPrice)
-    ? `Desde ₡${minApprovedPrice}`
-    : `Desde ₡${Number(service.price)}`;
+    ? `Desde ₡${minApprovedPrice.toLocaleString("es-CR")}`
+    : "Precio según profesional";
 
   return (
-    <div className="max-w-6xl mx-auto p-6 md:p-10 space-y-8">
+    <div className="mx-auto max-w-6xl space-y-8 p-6 md:p-10">
       <Link href="/servicios" className="text-sm text-slate-600 hover:underline">
         ← Volver a Servicios
       </Link>
 
       <div>
         <h1 className="text-3xl font-bold text-slate-900">{service.title}</h1>
-        <div className="text-sm text-slate-700 mt-3">
+        <div className="mt-3 text-sm text-slate-700">
           ⏱ {service.durationMin} min · {priceLabel}
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 p-6">
+      <div className="rounded-2xl border border-slate-200 bg-white p-6">
         <h2 className="text-xl font-bold text-slate-900">Descripción</h2>
-        <p className="text-slate-700 mt-3">
+        <p className="mt-3 text-slate-700">
           {service.description || "No hay descripción disponible para este servicio."}
         </p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 p-6">
+      <div className="rounded-2xl border border-slate-200 bg-white p-6">
         <h2 className="text-xl font-bold text-slate-900">Profesionales disponibles</h2>
 
-        {pros.length === 0 ? (
+        {professionals.length === 0 ? (
           <p className="mt-3 text-slate-700">Actualmente no hay profesionales asignados a este servicio.</p>
         ) : (
-          <div className="mt-4 grid md:grid-cols-2 gap-4">
-            {pros.map((pro) => (
-              <div key={pro.id} className="rounded-xl border border-slate-200 p-4">
-                <div className="font-semibold text-slate-900">{pro.user?.name}</div>
-                <div className="text-sm text-slate-600">{pro.specialty || "Profesional de Salud"}</div>
-                {pro.bio && <p className="text-sm text-slate-700 mt-3">{pro.bio}</p>}
-                <p className="text-sm font-semibold text-emerald-700 mt-2">
-                  Valor de la cita: ₡{Number(pro.approvedSessionPrice).toLocaleString("es-CR")}
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            {professionals.map((professional) => (
+              <div key={professional.id} className="rounded-xl border border-slate-200 p-4">
+                <div className="font-semibold text-slate-900">{professional.user?.name}</div>
+                <div className="text-sm text-slate-600">{professional.specialty || "Profesional de Salud"}</div>
+                {professional.bio && <p className="mt-3 text-sm text-slate-700">{professional.bio}</p>}
+                <p className="mt-2 text-sm font-semibold text-emerald-700">
+                  Valor de la cita: ₡{Number(professional.approvedSessionPrice).toLocaleString("es-CR")}
                 </p>
 
                 <Link
-                  href={`/agendar/${pro.id}?serviceId=${service.id}`}
-                  className="inline-block mt-4 rounded-xl bg-blue-600 text-white px-4 py-2 font-semibold hover:bg-blue-700"
+                  href={`/agendar/${professional.id}?serviceId=${service.id}`}
+                  className="mt-4 inline-block rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700"
                 >
                   Agendar cita
                 </Link>
