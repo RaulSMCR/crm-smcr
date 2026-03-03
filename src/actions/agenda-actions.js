@@ -556,3 +556,115 @@ export async function cancelAppointmentByProfessional(appointmentId, reason) {
     return { error: "Error interno al cancelar. Intenta nuevamente." };
   }
 }
+
+export async function getFollowUpScheduleData(parentAppointmentId) {
+  try {
+    const professionalId = await requireProfessionalProfileId();
+    const id = toStr(parentAppointmentId);
+
+    const appointment = await prisma.appointment.findUnique({
+      where: { id },
+      include: {
+        service: { select: { durationMin: true, title: true } },
+        patient: { select: { name: true } },
+        professional: {
+          include: {
+            availability: true,
+            appointments: {
+              where: {
+                status: { notIn: CANCELLED_STATUSES },
+                date: { gte: new Date() },
+              },
+              select: { date: true, endDate: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!appointment) return { error: "Cita no encontrada." };
+    if (appointment.professionalId !== professionalId) return { error: "No autorizado." };
+    if (appointment.status !== "COMPLETED") return { error: "Solo se puede agendar seguimiento de citas completadas." };
+
+    return {
+      durationMin: appointment.service?.durationMin ?? 60,
+      availability: appointment.professional.availability,
+      booked: appointment.professional.appointments.map((item) => ({
+        startISO: item.date.toISOString(),
+        endISO: item.endDate.toISOString(),
+      })),
+      patientName: appointment.patient?.name ?? "",
+      serviceName: appointment.service?.title ?? "Consulta",
+    };
+  } catch (error) {
+    console.error("getFollowUpScheduleData error:", error);
+    return { error: "Error interno al cargar disponibilidad." };
+  }
+}
+
+export async function createFollowUpAppointment(parentAppointmentId, startISO) {
+  try {
+    const professionalId = await requireProfessionalProfileId();
+    const id = toStr(parentAppointmentId);
+
+    const parent = await prisma.appointment.findUnique({
+      where: { id },
+      include: { service: { select: { durationMin: true } } },
+    });
+
+    if (!parent) return { error: "Cita padre no encontrada." };
+    if (parent.professionalId !== professionalId) return { error: "No autorizado." };
+    if (parent.status !== "COMPLETED") return { error: "Solo se puede agendar seguimiento de citas completadas." };
+
+    const durationMin = parent.service?.durationMin ?? 60;
+    const newStart = new Date(startISO);
+    const newEnd = new Date(newStart.getTime() + durationMin * 60000);
+
+    if (isNaN(newStart.getTime())) return { error: "Fecha inválida." };
+
+    const conflict = await prisma.appointment.findFirst({
+      where: {
+        professionalId,
+        status: { notIn: CANCELLED_STATUSES },
+        date: { lt: newEnd },
+        endDate: { gt: newStart },
+      },
+    });
+
+    if (conflict) return { error: "Conflicto: ya existe una cita en ese horario." };
+
+    const created = await prisma.appointment.create({
+      data: {
+        date: newStart,
+        endDate: newEnd,
+        status: "PENDING",
+        patientId: parent.patientId,
+        professionalId: parent.professionalId,
+        serviceId: parent.serviceId,
+        parentAppointmentId: id,
+      },
+      include: {
+        patient: { select: { name: true, email: true } },
+        professional: {
+          select: {
+            id: true,
+            googleRefreshToken: true,
+            user: { select: { name: true, email: true } },
+          },
+        },
+        service: { select: { title: true } },
+      },
+    });
+
+    await Promise.allSettled([
+      syncGoogleCalendarEvent(created),
+      sendAppointmentNotifications(created, "Se agendó una cita de seguimiento."),
+    ]);
+
+    revalidateAgendaPaths();
+    return { success: true };
+  } catch (error) {
+    console.error("createFollowUpAppointment error:", error);
+    return { error: "Error interno al agendar el seguimiento." };
+  }
+}

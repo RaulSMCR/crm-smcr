@@ -8,6 +8,7 @@ import CancelAppointmentModal from './appointments/CancelAppointmentModal';
 import ProfessionalRescheduleModal from './appointments/ProfessionalRescheduleModal';
 import CreateProfessionalAppointmentModal from './appointments/CreateProfessionalAppointmentModal';
 import AcceptRecurringAppointmentModal from './appointments/AcceptRecurringAppointmentModal';
+import FollowUpModal from './appointments/FollowUpModal';
 
 const formatTimeInTZ = (date) =>
   new Intl.DateTimeFormat('es-CR', {
@@ -31,6 +32,7 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
   const [reschedulingApt, setReschedulingApt] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [acceptingApt, setAcceptingApt] = useState(null);
+  const [followUpApt, setFollowUpApt] = useState(null);
 
   const handleStatusChange = async (id, newStatus) => {
     if (!confirm('¿Confirmas el cambio de estado de esta cita?')) return;
@@ -121,7 +123,14 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
                     <p className="text-sm text-gray-800">{appointment.service?.title}</p>
                     <span className="text-xs font-bold text-green-600">${Number(appointment.service?.price || 0)}</span>
                   </td>
-                  <td className="px-6 py-4">{getStatusBadge(appointment.status)}</td>
+                  <td className="px-6 py-4">
+                    {getStatusBadge(appointment.status)}
+                    {appointment.parentAppointmentId && (
+                      <span className="ml-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-500">
+                        ↩ Seguimiento
+                      </span>
+                    )}
+                  </td>
                   <td className="space-x-2 px-6 py-4 text-right">
                     {(appointment.status === 'PENDING' || appointment.status === 'CONFIRMED') && isFuture(new Date(appointment.date)) && (
                       <button
@@ -176,6 +185,15 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
                         </button>
                       </>
                     )}
+
+                    {appointment.status === 'COMPLETED' && (
+                      <button
+                        onClick={() => setFollowUpApt(appointment)}
+                        className="rounded bg-indigo-600 px-3 py-1 text-xs text-white hover:bg-indigo-700"
+                      >
+                        Seguimiento
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))
@@ -223,6 +241,14 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
           onCancel={cancelAppointmentByProfessional}
           onClose={() => setCancelingApt(null)}
           role="professional"
+        />
+      )}
+
+      {followUpApt && (
+        <FollowUpModal
+          appointment={followUpApt}
+          onClose={() => setFollowUpApt(null)}
+          onSuccess={() => window.location.reload()}
         />
       )}
     </div>

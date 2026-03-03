@@ -213,6 +213,10 @@ model Appointment {
   canceledBy   String?   // 'PATIENT' | 'PROFESSIONAL' | 'ADMIN'
   canceledAt   DateTime?
 
+  parentAppointmentId String?
+  parentAppointment   Appointment?  @relation("FollowUps", fields: [parentAppointmentId], references: [id], onDelete: SetNull)
+  followUps           Appointment[] @relation("FollowUps")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -221,6 +225,7 @@ model Appointment {
   @@index([professionalId])
   @@index([serviceId])
   @@index([status])
+  @@index([parentAppointmentId])
 }
 
 model Post {

@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -n \"COMPLETED\\\\|updateStatus\\\\|changeStatus\" /c/Users/raulo/OneDrive/Escritorio/crm-smcr/src/actions/*.js)"
+    ]
+  }
+}
