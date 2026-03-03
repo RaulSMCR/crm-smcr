@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useState, useTransition } from "react";
-import { adminUpdateAppointmentStatus } from "@/actions/admin-appointments-actions";
+import { adminUpdateAppointmentStatus, adminRescheduleAppointment } from "@/actions/admin-appointments-actions";
 
 const STATUS_OPTIONS = [
   "PENDING",
@@ -35,14 +35,35 @@ const CANCELED_BY_LABELS = {
   ADMIN: "Admin",
 };
 
+function toDatetimeLocal(date) {
+  const d = new Date(date);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function calcEndTime(datetimeLocal, durationMin) {
+  if (!datetimeLocal || !durationMin) return null;
+  const end = new Date(new Date(datetimeLocal).getTime() + durationMin * 60000);
+  if (isNaN(end.getTime())) return null;
+  return end.toLocaleTimeString("es-CR", { hour: "2-digit", minute: "2-digit" });
+}
+
 export default function AdminAppointmentsManager({ appointments = [] }) {
   const [rows, setRows] = useState(appointments);
   const [isPending, startTransition] = useTransition();
+
+  // Cancel state
   const [pendingCancel, setPendingCancel] = useState(null); // { id, status }
   const [cancelReason, setCancelReason] = useState("");
 
+  // Reschedule state
+  const [pendingReschedule, setPendingReschedule] = useState(null); // { id, durationMin }
+  const [rescheduleDateTime, setRescheduleDateTime] = useState("");
+
+  // ── Cancel handlers ──────────────────────────────────────────────
   const handleStatusChange = (appointmentId, nextStatus) => {
     if (CANCEL_STATUSES.has(nextStatus)) {
+      setPendingReschedule(null);
       setPendingCancel({ id: appointmentId, status: nextStatus });
       setCancelReason("");
       return;
@@ -80,6 +101,35 @@ export default function AdminAppointmentsManager({ appointments = [] }) {
     applyStatusChange(pendingCancel.id, pendingCancel.status, cancelReason.trim());
   };
 
+  // ── Reschedule handlers ──────────────────────────────────────────
+  const openReschedule = (row) => {
+    setPendingCancel(null);
+    setPendingReschedule({ id: row.id, durationMin: row.service?.durationMin ?? 60 });
+    setRescheduleDateTime(toDatetimeLocal(row.date));
+  };
+
+  const handleConfirmReschedule = () => {
+    if (!rescheduleDateTime || !pendingReschedule) return;
+    startTransition(async () => {
+      const result = await adminRescheduleAppointment(pendingReschedule.id, rescheduleDateTime);
+      if (!result?.success) {
+        alert(result?.error || "No se pudo reagendar la cita.");
+        return;
+      }
+      const newStart = new Date(rescheduleDateTime);
+      const newEnd = new Date(newStart.getTime() + pendingReschedule.durationMin * 60000);
+      setRows((prev) =>
+        prev.map((row) =>
+          row.id === pendingReschedule.id
+            ? { ...row, date: newStart.toISOString(), endDate: newEnd.toISOString() }
+            : row
+        )
+      );
+      setPendingReschedule(null);
+      setRescheduleDateTime("");
+    });
+  };
+
   return (
     <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto">
       <table className="min-w-full text-sm">
@@ -92,6 +142,7 @@ export default function AdminAppointmentsManager({ appointments = [] }) {
             <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wide">Estado</th>
             <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wide">Motivo</th>
             <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wide">Cancelado por</th>
+            <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wide">Acciones</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
@@ -134,11 +185,21 @@ export default function AdminAppointmentsManager({ appointments = [] }) {
                     <span className="text-slate-400">—</span>
                   )}
                 </td>
+                <td className="px-4 py-3">
+                  <button
+                    onClick={() => openReschedule(row)}
+                    disabled={isPending}
+                    className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded text-xs font-bold transition disabled:opacity-50"
+                  >
+                    Reagendar
+                  </button>
+                </td>
               </tr>
 
+              {/* Fila inline: cancelación */}
               {pendingCancel?.id === row.id && (
                 <tr className="bg-amber-50">
-                  <td colSpan={7} className="px-4 py-3">
+                  <td colSpan={8} className="px-4 py-3">
                     <div className="flex items-center gap-3 flex-wrap">
                       <span className="text-sm font-medium text-amber-800">
                         Motivo de cancelación:
@@ -170,12 +231,51 @@ export default function AdminAppointmentsManager({ appointments = [] }) {
                   </td>
                 </tr>
               )}
+
+              {/* Fila inline: reagendamiento */}
+              {pendingReschedule?.id === row.id && (
+                <tr className="bg-indigo-50">
+                  <td colSpan={8} className="px-4 py-3">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <span className="text-sm font-medium text-indigo-800">
+                        Nueva fecha y hora:
+                      </span>
+                      <input
+                        type="datetime-local"
+                        value={rescheduleDateTime}
+                        onChange={(e) => setRescheduleDateTime(e.target.value)}
+                        className="rounded-md border border-indigo-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                        autoFocus
+                      />
+                      {rescheduleDateTime && (
+                        <span className="text-xs text-indigo-700 font-medium">
+                          Fin estimado: {calcEndTime(rescheduleDateTime, pendingReschedule.durationMin) || "—"}
+                        </span>
+                      )}
+                      <button
+                        onClick={handleConfirmReschedule}
+                        disabled={!rescheduleDateTime || isPending}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded text-xs font-bold disabled:opacity-50 transition"
+                      >
+                        Confirmar
+                      </button>
+                      <button
+                        onClick={() => { setPendingReschedule(null); setRescheduleDateTime(""); }}
+                        disabled={isPending}
+                        className="bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 px-3 py-1.5 rounded text-xs font-bold transition"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )}
             </Fragment>
           ))}
 
           {rows.length === 0 && (
             <tr>
-              <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
+              <td className="px-4 py-8 text-center text-slate-400" colSpan={8}>
                 No hay citas registradas.
               </td>
             </tr>
