@@ -349,7 +349,7 @@ export async function registerUser(formData) {
 
     if (process.env.RESEND_API_KEY) {
       const { error } = await resend.emails.send({
-        from: "Salud Mental Costa Rica <onboarding@resend.dev>",
+        from: "Salud Mental Costa Rica <no-reply@saludmentalcostarica.com>",
         to: email,
         subject: "Bienvenido a SMCR - Confirma tu cuenta",
         html: `

@@ -51,7 +51,7 @@ export async function approveUser(userId) {
     // 4) Email (opcional)
     if (process.env.RESEND_API_KEY && user.email) {
       await resend.emails.send({
-        from: "Salud Mental Costa Rica <onboarding@resend.dev>",
+        from: "Salud Mental Costa Rica <no-reply@saludmentalcostarica.com>",
         to: user.email,
         subject: "¡Tu perfil ha sido aprobado!",
         html: `

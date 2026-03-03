@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { DEFAULT_TZ, formatDateTimeInTZ, toGoogleDateTime } from "@/lib/timezone";
 
 const TZ = process.env.APP_TIMEZONE || DEFAULT_TZ;
-const FROM_EMAIL = process.env.NOTIFICATIONS_FROM_EMAIL || "Salud Mental Costa Rica <onboarding@resend.dev>";
+const FROM_EMAIL = process.env.NOTIFICATIONS_FROM_EMAIL || "Salud Mental Costa Rica <no-reply@saludmentalcostarica.com>";
 
 const CANCELLED_STATUSES = new Set(["CANCELLED_BY_USER", "CANCELLED_BY_PRO"]);
 
