@@ -34,6 +34,14 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
   const [acceptingApt, setAcceptingApt] = useState(null);
   const [followUpApt, setFollowUpApt] = useState(null);
 
+  const updateAppointmentLocally = (appointmentId, changes) => {
+    setAppointments((current) =>
+      current.map((appointment) =>
+        appointment.id === appointmentId ? { ...appointment, ...changes } : appointment
+      )
+    );
+  };
+
   const handleStatusChange = async (id, newStatus) => {
     if (!confirm('¿Confirmas el cambio de estado de esta cita?')) return;
 
@@ -48,6 +56,14 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
       alert(result.error || 'Error al actualizar');
     }
     setLoadingId(null);
+  };
+
+  const handleCancel = async (appointmentId, reason) => {
+    const result = await cancelAppointmentByProfessional(appointmentId, reason);
+    if (result?.success) {
+      updateAppointmentLocally(appointmentId, { status: 'CANCELLED_BY_PRO' });
+    }
+    return result;
   };
 
   const filteredAppointments = appointments.filter((appointment) => {
@@ -215,7 +231,7 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
           availability={bookingContext?.availability || []}
           booked={bookingContext?.booked || []}
           onClose={() => setShowCreateModal(false)}
-          onSuccess={() => window.location.reload()}
+          onSuccess={() => setShowCreateModal(false)}
         />
       )}
 
@@ -223,7 +239,13 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
         <ProfessionalRescheduleModal
           appointment={reschedulingApt}
           onClose={() => setReschedulingApt(null)}
-          onSuccess={() => window.location.reload()}
+          onSuccess={(payload) => {
+            updateAppointmentLocally(payload.id, {
+              status: payload.status,
+              date: payload.date,
+            });
+            setReschedulingApt(null);
+          }}
         />
       )}
 
@@ -231,14 +253,17 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
         <AcceptRecurringAppointmentModal
           appointment={acceptingApt}
           onClose={() => setAcceptingApt(null)}
-          onSuccess={() => window.location.reload()}
+          onSuccess={(payload) => {
+            updateAppointmentLocally(payload.id, { status: payload.status });
+            setAcceptingApt(null);
+          }}
         />
       )}
 
       {cancelingApt && (
         <CancelAppointmentModal
           appointment={cancelingApt}
-          onCancel={cancelAppointmentByProfessional}
+          onCancel={handleCancel}
           onClose={() => setCancelingApt(null)}
           role="professional"
         />

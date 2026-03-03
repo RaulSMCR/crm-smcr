@@ -25,7 +25,10 @@ export default function AcceptRecurringAppointmentModal({ appointment, onClose, 
         return;
       }
 
-      onSuccess?.();
+      onSuccess?.({
+        id: appointment.id,
+        status: "CONFIRMED",
+      });
       onClose();
     });
   }

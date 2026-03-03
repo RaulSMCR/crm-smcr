@@ -72,7 +72,11 @@ export default function ProfessionalRescheduleModal({ appointment, onClose, onSu
         return;
       }
 
-      onSuccess?.();
+      onSuccess?.({
+        id: appointment.id,
+        status: "CONFIRMED",
+        date: selectedISO,
+      });
       onClose();
     });
   }

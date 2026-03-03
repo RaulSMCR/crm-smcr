@@ -310,7 +310,7 @@ export async function rescheduleAppointmentByProfessional(
         data: {
           date: starts[0],
           endDate: ends[0],
-          status: "PENDING",
+          status: "CONFIRMED",
         },
         select: { id: true },
       });
@@ -324,7 +324,7 @@ export async function rescheduleAppointmentByProfessional(
             serviceId: appointment.serviceId || undefined,
             date: extraStarts[index],
             endDate: extraEnds[index],
-            status: "PENDING",
+            status: "CONFIRMED",
             paymentStatus: appointment.paymentStatus,
             pricePaid: appointment.pricePaid,
           },
