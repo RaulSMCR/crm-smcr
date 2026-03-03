@@ -7,50 +7,36 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
-import { resend } from "@/lib/resend";
+import { sendVerificationEmail } from "@/lib/mail";
 import { signToken, getSession as getLibSession } from "@/lib/auth";
 import { createClient } from "@supabase/supabase-js";
 
-const BASE_URL =
-  process.env.NEXT_PUBLIC_URL ||
-  (process.env.NODE_ENV === "development"
-    ? "http://localhost:3000"
-    : "https://saludmentalcostarica.com");
-
-function normalizeEmail(v) {
-  return String(v || "").trim().toLowerCase();
+function normalizeEmail(value) {
+  return String(value || "").trim().toLowerCase();
 }
 
-function normalizePhone(v) {
-  // Simple: permitimos +, números, espacios, guiones y paréntesis
-  const s = String(v || "").trim();
-  if (!s) return "";
-  return s.replace(/\s+/g, " ");
+function normalizePhone(value) {
+  const phone = String(value || "").trim();
+  if (!phone) return "";
+  return phone.replace(/\s+/g, " ");
 }
 
-function isPhoneValid(v) {
-  // Validación flexible (no country-specific), pero evita basura:
-  // - mínimo 8 dígitos totales
-  // - solo permite +0-9 espacios () -
-  const s = normalizePhone(v);
-  if (!/^[+0-9()\-\s]+$/.test(s)) return false;
-  const digits = (s.match(/\d/g) || []).length;
+function isPhoneValid(value) {
+  const phone = normalizePhone(value);
+  if (!/^[+0-9()\-\s]+$/.test(phone)) return false;
+  const digits = (phone.match(/\d/g) || []).length;
   return digits >= 8;
 }
 
-function normalizeIdentification(v) {
-  return String(v || "").trim();
+function normalizeIdentification(value) {
+  return String(value || "").trim();
 }
 
-function isIdentificationValid(v) {
-  const s = normalizeIdentification(v);
-  if (!s) return false;
-
-  // Flexible: letras/números/.- espacios
-  if (!/^[A-Za-z0-9.\-\s]+$/.test(s)) return false;
-
-  // Longitud razonable
-  const compact = s.replace(/\s+/g, "");
+function isIdentificationValid(value) {
+  const identification = normalizeIdentification(value);
+  if (!identification) return false;
+  if (!/^[A-Za-z0-9.\-\s]+$/.test(identification)) return false;
+  const compact = identification.replace(/\s+/g, "");
   return compact.length >= 5 && compact.length <= 32;
 }
 
@@ -59,12 +45,10 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-/* 0) SESIÓN */
 export async function getSession() {
   return await getLibSession();
 }
 
-/* 1) LOGIN */
 export async function login(formData) {
   const email = normalizeEmail(formData.get("email"));
   const password = String(formData.get("password") || "");
@@ -99,7 +83,7 @@ export async function login(formData) {
 
     await prisma.user
       .update({ where: { id: user.id }, data: { lastLogin: new Date() } })
-      .catch((err) => console.error("Error actualizando lastLogin:", err));
+      .catch((error) => console.error("Error actualizando lastLogin:", error));
 
     const sessionData = {
       sub: user.id,
@@ -130,19 +114,13 @@ export async function login(formData) {
   }
 }
 
-/* 2) REGISTRO PROFESIONAL */
 export async function registerProfessional(formData) {
   const name = String(formData.get("name") || "").trim();
   const email = normalizeEmail(formData.get("email"));
-  const phoneRaw = formData.get("phone");
-  const phone = normalizePhone(phoneRaw);
-
+  const phone = normalizePhone(formData.get("phone"));
   const password = String(formData.get("password") || "");
   const confirmPassword = String(formData.get("confirmPassword") || "");
-
-  // opcional: si alguna vez querés pedir identificación también al profesional
   const identification = normalizeIdentification(formData.get("identification"));
-
   const specialty = String(formData.get("specialty") || "").trim();
   const bio = formData.get("bio") ? String(formData.get("bio")).trim() : null;
   const coverLetter = formData.get("coverLetter") ? String(formData.get("coverLetter")).trim() : null;
@@ -157,11 +135,7 @@ export async function registerProfessional(formData) {
   if (!name || !email || !password || !specialty) return { error: "Faltan campos obligatorios." };
   if (!phone) return { error: "El teléfono es obligatorio." };
   if (!isPhoneValid(phone)) return { error: "Teléfono inválido. Usa un número real (mínimo 8 dígitos)." };
-
-  if (identification && !isIdentificationValid(identification)) {
-    return { error: "Identificación inválida." };
-  }
-
+  if (identification && !isIdentificationValid(identification)) return { error: "Identificación inválida." };
   if (password !== confirmPassword) return { error: "Las contraseñas no coinciden." };
   if (password.length < 8) return { error: "La contraseña debe tener al menos 8 caracteres." };
 
@@ -178,12 +152,12 @@ export async function registerProfessional(formData) {
         where: { slug: count === 0 ? slug : `${slug}-${count}` },
       })
     ) {
-      count++;
+      count += 1;
     }
+
     slug = count === 0 ? slug : `${slug}-${count}`;
 
     const hashedPassword = await bcrypt.hash(password, 12);
-
     const verifyToken = crypto.randomBytes(32).toString("hex");
     const verifyTokenHash = crypto.createHash("sha256").update(verifyToken).digest("hex");
 
@@ -221,61 +195,43 @@ export async function registerProfessional(formData) {
       });
     });
 
-    // Si hubo un CV subido con ID temporal, intentamos mover/renombrar el archivo
     try {
       if (cvUrl && createdUser) {
-        // Intentar extraer la ruta dentro del bucket desde la publicUrl
-        // formato esperado: /storage/v1/object/public/CVS/{path}
         const parsed = new URL(cvUrl);
-        const marker = '/CVS/';
+        const marker = "/CVS/";
         const idx = parsed.pathname.indexOf(marker);
+
         if (idx !== -1) {
           const srcPath = parsed.pathname.substring(idx + marker.length);
-          // conservar extensión
-          const parts = srcPath.split('.');
-          const ext = parts.length > 1 ? parts.pop() : 'pdf';
+          const parts = srcPath.split(".");
+          const ext = parts.length > 1 ? parts.pop() : "pdf";
           const destPath = `${createdUser.id}/cv.${ext}`;
 
-          const { error: moveError } = await supabaseAdmin.storage
-            .from('CVS')
-            .move(srcPath, destPath);
+          const { error: moveError } = await supabaseAdmin.storage.from("CVS").move(srcPath, destPath);
 
           if (moveError) {
-            console.error('Error moviendo CV en Supabase:', moveError);
+            console.error("Error moviendo CV en Supabase:", moveError);
           } else {
-            // actualizar cvUrl con la nueva ruta pública
-            const { data } = supabaseAdmin.storage.from('CVS').getPublicUrl(destPath);
+            const { data } = supabaseAdmin.storage.from("CVS").getPublicUrl(destPath);
             if (data?.publicUrl) {
               await prisma.user.update({ where: { id: createdUser.id }, data: {} }).catch(() => {});
-              await prisma.professionalProfile.update({ where: { userId: createdUser.id }, data: { cvUrl: data.publicUrl } }).catch(() => {});
+              await prisma.professionalProfile
+                .update({ where: { userId: createdUser.id }, data: { cvUrl: data.publicUrl } })
+                .catch(() => {});
             }
           }
         }
       }
-    } catch (err) {
-      console.error('Error handling CV move:', err);
+    } catch (error) {
+      console.error("Error handling CV move:", error);
     }
 
     if (process.env.RESEND_API_KEY) {
-      const { error } = await resend.emails.send({
-        from: `Salud Mental Costa Rica <noreply@${process.env.EMAIL_FROM_DOMAIN || 'test.saludmentalcostarica.com'}>`,
-        to: email,
-        subject: "Recibimos tu solicitud profesional",
-        html: `
-          <div style="font-family: sans-serif; color: #333;">
-            <h2>Hola ${name},</h2>
-            <p>Hemos recibido tu solicitud.</p>
-            <p>Por favor confirma tu correo para continuar:</p>
-            <p>
-              <a href="${BASE_URL}/verificar-email?token=${verifyToken}"
-                 style="background-color: #2563EB; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
-                Verificar Email
-              </a>
-            </p>
-          </div>
-        `,
-      });
-      if (error) console.error("❌ Error enviando email a Profesional:", error);
+      try {
+        await sendVerificationEmail(email, verifyToken);
+      } catch (error) {
+        console.error("Error enviando email de verificacion a profesional:", error);
+      }
     }
 
     return { success: true };
@@ -285,19 +241,15 @@ export async function registerProfessional(formData) {
   }
 }
 
-/* 3) REGISTRO PACIENTE */
 export async function registerUser(formData) {
   const name = String(formData.get("name") || "").trim();
   const email = normalizeEmail(formData.get("email"));
-  const phoneRaw = formData.get("phone");
-  const phone = normalizePhone(phoneRaw);
-
+  const phone = normalizePhone(formData.get("phone"));
   const identification = normalizeIdentification(formData.get("identification"));
   const birthDateRaw = String(formData.get("birthDate") || "").trim();
   const birthDate = birthDateRaw ? new Date(`${birthDateRaw}T00:00:00.000Z`) : null;
   const gender = String(formData.get("gender") || "").trim() || null;
   const interests = String(formData.get("interests") || "").trim() || null;
-
   const password = String(formData.get("password") || "");
   const confirmPassword = String(formData.get("confirmPassword") || "");
 
@@ -308,14 +260,9 @@ export async function registerUser(formData) {
   if (!name || !email || !password) return { error: "Datos incompletos." };
   if (!phone) return { error: "El teléfono es obligatorio." };
   if (!isPhoneValid(phone)) return { error: "Teléfono inválido. Usa un número real (mínimo 8 dígitos)." };
-
-  // ✅ identificación obligatoria a nivel app (sin romper DB existente)
   if (!identification) return { error: "La identificación es obligatoria." };
   if (!isIdentificationValid(identification)) return { error: "Identificación inválida." };
-  if (birthDateRaw && Number.isNaN(birthDate?.getTime?.())) {
-    return { error: "Fecha de nacimiento inválida." };
-  }
-
+  if (birthDateRaw && Number.isNaN(birthDate?.getTime?.())) return { error: "Fecha de nacimiento inválida." };
   if (password !== confirmPassword) return { error: "Las contraseñas no coinciden." };
   if (password.length < 8) return { error: "La contraseña debe tener al menos 8 caracteres." };
 
@@ -324,7 +271,6 @@ export async function registerUser(formData) {
     if (existing) return { error: "El correo ya está registrado." };
 
     const hashedPassword = await bcrypt.hash(password, 12);
-
     const verifyToken = crypto.randomBytes(32).toString("hex");
     const verifyTokenHash = crypto.createHash("sha256").update(verifyToken).digest("hex");
 
@@ -348,29 +294,15 @@ export async function registerUser(formData) {
     });
 
     if (process.env.RESEND_API_KEY) {
-      const { error } = await resend.emails.send({
-        from: "Salud Mental Costa Rica <no-reply@saludmentalcostarica.com>",
-        to: email,
-        subject: "Bienvenido a SMCR - Confirma tu cuenta",
-        html: `
-          <div style="font-family: sans-serif; color: #333;">
-            <h2>¡Bienvenido, ${name}!</h2>
-            <p>Para activar tu cuenta, confirma tu correo:</p>
-            <p>
-              <a href="${BASE_URL}/verificar-email?token=${verifyToken}"
-                 style="background-color: #2563EB; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
-                Verificar mi Email
-              </a>
-            </p>
-          </div>
-        `,
-      });
-      if (error) console.error("❌ RESEND API ERROR:", error);
+      try {
+        await sendVerificationEmail(email, verifyToken);
+      } catch (error) {
+        console.error("Error enviando email de verificacion a paciente:", error);
+      }
     }
 
     return { success: true };
   } catch (error) {
-    // Manejo de unique si más adelante lo volvés @unique
     if (error?.code === "P2002") {
       return { error: "Ya existe un usuario con ese dato único. Revisa email/identificación." };
     }
@@ -379,12 +311,11 @@ export async function registerUser(formData) {
   }
 }
 
-/* 4) VERIFICACIÓN EMAIL */
 export async function verifyEmail(token) {
-  const t = String(token || "");
-  if (!t) return { error: "Token inválido." };
+  const rawToken = String(token || "");
+  if (!rawToken) return { error: "Token inválido." };
 
-  const tokenHash = crypto.createHash("sha256").update(t).digest("hex");
+  const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
 
   try {
     const user = await prisma.user.findFirst({
@@ -405,7 +336,6 @@ export async function verifyEmail(token) {
   }
 }
 
-/* 5) LOGOUT */
 export async function logout() {
   try {
     cookies().delete("session");

@@ -105,14 +105,22 @@ export async function syncServiceAssignments(serviceId, professionalIds = []) {
       Boolean,
     );
 
-    const approvedProfessionals = await prisma.professionalProfile.findMany({
-      where: {
-        id: { in: requestedIds },
-        isApproved: true,
-        user: { isActive: true },
-      },
-      select: { id: true },
-    });
+    const [approvedProfessionals, service] = await Promise.all([
+      prisma.professionalProfile.findMany({
+        where: {
+          id: { in: requestedIds },
+          isApproved: true,
+          user: { isActive: true },
+        },
+        select: { id: true },
+      }),
+      prisma.service.findUnique({
+        where: { id: sid },
+        select: { price: true },
+      }),
+    ]);
+
+    if (!service) return { error: "Servicio no encontrado." };
 
     const validIds = approvedProfessionals.map((p) => p.id);
 
@@ -131,10 +139,12 @@ export async function syncServiceAssignments(serviceId, professionalIds = []) {
             serviceId: sid,
             status: "APPROVED",
             reviewedAt: new Date(),
+            approvedSessionPrice: service.price,
           },
           update: {
             status: "APPROVED",
             reviewedAt: new Date(),
+            approvedSessionPrice: service.price,
           },
         }),
       ),
@@ -156,7 +166,6 @@ export async function syncServiceAssignments(serviceId, professionalIds = []) {
 
 /**
  * 3) ADMIN: AGREGAR PROFESIONAL AL SERVICIO (FORZAR APPROVED)
- * - Crea o actualiza la asignación a APPROVED.
  */
 export async function addProfessionalToService(serviceId, professionalId) {
   try {
@@ -166,6 +175,13 @@ export async function addProfessionalToService(serviceId, professionalId) {
     const sid = String(serviceId);
     const pid = String(professionalId);
 
+    const service = await prisma.service.findUnique({
+      where: { id: sid },
+      select: { price: true },
+    });
+
+    if (!service) return { error: "Servicio no encontrado." };
+
     await prisma.serviceAssignment.upsert({
       where: { professionalId_serviceId: { professionalId: pid, serviceId: sid } },
       create: {
@@ -173,10 +189,12 @@ export async function addProfessionalToService(serviceId, professionalId) {
         serviceId: sid,
         status: "APPROVED",
         reviewedAt: new Date(),
+        approvedSessionPrice: service.price,
       },
       update: {
         status: "APPROVED",
         reviewedAt: new Date(),
+        approvedSessionPrice: service.price,
       },
     });
 
@@ -194,7 +212,6 @@ export async function addProfessionalToService(serviceId, professionalId) {
 
 /**
  * 4) ADMIN: REMOVER PROFESIONAL DEL SERVICIO
- * - Borra la asignación (sea PENDING/APPROVED/REJECTED)
  */
 export async function removeProfessionalFromService(serviceId, professionalId) {
   try {
@@ -222,6 +239,7 @@ export async function removeProfessionalFromService(serviceId, professionalId) {
 
 /**
  * 5) ADMIN: APROBAR REQUEST (PENDING -> APPROVED)
+ * FIX: se consulta el registro actual antes de actualizar
  */
 export async function approveServiceAssignment(serviceId, professionalId) {
   try {
@@ -231,12 +249,19 @@ export async function approveServiceAssignment(serviceId, professionalId) {
     const sid = String(serviceId);
     const pid = String(professionalId);
 
+    const current = await prisma.serviceAssignment.findUnique({
+      where: { professionalId_serviceId: { professionalId: pid, serviceId: sid } },
+      select: { proposedSessionPrice: true },
+    });
+
+    if (!current) return { error: "No se encontró la solicitud." };
+
     await prisma.serviceAssignment.update({
       where: { professionalId_serviceId: { professionalId: pid, serviceId: sid } },
       data: {
         status: "APPROVED",
         reviewedAt: new Date(),
-        approvedSessionPrice: data.approvedSessionPrice ?? data.proposedSessionPrice ?? null,
+        approvedSessionPrice: current.proposedSessionPrice ?? null,
       },
     });
 
@@ -278,6 +303,9 @@ export async function rejectServiceAssignment(serviceId, professionalId) {
   }
 }
 
+/**
+ * 7) ADMIN: REVISAR SOLICITUD CON PRECIO Y NOTA
+ */
 export async function reviewServiceAssignment(serviceId, professionalId, payload = {}) {
   try {
     const session = await getSession();
@@ -334,6 +362,9 @@ export async function reviewServiceAssignment(serviceId, professionalId, payload
   }
 }
 
+/**
+ * 8) ADMIN: REVISIÓN MASIVA DE SOLICITUDES
+ */
 export async function bulkReviewServiceAssignments(serviceId, assignmentUpdates = []) {
   try {
     const session = await getSession();
@@ -364,7 +395,7 @@ export async function bulkReviewServiceAssignments(serviceId, assignmentUpdates 
 }
 
 /**
- * 7) ELIMINAR SERVICIO
+ * 9) ELIMINAR SERVICIO
  */
 export async function deleteService(serviceId) {
   try {
