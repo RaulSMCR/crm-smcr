@@ -262,6 +262,7 @@ model Invoice {
   documentType             DocumentType @default(FACTURA_ELECTRONICA)
 
   contactId                String
+  appointmentId            String?
   professionalId           String?
   contactName              String?
   contactIdNumber          String?
@@ -294,6 +295,7 @@ model Invoice {
   updatedAt                DateTime      @updatedAt
 
   contact      User      @relation("InvoiceContact", fields: [contactId], references: [id], onDelete: Restrict)
+  appointment  Appointment? @relation("AppointmentInvoices", fields: [appointmentId], references: [id], onDelete: SetNull)
   professional ProfessionalProfile? @relation("InvoiceProfessional", fields: [professionalId], references: [id], onDelete: SetNull)
   creator      User?     @relation("InvoiceCreator", fields: [createdBy], references: [id], onDelete: SetNull)
   originInvoice Invoice? @relation("InvoiceOrigin", fields: [originInvoiceId], references: [id], onDelete: SetNull)
@@ -303,6 +305,7 @@ model Invoice {
   @@unique([invoiceType, invoiceNumber])
   @@index([invoiceType, status])
   @@index([contactId])
+  @@index([appointmentId])
   @@index([professionalId])
   @@index([invoiceDate])
 }
@@ -406,6 +409,9 @@ model Appointment {
   cancelReason String?
   canceledBy   String?   // 'PATIENT' | 'PROFESSIONAL' | 'ADMIN'
   canceledAt   DateTime?
+  lastRescheduledBy String?
+  lastRescheduledAt DateTime?
+  rescheduleCount   Int      @default(0)
 
   parentAppointmentId String?
   parentAppointment   Appointment?  @relation("FollowUps", fields: [parentAppointmentId], references: [id], onDelete: SetNull)
@@ -413,6 +419,7 @@ model Appointment {
 
   isFirstWithProfessional Boolean @default(false)
   paymentTransactions     PaymentTransaction[]
+  invoices                Invoice[] @relation("AppointmentInvoices")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

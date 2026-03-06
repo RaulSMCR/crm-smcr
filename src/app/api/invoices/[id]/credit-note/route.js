@@ -95,6 +95,7 @@ export async function POST(request, { params }) {
           feStatus: "PENDING",
           documentType: "NOTA_CREDITO",
           contactId: origin.contactId,
+          appointmentId: origin.appointmentId,
           professionalId: origin.professionalId,
           contactName: origin.contactName,
           contactIdNumber: origin.contactIdNumber,

@@ -358,32 +358,38 @@ export async function rescheduleAppointmentByPatient(
   const extraStarts = starts.slice(1);
   const extraEnds = ends.slice(1);
 
-  const changedAppointments = await prisma.$transaction(async (tx) => {
-    const updatedAppointment = await tx.appointment.update({
-      where: { id },
-      data: {
-        date: starts[0],
-        endDate: ends[0],
-        status: "PENDING",
-      },
-      select: { id: true },
-    });
-
-    const createdAppointments = [];
-    for (let index = 0; index < extraStarts.length; index += 1) {
-      const createdAppointment = await tx.appointment.create({
+    const changedAppointments = await prisma.$transaction(async (tx) => {
+      const updatedAppointment = await tx.appointment.update({
+        where: { id },
         data: {
-          patientId: appointment.patientId,
-          professionalId: appointment.professionalId,
-          serviceId: appointment.serviceId || undefined,
-          date: extraStarts[index],
-          endDate: extraEnds[index],
+          date: starts[0],
+          endDate: ends[0],
           status: "PENDING",
-          paymentStatus: appointment.paymentStatus,
-          pricePaid: appointment.pricePaid,
+          lastRescheduledBy: "PATIENT",
+          lastRescheduledAt: new Date(),
+          rescheduleCount: { increment: 1 },
         },
         select: { id: true },
       });
+
+    const createdAppointments = [];
+    for (let index = 0; index < extraStarts.length; index += 1) {
+        const createdAppointment = await tx.appointment.create({
+          data: {
+            patientId: appointment.patientId,
+            professionalId: appointment.professionalId,
+            serviceId: appointment.serviceId || undefined,
+            date: extraStarts[index],
+            endDate: extraEnds[index],
+            status: "PENDING",
+            paymentStatus: appointment.paymentStatus,
+            pricePaid: appointment.pricePaid,
+            lastRescheduledBy: "PATIENT",
+            lastRescheduledAt: new Date(),
+            rescheduleCount: 1,
+          },
+          select: { id: true },
+        });
       createdAppointments.push(createdAppointment);
     }
 

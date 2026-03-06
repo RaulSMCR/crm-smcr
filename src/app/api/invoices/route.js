@@ -76,6 +76,7 @@ function mapInvoice(invoice) {
     status: invoice.status,
     feStatus: invoice.feStatus,
     contactId: invoice.contactId,
+    appointmentId: invoice.appointmentId,
     professionalId: invoice.professionalId,
     professionalName: invoice.professional?.user?.name || null,
     contactName: invoice.contactName,
@@ -195,6 +196,7 @@ export async function POST(request) {
     const body = await request.json().catch(() => ({}));
     const invoiceType = normalizeInvoiceType(body.invoiceType);
     const contactId = String(body.contactId || "").trim();
+    const appointmentId = String(body.appointmentId || "").trim();
     const professionalId = String(body.professionalId || "").trim();
     const invoiceDate = body.invoiceDate ? new Date(body.invoiceDate) : new Date();
     const dueDate = body.dueDate ? new Date(body.dueDate) : new Date(invoiceDate);
@@ -229,6 +231,16 @@ export async function POST(request) {
       });
       if (!profExists) {
         return NextResponse.json({ message: "professionalId no existe." }, { status: 404 });
+      }
+    }
+
+    if (appointmentId) {
+      const appointmentExists = await prisma.appointment.findUnique({
+        where: { id: appointmentId },
+        select: { id: true },
+      });
+      if (!appointmentExists) {
+        return NextResponse.json({ message: "appointmentId no existe." }, { status: 404 });
       }
     }
 
@@ -272,6 +284,7 @@ export async function POST(request) {
         feStatus: "PENDING",
         documentType: String(body.documentType || "FACTURA_ELECTRONICA"),
         contactId: contact.id,
+        appointmentId: appointmentId || null,
         professionalId: professionalId || null,
         contactName: String(body.contactName || contact.name || ""),
         contactIdNumber: String(body.contactIdNumber || contact.identification || ""),

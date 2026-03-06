@@ -3,20 +3,13 @@
 import { Fragment, useState, useTransition } from "react";
 import { adminUpdateAppointmentStatus, adminRescheduleAppointment } from "@/actions/admin-appointments-actions";
 
-const STATUS_OPTIONS = [
-  "PENDING",
-  "CONFIRMED",
-  "COMPLETED",
-  "NO_SHOW",
-  "CANCELLED_BY_USER",
-  "CANCELLED_BY_PRO",
-];
+const STATUS_OPTIONS = ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW", "CANCELLED_BY_USER", "CANCELLED_BY_PRO"];
 
 const STATUS_LABELS = {
   PENDING: "Pendiente",
   CONFIRMED: "Confirmada",
   COMPLETED: "Completada",
-  NO_SHOW: "No asistió",
+  NO_SHOW: "No asistio",
   CANCELLED_BY_USER: "Cancelada por paciente",
   CANCELLED_BY_PRO: "Cancelada por profesional",
 };
@@ -24,12 +17,18 @@ const STATUS_LABELS = {
 const CANCEL_STATUSES = new Set(["CANCELLED_BY_USER", "CANCELLED_BY_PRO"]);
 
 const CANCELED_BY_BADGE = {
-  PATIENT: "bg-blue-50 text-blue-800 border-blue-200",
-  PROFESSIONAL: "bg-orange-50 text-orange-800 border-orange-200",
-  ADMIN: "bg-slate-50 text-slate-800 border-slate-200",
+  PATIENT: "border-blue-200 bg-blue-50 text-blue-800",
+  PROFESSIONAL: "border-orange-200 bg-orange-50 text-orange-800",
+  ADMIN: "border-slate-200 bg-slate-50 text-slate-800",
 };
 
 const CANCELED_BY_LABELS = {
+  PATIENT: "Paciente",
+  PROFESSIONAL: "Profesional",
+  ADMIN: "Admin",
+};
+
+const RESCHEDULED_BY_LABELS = {
   PATIENT: "Paciente",
   PROFESSIONAL: "Profesional",
   ADMIN: "Admin",
@@ -48,19 +47,32 @@ function calcEndTime(datetimeLocal, durationMin) {
   return end.toLocaleTimeString("es-CR", { hour: "2-digit", minute: "2-digit" });
 }
 
+function isOverdueNoAction(row) {
+  if (!["PENDING", "CONFIRMED"].includes(row.status)) return false;
+  if (!row.endDate) return false;
+  return new Date(row.endDate) < new Date();
+}
+
+function getLatestApprovedPayment(row) {
+  if (!Array.isArray(row.paymentTransactions)) return null;
+  return row.paymentTransactions.find((tx) => tx.status === "APPROVED") || null;
+}
+
+function getLatestInvoice(row) {
+  if (!Array.isArray(row.invoices) || row.invoices.length === 0) return null;
+  return row.invoices[0];
+}
+
 export default function AdminAppointmentsManager({ appointments = [] }) {
   const [rows, setRows] = useState(appointments);
   const [isPending, startTransition] = useTransition();
 
-  // Cancel state
-  const [pendingCancel, setPendingCancel] = useState(null); // { id, status }
+  const [pendingCancel, setPendingCancel] = useState(null);
   const [cancelReason, setCancelReason] = useState("");
 
-  // Reschedule state
-  const [pendingReschedule, setPendingReschedule] = useState(null); // { id, durationMin }
+  const [pendingReschedule, setPendingReschedule] = useState(null);
   const [rescheduleDateTime, setRescheduleDateTime] = useState("");
 
-  // ── Cancel handlers ──────────────────────────────────────────────
   const handleStatusChange = (appointmentId, nextStatus) => {
     if (CANCEL_STATUSES.has(nextStatus)) {
       setPendingReschedule(null);
@@ -78,6 +90,7 @@ export default function AdminAppointmentsManager({ appointments = [] }) {
         alert(result?.error || "No se pudo actualizar la cita.");
         return;
       }
+
       setRows((prev) =>
         prev.map((row) =>
           row.id === appointmentId
@@ -91,6 +104,7 @@ export default function AdminAppointmentsManager({ appointments = [] }) {
             : row
         )
       );
+
       setPendingCancel(null);
       setCancelReason("");
     });
@@ -101,7 +115,6 @@ export default function AdminAppointmentsManager({ appointments = [] }) {
     applyStatusChange(pendingCancel.id, pendingCancel.status, cancelReason.trim());
   };
 
-  // ── Reschedule handlers ──────────────────────────────────────────
   const openReschedule = (row) => {
     setPendingCancel(null);
     setPendingReschedule({ id: row.id, durationMin: row.service?.durationMin ?? 60 });
@@ -116,12 +129,20 @@ export default function AdminAppointmentsManager({ appointments = [] }) {
         alert(result?.error || "No se pudo reagendar la cita.");
         return;
       }
+
       const newStart = new Date(rescheduleDateTime);
       const newEnd = new Date(newStart.getTime() + pendingReschedule.durationMin * 60000);
       setRows((prev) =>
         prev.map((row) =>
           row.id === pendingReschedule.id
-            ? { ...row, date: newStart.toISOString(), endDate: newEnd.toISOString() }
+            ? {
+                ...row,
+                date: newStart.toISOString(),
+                endDate: newEnd.toISOString(),
+                lastRescheduledBy: "ADMIN",
+                lastRescheduledAt: new Date().toISOString(),
+                rescheduleCount: Number(row.rescheduleCount || 0) + 1,
+              }
             : row
         )
       );
@@ -131,152 +152,213 @@ export default function AdminAppointmentsManager({ appointments = [] }) {
   };
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto">
+    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
       <table className="min-w-full text-sm">
         <thead className="bg-slate-50 text-slate-500">
           <tr>
-            <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wide">Fecha</th>
-            <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wide">Paciente</th>
-            <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wide">Profesional</th>
-            <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wide">Servicio</th>
-            <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wide">Estado</th>
-            <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wide">Motivo</th>
-            <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wide">Cancelado por</th>
-            <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wide">Acciones</th>
+            <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide">Fecha</th>
+            <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide">Paciente</th>
+            <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide">Profesional</th>
+            <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide">Servicio</th>
+            <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide">Estado</th>
+            <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide">Pago</th>
+            <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide">Comprobante</th>
+            <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide">Factura</th>
+            <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide">Reagendada por</th>
+            <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide">Motivo</th>
+            <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide">Cancelado por</th>
+            <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide">Acciones</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
-          {rows.map((row) => (
-            <Fragment key={row.id}>
-              <tr className="hover:bg-slate-50 transition">
-                <td className="px-4 py-3 whitespace-nowrap text-slate-700">
-                  {new Date(row.date).toLocaleString("es-CR")}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="font-medium text-slate-800">{row.patient?.name || "—"}</div>
-                  <div className="text-xs text-slate-400">{row.patient?.email || ""}</div>
-                </td>
-                <td className="px-4 py-3 text-slate-700">{row.professional?.user?.name || "—"}</td>
-                <td className="px-4 py-3 text-slate-700">{row.service?.title || "—"}</td>
-                <td className="px-4 py-3">
-                  <select
-                    className="rounded-md border border-slate-300 px-2 py-1 text-sm bg-white"
-                    value={pendingCancel?.id === row.id ? pendingCancel.status : row.status}
-                    disabled={isPending}
-                    onChange={(e) => handleStatusChange(row.id, e.target.value)}
-                  >
-                    {STATUS_OPTIONS.map((s) => (
-                      <option key={s} value={s}>{STATUS_LABELS[s]}</option>
-                    ))}
-                  </select>
-                </td>
-                <td className="px-4 py-3 max-w-[180px]">
-                  {row.cancelReason
-                    ? <span className="text-slate-700 text-xs">{row.cancelReason}</span>
-                    : <span className="text-slate-400">—</span>
-                  }
-                </td>
-                <td className="px-4 py-3">
-                  {row.canceledBy ? (
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold border ${CANCELED_BY_BADGE[row.canceledBy] || "bg-slate-50 text-slate-800 border-slate-200"}`}>
-                      {CANCELED_BY_LABELS[row.canceledBy] || row.canceledBy}
-                    </span>
-                  ) : (
-                    <span className="text-slate-400">—</span>
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  <button
-                    onClick={() => openReschedule(row)}
-                    disabled={isPending}
-                    className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded text-xs font-bold transition disabled:opacity-50"
-                  >
-                    Reagendar
-                  </button>
-                </td>
-              </tr>
+          {rows.map((row) => {
+            const overdue = isOverdueNoAction(row);
+            const approvedPayment = getLatestApprovedPayment(row);
+            const latestInvoice = getLatestInvoice(row);
+            const paid = row.paymentStatus === "PAID" || Boolean(approvedPayment);
 
-              {/* Fila inline: cancelación */}
-              {pendingCancel?.id === row.id && (
-                <tr className="bg-amber-50">
-                  <td colSpan={8} className="px-4 py-3">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <span className="text-sm font-medium text-amber-800">
-                        Motivo de cancelación:
+            return (
+              <Fragment key={row.id}>
+                <tr className={overdue ? "bg-amber-50" : "transition hover:bg-slate-50"}>
+                  <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+                    {new Date(row.date).toLocaleString("es-CR")}
+                    {overdue && (
+                      <div className="mt-1 inline-flex rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">
+                        Alerta vencida
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-slate-800">{row.patient?.name || "-"}</div>
+                    <div className="text-xs text-slate-400">{row.patient?.email || ""}</div>
+                  </td>
+                  <td className="px-4 py-3 text-slate-700">{row.professional?.user?.name || "-"}</td>
+                  <td className="px-4 py-3 text-slate-700">{row.service?.title || "-"}</td>
+                  <td className="px-4 py-3">
+                    <select
+                      className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm"
+                      value={pendingCancel?.id === row.id ? pendingCancel.status : row.status}
+                      disabled={isPending}
+                      onChange={(e) => handleStatusChange(row.id, e.target.value)}
+                    >
+                      {STATUS_OPTIONS.map((s) => (
+                        <option key={s} value={s}>
+                          {STATUS_LABELS[s]}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-4 py-3">
+                    {paid ? (
+                      <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+                        Pagada
                       </span>
-                      <input
-                        type="text"
-                        value={cancelReason}
-                        onChange={(e) => setCancelReason(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleConfirmCancel()}
-                        placeholder="Escribe el motivo (obligatorio)"
-                        className="flex-1 min-w-[240px] rounded-md border border-amber-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-                        autoFocus
-                      />
-                      <button
-                        onClick={handleConfirmCancel}
-                        disabled={!cancelReason.trim() || isPending}
-                        className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded text-xs font-bold disabled:opacity-50 transition"
+                    ) : (
+                      <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700">
+                        Pendiente
+                      </span>
+                    )}
+                  </td>
+                  <td className="max-w-[210px] px-4 py-3 text-xs text-slate-700">
+                    {approvedPayment ? (
+                      <div>
+                        <div className="font-semibold">{approvedPayment.p2pReference || "Sin referencia"}</div>
+                        <div className="text-slate-500">
+                          {approvedPayment.p2pPaymentDate ? new Date(approvedPayment.p2pPaymentDate).toLocaleString("es-CR") : "Fecha no disponible"}
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-slate-400">-</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-slate-700">
+                    {latestInvoice ? (
+                      <div>
+                        <div className="font-semibold">{latestInvoice.invoiceNumber}</div>
+                        <div className="text-slate-500">{latestInvoice.status}</div>
+                      </div>
+                    ) : (
+                      <span className="text-slate-400">-</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {row.lastRescheduledBy ? (
+                      <span className="inline-flex rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-xs font-bold text-indigo-700">
+                        {RESCHEDULED_BY_LABELS[row.lastRescheduledBy] || row.lastRescheduledBy}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">-</span>
+                    )}
+                  </td>
+                  <td className="max-w-[180px] px-4 py-3">
+                    {row.cancelReason ? <span className="text-xs text-slate-700">{row.cancelReason}</span> : <span className="text-slate-400">-</span>}
+                  </td>
+                  <td className="px-4 py-3">
+                    {row.canceledBy ? (
+                      <span
+                        className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ${
+                          CANCELED_BY_BADGE[row.canceledBy] || "border-slate-200 bg-slate-50 text-slate-800"
+                        }`}
                       >
-                        Confirmar
-                      </button>
-                      <button
-                        onClick={() => { setPendingCancel(null); setCancelReason(""); }}
-                        disabled={isPending}
-                        className="bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 px-3 py-1.5 rounded text-xs font-bold transition"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
+                        {CANCELED_BY_LABELS[row.canceledBy] || row.canceledBy}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">-</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => openReschedule(row)}
+                      disabled={isPending}
+                      className="rounded border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100 disabled:opacity-50"
+                    >
+                      Reagendar
+                    </button>
                   </td>
                 </tr>
-              )}
 
-              {/* Fila inline: reagendamiento */}
-              {pendingReschedule?.id === row.id && (
-                <tr className="bg-indigo-50">
-                  <td colSpan={8} className="px-4 py-3">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <span className="text-sm font-medium text-indigo-800">
-                        Nueva fecha y hora:
-                      </span>
-                      <input
-                        type="datetime-local"
-                        value={rescheduleDateTime}
-                        onChange={(e) => setRescheduleDateTime(e.target.value)}
-                        className="rounded-md border border-indigo-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                        autoFocus
-                      />
-                      {rescheduleDateTime && (
-                        <span className="text-xs text-indigo-700 font-medium">
-                          Fin estimado: {calcEndTime(rescheduleDateTime, pendingReschedule.durationMin) || "—"}
-                        </span>
-                      )}
-                      <button
-                        onClick={handleConfirmReschedule}
-                        disabled={!rescheduleDateTime || isPending}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded text-xs font-bold disabled:opacity-50 transition"
-                      >
-                        Confirmar
-                      </button>
-                      <button
-                        onClick={() => { setPendingReschedule(null); setRescheduleDateTime(""); }}
-                        disabled={isPending}
-                        className="bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 px-3 py-1.5 rounded text-xs font-bold transition"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </Fragment>
-          ))}
+                {pendingCancel?.id === row.id && (
+                  <tr className="bg-amber-50">
+                    <td colSpan={12} className="px-4 py-3">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="text-sm font-medium text-amber-800">Motivo de cancelacion:</span>
+                        <input
+                          type="text"
+                          value={cancelReason}
+                          onChange={(e) => setCancelReason(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleConfirmCancel()}
+                          placeholder="Escribe el motivo (obligatorio)"
+                          className="min-w-[240px] flex-1 rounded-md border border-amber-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                          autoFocus
+                        />
+                        <button
+                          onClick={handleConfirmCancel}
+                          disabled={!cancelReason.trim() || isPending}
+                          className="rounded bg-red-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
+                        >
+                          Confirmar
+                        </button>
+                        <button
+                          onClick={() => {
+                            setPendingCancel(null);
+                            setCancelReason("");
+                          }}
+                          disabled={isPending}
+                          className="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+
+                {pendingReschedule?.id === row.id && (
+                  <tr className="bg-indigo-50">
+                    <td colSpan={12} className="px-4 py-3">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="text-sm font-medium text-indigo-800">Nueva fecha y hora:</span>
+                        <input
+                          type="datetime-local"
+                          value={rescheduleDateTime}
+                          onChange={(e) => setRescheduleDateTime(e.target.value)}
+                          className="rounded-md border border-indigo-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                          autoFocus
+                        />
+                        {rescheduleDateTime && (
+                          <span className="text-xs font-medium text-indigo-700">
+                            Fin estimado: {calcEndTime(rescheduleDateTime, pendingReschedule.durationMin) || "-"}
+                          </span>
+                        )}
+                        <button
+                          onClick={handleConfirmReschedule}
+                          disabled={!rescheduleDateTime || isPending}
+                          className="rounded bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-indigo-700 disabled:opacity-50"
+                        >
+                          Confirmar
+                        </button>
+                        <button
+                          onClick={() => {
+                            setPendingReschedule(null);
+                            setRescheduleDateTime("");
+                          }}
+                          disabled={isPending}
+                          className="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            );
+          })}
 
           {rows.length === 0 && (
             <tr>
-              <td className="px-4 py-8 text-center text-slate-400" colSpan={8}>
-                No hay citas registradas.
+              <td className="px-4 py-8 text-center text-slate-400" colSpan={12}>
+                No hay citas registradas para este filtro.
               </td>
             </tr>
           )}

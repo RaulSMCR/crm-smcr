@@ -32,6 +32,32 @@ export async function getAdminAppointments({ status } = {}) {
         },
       },
       service: { select: { title: true, price: true, durationMin: true } },
+      paymentTransactions: {
+        select: {
+          id: true,
+          type: true,
+          amount: true,
+          currency: true,
+          status: true,
+          p2pReference: true,
+          p2pRequestId: true,
+          p2pPaymentDate: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+      },
+      invoices: {
+        select: {
+          id: true,
+          invoiceNumber: true,
+          invoiceType: true,
+          status: true,
+          total: true,
+          balance: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+      },
     },
     orderBy: { date: "desc" },
   });
@@ -140,7 +166,13 @@ export async function adminRescheduleAppointment(appointmentId, newDatetime) {
 
   const updated = await prisma.appointment.update({
     where: { id },
-    data: { date: newStart, endDate: newEnd },
+    data: {
+      date: newStart,
+      endDate: newEnd,
+      lastRescheduledBy: "ADMIN",
+      lastRescheduledAt: new Date(),
+      rescheduleCount: { increment: 1 },
+    },
     include: {
       patient: { select: { name: true, email: true } },
       professional: {

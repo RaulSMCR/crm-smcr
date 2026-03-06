@@ -467,6 +467,9 @@ export async function rescheduleAppointmentByProfessional(
           date: starts[0],
           endDate: ends[0],
           status: "CONFIRMED",
+          lastRescheduledBy: "PROFESSIONAL",
+          lastRescheduledAt: new Date(),
+          rescheduleCount: { increment: 1 },
         },
         select: { id: true },
       });
@@ -483,6 +486,9 @@ export async function rescheduleAppointmentByProfessional(
             status: "CONFIRMED",
             paymentStatus: appointment.paymentStatus,
             pricePaid: appointment.pricePaid,
+            lastRescheduledBy: "PROFESSIONAL",
+            lastRescheduledAt: new Date(),
+            rescheduleCount: 1,
           },
           select: { id: true },
         });

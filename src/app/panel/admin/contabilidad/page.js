@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/actions/auth-actions";
 import { prisma } from "@/lib/prisma";
+import BillingInvoicesManager from "@/components/admin/BillingInvoicesManager";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -388,44 +389,18 @@ export default async function AdminAccountingPage({ searchParams }) {
               Saldo pendiente total: <b>{toMoney(invoicesPending)}</b>
             </div>
           </div>
-          <div className="overflow-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-                <tr>
-                  <th className="px-4 py-2 text-left">Fecha</th>
-                  <th className="px-4 py-2 text-left">Número</th>
-                  <th className="px-4 py-2 text-left">Tipo</th>
-                  <th className="px-4 py-2 text-left">Contacto</th>
-                  <th className="px-4 py-2 text-left">Profesional</th>
-                  <th className="px-4 py-2 text-right">Total</th>
-                  <th className="px-4 py-2 text-right">Pagado</th>
-                  <th className="px-4 py-2 text-right">Saldo</th>
-                  <th className="px-4 py-2 text-left">Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoices.map((invoice) => (
-                  <tr key={invoice.id} className="border-t border-slate-100">
-                    <td className="px-4 py-2">{new Date(invoice.invoiceDate).toLocaleDateString("es-CR")}</td>
-                    <td className="px-4 py-2 font-semibold">{invoice.invoiceNumber}</td>
-                    <td className="px-4 py-2">{invoice.invoiceType}</td>
-                    <td className="px-4 py-2">{invoice.contactName || "Sin contacto"}</td>
-                    <td className="px-4 py-2">{invoice.professional?.user?.name || "-"}</td>
-                    <td className="px-4 py-2 text-right">{toMoney(invoice.total)}</td>
-                    <td className="px-4 py-2 text-right">{toMoney(invoice.amountPaid)}</td>
-                    <td className="px-4 py-2 text-right">{toMoney(invoice.balance)}</td>
-                    <td className="px-4 py-2">{invoice.status}</td>
-                  </tr>
-                ))}
-                {invoices.length === 0 && (
-                  <tr>
-                    <td colSpan={9} className="px-4 py-8 text-center text-slate-500">
-                      No hay facturas para los filtros seleccionados.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+          <div className="p-4">
+            <BillingInvoicesManager
+              invoices={invoices.map((invoice) => ({
+                ...invoice,
+                total: Number(invoice.total),
+                amountPaid: Number(invoice.amountPaid),
+                balance: Number(invoice.balance),
+                professionalName: invoice.professional?.user?.name || null,
+              }))}
+              patients={patients}
+              professionals={professionals}
+            />
           </div>
         </div>
       </div>

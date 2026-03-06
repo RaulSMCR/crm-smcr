@@ -47,6 +47,7 @@ function mapInvoice(invoice) {
     feNumber: invoice.feNumber,
     feClave: invoice.feClave,
     contactId: invoice.contactId,
+    appointmentId: invoice.appointmentId,
     professionalId: invoice.professionalId,
     professionalName: invoice.professional?.user?.name || null,
     contactName: invoice.contactName,
@@ -137,7 +138,18 @@ export async function PUT(request, { params }) {
 
     const body = await request.json().catch(() => ({}));
     const lines = Array.isArray(body.lines) ? body.lines : [];
+    const appointmentId = body.appointmentId ? String(body.appointmentId) : "";
     const professionalId = body.professionalId ? String(body.professionalId) : "";
+
+    if (appointmentId) {
+      const appointmentExists = await prisma.appointment.findUnique({
+        where: { id: appointmentId },
+        select: { id: true },
+      });
+      if (!appointmentExists) {
+        return NextResponse.json({ message: "appointmentId no existe." }, { status: 404 });
+      }
+    }
 
     if (professionalId) {
       const profExists = await prisma.professionalProfile.findUnique({
@@ -186,6 +198,7 @@ export async function PUT(request, { params }) {
         where: { id },
         data: {
           contactId: body.contactId ? String(body.contactId) : undefined,
+          appointmentId: body.appointmentId !== undefined ? (appointmentId || null) : undefined,
           professionalId: body.professionalId !== undefined ? (professionalId || null) : undefined,
           contactName: body.contactName !== undefined ? String(body.contactName || "") : undefined,
           contactIdNumber:
