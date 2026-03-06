@@ -1,47 +1,90 @@
 // src/components/ContactForm.js
-'use client';
-import { useState } from 'react';
+"use client";
+
+import { useState } from "react";
 
 export default function ContactForm() {
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    message: '',
+    name: "",
+    email: "",
+    message: "",
   });
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log('Form submitted:', formData);
-    alert('Mensaje enviado. Revisa la consola para ver los datos.');
-    // Here is where we would later add the logic to send an email.
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    console.log("Form submitted:", formData);
+    alert("Mensaje enviado. Revisa la consola para ver los datos.");
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-neutral-200 p-8 rounded-lg shadow-md border">
-      <h2 className="text-2xl font-bold text-brand-600 mb-6">Envíanos un Mensaje</h2>
+    <form onSubmit={handleSubmit} className="rounded-lg border bg-neutral-200 p-8 shadow-md">
+      <h2 className="mb-6 text-2xl font-bold text-brand-700">Envíanos un Mensaje</h2>
+
       <div className="mb-4">
-        <label htmlFor="name" className="block text-brand-600 font-medium mb-2">Tu Nombre</label>
-        <input type="text" id="name" name="name" value={formData.name} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded-md"/>
+        <label htmlFor="name" className="mb-2 block font-medium text-brand-700">
+          Tu Nombre
+        </label>
+        <input
+          type="text"
+          id="name"
+          name="name"
+          value={formData.name}
+          onChange={handleChange}
+          required
+          className="w-full rounded-md border border-neutral-300 p-2"
+        />
       </div>
+
       <div className="mb-4">
-        <label htmlFor="email" className="block text-brand-600 font-medium mb-2">Tu Email</label>
-        <input type="email" id="email" name="email" value={formData.email} onChange={handleChange} required className="w-full p-2 border border-gray-300 rounded-md"/>
+        <label htmlFor="email" className="mb-2 block font-medium text-brand-700">
+          Tu Email
+        </label>
+        <input
+          type="email"
+          id="email"
+          name="email"
+          value={formData.email}
+          onChange={handleChange}
+          required
+          className="w-full rounded-md border border-neutral-300 p-2"
+        />
       </div>
+
       <div className="mb-6">
-        <label htmlFor="message" className="block text-brand-600 font-medium mb-2">Mensaje</label>
-        <textarea id="message" name="message" value={formData.message} onChange={handleChange} required rows="5" className="w-full p-2 border border-gray-300 rounded-md"></textarea>
+        <label htmlFor="message" className="mb-2 block font-medium text-brand-700">
+          Mensaje
+        </label>
+        <textarea
+          id="message"
+          name="message"
+          value={formData.message}
+          onChange={handleChange}
+          required
+          rows="5"
+          className="w-full rounded-md border border-neutral-300 p-2"
+        ></textarea>
       </div>
-      <button type="submit" className="w-full bg-neutral-250 text-brand-600 p-3 rounded-2xg font-semibold hover:bg-opacity-90">
+
+      <button
+        type="submit"
+        className="w-full rounded-xl bg-brand-600 p-3 font-semibold text-white transition-colors hover:bg-brand-700"
+      >
         Enviar Mensaje
       </button>
-      <div className="text-xs text-brand-600 mt-4 text-center space-y-2">
-        <p>Se le contactará tan pronto haya un profesional disponible (1-2 horas en días hábiles). Fines de semana se responderá al lunes siguiente.</p>
-        <p className="font-bold bg-accent-600">Si se trata de una emergencia, por favor contacte al 911.</p>
+
+      <div className="mt-4 space-y-2 text-center text-xs text-brand-700">
+        <p>
+          Se le contactará tan pronto haya un profesional disponible (1-2 horas en días hábiles).
+          Fines de semana se responderá al lunes siguiente.
+        </p>
+        <p className="emergency-alert rounded-md border px-3 py-2 font-bold">
+          Si se trata de una emergencia, por favor contacte al 911.
+        </p>
       </div>
     </form>
   );

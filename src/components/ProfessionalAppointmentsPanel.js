@@ -76,12 +76,12 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
 
   const getStatusBadge = (status) => {
     const config = {
-      PENDING: { label: 'Pendiente', style: 'bg-amber-500 text-white' },
-      CONFIRMED: { label: 'Confirmada', style: 'bg-blue-600 text-white' },
-      COMPLETED: { label: 'Completada', style: 'bg-green-600 text-white' },
-      NO_SHOW: { label: 'Ausente', style: 'bg-red-600 text-white' },
-      CANCELLED_BY_USER: { label: 'Cancelada (P)', style: 'bg-slate-500 text-white line-through' },
-      CANCELLED_BY_PRO: { label: 'Cancelada', style: 'bg-slate-500 text-white line-through' },
+      PENDING: { label: 'Pendiente', style: 'bg-accent-700 text-white' },
+      CONFIRMED: { label: 'Confirmada', style: 'bg-brand-600 text-white' },
+      COMPLETED: { label: 'Completada', style: 'bg-brand-700 text-white' },
+      NO_SHOW: { label: 'Ausente', style: 'bg-accent-800 text-white' },
+      CANCELLED_BY_USER: { label: 'Cancelada (P)', style: 'bg-accent-900 text-white line-through' },
+      CANCELLED_BY_PRO: { label: 'Cancelada', style: 'bg-accent-900 text-white line-through' },
     };
     const current = config[status] || { label: status, style: 'bg-gray-100 text-gray-800' };
     return <span className={`rounded px-2 py-1 text-xs font-bold ${current.style}`}>{current.label}</span>;
@@ -151,7 +151,7 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
                     {(appointment.status === 'PENDING' || appointment.status === 'CONFIRMED') && isFuture(new Date(appointment.date)) && (
                       <button
                         onClick={() => setReschedulingApt(appointment)}
-                        className="rounded bg-indigo-600 px-3 py-1 text-xs text-white hover:bg-indigo-700"
+                        className="rounded bg-brand-700 px-3 py-1 text-xs text-white hover:bg-brand-800"
                       >
                         Reagendar
                       </button>
@@ -162,14 +162,14 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
                         <button
                           onClick={() => setAcceptingApt(appointment)}
                           disabled={loadingId === appointment.id}
-                          className="rounded bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700 disabled:opacity-50"
+                          className="rounded bg-brand-600 px-3 py-1 text-xs text-white hover:bg-brand-700 disabled:opacity-50"
                         >
                           Aceptar
                         </button>
                         <button
                           onClick={() => setCancelingApt(appointment)}
                           disabled={loadingId === appointment.id}
-                          className="rounded bg-red-600 px-3 py-1 text-xs text-white hover:bg-red-700 disabled:opacity-50"
+                          className="rounded bg-accent-700 px-3 py-1 text-xs text-white hover:bg-accent-800 disabled:opacity-50"
                         >
                           Cancelar
                         </button>
@@ -181,21 +181,21 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
                         <button
                           onClick={() => handleStatusChange(appointment.id, 'COMPLETED')}
                           disabled={loadingId === appointment.id}
-                          className="rounded bg-green-600 px-3 py-1 text-xs text-white hover:bg-green-700 disabled:opacity-50"
+                          className="rounded bg-brand-600 px-3 py-1 text-xs text-white hover:bg-brand-700 disabled:opacity-50"
                         >
                           Completar
                         </button>
                         <button
                           onClick={() => handleStatusChange(appointment.id, 'NO_SHOW')}
                           disabled={loadingId === appointment.id}
-                          className="rounded bg-slate-600 px-3 py-1 text-xs text-white hover:bg-slate-700 disabled:opacity-50"
+                          className="rounded bg-accent-600 px-3 py-1 text-xs text-white hover:bg-accent-700 disabled:opacity-50"
                         >
                           Ausente
                         </button>
                         <button
                           onClick={() => setCancelingApt(appointment)}
                           disabled={loadingId === appointment.id}
-                          className="rounded bg-red-600 px-3 py-1 text-xs text-white hover:bg-red-700 disabled:opacity-50"
+                          className="rounded bg-accent-800 px-3 py-1 text-xs text-white hover:bg-accent-900 disabled:opacity-50"
                         >
                           Cancelar
                         </button>
@@ -205,7 +205,7 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
                     {appointment.status === 'COMPLETED' && (
                       <button
                         onClick={() => setFollowUpApt(appointment)}
-                        className="rounded bg-indigo-600 px-3 py-1 text-xs text-white hover:bg-indigo-700"
+                        className="rounded bg-brand-700 px-3 py-1 text-xs text-white hover:bg-brand-800"
                       >
                         Seguimiento
                       </button>

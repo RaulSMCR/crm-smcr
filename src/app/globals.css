@@ -3,122 +3,180 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ===========================
-   PALETA DE MARCA (TU PALETA)
-   ===========================
-
-   Usamos variables CSS con valores RGB (R G B).
-   Cambiando estos números, TODO el sitio se adapta.
-*/
-
-/* Fondo crema del sitio */
 :root {
-  --app-bg: 246 239 223; /* #F6EFDF (neutral crema del logo) */
+  --app-bg: 246 239 223;
 
-  /* BRAND: Hoja Monstera (verde azulado) #326d70 => rgb(50,109,112) */
-  /* Escala aproximada alrededor del color base para 50..950 */
-  --brand-50:  233 244 244;
+  --brand-50: 233 244 244;
   --brand-100: 210 234 235;
   --brand-200: 168 214 216;
   --brand-300: 125 193 195;
-  --brand-400:  84 160 163;
-  --brand-500:  56 134 138;
-  --brand-600:  43 112 115; /* #2B7073 (verde del logo) */
-  --brand-700:  35  92  95;
-  --brand-800:  28  74  76;
-  --brand-900:  22  58  60;
-  --brand-950:  12  34  35;
+  --brand-400: 84 160 163;
+  --brand-500: 56 134 138;
+  --brand-600: 43 112 115;
+  --brand-700: 35 92 95;
+  --brand-800: 28 74 76;
+  --brand-900: 22 58 60;
+  --brand-950: 12 34 35;
 
-  /* ACCENT: Coral #f47c6b => rgb(244,124,107) */
-  --accent-50:  255 245 242;
+  --accent-50: 255 245 242;
   --accent-100: 255 231 224;
   --accent-200: 255 203 191;
   --accent-300: 255 174 158;
   --accent-400: 255 145 125;
-  --accent-500: 251 122  98;
-  --accent-600: 251 122  98; /* #FB7A62 (coral del logo) */
-  --accent-700: 221 104  81;
-  --accent-800: 184  84  66;
-  --accent-900: 144  63  49;
-  --accent-950:  89  35  27;
+  --accent-500: 251 122 98;
+  --accent-600: 251 122 98;
+  --accent-700: 221 104 81;
+  --accent-800: 184 84 66;
+  --accent-900: 144 63 49;
+  --accent-950: 89 35 27;
 
-  /* NEUTRAL (texto y grises) — anclado en tu texto #2f3133 */
-  --neutral-50:  245 246 242; /* #f5f6f2 */
-  --neutral-100: 236 238 232; /* #eceee8 */
-  --neutral-200: 217 219 212; /* #d9dbd4 */
-  --neutral-300: 197 200 192; /* #c5c8c0 */
-  --neutral-400: 160 163 160; /* #a0a3a0 */
-  --neutral-500: 122 125 127; /* #7a7d7f */
-  --neutral-600:  92  95  97; /* #5c5f61 */
-  --neutral-700:  71  74  76; /* #474a4c */
-  --neutral-800:  56  58  60; /* #383a3c */
-  --neutral-900:  47  49  51; /* #2f3133 (DEFAULT text) */
-  --neutral-950:  26  27  28; /* #1a1b1c */
+  --neutral-50: 245 246 242;
+  --neutral-100: 236 238 232;
+  --neutral-200: 217 219 212;
+  --neutral-300: 197 200 192;
+  --neutral-400: 160 163 160;
+  --neutral-500: 122 125 127;
+  --neutral-600: 92 95 97;
+  --neutral-700: 71 74 76;
+  --neutral-800: 56 58 60;
+  --neutral-900: 47 49 51;
+  --neutral-950: 26 27 28;
 
-  /* Estados (pueden ajustarse luego si querés que sigan tu branding) */
-  --success-600:  22 163  74; /* green-600 */
-  --warning-600: 217 119   6; /* amber-600 */
-  --danger-600:  220  38  38; /* red-600 */
+  --ratio-neutral: 60;
+  --ratio-brand: 30;
+  --ratio-accent: 10;
 }
 
-/*
-  Capa de compatibilidad para clases heredadas fuera de la paleta.
-  Fuerza todos los estados base/hover/focus/active de botones y carteles
-  a neutral + brand + accent.
-*/
 @layer utilities {
-  [class*="bg-blue-"], [class*="bg-indigo-"], [class*="bg-cyan-"], [class*="bg-sky-"], [class*="bg-teal-"] { background-color: rgb(var(--brand-600) / 1) !important; }
-  [class*="bg-green-"], [class*="bg-emerald-"] { background-color: rgb(var(--brand-100) / 1) !important; }
-  [class*="bg-red-"], [class*="bg-rose-"], [class*="bg-pink-"], [class*="bg-orange-"], [class*="bg-amber-"] { background-color: rgb(var(--accent-100) / 1) !important; }
-  [class*="bg-slate-"], [class*="bg-gray-"], [class*="bg-zinc-"], [class*="bg-stone-"], [class*="bg-white"] { background-color: rgb(var(--app-bg) / 1) !important; }
-
-  [class*="text-blue-"], [class*="text-indigo-"], [class*="text-cyan-"], [class*="text-sky-"] { color: rgb(var(--brand-700) / 1) !important; }
-  [class*="text-green-"], [class*="text-emerald-"], [class*="text-teal-"] { color: rgb(var(--brand-800) / 1) !important; }
-  [class*="text-red-"], [class*="text-rose-"], [class*="text-pink-"], [class*="text-orange-"], [class*="text-amber-"] { color: rgb(var(--accent-800) / 1) !important; }
-  [class*="text-slate-"], [class*="text-gray-"], [class*="text-zinc-"] { color: rgb(var(--neutral-900) / 1) !important; }
-
-  [class*="border-blue-"], [class*="border-indigo-"], [class*="border-cyan-"], [class*="border-sky-"] { border-color: rgb(var(--brand-300) / 1) !important; }
-  [class*="border-green-"], [class*="border-emerald-"], [class*="border-teal-"] { border-color: rgb(var(--brand-200) / 1) !important; }
-  [class*="border-red-"], [class*="border-rose-"], [class*="border-pink-"], [class*="border-orange-"], [class*="border-amber-"] { border-color: rgb(var(--accent-300) / 1) !important; }
-  [class*="border-slate-"], [class*="border-gray-"], [class*="border-zinc-"] { border-color: rgb(var(--neutral-300) / 1) !important; }
-
-  [class*="hover:bg-blue-"]:hover, [class*="hover:bg-indigo-"]:hover, [class*="hover:bg-cyan-"]:hover, [class*="hover:bg-sky-"]:hover, [class*="hover:bg-teal-"]:hover,
-  [class*="active:bg-blue-"]:active, [class*="active:bg-indigo-"]:active, [class*="active:bg-cyan-"]:active, [class*="active:bg-sky-"]:active, [class*="active:bg-teal-"]:active {
-    background-color: rgb(var(--brand-700) / 1) !important;
+  [class*="bg-blue-"],
+  [class*="bg-indigo-"],
+  [class*="bg-cyan-"],
+  [class*="bg-sky-"],
+  [class*="bg-teal-"],
+  [class*="bg-purple-"] {
+    background-color: rgb(var(--brand-600) / 1) !important;
   }
-  [class*="hover:bg-red-"]:hover, [class*="hover:bg-rose-"]:hover, [class*="hover:bg-pink-"]:hover, [class*="hover:bg-orange-"]:hover, [class*="hover:bg-amber-"]:hover,
-  [class*="active:bg-red-"]:active, [class*="active:bg-rose-"]:active, [class*="active:bg-pink-"]:active, [class*="active:bg-orange-"]:active, [class*="active:bg-amber-"]:active {
+
+  [class*="bg-green-"],
+  [class*="bg-emerald-"] {
+    background-color: rgb(var(--brand-200) / 1) !important;
+  }
+
+  [class*="bg-red-"],
+  [class*="bg-rose-"],
+  [class*="bg-pink-"],
+  [class*="bg-orange-"],
+  [class*="bg-amber-"],
+  [class*="bg-yellow-"] {
     background-color: rgb(var(--accent-700) / 1) !important;
   }
 
-  [class*="focus:ring-blue-"], [class*="focus:ring-indigo-"], [class*="focus:ring-cyan-"], [class*="focus:ring-sky-"], [class*="focus:ring-teal-"] {
+  [class*="bg-slate-"],
+  [class*="bg-gray-"],
+  [class*="bg-zinc-"],
+  [class*="bg-stone-"],
+  [class*="bg-white"] {
+    background-color: rgb(var(--app-bg) / 1) !important;
+  }
+
+  [class*="text-blue-"],
+  [class*="text-indigo-"],
+  [class*="text-cyan-"],
+  [class*="text-sky-"],
+  [class*="text-purple-"] {
+    color: rgb(var(--brand-700) / 1) !important;
+  }
+
+  [class*="text-green-"],
+  [class*="text-emerald-"],
+  [class*="text-teal-"] {
+    color: rgb(var(--brand-800) / 1) !important;
+  }
+
+  [class*="text-red-"],
+  [class*="text-rose-"],
+  [class*="text-pink-"],
+  [class*="text-orange-"],
+  [class*="text-amber-"],
+  [class*="text-yellow-"] {
+    color: rgb(var(--accent-800) / 1) !important;
+  }
+
+  [class*="text-slate-"],
+  [class*="text-gray-"],
+  [class*="text-zinc-"] {
+    color: rgb(var(--neutral-900) / 1) !important;
+  }
+
+  [class*="border-blue-"],
+  [class*="border-indigo-"],
+  [class*="border-cyan-"],
+  [class*="border-sky-"],
+  [class*="border-purple-"] {
+    border-color: rgb(var(--brand-300) / 1) !important;
+  }
+
+  [class*="border-green-"],
+  [class*="border-emerald-"],
+  [class*="border-teal-"] {
+    border-color: rgb(var(--brand-200) / 1) !important;
+  }
+
+  [class*="border-red-"],
+  [class*="border-rose-"],
+  [class*="border-pink-"],
+  [class*="border-orange-"],
+  [class*="border-amber-"],
+  [class*="border-yellow-"] {
+    border-color: rgb(var(--accent-300) / 1) !important;
+  }
+
+  [class*="border-slate-"],
+  [class*="border-gray-"],
+  [class*="border-zinc-"] {
+    border-color: rgb(var(--neutral-300) / 1) !important;
+  }
+
+  [class*="hover:bg-blue-"]:hover,
+  [class*="hover:bg-indigo-"]:hover,
+  [class*="hover:bg-cyan-"]:hover,
+  [class*="hover:bg-sky-"]:hover,
+  [class*="hover:bg-teal-"]:hover,
+  [class*="hover:bg-purple-"]:hover {
+    background-color: rgb(var(--brand-700) / 1) !important;
+  }
+
+  [class*="hover:bg-red-"]:hover,
+  [class*="hover:bg-rose-"]:hover,
+  [class*="hover:bg-pink-"]:hover,
+  [class*="hover:bg-orange-"]:hover,
+  [class*="hover:bg-amber-"]:hover,
+  [class*="hover:bg-yellow-"]:hover {
+    background-color: rgb(var(--accent-800) / 1) !important;
+  }
+
+  [class*="focus:ring-blue-"],
+  [class*="focus:ring-indigo-"],
+  [class*="focus:ring-cyan-"],
+  [class*="focus:ring-sky-"],
+  [class*="focus:ring-teal-"],
+  [class*="focus:ring-purple-"] {
     --tw-ring-color: rgb(var(--brand-300) / 1) !important;
   }
-  [class*="focus:ring-red-"], [class*="focus:ring-rose-"], [class*="focus:ring-pink-"], [class*="focus:ring-orange-"], [class*="focus:ring-amber-"] {
+
+  [class*="focus:ring-red-"],
+  [class*="focus:ring-rose-"],
+  [class*="focus:ring-pink-"],
+  [class*="focus:ring-orange-"],
+  [class*="focus:ring-amber-"],
+  [class*="focus:ring-yellow-"] {
     --tw-ring-color: rgb(var(--accent-300) / 1) !important;
   }
 }
 
-/* Modo oscuro opcional (si activás .dark en <html>) */
-.dark {
-  --neutral-50:  9  9 11;
-  --neutral-100:  24 24 27;
-  --neutral-200: 39 39 42;
-  --neutral-300: 63 63 70;
-  --neutral-400: 113 113 122;
-  --neutral-500: 161 161 170;
-  --neutral-600: 212 212 216;
-  --neutral-700: 228 228 231;
-  --neutral-800: 240 240 242;
-  --neutral-900: 249 249 251;
-  --neutral-950: 255 255 255;
-}
-
-/* ================
-   BASE STYLING
-   ================ */
 @layer base {
-  html, body {
+  html,
+  body {
     background: rgb(var(--app-bg));
     color: rgb(var(--neutral-900));
   }
@@ -127,46 +185,37 @@
     @apply text-brand-700 hover:text-brand-600 underline-offset-2 hover:underline;
   }
 
-  h1,h2,h3,h4,h5,h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply text-neutral-900;
-  }
-
-  /* Tipografía “prose” coherente con la marca */
-  .prose {
-    --tw-prose-body: rgb(var(--neutral-800));
-    --tw-prose-headings: rgb(var(--neutral-900));
-    --tw-prose-links: rgb(var(--brand-700));
-    --tw-prose-links-hover: rgb(var(--brand-600));
-    --tw-prose-bold: rgb(var(--neutral-900));
-    --tw-prose-counters: rgb(var(--neutral-600));
-    --tw-prose-bullets: rgb(var(--neutral-400));
-    --tw-prose-hr: rgb(var(--neutral-300));
-    --tw-prose-quotes: rgb(var(--neutral-900));
-    --tw-prose-quote-borders: rgb(var(--brand-300));
-    --tw-prose-captions: rgb(var(--neutral-600));
-    --tw-prose-code: rgb(var(--neutral-900));
-    --tw-prose-th-borders: rgb(var(--neutral-300));
-    --tw-prose-td-borders: rgb(var(--neutral-200));
   }
 }
 
-/* ==================
-   COMPONENT STYLES
-   ================== */
 @layer components {
-  .card { @apply rounded-2xl border bg-white shadow-card; }
+  .card {
+    @apply rounded-2xl border bg-white shadow-card;
+  }
 
-  .btn { @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition; }
+  .btn {
+    @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition;
+  }
 
   .btn-primary {
     @apply btn bg-brand-600 text-white hover:bg-brand-700 focus:ring-2 focus:ring-brand-300;
   }
+
   .btn-accent {
-    @apply btn bg-accent-600 text-white hover:bg-accent-700 focus:ring-2 focus:ring-accent-300;
+    @apply btn bg-accent-700 text-white hover:bg-accent-800 focus:ring-2 focus:ring-accent-300;
   }
+
   .btn-outline {
     @apply btn border border-brand-600 text-brand-700 hover:bg-brand-50;
   }
+
   .btn-ghost {
     @apply btn text-brand-700 hover:bg-brand-50;
   }
@@ -174,6 +223,45 @@
   .input {
     @apply block w-full rounded-lg border-neutral-300 focus:border-brand-500 focus:ring-brand-500;
   }
-  .label { @apply block text-sm font-medium text-neutral-700; }
-  .help  { @apply text-xs text-neutral-500; }
+
+  .label {
+    @apply block text-sm font-medium text-neutral-700;
+  }
+
+  .help {
+    @apply text-xs text-neutral-500;
+  }
+
+  button[class*="bg-white"],
+  button[class*="bg-slate-"],
+  button[class*="bg-gray-"],
+  a[class*="bg-white"],
+  a[class*="bg-slate-"],
+  a[class*="bg-gray-"] {
+    background-color: rgb(var(--brand-600) / 1) !important;
+    color: white !important;
+  }
+
+  button[class*="bg-brand-"],
+  button[class*="bg-accent-"],
+  a[class*="bg-brand-"],
+  a[class*="bg-accent-"] {
+    color: white !important;
+  }
+
+  button[class*="bg-white"]:hover,
+  button[class*="bg-slate-"]:hover,
+  button[class*="bg-gray-"]:hover,
+  a[class*="bg-white"]:hover,
+  a[class*="bg-slate-"]:hover,
+  a[class*="bg-gray-"]:hover {
+    background-color: rgb(var(--brand-700) / 1) !important;
+  }
+
+  .emergency-alert,
+  .emergency-alert * {
+    background-color: rgb(var(--accent-900) / 1) !important;
+    color: white !important;
+    border-color: rgb(var(--accent-950) / 1) !important;
+  }
 }

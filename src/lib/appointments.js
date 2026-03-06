@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { DEFAULT_TZ, formatDateTimeInTZ, toGoogleDateTime } from "@/lib/timezone";
 
 const TZ = process.env.APP_TIMEZONE || DEFAULT_TZ;
-const FROM_EMAIL = process.env.NOTIFICATIONS_FROM_EMAIL || "Salud Mental Costa Rica <no-reply@saludmentalcostarica.com>";
+const FROM_EMAIL = process.env.EMAIL_FROM || process.env.NOTIFICATIONS_FROM_EMAIL || "Salud Mental Costa Rica <onboarding@resend.dev>";
 
 const CANCELLED_STATUSES = new Set(["CANCELLED_BY_USER", "CANCELLED_BY_PRO"]);
 
@@ -49,7 +49,10 @@ export async function sendAppointmentNotifications(appointment, reason) {
   const patientEmail = appointment.patient?.email;
   const proEmail = appointment.professional?.user?.email;
 
-  if (!process.env.RESEND_API_KEY) return;
+  if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY === "re_dummy_key") {
+    console.warn("[Resend] RESEND_API_KEY no configurada, omitiendo envío de emails.");
+    return;
+  }
 
   const deliveries = [];
 
@@ -60,6 +63,10 @@ export async function sendAppointmentNotifications(appointment, reason) {
         to: patientEmail,
         subject: "Actualización de tu cita",
         html: buildNotificationHtml({ recipientName: appointment.patient?.name, appointment, reason }),
+      }).then((res) => {
+        if (res.error) console.error("[Resend] Error enviando email al paciente:", res.error);
+        else console.log("[Resend] Email enviado al paciente:", patientEmail, "id:", res.data?.id);
+        return res;
       })
     );
   }
@@ -71,11 +78,19 @@ export async function sendAppointmentNotifications(appointment, reason) {
         to: proEmail,
         subject: "Actualización de agenda",
         html: buildNotificationHtml({ recipientName: appointment.professional?.user?.name, appointment, reason }),
+      }).then((res) => {
+        if (res.error) console.error("[Resend] Error enviando email al profesional:", res.error);
+        else console.log("[Resend] Email enviado al profesional:", proEmail, "id:", res.data?.id);
+        return res;
       })
     );
   }
 
-  await Promise.allSettled(deliveries);
+  const results = await Promise.allSettled(deliveries);
+  const failed = results.filter((r) => r.status === "rejected");
+  if (failed.length > 0) {
+    console.error("[Resend] Promesas rechazadas:", failed.map((f) => f.reason));
+  }
 }
 
 function buildGoogleEvent(appointment) {
