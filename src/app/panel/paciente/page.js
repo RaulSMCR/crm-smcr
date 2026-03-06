@@ -58,6 +58,8 @@ export default async function PacientePanelPage({ searchParams }) {
 
   const userForClient = { ...user, birthDate: birthDateForInput(user.birthDate) };
   const created = String(searchParams?.created || "") === "1";
+  const appointmentAction = String(searchParams?.appointmentAction || "");
+  const appointmentId = String(searchParams?.appointmentId || "");
 
   return (
     <div className="max-w-6xl mx-auto p-6 md:p-10 space-y-6">
@@ -86,7 +88,11 @@ export default async function PacientePanelPage({ searchParams }) {
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
             <h2 className="text-xl font-bold text-slate-900">Mis citas</h2>
 
-            <UserAppointmentsPanel initialAppointments={appointments} />
+            <UserAppointmentsPanel
+              initialAppointments={appointments}
+              initialAction={appointmentAction}
+              initialActionAppointmentId={appointmentId}
+            />
           </div>
         </div>
 

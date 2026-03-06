@@ -27,8 +27,24 @@ enum AppointmentStatus {
 
 enum PaymentStatus {
   UNPAID
+  PARTIALLY_PAID
   PAID
   REFUNDED
+}
+
+enum PaymentTransactionType {
+  DEPOSIT_50
+  BALANCE_50
+  FULL_100
+}
+
+enum PaymentTransactionStatus {
+  PENDING
+  PROCESSING
+  APPROVED
+  REJECTED
+  REFUNDED
+  EXPIRED
 }
 
 enum ServiceAssignmentStatus {
@@ -78,6 +94,7 @@ model User {
   appointments Appointment[] @relation("PatientAppointments")
 
   postViewEvents PostViewEvent[]
+  paymentTransactions PaymentTransaction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -112,6 +129,7 @@ model ProfessionalProfile {
 
   // ✅ Lo que tu código espera
   serviceAssignments ServiceAssignment[]
+  paymentTransactions PaymentTransaction[]
 
   availability Availability[]
   posts        Post[]
@@ -217,6 +235,9 @@ model Appointment {
   parentAppointment   Appointment?  @relation("FollowUps", fields: [parentAppointmentId], references: [id], onDelete: SetNull)
   followUps           Appointment[] @relation("FollowUps")
 
+  isFirstWithProfessional Boolean @default(false)
+  paymentTransactions     PaymentTransaction[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -226,6 +247,41 @@ model Appointment {
   @@index([serviceId])
   @@index([status])
   @@index([parentAppointmentId])
+}
+
+model PaymentTransaction {
+  id String @id @default(cuid())
+
+  appointmentId  String
+  professionalId String
+  patientId      String
+
+  type     PaymentTransactionType
+  amount   Decimal                  @db.Decimal(10, 2)
+  currency String                   @default("CRC")
+
+  p2pRequestId  Int?    @unique
+  p2pReference  String? @unique
+  p2pProcessUrl String? @db.Text
+
+  status           PaymentTransactionStatus @default(PENDING)
+  p2pStatusCode    String?
+  p2pStatusMessage String?                  @db.Text
+  p2pPaymentDate   DateTime?
+  webhookPayload   Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appointment  Appointment         @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  patient      User                @relation(fields: [patientId], references: [id])
+
+  @@index([appointmentId])
+  @@index([professionalId])
+  @@index([patientId])
+  @@index([p2pRequestId])
+  @@index([status, createdAt])
 }
 
 model Post {

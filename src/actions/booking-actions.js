@@ -229,6 +229,16 @@ export async function requestAppointment(
       return { error: conflictError };
     }
 
+    // Determinar si es la primera cita de este paciente con este profesional
+    const previousCount = await prisma.appointment.count({
+      where: {
+        patientId: session.sub,
+        professionalId,
+        status: { notIn: CANCELLED_STATUSES },
+      },
+    });
+    const isFirstWithProfessional = previousCount === 0;
+
     const createdAppointments = await prisma.$transaction(
       starts.map((start, index) =>
         prisma.appointment.create({
@@ -240,6 +250,7 @@ export async function requestAppointment(
             professionalId: professionalId,
             serviceId: serviceId || undefined,
             pricePaid,
+            isFirstWithProfessional,
           },
           select: { id: true }
         })
@@ -252,10 +263,16 @@ export async function requestAppointment(
     revalidatePath(`/agendar/${professionalId}`);
     revalidatePath('/panel/paciente');
 
+    const depositAmount = isFirstWithProfessional && pricePaid
+      ? Math.round(Number(pricePaid) * 0.5)
+      : null;
+
     return {
       success: true,
       appointmentId: hydratedAppointments[0]?.id || null,
       createdCount: hydratedAppointments.length,
+      requiresDeposit: isFirstWithProfessional && !!pricePaid,
+      depositAmount,
     };
 
   } catch (error) {

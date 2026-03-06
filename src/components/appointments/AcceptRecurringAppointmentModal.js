@@ -9,10 +9,12 @@ export default function AcceptRecurringAppointmentModal({ appointment, onClose, 
   const [recurrenceRule, setRecurrenceRule] = useState(RECURRENCE_RULES.NONE);
   const [recurrenceCount, setRecurrenceCount] = useState(4);
   const [error, setError] = useState("");
+  const [conflictMeta, setConflictMeta] = useState(null);
   const [isPending, startTransition] = useTransition();
 
   function handleConfirm() {
     setError("");
+    setConflictMeta(null);
     startTransition(async () => {
       const result = await confirmAppointmentByProfessional(
         appointment.id,
@@ -22,6 +24,12 @@ export default function AcceptRecurringAppointmentModal({ appointment, onClose, 
 
       if (!result?.success) {
         setError(result?.error || "No se pudo aceptar la cita.");
+        if (result?.errorCode === "RECURRING_CONFLICT") {
+          setConflictMeta({
+            suggestedCalendarUrl: result?.suggestedCalendarUrl || "",
+            conflictLabel: result?.conflictLabel || "",
+          });
+        }
         return;
       }
 
@@ -55,7 +63,21 @@ export default function AcceptRecurringAppointmentModal({ appointment, onClose, 
           onCountChange={setRecurrenceCount}
         />
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && (
+          <div className="space-y-2 rounded-xl border border-accent-300 bg-accent-100 p-3 text-sm text-neutral-900">
+            <p>{error}</p>
+            {conflictMeta?.suggestedCalendarUrl && (
+              <a
+                href={conflictMeta.suggestedCalendarUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-block font-semibold text-brand-700 hover:underline"
+              >
+                Abrir calendario del día sugerido
+              </a>
+            )}
+          </div>
+        )}
 
         <div className="flex justify-end gap-3 pt-2">
           <button

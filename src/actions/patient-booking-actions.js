@@ -397,3 +397,46 @@ export async function rescheduleAppointmentByPatient(
   revalidatePath("/panel/profesional/citas");
   return { success: true, createdCount: hydratedAppointments.length };
 }
+
+export async function confirmCurrentAppointmentByPatient(appointmentId) {
+  try {
+    const session = await getSession();
+    if (!session || session.role !== "USER") return { error: "No autorizado." };
+
+    const id = String(appointmentId || "");
+    if (!id) return { error: "ID de cita inválido." };
+
+    const appointment = await prisma.appointment.findUnique({
+      where: { id },
+      include: {
+        patient: { select: { name: true, email: true } },
+        professional: {
+          select: {
+            id: true,
+            googleRefreshToken: true,
+            user: { select: { name: true, email: true } },
+          },
+        },
+        service: { select: { title: true } },
+      },
+    });
+
+    if (!appointment) return { error: "Cita no encontrada." };
+    if (appointment.patientId !== String(session.sub)) return { error: "No autorizado." };
+    if (!["PENDING", "CONFIRMED"].includes(appointment.status)) {
+      return { error: "Esta cita ya no admite confirmación de horario." };
+    }
+
+    await sendAppointmentNotifications(
+      appointment,
+      "El paciente confirmó que mantiene el horario actual. Puedes continuar la gestión de la serie."
+    );
+
+    revalidatePath("/panel/paciente");
+    revalidatePath("/panel/profesional/citas");
+    return { success: true };
+  } catch (error) {
+    console.error("confirmCurrentAppointmentByPatient error:", error);
+    return { error: "No se pudo registrar la confirmación." };
+  }
+}

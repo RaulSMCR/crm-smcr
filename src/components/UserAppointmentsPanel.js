@@ -1,12 +1,13 @@
 //src/components/UserAppointmentsPanel.js
 'use client';
 
-import { formatDateTimeInTZ, DEFAULT_TZ } from '@/lib/timezone';
-import { useState } from 'react';
+import { DEFAULT_TZ } from '@/lib/timezone';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import CancelAppointmentModal from './appointments/CancelAppointmentModal';
 import RescheduleAppointmentModal from './appointments/RescheduleAppointmentModal';
-import { cancelAppointmentByPatient } from '@/actions/patient-booking-actions';
+import { cancelAppointmentByPatient, confirmCurrentAppointmentByPatient } from '@/actions/patient-booking-actions';
 
 // Helpers para formatear con timezone de Costa Rica
 const formatDateInTZ = (date) => {
@@ -26,13 +27,54 @@ const formatTimeInTZ = (date) => {
   }).format(new Date(date));
 };
 
-export default function UserAppointmentsPanel({ initialAppointments = [] }) {
+export default function UserAppointmentsPanel({
+  initialAppointments = [],
+  initialAction = '',
+  initialActionAppointmentId = '',
+}) {
   // Inicializamos el estado con los datos que vienen del servidor (Page)
   // Usamos estado por si luego queremos filtrar/ordenar sin recargar la página
   const [appointments, setAppointments] = useState(initialAppointments);
   const [filter, setFilter] = useState('ALL'); // 'ALL', 'UPCOMING', 'PAST'
   const [cancelingApt, setCancelingApt] = useState(null);
   const [reschedulingApt, setReschedulingApt] = useState(null);
+  const [actionMessage, setActionMessage] = useState('');
+  const [isApplyingAction, startActionTransition] = useTransition();
+  const router = useRouter();
+  const handledIntentRef = useRef(false);
+
+  useEffect(() => {
+    if (handledIntentRef.current) return;
+    if (!initialAction || !initialActionAppointmentId) return;
+
+    handledIntentRef.current = true;
+
+    const targetAppointment = initialAppointments.find((item) => item.id === initialActionAppointmentId);
+    if (!targetAppointment) {
+      setActionMessage('No se encontró la cita del enlace recibido.');
+      router.replace('/panel/paciente');
+      return;
+    }
+
+    if (initialAction === 'reschedule') {
+      setReschedulingApt(targetAppointment);
+      setActionMessage('Selecciona un nuevo horario para tu cita.');
+      router.replace('/panel/paciente');
+      return;
+    }
+
+    if (initialAction === 'confirm') {
+      startActionTransition(async () => {
+        const result = await confirmCurrentAppointmentByPatient(initialActionAppointmentId);
+        if (result?.success) {
+          setActionMessage('Horario confirmado. Avisamos al profesional para continuar con la serie.');
+        } else {
+          setActionMessage(result?.error || 'No se pudo confirmar el horario.');
+        }
+        router.replace('/panel/paciente');
+      });
+    }
+  }, [initialAction, initialActionAppointmentId, initialAppointments, router]);
 
   async function handleCancel(appointmentId, reason) {
     const result = await cancelAppointmentByPatient(appointmentId, reason);
@@ -95,6 +137,18 @@ export default function UserAppointmentsPanel({ initialAppointments = [] }) {
       </div>
 
       {/* Lista de Citas */}
+      {actionMessage && (
+        <div className="mx-6 mt-4 rounded-xl border border-brand-300 bg-brand-100 px-4 py-3 text-sm text-neutral-900">
+          {actionMessage}
+        </div>
+      )}
+
+      {isApplyingAction && (
+        <div className="mx-6 mt-4 rounded-xl border border-brand-300 bg-brand-100 px-4 py-3 text-sm text-neutral-900">
+          Registrando tu confirmación...
+        </div>
+      )}
+
       <div className="divide-y divide-gray-100">
         {filteredAppointments.length > 0 ? (
           filteredAppointments.map((apt) => (

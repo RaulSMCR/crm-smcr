@@ -23,6 +23,9 @@ const PUBLIC_PREFIX = ["/blog"];
 // API auth pública
 const API_AUTH_PREFIX = "/api/auth";
 
+// Webhooks públicos (verificados por firma, no por JWT)
+const PUBLIC_API_EXACT = new Set(["/api/payment/webhook"]);
+
 // Protegidas por rol
 const PROTECTED_ROUTES = [
   { prefix: "/panel/admin", role: "ADMIN" },
@@ -99,9 +102,10 @@ export async function middleware(request) {
 
   const isPublic = isPublicPath(pathname);
   const isApiAuth = pathname.startsWith(API_AUTH_PREFIX);
+  const isPublicApiExact = PUBLIC_API_EXACT.has(pathname);
 
-  // B) Permitir públicas y /api/auth
-  if (isPublic || isApiAuth) {
+  // B) Permitir públicas, /api/auth y webhooks con firma propia
+  if (isPublic || isApiAuth || isPublicApiExact) {
     // si está logueado e intenta /ingresar, mandarlo al "next" si existe, si no a su panel
     const encodedKey = getEncodedKeySafe();
     if (encodedKey && pathname === "/ingresar") {

@@ -20,6 +20,7 @@ export default function ProfessionalRescheduleModal({ appointment, onClose, onSu
   const [recurrenceRule, setRecurrenceRule] = useState(RECURRENCE_RULES.NONE);
   const [recurrenceCount, setRecurrenceCount] = useState(4);
   const [error, setError] = useState("");
+  const [conflictMeta, setConflictMeta] = useState(null);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -59,6 +60,7 @@ export default function ProfessionalRescheduleModal({ appointment, onClose, onSu
     }
 
     setError("");
+    setConflictMeta(null);
     startTransition(async () => {
       const result = await rescheduleAppointmentByProfessional(
         appointment.id,
@@ -69,6 +71,11 @@ export default function ProfessionalRescheduleModal({ appointment, onClose, onSu
 
       if (!result?.success) {
         setError(result?.error || "No se pudo reagendar.");
+        if (result?.errorCode === "RECURRING_CONFLICT") {
+          setConflictMeta({
+            suggestedCalendarUrl: result?.suggestedCalendarUrl || "",
+          });
+        }
         return;
       }
 
@@ -171,7 +178,21 @@ export default function ProfessionalRescheduleModal({ appointment, onClose, onSu
           </>
         )}
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && (
+          <div className="space-y-2 rounded-xl border border-accent-300 bg-accent-100 p-3 text-sm text-neutral-900">
+            <p>{error}</p>
+            {conflictMeta?.suggestedCalendarUrl && (
+              <a
+                href={conflictMeta.suggestedCalendarUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-block font-semibold text-brand-700 hover:underline"
+              >
+                Abrir calendario del día sugerido
+              </a>
+            )}
+          </div>
+        )}
 
         <div className="flex justify-end gap-3 pt-2">
           <button

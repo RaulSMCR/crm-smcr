@@ -5,6 +5,10 @@ import { DEFAULT_TZ, formatDateTimeInTZ, toGoogleDateTime } from "@/lib/timezone
 
 const TZ = process.env.APP_TIMEZONE || DEFAULT_TZ;
 const FROM_EMAIL = process.env.EMAIL_FROM || process.env.NOTIFICATIONS_FROM_EMAIL || "Salud Mental Costa Rica <onboarding@resend.dev>";
+const APP_DOMAIN =
+  process.env.NEXT_PUBLIC_URL ||
+  process.env.NEXT_PUBLIC_APP_URL ||
+  (process.env.NODE_ENV === "development" ? "http://localhost:3000" : "https://saludmentalcostarica.com");
 
 const CANCELLED_STATUSES = new Set(["CANCELLED_BY_USER", "CANCELLED_BY_PRO"]);
 
@@ -43,6 +47,14 @@ function buildNotificationHtml({ recipientName, appointment, reason }) {
       <p style="font-size:12px;color:#475569;">Este correo fue generado automáticamente por el sistema de agenda.</p>
     </div>
   `;
+}
+
+function buildPrimaryButton(label, href) {
+  return `<a href="${href}" style="display:inline-block;background:#2b7073;color:#ffffff;text-decoration:none;padding:11px 16px;border-radius:10px;font-weight:700;">${label}</a>`;
+}
+
+function buildSecondaryButton(label, href) {
+  return `<a href="${href}" style="display:inline-block;background:#fb7a62;color:#ffffff;text-decoration:none;padding:11px 16px;border-radius:10px;font-weight:700;">${label}</a>`;
 }
 
 export async function sendAppointmentNotifications(appointment, reason) {
@@ -90,6 +102,65 @@ export async function sendAppointmentNotifications(appointment, reason) {
   const failed = results.filter((r) => r.status === "rejected");
   if (failed.length > 0) {
     console.error("[Resend] Promesas rechazadas:", failed.map((f) => f.reason));
+  }
+}
+
+export async function sendRecurringConflictResolutionEmail({
+  appointment,
+  conflictLabel,
+  professionalCalendarUrl,
+}) {
+  const patientEmail = appointment?.patient?.email;
+  if (!patientEmail) return;
+
+  if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY === "re_dummy_key") {
+    console.warn("[Resend] RESEND_API_KEY no configurada, omitiendo email de conflicto recurrente.");
+    return;
+  }
+
+  const appointmentId = String(appointment.id || "");
+  const confirmUrl = `${APP_DOMAIN}/panel/paciente?appointmentAction=confirm&appointmentId=${appointmentId}`;
+  const rescheduleUrl = `${APP_DOMAIN}/panel/paciente?appointmentAction=reschedule&appointmentId=${appointmentId}`;
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;line-height:1.5;color:#1f2937;">
+      <h2 style="margin-bottom:6px;">Necesitamos tu confirmación de horario</h2>
+      <p>Hola ${appointment.patient?.name || ""},</p>
+      <p>
+        Al intentar confirmar una serie recurrente de tu cita con
+        <strong> ${appointment.professional?.user?.name || "tu profesional"}</strong>,
+        encontramos un conflicto en <strong>${conflictLabel}</strong>.
+      </p>
+      <p style="margin-bottom:14px;">Selecciona una opción:</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+        ${buildPrimaryButton("Confirmar horario actual", confirmUrl)}
+        ${buildSecondaryButton("Elegir otro horario", rescheduleUrl)}
+      </div>
+      <p style="margin-bottom:8px;">
+        Si prefieres, también puedes revisar disponibilidad del profesional directamente:
+      </p>
+      <p style="margin:0 0 14px;">
+        <a href="${professionalCalendarUrl}" style="color:#2b7073;font-weight:700;">Abrir calendario del día sugerido</a>
+      </p>
+      <p style="font-size:12px;color:#6b7280;">
+        Este mensaje fue generado automáticamente para evitar demoras al reagendar tu serie.
+      </p>
+    </div>
+  `;
+
+  try {
+    const result = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: patientEmail,
+      subject: "Conflicto en tu cita recurrente - acción requerida",
+      html,
+    });
+
+    if (result.error) {
+      console.error("[Resend] Error enviando email de conflicto recurrente:", result.error);
+    }
+  } catch (error) {
+    console.error("Error enviando email de conflicto recurrente:", error);
   }
 }
 

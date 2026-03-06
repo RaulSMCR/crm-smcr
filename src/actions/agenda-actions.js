@@ -3,8 +3,13 @@
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { sendAppointmentNotifications, syncGoogleCalendarEvent } from "@/lib/appointments";
+import {
+  sendAppointmentNotifications,
+  sendRecurringConflictResolutionEmail,
+  syncGoogleCalendarEvent,
+} from "@/lib/appointments";
 import { scheduleReminder } from "@/lib/qstash";
+import { buildSlots } from "@/lib/appointment-slots";
 import {
   buildRecurringStarts,
   normalizeRecurrenceCount,
@@ -71,12 +76,94 @@ async function findRecurringConflict({ professionalId, starts, ends, ignoreAppoi
       (appointment) => appointment.date < end && appointment.endDate > start
     );
 
-    if (hasConflict) {
-      return `Hay un conflicto en ${formatConflictDate(start)}. Ajusta la serie e intenta nuevamente.`;
-    }
+    if (hasConflict) return { conflictStart: start };
   }
 
   return null;
+}
+
+function buildGoogleCalendarDayUrl(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `https://calendar.google.com/calendar/u/0/r/day/${year}/${month}/${day}`;
+}
+
+async function findSuggestedCalendarDateForConflict({
+  professionalId,
+  durationMin,
+  fromDate,
+  ignoreAppointmentId,
+}) {
+  const searchStart = new Date(fromDate);
+  searchStart.setHours(0, 0, 0, 0);
+
+  const searchEnd = new Date(searchStart);
+  searchEnd.setDate(searchEnd.getDate() + 45);
+
+  const [availability, bookedAppointments] = await Promise.all([
+    prisma.availability.findMany({
+      where: { professionalId },
+      orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
+    }),
+    prisma.appointment.findMany({
+      where: {
+        professionalId,
+        ...(ignoreAppointmentId ? { id: { not: ignoreAppointmentId } } : {}),
+        status: { notIn: CANCELLED_STATUSES },
+        date: { gte: searchStart, lt: searchEnd },
+      },
+      select: { date: true, endDate: true },
+      orderBy: { date: "asc" },
+    }),
+  ]);
+
+  if (!availability.length) return null;
+
+  const days = buildSlots({
+    availability,
+    durationMin,
+    booked: bookedAppointments.map((item) => ({
+      startISO: item.date.toISOString(),
+      endISO: item.endDate.toISOString(),
+    })),
+    daysAhead: 45,
+    now: searchStart,
+  });
+
+  if (!days.length) return null;
+
+  const sameDay = days.find((item) => item.day.toDateString() === searchStart.toDateString());
+  if (sameDay) return sameDay.day;
+
+  return days[0].day;
+}
+
+async function buildRecurringConflictResponse({
+  professionalId,
+  durationMin,
+  conflictStart,
+  ignoreAppointmentId,
+}) {
+  const suggestedDate =
+    (await findSuggestedCalendarDateForConflict({
+      professionalId,
+      durationMin,
+      fromDate: conflictStart,
+      ignoreAppointmentId,
+    })) || conflictStart;
+
+  const conflictLabel = formatConflictDate(conflictStart);
+
+  return {
+    success: false,
+    error: `Hay un conflicto en ${conflictLabel}. Revisa la serie y vuelve a intentar.`,
+    errorCode: "RECURRING_CONFLICT",
+    conflictDateISO: conflictStart.toISOString(),
+    suggestedDateISO: suggestedDate.toISOString(),
+    conflictLabel,
+    suggestedCalendarUrl: buildGoogleCalendarDayUrl(suggestedDate),
+  };
 }
 
 async function hydrateAppointments(appointmentIds) {
@@ -214,13 +301,50 @@ export async function createAppointmentByProfessional({
 
     const starts = buildRecurringStarts(start, rule, count);
     const ends = buildOccurrenceEnds(starts, service.durationMin);
-    const conflictError = await findRecurringConflict({
+    const conflict = await findRecurringConflict({
       professionalId,
       starts,
       ends,
     });
 
-    if (conflictError) return { success: false, error: conflictError };
+    if (conflict) {
+      const conflictResponse = await buildRecurringConflictResponse({
+        professionalId,
+        durationMin: service.durationMin,
+        conflictStart: conflict.conflictStart,
+      });
+
+      const conflictAppointment = await prisma.appointment.findFirst({
+        where: {
+          professionalId,
+          patientId: pid,
+          serviceId: sid,
+          status: "PENDING",
+          date: starts[0],
+        },
+        include: {
+          patient: { select: { id: true, name: true, email: true, phone: true } },
+          professional: {
+            select: {
+              id: true,
+              googleRefreshToken: true,
+              user: { select: { name: true, email: true } },
+            },
+          },
+          service: { select: { id: true, title: true, price: true, durationMin: true } },
+        },
+      });
+
+      if (conflictAppointment) {
+        await sendRecurringConflictResolutionEmail({
+          appointment: conflictAppointment,
+          conflictLabel: conflictResponse.conflictLabel,
+          professionalCalendarUrl: conflictResponse.suggestedCalendarUrl,
+        });
+      }
+
+      return conflictResponse;
+    }
 
     const createdAppointments = await prisma.$transaction(
       starts.map((occurrence, index) =>
@@ -292,14 +416,46 @@ export async function rescheduleAppointmentByProfessional(
     const starts = buildRecurringStarts(newStart, rule, count);
     const ends = buildOccurrenceEnds(starts, durationMin);
 
-    const conflictError = await findRecurringConflict({
+    const conflict = await findRecurringConflict({
       professionalId,
       starts,
       ends,
       ignoreAppointmentId: id,
     });
 
-    if (conflictError) return { success: false, error: conflictError };
+    if (conflict) {
+      const conflictResponse = await buildRecurringConflictResponse({
+        professionalId,
+        durationMin,
+        conflictStart: conflict.conflictStart,
+        ignoreAppointmentId: id,
+      });
+
+      const conflictAppointment = await prisma.appointment.findUnique({
+        where: { id },
+        include: {
+          patient: { select: { id: true, name: true, email: true, phone: true } },
+          professional: {
+            select: {
+              id: true,
+              googleRefreshToken: true,
+              user: { select: { name: true, email: true } },
+            },
+          },
+          service: { select: { id: true, title: true, price: true, durationMin: true } },
+        },
+      });
+
+      if (conflictAppointment) {
+        await sendRecurringConflictResolutionEmail({
+          appointment: conflictAppointment,
+          conflictLabel: conflictResponse.conflictLabel,
+          professionalCalendarUrl: conflictResponse.suggestedCalendarUrl,
+        });
+      }
+
+      return conflictResponse;
+    }
 
     const extraStarts = starts.slice(1);
     const extraEnds = ends.slice(1);
@@ -382,14 +538,46 @@ export async function confirmAppointmentByProfessional(
     const starts = buildRecurringStarts(new Date(appointment.date), rule, count);
     const ends = buildOccurrenceEnds(starts, durationMin);
 
-    const conflictError = await findRecurringConflict({
+    const conflict = await findRecurringConflict({
       professionalId,
       starts,
       ends,
       ignoreAppointmentId: id,
     });
 
-    if (conflictError) return { success: false, error: conflictError };
+    if (conflict) {
+      const conflictResponse = await buildRecurringConflictResponse({
+        professionalId,
+        durationMin,
+        conflictStart: conflict.conflictStart,
+        ignoreAppointmentId: id,
+      });
+
+      const conflictAppointment = await prisma.appointment.findUnique({
+        where: { id },
+        include: {
+          patient: { select: { id: true, name: true, email: true, phone: true } },
+          professional: {
+            select: {
+              id: true,
+              googleRefreshToken: true,
+              user: { select: { name: true, email: true } },
+            },
+          },
+          service: { select: { id: true, title: true, price: true, durationMin: true } },
+        },
+      });
+
+      if (conflictAppointment) {
+        await sendRecurringConflictResolutionEmail({
+          appointment: conflictAppointment,
+          conflictLabel: conflictResponse.conflictLabel,
+          professionalCalendarUrl: conflictResponse.suggestedCalendarUrl,
+        });
+      }
+
+      return conflictResponse;
+    }
 
     const extraStarts = starts.slice(1);
     const extraEnds = ends.slice(1);
