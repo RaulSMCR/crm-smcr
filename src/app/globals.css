@@ -244,9 +244,24 @@
 
   button[class*="bg-brand-"],
   button[class*="bg-accent-"],
+  input[type="submit"][class*="bg-brand-"],
+  input[type="submit"][class*="bg-accent-"],
+  input[type="button"][class*="bg-brand-"],
+  input[type="button"][class*="bg-accent-"],
+  input[type="reset"][class*="bg-brand-"],
+  input[type="reset"][class*="bg-accent-"],
   a[class*="bg-brand-"],
   a[class*="bg-accent-"] {
     color: white !important;
+  }
+
+  /* Legibilidad estricta: nunca texto brand sobre fondo brand */
+  button[class*="bg-brand-"][class*="text-brand-"],
+  input[type="submit"][class*="bg-brand-"][class*="text-brand-"],
+  input[type="button"][class*="bg-brand-"][class*="text-brand-"],
+  input[type="reset"][class*="bg-brand-"][class*="text-brand-"],
+  a[class*="bg-brand-"][class*="text-brand-"] {
+    color: rgb(var(--neutral-50) / 1) !important;
   }
 
   button[class*="bg-white"]:hover,
@@ -256,6 +271,23 @@
   a[class*="bg-slate-"]:hover,
   a[class*="bg-gray-"]:hover {
     background-color: rgb(var(--brand-700) / 1) !important;
+  }
+
+  /* Hover de brand: texto neutral/accent para contraste */
+  button[class*="bg-brand-"]:hover,
+  input[type="submit"][class*="bg-brand-"]:hover,
+  input[type="button"][class*="bg-brand-"]:hover,
+  input[type="reset"][class*="bg-brand-"]:hover,
+  a[class*="bg-brand-"]:hover {
+    color: rgb(var(--accent-100) / 1) !important;
+  }
+
+  button[class*="bg-brand-"][class*="hover:text-brand-"]:hover,
+  input[type="submit"][class*="bg-brand-"][class*="hover:text-brand-"]:hover,
+  input[type="button"][class*="bg-brand-"][class*="hover:text-brand-"]:hover,
+  input[type="reset"][class*="bg-brand-"][class*="hover:text-brand-"]:hover,
+  a[class*="bg-brand-"][class*="hover:text-brand-"]:hover {
+    color: rgb(var(--accent-100) / 1) !important;
   }
 
   .emergency-alert,
