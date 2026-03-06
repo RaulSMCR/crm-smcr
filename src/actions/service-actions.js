@@ -390,6 +390,56 @@ export async function bulkReviewServiceAssignments(serviceId, assignmentUpdates 
 }
 
 /**
+ * 8.5) ADMIN: ACTUALIZAR ORDEN DE SERVICIOS EN BLOQUE
+ */
+export async function bulkUpdateServiceOrder(items = []) {
+  try {
+    const session = await getSession();
+    requireAdmin(session);
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return { error: "No hay cambios para guardar." };
+    }
+
+    const normalized = items
+      .map((item) => ({
+        id: String(item?.id || "").trim(),
+        displayOrder: Number(item?.displayOrder),
+      }))
+      .filter((item) => item.id);
+
+    if (normalized.length === 0) {
+      return { error: "No hay servicios válidos para actualizar." };
+    }
+
+    for (const item of normalized) {
+      if (!Number.isFinite(item.displayOrder) || item.displayOrder < 0) {
+        return { error: "Todos los órdenes deben ser números iguales o mayores a 0." };
+      }
+    }
+
+    await prisma.$transaction(
+      normalized.map((item) =>
+        prisma.service.update({
+          where: { id: item.id },
+          data: { displayOrder: Math.trunc(item.displayOrder) },
+        })
+      )
+    );
+
+    revalidatePath("/panel/admin/servicios");
+    revalidatePath("/panel/admin/servicios/organizar");
+    revalidatePath("/servicios");
+    revalidatePath("/");
+
+    return { success: true };
+  } catch (error) {
+    console.error("bulkUpdateServiceOrder error:", error);
+    return { error: "No se pudo actualizar el orden de servicios." };
+  }
+}
+
+/**
  * 9) ELIMINAR SERVICIO
  */
 export async function deleteService(serviceId) {

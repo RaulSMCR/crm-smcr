@@ -61,12 +61,20 @@ export default async function AdminServiciosPage() {
           </p>
         </div>
 
-        <Link
-          href="/panel/admin/servicios/nuevo"
-          className="inline-flex items-center rounded-xl bg-slate-900 px-4 py-2 text-white hover:bg-slate-800"
-        >
-          Crear servicio
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/panel/admin/servicios/organizar"
+            className="inline-flex items-center rounded-xl border border-slate-300 px-4 py-2 text-slate-700 hover:bg-slate-100"
+          >
+            Organizar servicios
+          </Link>
+          <Link
+            href="/panel/admin/servicios/nuevo"
+            className="inline-flex items-center rounded-xl bg-slate-900 px-4 py-2 text-white hover:bg-slate-800"
+          >
+            Crear servicio
+          </Link>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
