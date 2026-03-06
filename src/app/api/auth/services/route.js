@@ -27,7 +27,7 @@ export async function GET(request) {
     if (role === "ADMIN") {
       const services = await prisma.service.findMany({
         where: { ...titleFilter },
-        orderBy: { title: "asc" },
+        orderBy: [{ displayOrder: "asc" }, { title: "asc" }],
         take,
         select: { id: true, title: true, price: true, durationMin: true, isActive: true },
       });
@@ -66,7 +66,7 @@ export async function GET(request) {
             },
           },
         },
-        orderBy: { title: "asc" },
+        orderBy: [{ displayOrder: "asc" }, { title: "asc" }],
         take,
         select: { id: true, title: true, price: true, durationMin: true, isActive: true },
       });

@@ -183,6 +183,7 @@ model Service {
 
   price       Decimal @db.Decimal(10, 2)
   durationMin Int
+  displayOrder Int    @default(0)
   isActive    Boolean @default(true)
 
   // ✅ Lo que tu código espera
@@ -195,6 +196,7 @@ model Service {
   updatedAt DateTime @updatedAt
 
   @@index([isActive])
+  @@index([displayOrder])
   @@index([title])
 }
 

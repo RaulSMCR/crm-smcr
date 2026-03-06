@@ -29,7 +29,7 @@ export default function ServiceEditForm({ service }) {
     >
       <div className="grid gap-4 md:grid-cols-2">
         <label className="text-sm text-slate-700">
-          <span className="block mb-1 font-medium">Título</span>
+          <span className="mb-1 block font-medium">Titulo</span>
           <input
             name="title"
             defaultValue={service.title || ""}
@@ -39,7 +39,7 @@ export default function ServiceEditForm({ service }) {
         </label>
 
         <label className="text-sm text-slate-700">
-          <span className="block mb-1 font-medium">Precio (CRC)</span>
+          <span className="mb-1 block font-medium">Precio (CRC)</span>
           <input
             name="price"
             type="number"
@@ -52,7 +52,7 @@ export default function ServiceEditForm({ service }) {
         </label>
 
         <label className="text-sm text-slate-700">
-          <span className="block mb-1 font-medium">Duración (min)</span>
+          <span className="mb-1 block font-medium">Duracion (min)</span>
           <input
             name="durationMin"
             type="number"
@@ -65,7 +65,20 @@ export default function ServiceEditForm({ service }) {
         </label>
 
         <label className="text-sm text-slate-700">
-          <span className="block mb-1 font-medium">Estado</span>
+          <span className="mb-1 block font-medium">Orden de presentacion</span>
+          <input
+            name="displayOrder"
+            type="number"
+            min="0"
+            step="1"
+            defaultValue={service.displayOrder ?? 0}
+            className="w-full rounded-lg border border-slate-300 px-3 py-2"
+            required
+          />
+        </label>
+
+        <label className="text-sm text-slate-700">
+          <span className="mb-1 block font-medium">Estado</span>
           <select
             name="isActive"
             defaultValue={service.isActive ? "true" : "false"}
@@ -77,8 +90,8 @@ export default function ServiceEditForm({ service }) {
         </label>
       </div>
 
-      <label className="text-sm text-slate-700 block">
-        <span className="block mb-1 font-medium">Descripción</span>
+      <label className="block text-sm text-slate-700">
+        <span className="mb-1 block font-medium">Descripcion</span>
         <textarea
           name="description"
           defaultValue={service.description || ""}

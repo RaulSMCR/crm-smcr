@@ -31,7 +31,7 @@ export default async function HomePage() {
     // Si tarda más de 3 segundos, lo consideramos fallido para no colgar la web
     const dbPromise = prisma.service.findMany({
       take: 4,
-      orderBy: { createdAt: 'desc' }
+      orderBy: [{ displayOrder: "asc" }, { title: "asc" }]
     });
 
     // Truco ninja: Cortar la conexión si tarda mucho

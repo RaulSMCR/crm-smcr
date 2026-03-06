@@ -24,6 +24,7 @@ export default async function AdminServicioDetallePage({ params }) {
       description: true,
       price: true,
       durationMin: true,
+      displayOrder: true,
       isActive: true,
       professionalAssignments: {
         orderBy: { professional: { user: { name: "asc" } } },

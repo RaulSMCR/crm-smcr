@@ -25,18 +25,26 @@ export async function createService(formData) {
     requireAdmin(session);
 
     const title = String(formData.get("title") || "").trim();
+    const description = String(formData.get("description") || "").trim();
     const price = toNum(formData.get("price"));
+    const durationMin = toNum(formData.get("durationMin"));
+    const displayOrder = toNum(formData.get("displayOrder"));
+    const isActive = String(formData.get("isActive") || "true") === "true";
 
     if (!title) return { error: "El título es obligatorio." };
     if (!Number.isFinite(price) || price < 0) return { error: "Precio inválido." };
 
+    if (!Number.isFinite(durationMin) || durationMin <= 0) return { error: "Duración inválida." };
+    if (!Number.isFinite(displayOrder) || displayOrder < 0) return { error: "Orden de presentación inválido." };
+
     const newService = await prisma.service.create({
       data: {
         title,
+        description: description || null,
         price,
-        durationMin: 60,
-        isActive: true,
-        description: "Servicio creado desde panel admin.",
+        durationMin: Math.trunc(durationMin),
+        displayOrder: Math.trunc(displayOrder),
+        isActive,
       },
     });
 
@@ -60,12 +68,15 @@ export async function updateServiceDetails(serviceId, formData) {
     const description = String(formData.get("description") || "").trim();
     const price = toNum(formData.get("price"));
     const durationMin = toNum(formData.get("durationMin"));
+    const displayOrder = toNum(formData.get("displayOrder"));
     const isActive = String(formData.get("isActive") || "false") === "true";
 
     if (!serviceId) return { error: "ID requerido." };
     if (!title) return { error: "El título es obligatorio." };
     if (!Number.isFinite(price) || price < 0) return { error: "Precio inválido." };
     if (!Number.isFinite(durationMin) || durationMin <= 0) return { error: "Duración inválida." };
+
+    if (!Number.isFinite(displayOrder) || displayOrder < 0) return { error: "Orden de presentación inválido." };
 
     await prisma.service.update({
       where: { id: String(serviceId) },
@@ -74,6 +85,7 @@ export async function updateServiceDetails(serviceId, formData) {
         description: description || null,
         price,
         durationMin: Math.trunc(durationMin),
+        displayOrder: Math.trunc(displayOrder),
         isActive,
       },
     });

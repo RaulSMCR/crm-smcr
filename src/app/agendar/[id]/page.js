@@ -18,6 +18,7 @@ export default async function AgendarPage({ params, searchParams }) {
       },
       serviceAssignments: {
         where: { status: 'APPROVED' },
+        orderBy: [{ service: { displayOrder: "asc" } }, { service: { title: "asc" } }],
         select: {
           approvedSessionPrice: true,
           service: {

@@ -36,7 +36,7 @@ export default function ServiceCreateForm() {
     >
       <div className="grid gap-4 md:grid-cols-2">
         <label className="text-sm text-slate-700">
-          <span className="block mb-1 font-medium">Título *</span>
+          <span className="mb-1 block font-medium">Titulo *</span>
           <input
             name="title"
             placeholder="ej: Consulta de 60 minutos"
@@ -46,7 +46,7 @@ export default function ServiceCreateForm() {
         </label>
 
         <label className="text-sm text-slate-700">
-          <span className="block mb-1 font-medium">Precio (CRC) *</span>
+          <span className="mb-1 block font-medium">Precio (CRC) *</span>
           <input
             name="price"
             type="number"
@@ -59,7 +59,7 @@ export default function ServiceCreateForm() {
         </label>
 
         <label className="text-sm text-slate-700">
-          <span className="block mb-1 font-medium">Duración (minutos) *</span>
+          <span className="mb-1 block font-medium">Duracion (minutos) *</span>
           <input
             name="durationMin"
             type="number"
@@ -73,7 +73,20 @@ export default function ServiceCreateForm() {
         </label>
 
         <label className="text-sm text-slate-700">
-          <span className="block mb-1 font-medium">Estado</span>
+          <span className="mb-1 block font-medium">Orden de presentacion *</span>
+          <input
+            name="displayOrder"
+            type="number"
+            min="0"
+            step="1"
+            defaultValue="0"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2"
+            required
+          />
+        </label>
+
+        <label className="text-sm text-slate-700">
+          <span className="mb-1 block font-medium">Estado</span>
           <select
             name="isActive"
             defaultValue="true"
@@ -85,8 +98,8 @@ export default function ServiceCreateForm() {
         </label>
       </div>
 
-      <label className="text-sm text-slate-700 block">
-        <span className="block mb-1 font-medium">Descripción</span>
+      <label className="block text-sm text-slate-700">
+        <span className="mb-1 block font-medium">Descripcion</span>
         <textarea
           name="description"
           placeholder="Describe brevemente el servicio (opcional)"
@@ -96,12 +109,12 @@ export default function ServiceCreateForm() {
       </label>
 
       {error ? (
-        <p className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-3">
+        <p className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
           {error}
         </p>
       ) : null}
       {message ? (
-        <p className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+        <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
           {message}
         </p>
       ) : null}
@@ -110,7 +123,7 @@ export default function ServiceCreateForm() {
         <button
           type="submit"
           disabled={isPending}
-          className="rounded-lg bg-slate-900 px-6 py-2 text-white font-medium disabled:opacity-60"
+          className="rounded-lg bg-slate-900 px-6 py-2 font-medium text-white disabled:opacity-60"
         >
           {isPending ? "Creando..." : "Crear servicio"}
         </button>

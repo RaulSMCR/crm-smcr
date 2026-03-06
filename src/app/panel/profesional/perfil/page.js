@@ -31,7 +31,7 @@ export default async function PerfilPage() {
 
   const allServicesRaw = await prisma.service.findMany({
     where: { isActive: true },
-    orderBy: { title: "asc" },
+    orderBy: [{ displayOrder: "asc" }, { title: "asc" }],
   });
 
   // ✅ Serializar Decimal -> number para props de componente client
