@@ -34,15 +34,15 @@ export default async function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-      <div className="container flex h-16 items-center justify-between">
+      <div className="container flex h-20 items-center justify-between">
         {/* LOGO */}
         <Link href="/" className="flex items-center">
           <Image
             src="/logo.svg"
             alt="Logo Salud Mental Costa Rica"
-            width={52}
-            height={52}
-            className="h-11 w-auto"
+            width={80}
+            height={80}
+            className="h-14 w-auto md:h-16"
             priority
           />
         </Link>

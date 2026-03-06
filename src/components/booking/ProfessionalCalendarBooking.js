@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createAppointmentForPatient } from "@/actions/patient-booking-actions";
 import { buildSlots } from "@/lib/appointment-slots";
 import { RECURRENCE_RULES } from "@/lib/appointment-recurrence";
@@ -54,18 +55,24 @@ export default function ProfessionalCalendarBooking({
     <div className="grid gap-6 lg:grid-cols-3">
       <div className="rounded-2xl border border-slate-200 bg-white p-6 lg:col-span-2">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-50">
-            {professionalImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={professionalImage} alt={professionalName} className="h-full w-full object-cover" />
-            ) : (
-              <span className="font-semibold text-slate-700">{professionalName?.charAt(0)}</span>
-            )}
-          </div>
-          <div>
-            <div className="text-lg font-semibold text-slate-900">{professionalName}</div>
-            <div className="text-sm text-slate-600">Selecciona un horario disponible</div>
-          </div>
+          <Link
+            href={`/agendar/${professionalId}${serviceId ? `?serviceId=${serviceId}` : ""}`}
+            className="flex items-center gap-3 rounded-lg p-1 transition hover:bg-blue-50"
+          >
+            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-50">
+              {professionalImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={professionalImage} alt={professionalName} className="h-full w-full object-cover" />
+              ) : (
+                <span className="font-semibold text-slate-700">{professionalName?.charAt(0)}</span>
+              )}
+            </div>
+            <div>
+              <div className="text-lg font-semibold text-slate-900">{professionalName}</div>
+              <div className="text-sm text-slate-600">Ver perfil</div>
+            </div>
+          </Link>
+          <div className="text-sm text-slate-600">Selecciona un horario disponible</div>
         </div>
 
         {msg.text && (

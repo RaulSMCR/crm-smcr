@@ -1,4 +1,3 @@
-// src/app/servicios/[id]/page.js
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -70,7 +69,7 @@ export default async function ServiceDetailPage({ params }) {
 
   const priceLabel = Number.isFinite(minApprovedPrice)
     ? `Desde ₡${minApprovedPrice.toLocaleString("es-CR")}`
-    : "Precio según profesional";
+    : "Precio segun profesional";
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 p-6 md:p-10">
@@ -86,9 +85,9 @@ export default async function ServiceDetailPage({ params }) {
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-6">
-        <h2 className="text-xl font-bold text-slate-900">Descripción</h2>
-        <p className="mt-3 text-slate-700">
-          {service.description || "No hay descripción disponible para este servicio."}
+        <h2 className="text-xl font-bold text-slate-900">Descripcion</h2>
+        <p className="mt-3 text-justify text-slate-700">
+          {service.description || "No hay descripcion disponible para este servicio."}
         </p>
       </div>
 
@@ -101,9 +100,31 @@ export default async function ServiceDetailPage({ params }) {
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             {professionals.map((professional) => (
               <div key={professional.id} className="rounded-xl border border-slate-200 p-4">
-                <div className="font-semibold text-slate-900">{professional.user?.name}</div>
-                <div className="text-sm text-slate-600">{professional.specialty || "Profesional de Salud"}</div>
-                {professional.bio && <p className="mt-3 text-sm text-slate-700">{professional.bio}</p>}
+                <Link
+                  href={`/agendar/${professional.id}?serviceId=${service.id}`}
+                  className="inline-flex items-center gap-3 rounded-lg p-1 transition hover:bg-blue-50"
+                >
+                  {professional.user?.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={professional.user.image}
+                      alt={professional.user?.name || "Profesional"}
+                      className="h-12 w-12 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="grid h-12 w-12 place-items-center rounded-full bg-slate-200 text-sm font-bold text-slate-700">
+                      {(professional.user?.name || "P").charAt(0)}
+                    </div>
+                  )}
+                  <div>
+                    <div className="font-semibold text-slate-900">{professional.user?.name}</div>
+                    <div className="text-sm text-slate-600">
+                      {professional.specialty || "Profesional de Salud"}
+                    </div>
+                  </div>
+                </Link>
+
+                {professional.bio && <p className="mt-3 text-justify text-sm text-slate-700">{professional.bio}</p>}
                 <p className="mt-2 text-sm font-semibold text-emerald-700">
                   Valor de la cita: ₡{Number(professional.approvedSessionPrice).toLocaleString("es-CR")}
                 </p>

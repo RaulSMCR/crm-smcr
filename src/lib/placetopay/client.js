@@ -1,22 +1,20 @@
 // src/lib/placetopay/client.js
 import { getAuth } from "./auth.js";
+import { setSession, getSession, updateSession } from "./mock-store.js";
 
 const BASE_URL = process.env.PLACETOPAY_BASE_URL || "https://checkout-qa.placetopay.dev";
 const APP_URL  = process.env.APP_URL || "http://localhost:3000";
+const IS_MOCK  = process.env.PLACETOPAY_MOCK === "true";
+
+// Contador persistente para mock requestIds (numérico como PlacetoPay real)
+function nextMockRequestId() {
+  if (!global.__mockP2PCounter) global.__mockP2PCounter = Date.now();
+  return ++global.__mockP2PCounter;
+}
 
 /**
- * Crea una sesión de pago en PlacetoPay.
- *
- * @param {object} params
- * @param {string}  params.reference   - Referencia interna única (max 32 chars)
- * @param {string}  params.description - Descripción del pago
- * @param {number}  params.amount      - Monto en la moneda indicada
- * @param {string}  [params.currency]  - Moneda (default "CRC")
- * @param {string}  params.returnUrl   - URL de retorno al finalizar
- * @param {string}  [params.notifyUrl] - URL de notificación webhook
- * @param {string}  [params.ipAddress] - IP del cliente
- * @param {string}  [params.userAgent] - User-agent del cliente
- * @returns {Promise<{ requestId: number, processUrl: string }>}
+ * Crea una sesión de pago.
+ * En modo mock retorna una URL local de checkout simulado.
  */
 export async function createSession({
   reference,
@@ -28,19 +26,41 @@ export async function createSession({
   ipAddress = "127.0.0.1",
   userAgent = "Mozilla/5.0",
 }) {
-  const auth = getAuth();
+  if (IS_MOCK) {
+    const requestId = nextMockRequestId();
+    const resolvedReturnUrl = returnUrl || `${APP_URL}/panel/paciente/pago/resultado?ref=${reference}`;
+    const resolvedNotifyUrl = notifyUrl || `${APP_URL}/api/payment/webhook`;
 
-  const expiration = new Date(Date.now() + 30 * 60 * 1000).toISOString(); // +30 min
+    setSession(requestId, {
+      requestId,
+      reference,
+      description,
+      amount,
+      currency,
+      returnUrl: resolvedReturnUrl,
+      notifyUrl: resolvedNotifyUrl,
+      status: "PENDING",
+      createdAt: new Date().toISOString(),
+    });
+
+    console.log(`[PlacetoPay MOCK] Sesión creada: requestId=${requestId}, ref=${reference}, amount=${amount}`);
+
+    return {
+      requestId,
+      processUrl: `${APP_URL}/panel/mock/checkout/${requestId}`,
+    };
+  }
+
+  // ── Modo real ─────────────────────────────────────────────────────────────
+  const auth = getAuth();
+  const expiration = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
   const body = {
     auth,
     payment: {
       reference,
       description,
-      amount: {
-        currency,
-        total: amount,
-      },
+      amount: { currency, total: amount },
     },
     returnUrl: returnUrl || `${APP_URL}/panel/paciente/pago/resultado?ref=${reference}`,
     notifyUrl: notifyUrl || `${APP_URL}/api/payment/webhook`,
@@ -70,11 +90,22 @@ export async function createSession({
 
 /**
  * Consulta el estado de una sesión de pago por su requestId.
- *
- * @param {number|string} requestId - ID de la sesión P2P
- * @returns {Promise<{ status: string, reason: string, message: string, payment: Array }>}
  */
 export async function querySession(requestId) {
+  if (IS_MOCK) {
+    const session = getSession(requestId);
+    if (!session) throw new Error(`[PlacetoPay MOCK] Sesión ${requestId} no encontrada.`);
+
+    return {
+      status: session.status || "PENDING",
+      reason: session.reason || null,
+      message: session.message || null,
+      date: session.date || null,
+      payment: [],
+    };
+  }
+
+  // ── Modo real ─────────────────────────────────────────────────────────────
   const auth = getAuth();
 
   const response = await fetch(`${BASE_URL}/api/session/${requestId}`, {

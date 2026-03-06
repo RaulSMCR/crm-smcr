@@ -1,10 +1,9 @@
-// src/app/servicios/page.js
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 
 export const metadata = {
   title: "Servicios | Salud Mental Costa Rica",
-  description: "Explora nuestros servicios de terapia, coaching y asesoría.",
+  description: "Explora nuestros servicios de terapia, coaching y asesoria.",
 };
 
 export const dynamic = "force-dynamic";
@@ -53,24 +52,29 @@ export default async function ServiciosPage() {
 
       <div className="grid gap-6 md:grid-cols-2">
         {services.map((service) => {
-          const professionals = (service.professionalAssignments || []).map((assignment) => assignment.professional);
-          const minApprovedPrice = (service.professionalAssignments || []).reduce((min, assignment) => {
-            const current = Number(assignment?.approvedSessionPrice);
-            if (!Number.isFinite(current)) return min;
-            return min === null ? current : Math.min(min, current);
-          }, null);
+          const professionals = (service.professionalAssignments || []).map(
+            (assignment) => assignment.professional
+          );
+          const minApprovedPrice = (service.professionalAssignments || []).reduce(
+            (min, assignment) => {
+              const current = Number(assignment?.approvedSessionPrice);
+              if (!Number.isFinite(current)) return min;
+              return min === null ? current : Math.min(min, current);
+            },
+            null
+          );
 
           const priceLabel = Number.isFinite(minApprovedPrice)
             ? `Desde ₡${minApprovedPrice.toLocaleString("es-CR")}`
-            : "Precio según profesional";
+            : "Precio segun profesional";
 
           return (
-            <div key={service.id} className="rounded-2xl border border-slate-200 bg-white p-6">
-              <div className="flex items-start justify-between gap-4">
-                <div>
+            <div key={service.id} className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-6">
+              <div className="flex flex-1 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 flex-1">
                   <h2 className="text-xl font-bold text-slate-900">{service.title}</h2>
-                  <p className="mt-2 text-slate-600">
-                    {service.description || "Sin descripción disponible."}
+                  <p className="mt-2 text-justify text-slate-600">
+                    {service.description || "Sin descripcion disponible."}
                   </p>
                   <div className="mt-3 text-sm text-slate-700">
                     {priceLabel} · {service.durationMin} min
@@ -79,7 +83,7 @@ export default async function ServiciosPage() {
 
                 <Link
                   href={`/servicios/${service.id}`}
-                  className="whitespace-nowrap rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700"
+                  className="mt-auto inline-flex w-full items-center justify-center whitespace-nowrap rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700 sm:mt-0 sm:w-auto"
                 >
                   Ver detalles
                 </Link>
@@ -90,16 +94,17 @@ export default async function ServiciosPage() {
                   <div className="text-sm font-semibold text-slate-800">Disponible con:</div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {professionals.map((professional) => (
-                      <div
+                      <Link
                         key={professional.id}
-                        className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1"
+                        href={`/agendar/${professional.id}?serviceId=${service.id}`}
+                        className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 transition hover:border-blue-300 hover:bg-blue-50"
                       >
                         {professional.user?.image ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={professional.user.image}
                             alt={professional.user.name || "Profesional"}
-                            className="h-6 w-6 rounded-full"
+                            className="h-6 w-6 rounded-full object-cover"
                           />
                         ) : (
                           <div className="grid h-6 w-6 place-items-center rounded-full bg-slate-200 text-xs font-bold text-slate-700">
@@ -107,7 +112,7 @@ export default async function ServiciosPage() {
                           </div>
                         )}
                         <span className="text-sm text-slate-700">{professional.user?.name}</span>
-                      </div>
+                      </Link>
                     ))}
                   </div>
                 </div>
