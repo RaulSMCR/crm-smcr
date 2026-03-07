@@ -18,6 +18,19 @@ function toDateInput(date) {
   return `${y}-${m}-${day}`;
 }
 
+function getFeTone(feStatus) {
+  switch (feStatus) {
+    case "ACCEPTED":
+      return "bg-emerald-100 text-emerald-700";
+    case "REJECTED":
+      return "bg-red-100 text-red-700";
+    case "PENDING":
+      return "bg-amber-100 text-amber-700";
+    default:
+      return "bg-slate-100 text-slate-600";
+  }
+}
+
 export default function BillingInvoicesManager({
   invoices = [],
   patients = [],
@@ -187,7 +200,9 @@ export default function BillingInvoicesManager({
       try {
         const payload = await callApi(`/api/invoices/${id}/fe-status`, "GET");
         updateRowInvoice(id, {
-          feStatus:      payload.feStatus,
+          feStatus: payload.feStatus,
+          feNumber: payload.feNumber,
+          feClave: payload.feClave,
           feErrorMessage: payload.feErrorMessage,
         });
         setMessage(`Estado FE: ${payload.feStatus}${payload.feErrorMessage ? ` — ${payload.feErrorMessage}` : ""}`);
@@ -298,6 +313,7 @@ export default function BillingInvoicesManager({
               <th className="px-4 py-2 text-right">Total</th>
               <th className="px-4 py-2 text-right">Saldo</th>
               <th className="px-4 py-2 text-left">Estado</th>
+              <th className="px-4 py-2 text-left">FE</th>
               <th className="px-4 py-2 text-left">Acciones</th>
             </tr>
           </thead>
@@ -311,6 +327,24 @@ export default function BillingInvoicesManager({
                 <td className="px-4 py-2 text-right">{toMoney(row.total)}</td>
                 <td className="px-4 py-2 text-right">{toMoney(row.balance)}</td>
                 <td className="px-4 py-2">{row.status}</td>
+                <td className="px-4 py-2">
+                  <div className="space-y-1">
+                    <span
+                      className={`inline-flex rounded px-2 py-0.5 text-xs font-semibold ${getFeTone(
+                        row.feStatus
+                      )}`}
+                    >
+                      {row.feStatus || "SIN_ENVIAR"}
+                    </span>
+                    {row.feNumber && <p className="text-xs text-slate-500">N: {row.feNumber}</p>}
+                    {row.feClave && (
+                      <p className="max-w-[240px] truncate text-xs text-slate-500">Clave: {row.feClave}</p>
+                    )}
+                    {row.feErrorMessage && (
+                      <p className="max-w-[260px] text-xs text-red-600">{row.feErrorMessage}</p>
+                    )}
+                  </div>
+                </td>
                 <td className="px-4 py-2">
                   <div className="flex flex-wrap gap-1">
                     {row.status === "DRAFT" && (
@@ -349,13 +383,31 @@ export default function BillingInvoicesManager({
                         Nota crédito
                       </button>
                     )}
+                    {(row.status === "OPEN" || row.status === "PAID") && row.feStatus !== "ACCEPTED" && (
+                      <button
+                        onClick={() => handleSubmitFE(row.id)}
+                        disabled={isPending}
+                        className="rounded bg-emerald-600 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                      >
+                        Enviar FE
+                      </button>
+                    )}
+                    {row.feClave && row.feStatus !== "ACCEPTED" && (
+                      <button
+                        onClick={() => handleRefreshFEStatus(row.id)}
+                        disabled={isPending}
+                        className="rounded border border-emerald-300 bg-white px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
+                      >
+                        Consultar FE
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={9} className="px-4 py-8 text-center text-slate-500">
                   No hay facturas para los filtros seleccionados.
                 </td>
               </tr>

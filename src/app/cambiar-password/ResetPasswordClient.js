@@ -41,7 +41,7 @@ export default function ResetPasswordClient() {
           return;
         }
 
-        setMsg({ type: "ok", text: data?.message || "Contraseña actualizada con éxito. Su acceso seguro ya está disponible para continuar." });
+        setMsg({ type: "ok", text: data?.message || "ContraseÃ±a actualizada con Ã©xito. Su acceso seguro ya estÃ¡ disponible para continuar." });
         setTimeout(() => router.push("/ingresar"), 900);
       } catch {
         setMsg({ type: "error", text: "Error de red. Por favor, intente nuevamente para seguir adelante con seguridad." });
@@ -52,7 +52,7 @@ export default function ResetPasswordClient() {
   return (
     <main className="min-h-[70vh] flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-2 text-center">Crear nueva contraseña de acceso seguro</h1>
+        <h1 className="text-2xl font-bold mb-2 text-center">Crear nueva contraseÃ±a de acceso seguro</h1>
 
         {tokenMissing ? (
           <div className="mb-4 rounded border bg-red-50 border-red-200 text-red-700 px-3 py-2 text-sm">
@@ -79,28 +79,28 @@ export default function ResetPasswordClient() {
 
         <form onSubmit={onSubmit} className="bg-white border rounded-lg p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Nueva contraseña</label>
+            <label className="block text-sm font-medium mb-1">Nueva contraseÃ±a</label>
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full border rounded px-3 py-2"
-              placeholder="Mínimo 8 caracteres para acceso protegido"
+              placeholder="MÃ­nimo 8 caracteres para acceso protegido"
               autoComplete="new-password"
               disabled={tokenMissing}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Confirmar contraseña</label>
+            <label className="block text-sm font-medium mb-1">Confirmar contraseÃ±a</label>
             <input
               type="password"
               required
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               className="w-full border rounded px-3 py-2"
-              placeholder="Repita la contraseña"
+              placeholder="Repita la contraseÃ±a"
               autoComplete="new-password"
               disabled={tokenMissing}
             />
@@ -111,7 +111,7 @@ export default function ResetPasswordClient() {
             disabled={pending || tokenMissing}
             className="w-full px-4 py-2 rounded bg-neutral-900 text-white hover:bg-neutral-950 disabled:opacity-70"
           >
-            {pending ? "Actualizando de forma segura..." : "Actualizar contraseña y continuar"}
+            {pending ? "Actualizando de forma segura..." : "Actualizar contraseÃ±a y continuar"}
           </button>
 
           <div className="text-center text-sm text-gray-600">

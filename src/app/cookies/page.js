@@ -1,18 +1,18 @@
 export default function CookiesPage() {
   return (
     <main className="max-w-4xl mx-auto py-16 px-6 text-neutral-800">
-      <h1 className="text-3xl font-bold text-brand-700">PolÌtica de Cookies</h1>
+      <h1 className="text-3xl font-bold text-brand-700">Pol√≠tica de Cookies</h1>
       <p className="mt-6 text-neutral-700 leading-relaxed">
-        Utilizamos cookies para mejorar la experiencia de navegaciÛn, analizar el tr·fico y recordar preferencias.
-        Algunas cookies son necesarias para el funcionamiento del sitio y otras ayudan a comprender cÛmo se utiliza
+        Utilizamos cookies para mejorar la experiencia de navegaci√≥n, analizar el tr√°fico y recordar preferencias.
+        Algunas cookies son necesarias para el funcionamiento del sitio y otras ayudan a comprender c√≥mo se utiliza
         la plataforma para mantener un servicio seguro y de calidad.
       </p>
       <p className="mt-4 text-neutral-700 leading-relaxed">
         Puede configurar o deshabilitar cookies desde el navegador. Al bloquear cookies esenciales,
-        ciertas funciones del sitio podrÌan no estar disponibles o comportarse de forma limitada.
+        ciertas funciones del sitio podr√≠an no estar disponibles o comportarse de forma limitada.
       </p>
       <p className="mt-4 text-neutral-700 leading-relaxed">
-        Al continuar navegando en este sitio, se acepta el uso de cookies conforme a esta polÌtica.
+        Al continuar navegando en este sitio, se acepta el uso de cookies conforme a esta pol√≠tica.
       </p>
     </main>
   );

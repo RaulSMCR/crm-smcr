@@ -19,7 +19,7 @@ export default function VerifyEmailClient() {
 
   const canVerify = useMemo(() => token.length > 0, [token]);
 
-  // ✅ Ya creamos /api/auth/resend-verification
+  // âœ… Ya creamos /api/auth/resend-verification
   const RESEND_ENABLED = true;
 
   useEffect(() => {
@@ -46,15 +46,15 @@ export default function VerifyEmailClient() {
           setStatus("error");
           setMessage(
             data?.error ||
-              "No fue posible verificar el correo. El enlace podr�a haber expirado."
+              "No fue posible verificar el correo. El enlace podría haber expirado."
           );
           return;
         }
 
         setStatus("ok");
-        setMessage("Correo verificado con �xito. Su proceso avanza correctamente y ya puede ingresar.");
+        setMessage("Correo verificado con éxito. Su proceso avanza correctamente y ya puede ingresar.");
 
-        // ✅ Ruta real de login en tu proyecto
+        // âœ… Ruta real de login en tu proyecto
         setTimeout(() => {
           if (!cancelled) router.push("/ingresar");
         }, 1200);
@@ -77,7 +77,7 @@ export default function VerifyEmailClient() {
 
     const email = String(emailForResend || "").trim().toLowerCase();
     if (!email) {
-      setResendMsg({ kind: "error", text: "Ingrese su correo para reenviar el enlace y continuar con la verificaci�n segura." });
+      setResendMsg({ kind: "error", text: "Ingrese su correo para reenviar el enlace y continuar con la verificación segura." });
       return;
     }
 
@@ -98,7 +98,7 @@ export default function VerifyEmailClient() {
 
       setResendMsg({
         kind: "ok",
-        text: "Si ese correo existe en el sistema, se enviar� un nuevo enlace de verificaci�n para continuar avanzando.",
+        text: "Si ese correo existe en el sistema, se enviará un nuevo enlace de verificación para continuar avanzando.",
       });
     } catch (e) {
       setResendMsg({
@@ -112,7 +112,7 @@ export default function VerifyEmailClient() {
 
   return (
     <div className="w-full max-w-md rounded border bg-white p-6">
-      <h1 className="text-xl font-bold mb-2">Confirmación de correo</h1>
+      <h1 className="text-xl font-bold mb-2">ConfirmaciÃ³n de correo</h1>
 
       <p className={status === "error" ? "text-red-600" : "text-gray-700"}>
         {message}
@@ -121,7 +121,7 @@ export default function VerifyEmailClient() {
       {status === "error" && RESEND_ENABLED ? (
         <div className="mt-4 rounded border bg-neutral-50 p-3">
           <div className="text-sm mb-2">
-            Si el enlace venci�, puede solicitar uno nuevo y continuar avanzando con seguridad:
+            Si el enlace venció, puede solicitar uno nuevo y continuar avanzando con seguridad:
           </div>
 
           <input

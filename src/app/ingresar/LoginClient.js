@@ -55,7 +55,7 @@ export default function LoginClient() {
       return;
     }
 
-    setError("No se logró iniciar sesión. Por favor, intente nuevamente para continuar avanzando.");
+    setError("No se logrÃ³ iniciar sesiÃ³n. Por favor, intente nuevamente para continuar avanzando.");
     setLoading(false);
   };
 
@@ -73,27 +73,27 @@ export default function LoginClient() {
         {isProfessionalRegistered && (
           <div className="bg-green-50 text-green-800 p-4 rounded-lg text-sm border border-green-200 font-medium">
             <div className="flex items-center gap-2">
-              <span className="font-bold">Solicitud profesional enviada con éxito</span>
+              <span className="font-bold">Solicitud profesional enviada con Ã©xito</span>
             </div>
 
-            <p className="mt-2 text-green-900">El proceso de habilitación avanza en <span className="font-bold">2 pasos</span>:</p>
+            <p className="mt-2 text-green-900">El proceso de habilitaciÃ³n avanza en <span className="font-bold">2 pasos</span>:</p>
 
             <ol className="mt-2 list-decimal list-inside space-y-1">
               <li>
-                <span className="font-semibold">Verificación por correo:</span> revise el email (incluida la carpeta de spam) para confirmar la cuenta y proteger la identidad del paciente.
+                <span className="font-semibold">VerificaciÃ³n por correo:</span> revise el email (incluida la carpeta de spam) para confirmar la cuenta y proteger la identidad del paciente.
               </li>
               <li>
-                <span className="font-semibold">Entrevista y aprobación:</span> luego, el <span className="font-bold">director del equipo profesional</span> realizará una llamada al teléfono/WhatsApp registrado para completar la validación y resguardar la calidad de la atención.
+                <span className="font-semibold">Entrevista y aprobaciÃ³n:</span> luego, el <span className="font-bold">director del equipo profesional</span> realizarÃ¡ una llamada al telÃ©fono/WhatsApp registrado para completar la validaciÃ³n y resguardar la calidad de la atenciÃ³n.
               </li>
             </ol>
 
-            <p className="mt-2 text-xs text-green-800">Mientras se completa el paso 2, el perfil puede aparecer como <span className="font-semibold">"en revisión"</span>.</p>
+            <p className="mt-2 text-xs text-green-800">Mientras se completa el paso 2, el perfil puede aparecer como <span className="font-semibold">"en revisiÃ³n"</span>.</p>
           </div>
         )}
 
         {!isProfessionalRegistered && isGenericRegistered && (
           <div className="bg-green-50 text-green-700 p-4 rounded-lg text-sm border border-green-200 font-medium flex items-center gap-2">
-            Cuenta creada con éxito. El proceso continúa: revise su correo para verificarla y habilitar el acceso seguro.
+            Cuenta creada con Ã©xito. El proceso continÃºa: revise su correo para verificarla y habilitar el acceso seguro.
           </div>
         )}
 
@@ -117,19 +117,19 @@ export default function LoginClient() {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Contraseña</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">ContraseÃ±a</label>
             <input
               name="password"
               type="password"
               required
               className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-              placeholder="••••••••"
+              placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
               autoComplete="current-password"
             />
 
             <div className="mt-2 text-right text-sm">
               <Link href="/recuperar" className="underline text-gray-600 hover:text-gray-900">
-                ¿Olvidó su contraseña?
+                Â¿OlvidÃ³ su contraseÃ±a?
               </Link>
             </div>
           </div>
@@ -146,7 +146,7 @@ export default function LoginClient() {
         </div>
 
         <div className="text-center text-sm text-gray-500 mt-6 pt-4 border-t border-gray-100">
-          Si aún no dispone de una cuenta{" "}
+          Si aÃºn no dispone de una cuenta{" "}
           <div className="flex justify-center gap-4 mt-2 font-medium">
             <Link href="/registro/usuario" className="text-blue-600 hover:text-blue-800 transition">
               Registro de paciente

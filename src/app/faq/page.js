@@ -3,24 +3,24 @@ import AccordionItem from "@/components/AccordionItem";
 
 const faqData = [
   {
-    question: "¿Cómo se agenda una cita?",
+    question: "Â¿CÃ³mo se agenda una cita?",
     answer:
-      'Para agendar una cita, diríjase a la página de "Servicios", seleccione el profesional de preferencia y haga clic en "Ver Detalles". En la página de detalle se mostrará el botón para continuar con la agenda.',
+      'Para agendar una cita, dirÃ­jase a la pÃ¡gina de "Servicios", seleccione el profesional de preferencia y haga clic en "Ver Detalles". En la pÃ¡gina de detalle se mostrarÃ¡ el botÃ³n para continuar con la agenda.',
   },
   {
-    question: "¿Qué métodos de pago se aceptan?",
+    question: "Â¿QuÃ© mÃ©todos de pago se aceptan?",
     answer:
-      "Se aceptan pagos a través de la plataforma del Banco de Costa Rica, con las principales tarjetas de crédito y débito.",
+      "Se aceptan pagos a travÃ©s de la plataforma del Banco de Costa Rica, con las principales tarjetas de crÃ©dito y dÃ©bito.",
   },
   {
-    question: "¿Es posible cancelar o reprogramar una cita?",
+    question: "Â¿Es posible cancelar o reprogramar una cita?",
     answer:
-      "Sí. Es posible cancelar o reprogramar una cita con hasta 24 horas de antelación sin costo. Las cancelaciones con menos de 24 horas pueden estar sujetas a penalización según la política vigente.",
+      "SÃ­. Es posible cancelar o reprogramar una cita con hasta 24 horas de antelaciÃ³n sin costo. Las cancelaciones con menos de 24 horas pueden estar sujetas a penalizaciÃ³n segÃºn la polÃ­tica vigente.",
   },
   {
-    question: "¿La información de las sesiones es confidencial?",
+    question: "Â¿La informaciÃ³n de las sesiones es confidencial?",
     answer:
-      "Sí. La confidencialidad es una prioridad. Todas las interacciones con profesionales se encuentran protegidas y se rigen por códigos de ética profesional y normativa aplicable.",
+      "SÃ­. La confidencialidad es una prioridad. Todas las interacciones con profesionales se encuentran protegidas y se rigen por cÃ³digos de Ã©tica profesional y normativa aplicable.",
   },
 ];
 

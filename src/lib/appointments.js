@@ -16,7 +16,7 @@ const STATUS_LABELS = {
   PENDING: "Pendiente",
   CONFIRMED: "Confirmada",
   COMPLETED: "Completada",
-  NO_SHOW: "No asistió",
+  NO_SHOW: "No asistiÃ³",
   CANCELLED_BY_USER: "Cancelada por paciente",
   CANCELLED_BY_PRO: "Cancelada por profesional",
 };
@@ -33,7 +33,7 @@ function buildNotificationHtml({ recipientName, appointment, reason }) {
 
   return `
     <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;line-height:1.4;color:#0f172a;">
-      <h2 style="margin-bottom:4px;">Actualización de cita</h2>
+      <h2 style="margin-bottom:4px;">ActualizaciÃ³n de cita</h2>
       <p>Estimado/a ${recipientName || ""},</p>
       <p>${reason}</p>
       <ul>
@@ -44,7 +44,7 @@ function buildNotificationHtml({ recipientName, appointment, reason }) {
         <li><strong>Fin:</strong> ${fechaHoraFin} (${TZ})</li>
         <li><strong>Estado:</strong> ${getStatusLabel(appointment.status)}</li>
       </ul>
-      <p style="font-size:12px;color:#475569;">Este correo fue generado automáticamente por el sistema de agenda.</p>
+      <p style="font-size:12px;color:#475569;">Este correo fue generado automÃ¡ticamente por el sistema de agenda.</p>
     </div>
   `;
 }
@@ -62,7 +62,7 @@ export async function sendAppointmentNotifications(appointment, reason) {
   const proEmail = appointment.professional?.user?.email;
 
   if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY === "re_dummy_key") {
-    console.warn("[Resend] RESEND_API_KEY no configurada, omitiendo envío de emails.");
+    console.warn("[Resend] RESEND_API_KEY no configurada, omitiendo envÃ­o de emails.");
     return;
   }
 
@@ -73,7 +73,7 @@ export async function sendAppointmentNotifications(appointment, reason) {
       resend.emails.send({
         from: FROM_EMAIL,
         to: patientEmail,
-        subject: "Actualizaci�n de cita",
+        subject: "Actualización de cita",
         html: buildNotificationHtml({ recipientName: appointment.patient?.name, appointment, reason }),
       }).then((res) => {
         if (res.error) console.error("[Resend] Error enviando email al paciente:", res.error);
@@ -88,7 +88,7 @@ export async function sendAppointmentNotifications(appointment, reason) {
       resend.emails.send({
         from: FROM_EMAIL,
         to: proEmail,
-        subject: "Actualización de agenda",
+        subject: "ActualizaciÃ³n de agenda",
         html: buildNotificationHtml({ recipientName: appointment.professional?.user?.name, appointment, reason }),
       }).then((res) => {
         if (res.error) console.error("[Resend] Error enviando email al profesional:", res.error);
@@ -124,26 +124,26 @@ export async function sendRecurringConflictResolutionEmail({
 
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;line-height:1.5;color:#1f2937;">
-      <h2 style="margin-bottom:6px;">Se requiere confirmaci�n de horario</h2>
+      <h2 style="margin-bottom:6px;">Se requiere confirmación de horario</h2>
       <p>Estimado/a ${appointment.patient?.name || ""},</p>
       <p>
         Al intentar confirmar una serie recurrente de la cita con
         <strong> ${appointment.professional?.user?.name || "el profesional asignado"}</strong>,
         encontramos un conflicto en <strong>${conflictLabel}</strong>.
       </p>
-      <p style="margin-bottom:14px;">Seleccione una opci�n:</p>
+      <p style="margin-bottom:14px;">Seleccione una opción:</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
         ${buildPrimaryButton("Confirmar horario y continuar", confirmUrl)}
         ${buildSecondaryButton("Elegir otro horario y continuar", rescheduleUrl)}
       </div>
       <p style="margin-bottom:8px;">
-        Si lo considera conveniente, tambi�n puede revisar disponibilidad del profesional directamente:
+        Si lo considera conveniente, también puede revisar disponibilidad del profesional directamente:
       </p>
       <p style="margin:0 0 14px;">
-        <a href="${professionalCalendarUrl}" style="color:#2b7073;font-weight:700;">Abrir calendario del día sugerido</a>
+        <a href="${professionalCalendarUrl}" style="color:#2b7073;font-weight:700;">Abrir calendario del dÃ­a sugerido</a>
       </p>
       <p style="font-size:12px;color:#6b7280;">
-        Este mensaje fue generado autom�ticamente para facilitar la continuidad de la atenci�n.
+        Este mensaje fue generado automáticamente para facilitar la continuidad de la atención.
       </p>
     </div>
   `;
@@ -152,7 +152,7 @@ export async function sendRecurringConflictResolutionEmail({
     const result = await resend.emails.send({
       from: FROM_EMAIL,
       to: patientEmail,
-      subject: "Conflicto en cita recurrente - acci�n requerida",
+      subject: "Conflicto en cita recurrente - acción requerida",
       html,
     });
 

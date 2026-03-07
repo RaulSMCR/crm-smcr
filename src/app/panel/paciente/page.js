@@ -72,7 +72,7 @@ export default async function PacientePanelPage({ searchParams }) {
       <div className="flex items-start justify-between gap-6">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Panel del paciente</h1>
-          <p className="text-slate-600 mt-2">Citas e información personal.</p>
+          <p className="text-slate-600 mt-2">Citas e informaciÃ³n personal.</p>
         </div>
 
         <Link
@@ -85,7 +85,7 @@ export default async function PacientePanelPage({ searchParams }) {
 
       {created && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-          Cita creada con éxito. El proceso de atención continúa.
+          Cita creada con Ã©xito. El proceso de atenciÃ³n continÃºa.
         </div>
       )}
 

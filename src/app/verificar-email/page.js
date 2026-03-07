@@ -9,16 +9,16 @@ export default async function VerificarEmailPage({ searchParams }) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="bg-white p-8 rounded-xl shadow-md text-center max-w-md w-full border border-gray-100">
-          <div className="text-red-500 text-5xl mb-4">⚠️</div>
-          <h1 className="text-xl font-bold text-gray-900 mb-2">Enlace de verificaci�n no v�lido</h1>
-          <p className="text-gray-600 mb-6">No se encontr� un token de verificaci�n en la URL. Para continuar avanzando con seguridad, utilice el enlace enviado por correo.</p>
+          <div className="text-red-500 text-5xl mb-4">âš ï¸</div>
+          <h1 className="text-xl font-bold text-gray-900 mb-2">Enlace de verificación no válido</h1>
+          <p className="text-gray-600 mb-6">No se encontró un token de verificación en la URL. Para continuar avanzando con seguridad, utilice el enlace enviado por correo.</p>
           <Link href="/" className="text-blue-600 font-medium hover:underline">Volver al inicio</Link>
         </div>
       </main>
     );
   }
 
-  // Ejecutamos la verificación en el servidor
+  // Ejecutamos la verificaciÃ³n en el servidor
   const result = await verifyEmail(token);
 
   return (
@@ -27,12 +27,12 @@ export default async function VerificarEmailPage({ searchParams }) {
         
         {result.success ? (
           <>
-            <div className="text-green-500 text-6xl mb-4">✅</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Correo verificado con �xito</h1>
+            <div className="text-green-500 text-6xl mb-4">âœ…</div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Correo verificado con éxito</h1>
             <p className="text-gray-600 mb-6">
               Gracias por confirmar su correo <strong>{result.email}</strong>.
               {result.role === 'PROFESSIONAL' 
-                ? "  Su cuenta contin�a avanzando y ahora se encuentra pendiente de aprobaci�n administrativa para resguardar la calidad de la atenci�n."
+                ? "  Su cuenta continúa avanzando y ahora se encuentra pendiente de aprobación administrativa para resguardar la calidad de la atención."
                 : "  Ya puede acceder a su cuenta y continuar con su proceso."}
             </p>
             
@@ -45,10 +45,10 @@ export default async function VerificarEmailPage({ searchParams }) {
           </>
         ) : (
           <>
-            <div className="text-red-500 text-6xl mb-4">❌</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">No fue posible completar la verificaci�n</h1>
+            <div className="text-red-500 text-6xl mb-4">âŒ</div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">No fue posible completar la verificación</h1>
             <p className="text-gray-600 mb-6">
-              {result.error || "El enlace expir� o ya fue utilizado. Puede solicitar uno nuevo para continuar avanzando con seguridad."}
+              {result.error || "El enlace expiró o ya fue utilizado. Puede solicitar uno nuevo para continuar avanzando con seguridad."}
             </p>
             <Link href="/ingresar" className="text-blue-600 font-medium hover:underline">
               Intentar nuevamente

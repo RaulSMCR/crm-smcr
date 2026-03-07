@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 
-export default function ChangePasswordCard({ title = "Actualización de contraseña" }) {
+export default function ChangePasswordCard({ title = "ActualizaciÃ³n de contraseÃ±a" }) {
   const [pw, setPw] = useState({
     currentPassword: "",
     newPassword: "",
@@ -17,15 +17,15 @@ export default function ChangePasswordCard({ title = "Actualización de contraseñ
     setMsg({ type: "", text: "" });
 
     if (!pw.currentPassword) {
-      setMsg({ type: "error", text: "Ingrese su contraseña actual para continuar con la actualización segura." });
+      setMsg({ type: "error", text: "Ingrese su contraseÃ±a actual para continuar con la actualizaciÃ³n segura." });
       return;
     }
     if (!pw.newPassword || pw.newPassword.length < 8) {
-      setMsg({ type: "error", text: "La nueva contraseña debe incluir al menos 8 caracteres para proteger su acceso." });
+      setMsg({ type: "error", text: "La nueva contraseÃ±a debe incluir al menos 8 caracteres para proteger su acceso." });
       return;
     }
     if (pw.newPassword !== pw.confirmPassword) {
-      setMsg({ type: "error", text: "La confirmación de contraseña no coincide." });
+      setMsg({ type: "error", text: "La confirmaciÃ³n de contraseÃ±a no coincide." });
       return;
     }
 
@@ -39,11 +39,11 @@ export default function ChangePasswordCard({ title = "Actualización de contraseñ
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setMsg({ type: "error", text: data?.error || "No fue posible actualizar la contraseña." });
+        setMsg({ type: "error", text: data?.error || "No fue posible actualizar la contraseÃ±a." });
         return;
       }
 
-      setMsg({ type: "success", text: data?.message || "Contraseña actualizada con éxito. Su acceso seguro está listo para continuar." });
+      setMsg({ type: "success", text: data?.message || "ContraseÃ±a actualizada con Ã©xito. Su acceso seguro estÃ¡ listo para continuar." });
       setPw({ currentPassword: "", newPassword: "", confirmPassword: "" });
     } catch {
       setMsg({ type: "error", text: "Error de red. Por favor, intente nuevamente para seguir adelante con seguridad." });
@@ -55,7 +55,7 @@ export default function ChangePasswordCard({ title = "Actualización de contraseñ
   return (
     <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-100">
       <h3 className="text-lg font-bold text-slate-800 mb-2">{title}</h3>
-      <p className="text-slate-500 text-sm mb-6">Para proteger su cuenta y la información clínica, se solicita la contraseña actual antes de continuar.</p>
+      <p className="text-slate-500 text-sm mb-6">Para proteger su cuenta y la informaciÃ³n clÃ­nica, se solicita la contraseÃ±a actual antes de continuar.</p>
 
       {msg.text && (
         <div
@@ -69,7 +69,7 @@ export default function ChangePasswordCard({ title = "Actualización de contraseñ
 
       <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">ContraseÃ±a actual</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">ContraseÃƒÂ±a actual</label>
           <input
             type="password"
             value={pw.currentPassword}
@@ -81,7 +81,7 @@ export default function ChangePasswordCard({ title = "Actualización de contraseñ
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Nueva contraseÃ±a</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Nueva contraseÃƒÂ±a</label>
           <input
             type="password"
             value={pw.newPassword}
@@ -94,7 +94,7 @@ export default function ChangePasswordCard({ title = "Actualización de contraseñ
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Confirmar nueva contraseña</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Confirmar nueva contraseÃ±a</label>
           <input
             type="password"
             value={pw.confirmPassword}
@@ -114,7 +114,7 @@ export default function ChangePasswordCard({ title = "Actualización de contraseñ
               loading ? "opacity-70 cursor-wait" : ""
             }`}
           >
-            {loading ? "Actualizando de forma segura..." : "Actualizar contraseña y continuar"}
+            {loading ? "Actualizando de forma segura..." : "Actualizar contraseÃ±a y continuar"}
           </button>
         </div>
       </form>

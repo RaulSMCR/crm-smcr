@@ -31,12 +31,12 @@ export async function sendVerificationEmail(email, token) {
     const result = await resend.emails.send({
       from: EMAIL_FROM,
       to: email,
-      subject: "VerificaciÛn de cuenta - Salud Mental CR",
+      subject: "Verificaci√≥n de cuenta - Salud Mental CR",
       html: `
         <div style="font-family: Arial, Helvetica, sans-serif; line-height:1.5; color:#111">
-          <h2>VerificaciÛn de cuenta</h2>
+          <h2>Verificaci√≥n de cuenta</h2>
           <p>Gracias por registrarse en <b>Salud Mental CR</b>.</p>
-          <p>Para proteger su acceso y continuar con el proceso, utilice el siguiente botÛn:</p>
+          <p>Para proteger su acceso y continuar con el proceso, utilice el siguiente bot√≥n:</p>
           <p style="margin:25px 0">
             <a href="${confirmLink}"
               style="
@@ -51,8 +51,8 @@ export async function sendVerificationEmail(email, token) {
             </a>
           </p>
           <p style="font-size:12px;color:#555">
-            Este enlace expirar· pronto.
-            Si esta acciÛn no fue solicitada, puede ignorar este mensaje con tranquilidad.
+            Este enlace expirar√° pronto.
+            Si esta acci√≥n no fue solicitada, puede ignorar este mensaje con tranquilidad.
           </p>
         </div>
       `,
@@ -65,7 +65,7 @@ export async function sendVerificationEmail(email, token) {
       );
     }
   } catch (error) {
-    console.error("Error enviando email de verificaci√≥n:", error);
+    console.error("Error enviando email de verificaci√É¬≥n:", error);
     throw error;
   }
 }
@@ -80,12 +80,12 @@ export async function sendResetPasswordEmail(email, token) {
     const result = await resend.emails.send({
       from: EMAIL_FROM,
       to: email,
-      subject: "Restablecimiento de contraseÒa - Salud Mental CR",
+      subject: "Restablecimiento de contrase√±a - Salud Mental CR",
       html: `
         <div style="font-family: Arial, Helvetica, sans-serif; line-height:1.5; color:#111">
-          <h2>Restablecimiento de contraseÒa</h2>
-          <p>Se recibiÛ una solicitud para restablecer la contraseÒa de su cuenta en <b>Salud Mental CR</b>.</p>
-          <p>Para continuar de forma segura, utilice el siguiente botÛn:</p>
+          <h2>Restablecimiento de contrase√±a</h2>
+          <p>Se recibi√≥ una solicitud para restablecer la contrase√±a de su cuenta en <b>Salud Mental CR</b>.</p>
+          <p>Para continuar de forma segura, utilice el siguiente bot√≥n:</p>
           <p style="margin:25px 0">
             <a href="${resetLink}"
               style="
@@ -96,10 +96,10 @@ export async function sendResetPasswordEmail(email, token) {
                 border-radius:8px;
                 font-weight:bold;
                 display:inline-block">
-              Crear nueva contraseÒa y continuar</a>
+              Crear nueva contrase√±a y continuar</a>
           </p>
           <p style="font-size:12px;color:#555">
-            Este enlace expirar· pronto.
+            Este enlace expirar√° pronto.
             Si esta solicitud no fue realizada, puede ignorar este mensaje con tranquilidad.
           </p>
         </div>

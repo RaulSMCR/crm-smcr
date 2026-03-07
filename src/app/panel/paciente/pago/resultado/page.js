@@ -47,7 +47,7 @@ export default async function PagoResultadoPage({ searchParams }) {
             </div>
             <h1 className="text-2xl font-bold text-slate-900">Pago exitoso</h1>
             <p className="mt-2 text-slate-600">
-              El pago fue procesado correctamente. Se enviar· un correo de confirmaciÛn para continuar con el proceso.
+              El pago fue procesado correctamente. Se enviar√° un correo de confirmaci√≥n para continuar con el proceso.
             </p>
           </>
         )}
@@ -61,7 +61,7 @@ export default async function PagoResultadoPage({ searchParams }) {
             </div>
             <h1 className="text-2xl font-bold text-slate-900">Pago en proceso</h1>
             <p className="mt-2 text-slate-600">
-              El pago est· siendo verificado. Se enviar· una notificaciÛn cuando sea confirmado.
+              El pago est√° siendo verificado. Se enviar√° una notificaci√≥n cuando sea confirmado.
             </p>
           </>
         )}
@@ -87,7 +87,7 @@ export default async function PagoResultadoPage({ searchParams }) {
               con {transaction.appointment.professional?.user?.name}
             </p>
             <p className="mt-1 text-slate-500">
-              Monto: ‚Ç°{Number(transaction.amount).toLocaleString("es-CR")}
+              Monto: √¢‚Äö¬°{Number(transaction.amount).toLocaleString("es-CR")}
             </p>
           </div>
         )}

@@ -17,7 +17,7 @@ export async function POST(request) {
     if (!session) return json({ error: "No autorizado." }, 401);
 
     const userId = String(session.sub || session.userId || "");
-    if (!userId) return json({ error: "SesiÛn inv·lida." }, 401);
+    if (!userId) return json({ error: "Sesi√≥n inv√°lida." }, 401);
 
     const ct = request.headers.get("content-type") || "";
     if (!ct.includes("application/json")) {
@@ -29,12 +29,12 @@ export async function POST(request) {
     const next = String(body?.newPassword || body?.password || "");
     const confirm = String(body?.confirmPassword || "");
 
-    if (!current) return json({ error: "Ingrese su contraseÒa actual para continuar con la actualizaciÛn segura." }, 400);
+    if (!current) return json({ error: "Ingrese su contrase√±a actual para continuar con la actualizaci√≥n segura." }, 400);
     if (!next || next.length < 8) {
-      return json({ error: "La nueva contraseÒa debe incluir al menos 8 caracteres para proteger su acceso." }, 400);
+      return json({ error: "La nueva contrase√±a debe incluir al menos 8 caracteres para proteger su acceso." }, 400);
     }
     if (confirm && next !== confirm) {
-      return json({ error: "La confirmaciÛn de contraseÒa no coincide." }, 400);
+      return json({ error: "La confirmaci√≥n de contrase√±a no coincide." }, 400);
     }
 
     const user = await prisma.user.findUnique({
@@ -43,11 +43,11 @@ export async function POST(request) {
     });
 
     if (!user || user.isActive === false) {
-      return json({ error: "No fue posible ubicar una cuenta activa para completar esta actualizaciÛn." }, 404);
+      return json({ error: "No fue posible ubicar una cuenta activa para completar esta actualizaci√≥n." }, 404);
     }
 
     const ok = await bcrypt.compare(current, user.passwordHash || "");
-    if (!ok) return json({ error: "La contraseÒa actual no es correcta." }, 400);
+    if (!ok) return json({ error: "La contrase√±a actual no es correcta." }, 400);
 
     const passwordHash = await bcrypt.hash(next, 12);
 
@@ -56,7 +56,7 @@ export async function POST(request) {
       data: { passwordHash },
     });
 
-    return json({ ok: true, message: "ContraseÒa actualizada con Èxito. Su acceso seguro est· listo para continuar." }, 200);
+    return json({ ok: true, message: "Contrase√±a actualizada con √©xito. Su acceso seguro est√° listo para continuar." }, 200);
   } catch (e) {
     console.error("change-password error:", e);
     return json({ error: "Error interno. Por favor, intente nuevamente para seguir adelante con seguridad." }, 500);

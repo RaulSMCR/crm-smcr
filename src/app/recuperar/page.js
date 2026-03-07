@@ -32,7 +32,7 @@ export default function RecuperarPage() {
           type: "ok",
           text:
             data?.message ||
-            "Si el correo existe, se enviar· un enlace para restablecer la contraseÒa y continuar avanzando con acceso protegido.",
+            "Si el correo existe, se enviar√° un enlace para restablecer la contrase√±a y continuar avanzando con acceso protegido.",
         });
       } catch {
         setMsg({ type: "error", text: "Error de red. Por favor, intente nuevamente para seguir adelante con seguridad." });
@@ -43,9 +43,9 @@ export default function RecuperarPage() {
   return (
     <main className="min-h-[70vh] flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-2 text-center">RecuperaciÛn de contraseÒa segura</h1>
+        <h1 className="text-2xl font-bold mb-2 text-center">Recuperaci√≥n de contrase√±a segura</h1>
         <p className="text-sm text-gray-600 mb-4 text-center">
-          Ingrese su correo. Para cuidar su seguridad se enviar· un enlace para crear una nueva contraseÒa de acceso protegido.</p>
+          Ingrese su correo. Para cuidar su seguridad se enviar√° un enlace para crear una nueva contrase√±a de acceso protegido.</p>
 
         {msg ? (
           <div
