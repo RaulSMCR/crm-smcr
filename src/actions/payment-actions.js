@@ -119,7 +119,7 @@ export async function initiateDepositPayment(appointmentId, { ipAddress, userAge
         where: { id: transaction.id },
         data: { status: "REJECTED", p2pStatusMessage: p2pError.message },
       });
-      return { success: false, error: "No se pudo iniciar la sesión de pago. Intenta nuevamente." };
+      return { success: false, error: "No se pudo iniciar la sesión de pago. Por favor, intente nuevamente." };
     }
 
     // Actualizar transacción con datos de P2P
@@ -243,7 +243,7 @@ export async function initiateBalancePayment(appointmentId, { ipAddress, userAge
         where: { id: transaction.id },
         data: { status: "REJECTED", p2pStatusMessage: p2pError.message },
       });
-      return { success: false, error: "No se pudo iniciar la sesión de pago. Intenta nuevamente." };
+      return { success: false, error: "No se pudo iniciar la sesión de pago. Por favor, intente nuevamente." };
     }
 
     await prisma.paymentTransaction.update({

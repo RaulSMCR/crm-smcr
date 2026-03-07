@@ -13,7 +13,7 @@ export default function DashboardNav() {
       </Link>
       <div className="bg-neutral-250 p-6 rounded-lg shadow-md">
         <h2 className="text-xl font-bold text-accent-300 mb-2">Proximas Citas</h2>
-        <p className="text-neutral-300">Aun no se registran citas programadas.</p>
+        <p className="text-neutral-300">Aún no se registran citas programadas.</p>
         <div className="mt-4">
           <button className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm mr-2" disabled>Reagendar</button>
           <Link href="/servicios" className="bg-brand-primary text-neutral-250 px-4 py-2 rounded-md text-sm">Agendar Nueva Cita</Link>

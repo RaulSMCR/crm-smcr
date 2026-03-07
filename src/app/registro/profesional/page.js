@@ -139,8 +139,8 @@ export default function RegistroProfesionalPage() {
           <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-6">
             <span className="text-3xl">🎉</span>
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Solicitud recibida con exito</h2>
-          <p className="text-slate-600 mb-6 text-sm">Hemos recibido el perfil profesional y el CV. El proceso de revision avanza para resguardar la calidad de atencion. Se envio un correo de confirmacion. Revise su bandeja de entrada para continuar.</p>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Solicitud recibida con éxito</h2>
+          <p className="text-slate-600 mb-6 text-sm">Se recibió el perfil profesional y el CV. El proceso de revisión avanza para resguardar la calidad de atención. Se envió un correo de confirmación. Revise su bandeja de entrada para continuar.</p>
           <Link href="/ingresar" className="block w-full py-3 px-4 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition font-medium">
             Ir al ingreso
           </Link>
@@ -156,7 +156,7 @@ export default function RegistroProfesionalPage() {
         {/* ENCABEZADO */}
         <div className="text-center mb-10">
           <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Registro profesional seguro</h2>
-          <p className="mt-2 text-sm text-slate-600">Este registro permite avanzar en el proceso de validacion profesional y proteger la atencion de cada paciente.</p>
+          <p className="mt-2 text-sm text-slate-600">Este registro permite avanzar en el proceso de validación profesional y proteger la atención de cada paciente.</p>
         </div>
 
         <div className="bg-white shadow-xl shadow-slate-200/60 rounded-2xl border border-slate-100 overflow-hidden">

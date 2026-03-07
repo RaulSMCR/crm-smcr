@@ -42,7 +42,7 @@ export default async function AdminServiciosPage() {
       <div className="mx-auto max-w-6xl p-8">
         <h1 className="text-3xl font-bold text-slate-800">Servicios</h1>
         <p className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
-          Error al cargar servicios desde Prisma. Revisa el log de Vercel/Node para el detalle.
+          Error al cargar servicios desde Prisma. Revise el log de Vercel/Node para el detalle.
         </p>
         <pre className="mt-4 overflow-auto rounded-xl bg-slate-900 p-4 text-xs text-slate-100">
           {String(err?.message || err)}

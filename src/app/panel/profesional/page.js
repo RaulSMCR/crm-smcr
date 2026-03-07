@@ -98,7 +98,7 @@ export default async function ProfesionalDashboardPage() {
             <p className="text-sm text-slate-500">
               {todayAppointments.length > 0
                 ? "Citas pendientes o confirmadas para hoy."
-                : "No hay mas citas para hoy; aqui se presenta la siguiente jornada para continuar la atencion."}
+                : "No hay más citas para hoy; aquí se presenta la siguiente jornada para continuar la atención."}
             </p>
           </div>
           <Link
@@ -161,7 +161,7 @@ export default async function ProfesionalDashboardPage() {
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-slate-800">Perfil y servicios</h2>
-            <p className="text-sm text-slate-500">Actualice sus datos, solicite vinculacion y mantenga precios propuestos para sostener una atencion segura.</p>
+            <p className="text-sm text-slate-500">Actualice sus datos, solicite vinculación y mantenga precios propuestos para sostener una atención segura.</p>
           </div>
           <Link href="/panel/profesional/perfil" className="text-sm inline-flex items-center rounded-xl bg-slate-900 px-4 py-2 text-white hover:bg-slate-800">
             Actualizar perfil
@@ -178,7 +178,7 @@ export default async function ProfesionalDashboardPage() {
         </div>
         <div className="divide-y divide-slate-100">
           {(profile.posts || []).length === 0 ? (
-            <div className="px-6 py-5 text-slate-500">Aun no se registran articulos publicados.</div>
+            <div className="px-6 py-5 text-slate-500">Aún no se registran artículos publicados.</div>
           ) : (
             profile.posts.map((post) => (
               <div key={post.id} className="px-6 py-4 flex items-center justify-between gap-3">

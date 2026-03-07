@@ -104,7 +104,7 @@ export default function ServiceOrderManager({ services = [] }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4">
         <p className="text-sm text-slate-600">
-          Edita el orden de todos los servicios en una sola vista y guarda cambios masivos.
+          Edite el orden de todos los servicios en una sola vista y guarde cambios masivos.
         </p>
         <div className="flex gap-2">
           <button

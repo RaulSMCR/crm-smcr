@@ -37,7 +37,7 @@ export default function ProfessionalPostList() {
   };
 
   if (loading) {
-    return <p>Cargando articulos...</p>;
+    return <p>Cargando artículos...</p>;
   }
 
   return (
@@ -75,7 +75,7 @@ export default function ProfessionalPostList() {
           ))}
         </div>
       ) : (
-        <p className="text-gray-600">Aun no se registran articulos enviados.</p>
+        <p className="text-gray-600">Aún no se registran artículos enviados.</p>
       )}
     </div>
   );

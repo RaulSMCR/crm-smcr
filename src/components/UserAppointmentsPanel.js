@@ -276,7 +276,7 @@ export default function UserAppointmentsPanel({
             <h3 className="text-lg font-medium text-gray-900">No hay citas en esta lista</h3>
             <p className="mx-auto mt-1 max-w-sm text-gray-500">
               {filter === "ALL"
-                ? "Aun no se registran citas agendadas. Cuando lo desee, podra avanzar con una nueva atencion profesional."
+                ? "Aún no se registran citas agendadas. Cuando lo desee, podrá avanzar con una nueva atención profesional."
                 : "No se encontraron citas que coincidan con este filtro."}
             </p>
           </div>
