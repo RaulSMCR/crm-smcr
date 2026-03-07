@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+﻿import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import GoogleConnectButton from "@/components/admin/GoogleConnectButton";
@@ -20,7 +20,7 @@ export default async function IntegracionesPage() {
     <div className="p-8 max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-slate-800">Calendario e integraciones</h1>
-        <p className="text-slate-500 mt-2">Conecta tu Google Calendar para sincronizar citas automáticamente.</p>
+        <p className="text-slate-500 mt-2">Conecte Google Calendar para sincronizar citas automaticamente y sostener un seguimiento ordenado del paciente.</p>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
@@ -32,3 +32,4 @@ export default async function IntegracionesPage() {
     </div>
   );
 }
+

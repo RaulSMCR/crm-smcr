@@ -1,4 +1,4 @@
-// src/app/api/posts/route.js
+﻿// src/app/api/posts/route.js
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
@@ -22,17 +22,17 @@ function readingTimeFromText(content) {
 
 async function requireProfessionalApproved(session) {
   if (!session) return { ok: false, status: 401, message: "No autorizado" };
-  if (session.role !== "PROFESSIONAL") return { ok: false, status: 403, message: "Acción no permitida" };
+  if (session.role !== "PROFESSIONAL") return { ok: false, status: 403, message: "AcciÃ³n no permitida" };
 
   const proId = session.professionalProfileId ? String(session.professionalProfileId) : null;
-  if (!proId) return { ok: false, status: 400, message: "Token inválido (falta professionalProfileId)" };
+  if (!proId) return { ok: false, status: 400, message: "Token invÃ¡lido (falta professionalProfileId)" };
 
   const prof = await prisma.professionalProfile.findUnique({
     where: { id: proId },
     select: { id: true, isApproved: true },
   });
   if (!prof) return { ok: false, status: 404, message: "Profesional no encontrado" };
-  if (!prof.isApproved) return { ok: false, status: 403, message: "Tu cuenta aún no fue aprobada por un administrador" };
+  if (!prof.isApproved) return { ok: false, status: 403, message: "La cuenta aun no fue aprobada por un administrador" };
 
   return { ok: true, proId };
 }
@@ -56,19 +56,19 @@ export async function POST(request) {
     const metaDesc = String(body?.metaDesc || "").trim() || null;
 
     if (!title || !content) {
-      return NextResponse.json({ message: "Título y contenido son requeridos" }, { status: 400 });
+      return NextResponse.json({ message: "TÃ­tulo y contenido son requeridos" }, { status: 400 });
     }
 
     let slug = slugify(title);
     if (!slug) slug = `post-${Date.now()}`;
 
-    // evitar colisión de slug
+    // evitar colisiÃ³n de slug
     const exists = await prisma.post.findUnique({ where: { slug }, select: { id: true } });
     if (exists) slug = `${slug}-${Math.random().toString(36).slice(2, 7)}`;
 
     if (categoryId) {
       const cat = await prisma.category.findUnique({ where: { id: categoryId }, select: { id: true } });
-      if (!cat) return NextResponse.json({ message: "Categoría no existe" }, { status: 404 });
+      if (!cat) return NextResponse.json({ message: "CategorÃ­a no existe" }, { status: 404 });
     }
 
     const readingTime = readingTimeFromText(content);
@@ -102,6 +102,7 @@ export async function POST(request) {
       return NextResponse.json({ message: "Slug duplicado." }, { status: 409 });
     }
     console.error("Error creando post:", error);
-    return NextResponse.json({ message: "Error al crear el artículo" }, { status: 500 });
+    return NextResponse.json({ message: "Error al crear el artÃ­culo" }, { status: 500 });
   }
 }
+

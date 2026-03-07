@@ -1,4 +1,4 @@
-// src/actions/google-connect-actions.js
+﻿// src/actions/google-connect-actions.js
 "use server";
 
 import { prisma } from "@/lib/prisma";
@@ -6,7 +6,7 @@ import { getOAuth2Client } from "@/lib/google-oauth";
 import { revalidatePath } from "next/cache";
 import { requireProfessionalProfileId } from "@/lib/auth-guards";
 
-/** 1) Generar URL de autorización */
+/** 1) Generar URL de autorizaciÃ³n */
 export async function generarUrlConexionGoogle() {
   const oauth2Client = getOAuth2Client();
 
@@ -26,7 +26,7 @@ export async function generarUrlConexionGoogle() {
 /** 2) Intercambiar code por tokens y guardar refresh_token */
 export async function guardarCredencialesGoogle(code) {
   const professionalId = await requireProfessionalProfileId();
-  if (!code) return { error: "Falta el parámetro 'code'." };
+  if (!code) return { error: "Falta el parÃ¡metro 'code'." };
 
   try {
     const oauth2Client = getOAuth2Client();
@@ -35,7 +35,7 @@ export async function guardarCredencialesGoogle(code) {
     if (!tokens.refresh_token) {
       return {
         error:
-          "Google no devolvió refresh_token. Solución típica: desconecta la app en tu cuenta Google y vuelve a conectar.",
+          "Google no devolviÃ³ refresh_token. SoluciÃ³n tÃ­pica: desconecte la app en la cuenta de Google y vuelva a conectar.",
       };
     }
 
@@ -51,3 +51,4 @@ export async function guardarCredencialesGoogle(code) {
     return { error: "Error al conectar con Google." };
   }
 }
+

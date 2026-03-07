@@ -24,12 +24,12 @@ export async function POST(request) {
     const newPassword = String(body?.password || "");
     const confirm = String(body?.confirmPassword || "");
 
-    if (!rawToken) return json({ error: "Token faltante." }, 400);
+    if (!rawToken) return json({ error: "Token faltante. Solicite un nuevo enlace para continuar avanzando con seguridad." }, 400);
     if (!newPassword || newPassword.length < 8) {
-      return json({ error: "La contraseÃ±a debe tener al menos 8 caracteres." }, 400);
+      return json({ error: "La contraseña debe incluir al menos 8 caracteres para proteger el acceso." }, 400);
     }
     if (newPassword !== confirm) {
-      return json({ error: "Las contraseÃ±as no coinciden." }, 400);
+      return json({ error: "La confirmación de contraseña no coincide." }, 400);
     }
 
     const tokenHash = createHash("sha256").update(rawToken).digest("hex");
@@ -43,7 +43,7 @@ export async function POST(request) {
       select: { id: true },
     });
 
-    if (!user) return json({ error: "El enlace expirÃ³ o no es vÃ¡lido." }, 400);
+    if (!user) return json({ error: "El enlace expiró o no es válido. Solicite uno nuevo para continuar avanzando con seguridad." }, 400);
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
 
@@ -56,9 +56,10 @@ export async function POST(request) {
       },
     });
 
-    return json({ ok: true, message: "ContraseÃ±a actualizada. Ya podÃ©s ingresar." }, 200);
+    return json({ ok: true, message: "Contraseña actualizada con éxito. Ya puede ingresar y continuar con su proceso." }, 200);
   } catch (e) {
     console.error("reset-password error:", e);
-    return json({ error: "Error interno. Intenta de nuevo." }, 500);
+    return json({ error: "Error interno. Por favor, intente nuevamente para seguir adelante con seguridad." }, 500);
   }
 }
+

@@ -1,4 +1,4 @@
-// src/components/ProfessionalPostList.js
+﻿// src/components/ProfessionalPostList.js
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -22,27 +22,27 @@ export default function ProfessionalPostList() {
   }, []);
 
   const handleDelete = async (postId) => {
-    if (confirm('¿Estás seguro de que quieres eliminar este artículo? Esta acción no se puede deshacer.')) {
+    if (confirm('Â¿EstÃ¡s seguro de que quieres eliminar este artÃ­culo? Esta acciÃ³n no se puede deshacer.')) {
       setMessage('Eliminando...');
       const response = await fetch(`/api/professional/posts/${postId}`, {
         method: 'DELETE',
       });
       if (response.ok) {
-        setMessage('Artículo eliminado con éxito.');
+        setMessage('ArtÃ­culo eliminado con Ã©xito.');
         fetchPosts(); // Recargar la lista
       } else {
-        setMessage('Error al eliminar el artículo.');
+        setMessage('Error al eliminar el artÃ­culo.');
       }
     }
   };
 
   if (loading) {
-    return <p>Cargando tus artículos...</p>;
+    return <p>Cargando articulos...</p>;
   }
 
   return (
     <div className="bg-white p-8 rounded-lg shadow-md border w-full">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">Tus Artículos</h2>
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">Articulos publicados</h2>
       {message && <p className="text-sm text-center text-gray-600 mb-4">{message}</p>}
       {posts.length > 0 ? (
         <div className="space-y-4">
@@ -57,7 +57,7 @@ export default function ProfessionalPostList() {
                 </span>
               </div>
               <div className="flex items-center space-x-4">
-                {/* --- BOTÓN DE EDITAR AÑADIDO --- */}
+                {/* --- BOTÃ“N DE EDITAR AÃ‘ADIDO --- */}
                 <Link
                   href={`/dashboard-profesional/editar-articulo/${post.id}`}
                   className="text-blue-500 hover:text-blue-700 text-sm font-semibold"
@@ -75,7 +75,7 @@ export default function ProfessionalPostList() {
           ))}
         </div>
       ) : (
-        <p className="text-gray-600">Aún no has enviado ningún artículo.</p>
+        <p className="text-gray-600">Aun no se registran articulos enviados.</p>
       )}
     </div>
   );

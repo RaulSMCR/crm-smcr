@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 
-export default function ChangePasswordCard({ title = "Cambiar contraseÃ±a" }) {
+export default function ChangePasswordCard({ title = "Actualización de contraseña" }) {
   const [pw, setPw] = useState({
     currentPassword: "",
     newPassword: "",
@@ -17,15 +17,15 @@ export default function ChangePasswordCard({ title = "Cambiar contraseÃ±a" }) {
     setMsg({ type: "", text: "" });
 
     if (!pw.currentPassword) {
-      setMsg({ type: "error", text: "Debes ingresar tu contraseÃ±a actual." });
+      setMsg({ type: "error", text: "Ingrese su contraseña actual para continuar con la actualización segura." });
       return;
     }
     if (!pw.newPassword || pw.newPassword.length < 8) {
-      setMsg({ type: "error", text: "La nueva contraseÃ±a debe tener al menos 8 caracteres." });
+      setMsg({ type: "error", text: "La nueva contraseña debe incluir al menos 8 caracteres para proteger su acceso." });
       return;
     }
     if (pw.newPassword !== pw.confirmPassword) {
-      setMsg({ type: "error", text: "La confirmaciÃ³n no coincide." });
+      setMsg({ type: "error", text: "La confirmación de contraseña no coincide." });
       return;
     }
 
@@ -39,14 +39,14 @@ export default function ChangePasswordCard({ title = "Cambiar contraseÃ±a" }) {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setMsg({ type: "error", text: data?.error || "No se pudo actualizar la contraseÃ±a." });
+        setMsg({ type: "error", text: data?.error || "No fue posible actualizar la contraseña." });
         return;
       }
 
-      setMsg({ type: "success", text: data?.message || "ContraseÃ±a actualizada." });
+      setMsg({ type: "success", text: data?.message || "Contraseña actualizada con éxito. Su acceso seguro está listo para continuar." });
       setPw({ currentPassword: "", newPassword: "", confirmPassword: "" });
     } catch {
-      setMsg({ type: "error", text: "Error de red. Intenta de nuevo." });
+      setMsg({ type: "error", text: "Error de red. Por favor, intente nuevamente para seguir adelante con seguridad." });
     } finally {
       setLoading(false);
     }
@@ -55,9 +55,7 @@ export default function ChangePasswordCard({ title = "Cambiar contraseÃ±a" }) {
   return (
     <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-100">
       <h3 className="text-lg font-bold text-slate-800 mb-2">{title}</h3>
-      <p className="text-slate-500 text-sm mb-6">
-        Para tu seguridad, debes ingresar tu contraseÃ±a actual.
-      </p>
+      <p className="text-slate-500 text-sm mb-6">Para proteger su cuenta y la información clínica, se solicita la contraseña actual antes de continuar.</p>
 
       {msg.text && (
         <div
@@ -96,7 +94,7 @@ export default function ChangePasswordCard({ title = "Cambiar contraseÃ±a" }) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Confirmar nueva</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Confirmar nueva contraseña</label>
           <input
             type="password"
             value={pw.confirmPassword}
@@ -116,10 +114,11 @@ export default function ChangePasswordCard({ title = "Cambiar contraseÃ±a" }) {
               loading ? "opacity-70 cursor-wait" : ""
             }`}
           >
-            {loading ? "Actualizandoâ€¦" : "Actualizar contraseÃ±a"}
+            {loading ? "Actualizando de forma segura..." : "Actualizar contraseña y continuar"}
           </button>
         </div>
       </form>
     </div>
   );
 }
+

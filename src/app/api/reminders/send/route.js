@@ -1,4 +1,4 @@
-import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
+﻿import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { prisma } from "@/lib/prisma";
 import { sendAppointmentNotifications } from "@/lib/appointments";
 import { NextResponse } from "next/server";
@@ -39,7 +39,7 @@ async function handler(req) {
     const label = type === "24h" ? "24 horas" : "1 hora";
     await sendAppointmentNotifications(
       appointment,
-      `Recordatorio: Tu cita comienza en ${label}.`
+      `Recordatorio: la cita inicia en ${label}.`
     );
 
     return NextResponse.json({ ok: true });
@@ -50,3 +50,4 @@ async function handler(req) {
 }
 
 export const POST = verifySignatureAppRouter(handler);
+

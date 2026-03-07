@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
@@ -42,13 +42,13 @@ function formatConflictDate(date) {
 
 async function requireProfessionalProfileId() {
   const session = await getSession();
-  if (!session) throw new Error("No autorizado: sesión requerida.");
+  if (!session) throw new Error("No autorizado: sesiÃ³n requerida.");
   if (toStr(session.role) !== "PROFESSIONAL") {
     throw new Error("No autorizado: rol PROFESSIONAL requerido.");
   }
 
   const professionalId = toStr(session.professionalProfileId);
-  if (!professionalId) throw new Error("No se encontró professionalProfileId en la sesión.");
+  if (!professionalId) throw new Error("No se encontrÃ³ professionalProfileId en la sesiÃ³n.");
 
   return professionalId;
 }
@@ -158,7 +158,7 @@ async function buildRecurringConflictResponse({
 
   return {
     success: false,
-    error: `Hay un conflicto en ${conflictLabel}. Revisa la serie y vuelve a intentar.`,
+    error: `Hay un conflicto en ${conflictLabel}. Revise la serie e intente nuevamente.`,
     errorCode: "RECURRING_CONFLICT",
     conflictDateISO: conflictStart.toISOString(),
     suggestedDateISO: suggestedDate.toISOString(),
@@ -269,10 +269,10 @@ export async function createAppointmentByProfessional({
     const count = rule === RECURRENCE_RULES.NONE ? 1 : normalizeRecurrenceCount(recurrenceCount);
 
     if (!pid || !sid || Number.isNaN(start.getTime())) {
-      return { success: false, error: "Datos inválidos para agendar." };
+      return { success: false, error: "Datos invÃ¡lidos para agendar." };
     }
     if (start <= new Date()) {
-      return { success: false, error: "El horario seleccionado ya pasó." };
+      return { success: false, error: "El horario seleccionado ya pasÃ³." };
     }
 
     const [patient, service, assignment] = await Promise.all([
@@ -297,7 +297,7 @@ export async function createAppointmentByProfessional({
       return { success: false, error: "Servicio no disponible." };
     }
     if (!assignment || assignment.status !== "APPROVED" || assignment.approvedSessionPrice == null) {
-      return { success: false, error: "Este servicio no está habilitado para tu agenda." };
+      return { success: false, error: "Este servicio no esta habilitado para la agenda." };
     }
 
     const starts = buildRecurringStarts(start, rule, count);
@@ -366,7 +366,7 @@ export async function createAppointmentByProfessional({
     );
 
     const hydratedAppointments = await hydrateAppointments(createdAppointments.map((item) => item.id));
-    await notifyAppointments(hydratedAppointments, "El profesional creó una nueva cita en estado pendiente.");
+    await notifyAppointments(hydratedAppointments, "El profesional creÃ³ una nueva cita en estado pendiente.");
     revalidateAgendaPaths();
 
     return {
@@ -376,7 +376,7 @@ export async function createAppointmentByProfessional({
     };
   } catch (error) {
     console.error("createAppointmentByProfessional error:", error);
-    return { success: false, error: "Error interno al agendar. Intenta nuevamente." };
+    return { success: false, error: "Error interno al agendar. Por favor, intentelo nuevamente." };
   }
 }
 
@@ -393,9 +393,9 @@ export async function rescheduleAppointmentByProfessional(
     const rule = normalizeRecurrenceRule(recurrenceRule);
     const count = rule === RECURRENCE_RULES.NONE ? 1 : normalizeRecurrenceCount(recurrenceCount);
 
-    if (!id) return { success: false, error: "ID inválido." };
+    if (!id) return { success: false, error: "ID invÃ¡lido." };
     if (Number.isNaN(newStart.getTime()) || newStart <= new Date()) {
-      return { success: false, error: "Horario inválido." };
+      return { success: false, error: "Horario invÃ¡lido." };
     }
 
     const appointment = await prisma.appointment.findUnique({
@@ -407,7 +407,7 @@ export async function rescheduleAppointmentByProfessional(
 
     if (!appointment) return { success: false, error: "Cita no encontrada." };
     if (appointment.professionalId !== professionalId) {
-      return { success: false, error: "No puedes modificar citas de otro profesional." };
+      return { success: false, error: "No es posible modificar citas de otro profesional." };
     }
     if (!["PENDING", "CONFIRMED"].includes(appointment.status)) {
       return { success: false, error: "Esta cita no puede reagendarse." };
@@ -521,7 +521,7 @@ export async function confirmAppointmentByProfessional(
     const rule = normalizeRecurrenceRule(recurrenceRule);
     const count = rule === RECURRENCE_RULES.NONE ? 1 : normalizeRecurrenceCount(recurrenceCount);
 
-    if (!id) return { success: false, error: "ID inválido." };
+    if (!id) return { success: false, error: "ID invÃ¡lido." };
 
     const appointment = await prisma.appointment.findUnique({
       where: { id },
@@ -532,10 +532,10 @@ export async function confirmAppointmentByProfessional(
 
     if (!appointment) return { success: false, error: "Cita no encontrada." };
     if (appointment.professionalId !== professionalId) {
-      return { success: false, error: "No puedes modificar citas de otro profesional." };
+      return { success: false, error: "No es posible modificar citas de otro profesional." };
     }
     if (appointment.status !== "PENDING") {
-      return { success: false, error: "Solo puedes confirmar citas pendientes." };
+      return { success: false, error: "Solo es posible confirmar citas pendientes." };
     }
 
     const durationMin =
@@ -638,7 +638,7 @@ export async function updateAppointmentStatus(appointmentId, newStatus) {
     const id = toStr(appointmentId);
     const status = toStr(newStatus);
 
-    if (!id) return { success: false, error: "ID inválido." };
+    if (!id) return { success: false, error: "ID invÃ¡lido." };
     if (!ALLOWED_PRO_STATUS.has(status)) {
       return { success: false, error: `Estado no permitido: ${status}` };
     }
@@ -650,7 +650,7 @@ export async function updateAppointmentStatus(appointmentId, newStatus) {
 
     if (!appointment) return { success: false, error: "Cita no encontrada." };
     if (appointment.professionalId !== professionalId) {
-      return { success: false, error: "No puedes modificar citas de otro profesional." };
+      return { success: false, error: "No es posible modificar citas de otro profesional." };
     }
 
     const from = appointment.status;
@@ -660,7 +660,7 @@ export async function updateAppointmentStatus(appointmentId, newStatus) {
         (status === "COMPLETED" || status === "NO_SHOW" || status === "CANCELLED_BY_PRO"));
 
     if (!okTransition) {
-      return { success: false, error: `Transición inválida: ${from} -> ${status}` };
+      return { success: false, error: `TransiciÃ³n invÃ¡lida: ${from} -> ${status}` };
     }
 
     const updatedAppointment = await prisma.appointment.update({
@@ -681,7 +681,7 @@ export async function updateAppointmentStatus(appointmentId, newStatus) {
 
     await Promise.allSettled([
       syncGoogleCalendarEvent(updatedAppointment),
-      sendAppointmentNotifications(updatedAppointment, `La cita cambió de estado a ${status}.`),
+      sendAppointmentNotifications(updatedAppointment, `La cita cambiÃ³ de estado a ${status}.`),
       ...(status === "COMPLETED" ? [createBalancePaymentAuto(id)] : []),
     ]);
 
@@ -699,8 +699,8 @@ export async function cancelAppointmentByProfessional(appointmentId, reason) {
     const id = toStr(appointmentId);
     const reasonStr = toStr(reason).trim();
 
-    if (!id) return { error: "ID de cita inválido." };
-    if (!reasonStr) return { error: "Debes indicar el motivo de cancelación." };
+    if (!id) return { error: "ID de cita invÃ¡lido." };
+    if (!reasonStr) return { error: "Debes indicar el motivo de cancelaciÃ³n." };
 
     const appointment = await prisma.appointment.findUnique({
       where: { id },
@@ -713,10 +713,10 @@ export async function cancelAppointmentByProfessional(appointmentId, reason) {
 
     if (!appointment) return { error: "Cita no encontrada." };
     if (appointment.professionalId !== professionalId) {
-      return { error: "No puedes cancelar citas de otro profesional." };
+      return { error: "No es posible cancelar citas de otro profesional." };
     }
     if (!["PENDING", "CONFIRMED"].includes(appointment.status)) {
-      return { error: "Esta cita no puede cancelarse (estado inválido)." };
+      return { error: "Esta cita no puede cancelarse (estado invÃ¡lido)." };
     }
 
     const updated = await prisma.appointment.update({
@@ -749,7 +749,7 @@ export async function cancelAppointmentByProfessional(appointmentId, reason) {
     return { success: true };
   } catch (error) {
     console.error("cancelAppointmentByProfessional error:", error);
-    return { error: "Error interno al cancelar. Intenta nuevamente." };
+    return { error: "Error interno al cancelar. Por favor, intentelo nuevamente." };
   }
 }
 
@@ -816,7 +816,7 @@ export async function createFollowUpAppointment(parentAppointmentId, startISO) {
     const newStart = new Date(startISO);
     const newEnd = new Date(newStart.getTime() + durationMin * 60000);
 
-    if (isNaN(newStart.getTime())) return { error: "Fecha inválida." };
+    if (isNaN(newStart.getTime())) return { error: "Fecha invÃ¡lida." };
 
     const conflict = await prisma.appointment.findFirst({
       where: {
@@ -854,7 +854,7 @@ export async function createFollowUpAppointment(parentAppointmentId, startISO) {
 
     await Promise.allSettled([
       syncGoogleCalendarEvent(created),
-      sendAppointmentNotifications(created, "Se agendó una cita de seguimiento."),
+      sendAppointmentNotifications(created, "Se agendÃ³ una cita de seguimiento."),
     ]);
 
     revalidateAgendaPaths();
@@ -864,3 +864,4 @@ export async function createFollowUpAppointment(parentAppointmentId, startISO) {
     return { error: "Error interno al agendar el seguimiento." };
   }
 }
+

@@ -1,4 +1,4 @@
-// src/app/panel/admin/servicios/[id]/page.js
+﻿// src/app/panel/admin/servicios/[id]/page.js
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -90,7 +90,7 @@ export default async function AdminServicioDetallePage({ params }) {
       <div className="bg-white rounded-2xl border border-slate-200 p-6">
         <h2 className="text-xl font-bold text-slate-900">Ver / Editar servicio</h2>
         <p className="text-sm text-slate-600 mt-1 mb-5">
-          Podés editar título, descripción, precio, duración y estado.
+          Puede editar titulo, descripcion, precio, duracion y estado.
         </p>
         <ServiceEditForm service={service} />
       </div>

@@ -157,6 +157,46 @@ export default function BillingInvoicesManager({
     });
   }
 
+  function handleSubmitFE(id) {
+    setMessage("");
+    startTransition(async () => {
+      try {
+        const payload = await callApi(`/api/invoices/${id}/submit-fe`, "POST");
+        updateRowInvoice(id, {
+          feStatus:      payload.feStatus,
+          feNumber:      payload.feNumber,
+          feClave:       payload.feClave,
+          feErrorMessage: payload.feErrorMessage,
+        });
+        if (payload.feStatus === "ACCEPTED") {
+          setMessage(`FE aceptada ✓ — Clave: ${payload.feClave}`);
+        } else if (payload.feStatus === "REJECTED") {
+          setMessage(`FE rechazada: ${payload.feErrorMessage || "Sin detalle"}`);
+        } else {
+          setMessage("Comprobante enviado. Estado: procesando.");
+        }
+      } catch (error) {
+        setMessage(error.message);
+      }
+    });
+  }
+
+  function handleRefreshFEStatus(id) {
+    setMessage("");
+    startTransition(async () => {
+      try {
+        const payload = await callApi(`/api/invoices/${id}/fe-status`, "GET");
+        updateRowInvoice(id, {
+          feStatus:      payload.feStatus,
+          feErrorMessage: payload.feErrorMessage,
+        });
+        setMessage(`Estado FE: ${payload.feStatus}${payload.feErrorMessage ? ` — ${payload.feErrorMessage}` : ""}`);
+      } catch (error) {
+        setMessage(error.message);
+      }
+    });
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">

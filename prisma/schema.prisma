@@ -261,6 +261,7 @@ model Invoice {
   feNumber                 String?
   feClave                  String?
   feStatus                 FEStatus     @default(PENDING)
+  feErrorMessage           String?
   documentType             DocumentType @default(FACTURA_ELECTRONICA)
 
   contactId                String

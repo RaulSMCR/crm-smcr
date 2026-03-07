@@ -24,7 +24,7 @@ export default async function AdminAppointmentsPage() {
     <main className="p-6 space-y-4">
       <h1 className="text-2xl font-bold">Calendario global de citas</h1>
       <p className="text-neutral-600">
-        Como administrador puedes revisar y modificar el estado de cualquier cita del sistema.
+        Como administrador, puede revisar y modificar el estado de cualquier cita del sistema.
       </p>
 
       <AdminAppointmentsManager appointments={appointments} />

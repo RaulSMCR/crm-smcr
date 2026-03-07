@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+﻿import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSession } from "@/actions/auth-actions";
 import ServiceCreateForm from "@/components/admin/ServiceCreateForm";
@@ -22,7 +22,7 @@ export default async function AdminServicioNuevoPage() {
         <h1 className="text-3xl font-bold text-slate-900 mt-2">Crear nuevo servicio</h1>
 
         <p className="text-slate-600 mt-3">
-          Completá los campos obligatorios para crear un nuevo servicio. Podés editarlo después.
+          Complete los campos obligatorios para crear un nuevo servicio. Puede editarlo despues.
         </p>
       </div>
 

@@ -54,7 +54,7 @@ async function findRecurringConflict({ professionalId, starts, ends }) {
     );
 
     if (hasConflict) {
-      return `Hay un conflicto en ${formatConflictDate(start)}. Ajusta la recurrencia e intenta nuevamente.`;
+      return `Hay un conflicto en ${formatConflictDate(start)}. Ajuste la recurrencia e intente nuevamente.`;
     }
   }
 
@@ -171,7 +171,7 @@ export async function requestAppointment(
   const session = await getSession();
 
   if (!session || !session.sub) {
-    return { error: "Debes iniciar sesiÃ³n para agendar.", errorCode: "UNAUTHENTICATED" };
+    return { error: "Debe iniciar sesión para agendar.", errorCode: "UNAUTHENTICATED" };
   }
 
   try {
@@ -280,3 +280,5 @@ export async function requestAppointment(
     return { error: "Error interno al procesar la solicitud." };
   }
 }
+
+

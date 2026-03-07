@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 // src/components/profesional/ProfessionalBillingModule.js
 import { useRouter, useSearchParams } from "next/navigation";
@@ -6,7 +6,7 @@ import { useMemo, useState, useTransition } from "react";
 import { submitProfessionalInvoice } from "@/actions/professional-billing-actions";
 
 const TYPE_LABELS = {
-  DEPOSIT_50: "Depósito 50%",
+  DEPOSIT_50: "DepÃ³sito 50%",
   BALANCE_50: "Saldo 50%",
   FULL_100: "Pago completo",
 };
@@ -20,22 +20,22 @@ const STATUS_CONFIG = {
 };
 
 const INVOICE_STATUS = {
-  DRAFT: { label: "Pendiente revisión", style: "bg-amber-100 text-amber-700" },
+  DRAFT: { label: "Pendiente revisiÃ³n", style: "bg-amber-100 text-amber-700" },
   OPEN: { label: "Validada", style: "bg-blue-100 text-blue-700" },
   PAID: { label: "Pagada", style: "bg-emerald-100 text-emerald-700" },
   CANCELLED: { label: "Cancelada", style: "bg-red-100 text-red-600" },
 };
 
 function fmt(amount) {
-  return `₡${Number(amount).toLocaleString("es-CR")}`;
+  return `â‚¡${Number(amount).toLocaleString("es-CR")}`;
 }
 
 function fmtDate(iso) {
-  if (!iso) return "—";
+  if (!iso) return "â€”";
   return new Date(iso).toLocaleDateString("es-CR", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-// ── Filtros de período (client-side) ─────────────────────────────────────────
+// â”€â”€ Filtros de perÃ­odo (client-side) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function filterByPeriod(transactions, period, customFrom, customTo) {
   const now = new Date();
@@ -61,7 +61,7 @@ function filterByPeriod(transactions, period, customFrom, customTo) {
   });
 }
 
-// ── Componente principal ──────────────────────────────────────────────────────
+// â”€â”€ Componente principal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function ProfessionalBillingModule({
   transactions,
@@ -115,7 +115,7 @@ export default function ProfessionalBillingModule({
     e.preventDefault();
     setSubmitMsg(null);
 
-    if (!pdfFile) { setSubmitMsg({ ok: false, text: "Selecciona el PDF de tu factura." }); return; }
+    if (!pdfFile) { setSubmitMsg({ ok: false, text: "Seleccione el PDF de la factura." }); return; }
 
     setUploading(true);
     let fileUrl = "";
@@ -145,7 +145,7 @@ export default function ProfessionalBillingModule({
         periodEnd,
       });
       if (result.success) {
-        setSubmitMsg({ ok: true, text: "Factura presentada correctamente. El admin la revisará pronto." });
+        setSubmitMsg({ ok: true, text: "Factura presentada correctamente. El admin la revisarÃ¡ pronto." });
         setRefNumber(""); setInvoiceAmount(""); setPdfFile(null);
         router.refresh();
       } else {
@@ -156,7 +156,7 @@ export default function ProfessionalBillingModule({
 
   return (
     <div className="space-y-6">
-      {/* ── Filtros de período ── */}
+      {/* â”€â”€ Filtros de perÃ­odo â”€â”€ */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex rounded-lg bg-gray-100 p-1 gap-1">
@@ -184,7 +184,7 @@ export default function ProfessionalBillingModule({
               onChange={(e) => setCustomFrom(e.target.value)}
               className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm"
             />
-            <span className="text-slate-400">—</span>
+            <span className="text-slate-400">â€”</span>
             <input
               type="date"
               value={customTo}
@@ -202,11 +202,11 @@ export default function ProfessionalBillingModule({
         </div>
       </div>
 
-      {/* ── Tarjetas resumen ── */}
+      {/* â”€â”€ Tarjetas resumen â”€â”€ */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {[
           { label: "Total cobrado", value: fmt(totalApproved), accent: "text-emerald-600" },
-          { label: `Comisión plataforma (${commission}%)`, value: fmt(commissionAmt), accent: "text-red-500" },
+          { label: `ComisiÃ³n plataforma (${commission}%)`, value: fmt(commissionAmt), accent: "text-red-500" },
           { label: "Neto a recibir", value: fmt(neto), accent: "text-blue-600 font-bold" },
           { label: "Pendiente de cobro", value: fmt(totalPending), accent: "text-amber-600" },
         ].map(({ label, value, accent }) => (
@@ -217,14 +217,14 @@ export default function ProfessionalBillingModule({
         ))}
       </div>
 
-      {/* ── Tabla de cobros ── */}
+      {/* â”€â”€ Tabla de cobros â”€â”€ */}
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <div className="border-b border-slate-100 px-6 py-4">
-          <h2 className="text-lg font-bold text-slate-900">Cobros del período</h2>
+          <h2 className="text-lg font-bold text-slate-900">Cobros del perÃ­odo</h2>
           <p className="text-sm text-slate-500">{filtered.length} registro{filtered.length !== 1 ? "s" : ""}</p>
         </div>
         {filtered.length === 0 ? (
-          <p className="py-12 text-center text-sm text-slate-400">Sin cobros en este período.</p>
+          <p className="py-12 text-center text-sm text-slate-400">Sin cobros en este perÃ­odo.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
@@ -260,19 +260,19 @@ export default function ProfessionalBillingModule({
         )}
       </div>
 
-      {/* ── Presentar factura a la plataforma ── */}
+      {/* â”€â”€ Presentar factura a la plataforma â”€â”€ */}
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <div className="border-b border-slate-100 px-6 py-4">
           <h2 className="text-lg font-bold text-slate-900">Presentar factura a la plataforma</h2>
           <p className="text-sm text-slate-500">
-            Neto del período: <span className="font-semibold text-blue-700">{fmt(neto)}</span> (total cobrado menos {commission}% de comisión)
+            Neto del perÃ­odo: <span className="font-semibold text-blue-700">{fmt(neto)}</span> (total cobrado menos {commission}% de comisiÃ³n)
           </p>
         </div>
 
         <form onSubmit={handleSubmitInvoice} className="p-6 space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">N° de tu factura *</label>
+              <label className="mb-1 block text-sm font-medium text-slate-700">N° de factura *</label>
               <input
                 type="text"
                 value={refNumber}
@@ -284,7 +284,7 @@ export default function ProfessionalBillingModule({
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
-                Monto a facturar (₡) *
+                Monto a facturar (â‚¡) *
                 <span className="ml-1 text-xs font-normal text-slate-400">pre-calculado, editable</span>
               </label>
               <input
@@ -299,7 +299,7 @@ export default function ProfessionalBillingModule({
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">PDF de tu factura *</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">PDF de factura *</label>
             <input
               type="file"
               accept="application/pdf"
@@ -307,7 +307,7 @@ export default function ProfessionalBillingModule({
               required
               className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-sm file:font-medium hover:file:bg-slate-200"
             />
-            <p className="mt-1 text-xs text-slate-400">Solo PDF, máximo 5MB.</p>
+            <p className="mt-1 text-xs text-slate-400">Solo PDF, mÃ¡ximo 5MB.</p>
           </div>
 
           {submitMsg && (
@@ -326,7 +326,7 @@ export default function ProfessionalBillingModule({
         </form>
       </div>
 
-      {/* ── Facturas ya presentadas ── */}
+      {/* â”€â”€ Facturas ya presentadas â”€â”€ */}
       {submittedInvoices.length > 0 && (
         <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
           <div className="border-b border-slate-100 px-6 py-4">
@@ -337,7 +337,7 @@ export default function ProfessionalBillingModule({
               <thead className="bg-slate-50 text-left text-xs font-semibold uppercase text-slate-500">
                 <tr>
                   <th className="px-6 py-3">Fecha</th>
-                  <th className="px-6 py-3">Tu N° factura</th>
+                  <th className="px-6 py-3">N° factura</th>
                   <th className="px-6 py-3 text-right">Monto</th>
                   <th className="px-6 py-3">Estado</th>
                   <th className="px-6 py-3">PDF</th>
@@ -349,7 +349,7 @@ export default function ProfessionalBillingModule({
                   return (
                     <tr key={inv.id} className="hover:bg-slate-50">
                       <td className="px-6 py-4 text-slate-600">{fmtDate(inv.invoiceDate)}</td>
-                      <td className="px-6 py-4 font-medium text-slate-800">{inv.supplierReference || "—"}</td>
+                      <td className="px-6 py-4 font-medium text-slate-800">{inv.supplierReference || "â€”"}</td>
                       <td className="px-6 py-4 text-right font-semibold text-slate-800">{fmt(inv.total)}</td>
                       <td className="px-6 py-4">
                         <span className={`rounded-full px-2 py-1 text-xs font-semibold ${s.style}`}>{s.label}</span>
@@ -365,7 +365,7 @@ export default function ProfessionalBillingModule({
                             Ver PDF
                           </a>
                         ) : (
-                          <span className="text-slate-400">—</span>
+                          <span className="text-slate-400">â€”</span>
                         )}
                       </td>
                     </tr>
@@ -379,3 +379,4 @@ export default function ProfessionalBillingModule({
     </div>
   );
 }
+

@@ -34,7 +34,7 @@ function buildNotificationHtml({ recipientName, appointment, reason }) {
   return `
     <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;line-height:1.4;color:#0f172a;">
       <h2 style="margin-bottom:4px;">Actualizaci贸n de cita</h2>
-      <p>Hola ${recipientName || ""},</p>
+      <p>Estimado/a ${recipientName || ""},</p>
       <p>${reason}</p>
       <ul>
         <li><strong>Servicio:</strong> ${appointment.service?.title || "Consulta"}</li>
@@ -73,7 +73,7 @@ export async function sendAppointmentNotifications(appointment, reason) {
       resend.emails.send({
         from: FROM_EMAIL,
         to: patientEmail,
-        subject: "Actualizaci贸n de tu cita",
+        subject: "Actualizaci髇 de cita",
         html: buildNotificationHtml({ recipientName: appointment.patient?.name, appointment, reason }),
       }).then((res) => {
         if (res.error) console.error("[Resend] Error enviando email al paciente:", res.error);
@@ -124,26 +124,26 @@ export async function sendRecurringConflictResolutionEmail({
 
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;line-height:1.5;color:#1f2937;">
-      <h2 style="margin-bottom:6px;">Necesitamos tu confirmaci贸n de horario</h2>
-      <p>Hola ${appointment.patient?.name || ""},</p>
+      <h2 style="margin-bottom:6px;">Se requiere confirmaci髇 de horario</h2>
+      <p>Estimado/a ${appointment.patient?.name || ""},</p>
       <p>
-        Al intentar confirmar una serie recurrente de tu cita con
-        <strong> ${appointment.professional?.user?.name || "tu profesional"}</strong>,
+        Al intentar confirmar una serie recurrente de la cita con
+        <strong> ${appointment.professional?.user?.name || "el profesional asignado"}</strong>,
         encontramos un conflicto en <strong>${conflictLabel}</strong>.
       </p>
-      <p style="margin-bottom:14px;">Selecciona una opci贸n:</p>
+      <p style="margin-bottom:14px;">Seleccione una opci髇:</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
-        ${buildPrimaryButton("Confirmar horario actual", confirmUrl)}
-        ${buildSecondaryButton("Elegir otro horario", rescheduleUrl)}
+        ${buildPrimaryButton("Confirmar horario y continuar", confirmUrl)}
+        ${buildSecondaryButton("Elegir otro horario y continuar", rescheduleUrl)}
       </div>
       <p style="margin-bottom:8px;">
-        Si prefieres, tambi茅n puedes revisar disponibilidad del profesional directamente:
+        Si lo considera conveniente, tambi閚 puede revisar disponibilidad del profesional directamente:
       </p>
       <p style="margin:0 0 14px;">
         <a href="${professionalCalendarUrl}" style="color:#2b7073;font-weight:700;">Abrir calendario del d铆a sugerido</a>
       </p>
       <p style="font-size:12px;color:#6b7280;">
-        Este mensaje fue generado autom谩ticamente para evitar demoras al reagendar tu serie.
+        Este mensaje fue generado autom醫icamente para facilitar la continuidad de la atenci髇.
       </p>
     </div>
   `;
@@ -152,7 +152,7 @@ export async function sendRecurringConflictResolutionEmail({
     const result = await resend.emails.send({
       from: FROM_EMAIL,
       to: patientEmail,
-      subject: "Conflicto en tu cita recurrente - acci贸n requerida",
+      subject: "Conflicto en cita recurrente - acci髇 requerida",
       html,
     });
 
@@ -254,3 +254,4 @@ export async function syncGoogleCalendarEvent(appointment) {
     console.error("SYNC ERROR DETAILS:", JSON.stringify(error?.response?.data || error?.message || error, null, 2));
   }
 }
+

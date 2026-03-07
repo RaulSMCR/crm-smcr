@@ -1,4 +1,4 @@
-// src/actions/patient-profile-actions.js
+﻿// src/actions/patient-profile-actions.js
 "use server";
 
 import { prisma } from "@/lib/prisma";
@@ -38,17 +38,17 @@ export async function updatePatientProfile(formData) {
   const interests = s(formData.get("interests")) || null;
 
   if (!name) return { error: "El nombre es obligatorio." };
-  if (!phone) return { error: "El teléfono es obligatorio." };
-  if (!isPhoneValid(phone)) return { error: "Teléfono inválido (mínimo 8 dígitos)." };
+  if (!phone) return { error: "El telÃ©fono es obligatorio." };
+  if (!isPhoneValid(phone)) return { error: "TelÃ©fono invÃ¡lido (mÃ­nimo 8 dÃ­gitos)." };
 
   // obligatoria a nivel app
-  if (!identification) return { error: "La identificación es obligatoria." };
-  if (!isIdentificationValid(identification)) return { error: "Identificación inválida." };
+  if (!identification) return { error: "La identificaciÃ³n es obligatoria." };
+  if (!isIdentificationValid(identification)) return { error: "IdentificaciÃ³n invÃ¡lida." };
 
   let birthDate = null;
   if (birthDateRaw) {
     const d = new Date(birthDateRaw);
-    if (Number.isNaN(d.getTime())) return { error: "Fecha de nacimiento inválida." };
+    if (Number.isNaN(d.getTime())) return { error: "Fecha de nacimiento invÃ¡lida." };
     birthDate = d;
   }
 
@@ -69,6 +69,7 @@ export async function updatePatientProfile(formData) {
     return { success: true };
   } catch (e) {
     console.error("updatePatientProfile error:", e);
-    return { error: "No se pudo guardar. Intenta de nuevo." };
+    return { error: "No se pudo guardar la informacion. Por favor, intentelo nuevamente." };
   }
 }
+

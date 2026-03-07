@@ -17,7 +17,7 @@ const STOCK_IMAGES = [
 const FALLBACK_CATEGORIES = [
   { name: 'Psicología', slug: 'psico', description: 'Ayuda profesional.', imageUrl: STOCK_IMAGES[0] },
   { name: 'Nutrición', slug: 'nutri', description: 'Alimentación sana.', imageUrl: STOCK_IMAGES[1] },
-  { name: 'Coaching', slug: 'coach', description: 'Logra tus metas.', imageUrl: STOCK_IMAGES[2] },
+  { name: 'Coaching', slug: 'coach', description: 'Avance hacia metas concretas.', imageUrl: STOCK_IMAGES[2] },
 ];
 
 export const dynamic = 'force-dynamic';

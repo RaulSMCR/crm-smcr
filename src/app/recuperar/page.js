@@ -32,10 +32,10 @@ export default function RecuperarPage() {
           type: "ok",
           text:
             data?.message ||
-            "Si el correo existe, te enviaremos un enlace para restablecer tu contraseÃ±a.",
+            "Si el correo existe, se enviará un enlace para restablecer la contraseña y continuar avanzando con acceso protegido.",
         });
       } catch {
-        setMsg({ type: "error", text: "Error de red. Intenta de nuevo." });
+        setMsg({ type: "error", text: "Error de red. Por favor, intente nuevamente para seguir adelante con seguridad." });
       }
     });
   }
@@ -43,10 +43,9 @@ export default function RecuperarPage() {
   return (
     <main className="min-h-[70vh] flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-2 text-center">Recuperar contraseÃ±a</h1>
+        <h1 className="text-2xl font-bold mb-2 text-center">Recuperación de contraseña segura</h1>
         <p className="text-sm text-gray-600 mb-4 text-center">
-          IngresÃ¡ tu correo y te enviaremos un enlace para crear una nueva contraseÃ±a.
-        </p>
+          Ingrese su correo. Para cuidar su seguridad se enviará un enlace para crear una nueva contraseña de acceso protegido.</p>
 
         {msg ? (
           <div
@@ -70,7 +69,7 @@ export default function RecuperarPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full border rounded px-3 py-2"
-              placeholder="tuemail@dominio.com"
+              placeholder="correo@dominio.com"
               autoComplete="email"
             />
           </div>
@@ -80,12 +79,12 @@ export default function RecuperarPage() {
             disabled={pending}
             className="w-full px-4 py-2 rounded bg-neutral-900 text-white hover:bg-neutral-950 disabled:opacity-70"
           >
-            {pending ? "Enviandoâ€¦" : "Enviar enlace"}
+            {pending ? "Enviando enlace seguro..." : "Enviar enlace y continuar"}
           </button>
 
           <div className="text-center text-sm text-gray-600">
             <Link href="/ingresar" className="underline">
-              Volver a ingresar
+              Volver al ingreso
             </Link>
           </div>
         </form>
@@ -93,3 +92,8 @@ export default function RecuperarPage() {
     </main>
   );
 }
+
+
+
+
+

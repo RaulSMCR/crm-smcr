@@ -42,18 +42,18 @@ export default function ProfessionalRegisterClient() {
     const phoneValue = String(formData.get("phone") || "").trim();
     const phoneDigitsLocal = phoneValue.replace(/\D/g, "");
     if (!phoneValue) {
-      setError("Por favor ingresa tu teléfono / WhatsApp.");
+      setError("Ingrese su telefono / WhatsApp para continuar con la validacion segura.");
       setLoading(false);
       return;
     }
     if (phoneDigitsLocal.length < 7) {
-      setError("El teléfono parece inválido. Ingresa al menos 7 dígitos.");
+      setError("El telefono parece invalido. Ingrese al menos 7 digitos.");
       setLoading(false);
       return;
     }
 
     if (!passValid.length || !passValid.number || !passValid.special || !passValid.match) {
-      setError("Por favor, cumple con todos los requisitos de seguridad.");
+      setError("Complete todos los requisitos de seguridad para continuar.");
       setLoading(false);
       return;
     }
@@ -70,7 +70,7 @@ export default function ProfessionalRegisterClient() {
       // ✅ clave para que tu LoginClient muestre el mensaje profesional de 2 pasos
       router.push("/ingresar?registered=professional");
     } catch (err) {
-      setError("Ocurrió un error inesperado al registrar. Intenta de nuevo.");
+      setError("Ocurrio un error inesperado al registrar. Por favor, intente nuevamente para continuar.");
       setLoading(false);
     }
   };
@@ -84,7 +84,7 @@ export default function ProfessionalRegisterClient() {
 
       <div className="text-center pb-4 border-b border-gray-100">
         <h2 className="text-2xl font-bold text-gray-900">Registro Profesional</h2>
-        <p className="text-sm text-gray-500 mt-1">Crea tu cuenta segura y únete a la red.</p>
+        <p className="text-sm text-gray-500 mt-1">Cree su cuenta segura y avance en el proceso de vinculacion profesional.</p>
       </div>
 
       {error && (
@@ -146,7 +146,7 @@ export default function ProfessionalRegisterClient() {
             className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="+54 11..."
           />
-          {!phoneValid && phone.length > 0 && <p className="mt-1 text-xs text-red-600">Ingresa al menos 7 dígitos.</p>}
+          {!phoneValid && phone.length > 0 && <p className="mt-1 text-xs text-red-600">Ingrese al menos 7 digitos.</p>}
         </div>
       </div>
 
@@ -201,9 +201,11 @@ export default function ProfessionalRegisterClient() {
           disabled={!canSubmit}
           className="w-full bg-gray-900 text-white py-3.5 rounded-lg font-bold hover:bg-black transition disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
         >
-          {loading ? "Procesando..." : "Enviar Solicitud Profesional"}
+          {loading ? "Procesando..." : "Enviar solicitud y continuar"}
         </button>
       </div>
     </form>
   );
 }
+
+

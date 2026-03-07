@@ -1,4 +1,4 @@
-// src/app/api/auth/services/route.js
+﻿// src/app/api/auth/services/route.js
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -54,7 +54,7 @@ export async function GET(request) {
       });
 
       if (!prof) return NextResponse.json({ message: "Profesional no encontrado" }, { status: 404 });
-      if (!prof.isApproved) return NextResponse.json({ message: "Tu cuenta aún no fue aprobada" }, { status: 403 });
+      if (!prof.isApproved) return NextResponse.json({ message: "La cuenta aun no fue aprobada" }, { status: 403 });
 
       const services = await prisma.service.findMany({
         where: {
@@ -74,9 +74,10 @@ export async function GET(request) {
       return NextResponse.json(services);
     }
 
-    return NextResponse.json({ message: "Acción no permitida" }, { status: 403 });
+    return NextResponse.json({ message: "AcciÃ³n no permitida" }, { status: 403 });
   } catch (e) {
     console.error("GET /api/auth/services error:", e);
     return NextResponse.json({ message: "Error al obtener servicios" }, { status: 500 });
   }
 }
+

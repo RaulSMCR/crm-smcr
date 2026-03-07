@@ -3,37 +3,35 @@ import AccordionItem from "@/components/AccordionItem";
 
 const faqData = [
   {
-    question: 'Â¿CÃ³mo puedo agendar una cita?',
-    answer: 'Para agendar una cita, navega a la pÃ¡gina de "Servicios", elige al profesional que prefieras y haz clic en "Ver Detalles". En la pÃ¡gina de detalle, encontrarÃ¡s el botÃ³n para agendar la cita.'
+    question: "¿Cómo se agenda una cita?",
+    answer:
+      'Para agendar una cita, diríjase a la página de "Servicios", seleccione el profesional de preferencia y haga clic en "Ver Detalles". En la página de detalle se mostrará el botón para continuar con la agenda.',
   },
   {
-    question: 'Â¿QuÃ© mÃ©todos de pago aceptan?',
-    answer: 'Aceptamos pagos a travÃ©s de la plataforma de pago del Banco de Costa Rica, que permite el uso de las principales tarjetas de crÃ©dito y dÃ©bito.'
+    question: "¿Qué métodos de pago se aceptan?",
+    answer:
+      "Se aceptan pagos a través de la plataforma del Banco de Costa Rica, con las principales tarjetas de crédito y débito.",
   },
   {
-    question: 'Â¿Puedo cancelar o reprogramar una cita?',
-    answer: 'SÃ­, puedes cancelar o reprogramar tu cita con hasta 24 horas de antelaciÃ³n sin ningÃºn costo. Las cancelaciones con menos de 24 horas de antelaciÃ³n pueden estar sujetas a una penalizaciÃ³n segÃºn nuestras polÃ­ticas.'
+    question: "¿Es posible cancelar o reprogramar una cita?",
+    answer:
+      "Sí. Es posible cancelar o reprogramar una cita con hasta 24 horas de antelación sin costo. Las cancelaciones con menos de 24 horas pueden estar sujetas a penalización según la política vigente.",
   },
   {
-    question: 'Â¿La informaciÃ³n de mis sesiones es confidencial?',
-    answer: 'Absolutamente. La confidencialidad es nuestra mÃ¡xima prioridad. Todas las interacciones con nuestros profesionales estÃ¡n protegidas y se rigen por los cÃ³digos de Ã©tica profesionales y la ley.'
-  }
+    question: "¿La información de las sesiones es confidencial?",
+    answer:
+      "Sí. La confidencialidad es una prioridad. Todas las interacciones con profesionales se encuentran protegidas y se rigen por códigos de ética profesional y normativa aplicable.",
+  },
 ];
 
 export default function FaqPage() {
   return (
     <div className="bg-white py-12">
       <div className="container mx-auto px-6 max-w-3xl">
-        <h1 className="text-4xl font-bold text-center text-gray-800 mb-10">
-          Preguntas Frecuentes
-        </h1>
+        <h1 className="text-4xl font-bold text-center text-gray-800 mb-10">Preguntas Frecuentes</h1>
         <div className="border-t rounded-lg shadow-sm">
           {faqData.map((faq, index) => (
-            <AccordionItem 
-              key={index} 
-              question={faq.question} 
-              answer={faq.answer} 
-            />
+            <AccordionItem key={index} question={faq.question} answer={faq.answer} />
           ))}
         </div>
       </div>

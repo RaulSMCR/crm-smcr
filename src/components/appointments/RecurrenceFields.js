@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { RECURRENCE_OPTIONS, RECURRENCE_RULES } from "@/lib/appointment-recurrence";
 
@@ -40,10 +40,11 @@ export default function RecurrenceFields({
             className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
           />
           <p className="mt-1 text-xs text-slate-500">
-            Puedes programar entre 2 y 12 citas en la serie.
+            Puede programar entre 2 y 12 citas en la serie para dar continuidad al cuidado.
           </p>
         </div>
       )}
     </div>
   );
 }
+

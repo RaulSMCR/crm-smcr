@@ -1,4 +1,4 @@
-// src/app/admin/professionals/pending/page.js
+﻿// src/app/admin/professionals/pending/page.js
 import { prisma } from "@/lib/prisma";
 import PendingProfessionalsList from "@/components/admin/PendingProfessionalsList";
 
@@ -38,7 +38,7 @@ export default async function PendingProfessionalsPage() {
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6">
       <h1 className="text-3xl font-bold text-slate-800">Solicitudes Pendientes</h1>
-      <p className="text-slate-500">Revisa y aprueba a los nuevos profesionales registrados.</p>
+      <p className="text-slate-500">Revise y apruebe a los nuevos profesionales registrados para avanzar con una atencion segura.</p>
 
       <div className="text-sm text-slate-600">
         {users.length} Pendiente{users.length !== 1 && "s"}
@@ -48,3 +48,4 @@ export default async function PendingProfessionalsPage() {
     </div>
   );
 }
+

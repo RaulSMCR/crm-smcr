@@ -17,7 +17,7 @@ export async function POST(request) {
     if (!session) return json({ error: "No autorizado." }, 401);
 
     const userId = String(session.sub || session.userId || "");
-    if (!userId) return json({ error: "SesiÃ³n invÃ¡lida." }, 401);
+    if (!userId) return json({ error: "Sesión inválida." }, 401);
 
     const ct = request.headers.get("content-type") || "";
     if (!ct.includes("application/json")) {
@@ -29,12 +29,12 @@ export async function POST(request) {
     const next = String(body?.newPassword || body?.password || "");
     const confirm = String(body?.confirmPassword || "");
 
-    if (!current) return json({ error: "ContraseÃ±a actual requerida." }, 400);
+    if (!current) return json({ error: "Ingrese su contraseña actual para continuar con la actualización segura." }, 400);
     if (!next || next.length < 8) {
-      return json({ error: "La nueva contraseÃ±a debe tener al menos 8 caracteres." }, 400);
+      return json({ error: "La nueva contraseña debe incluir al menos 8 caracteres para proteger su acceso." }, 400);
     }
     if (confirm && next !== confirm) {
-      return json({ error: "Las contraseÃ±as no coinciden." }, 400);
+      return json({ error: "La confirmación de contraseña no coincide." }, 400);
     }
 
     const user = await prisma.user.findUnique({
@@ -43,11 +43,11 @@ export async function POST(request) {
     });
 
     if (!user || user.isActive === false) {
-      return json({ error: "Usuario no encontrado o inactivo." }, 404);
+      return json({ error: "No fue posible ubicar una cuenta activa para completar esta actualización." }, 404);
     }
 
     const ok = await bcrypt.compare(current, user.passwordHash || "");
-    if (!ok) return json({ error: "La contraseÃ±a actual es incorrecta." }, 400);
+    if (!ok) return json({ error: "La contraseña actual no es correcta." }, 400);
 
     const passwordHash = await bcrypt.hash(next, 12);
 
@@ -56,9 +56,10 @@ export async function POST(request) {
       data: { passwordHash },
     });
 
-    return json({ ok: true, message: "ContraseÃ±a actualizada." }, 200);
+    return json({ ok: true, message: "Contraseña actualizada con éxito. Su acceso seguro está listo para continuar." }, 200);
   } catch (e) {
     console.error("change-password error:", e);
-    return json({ error: "Error interno. Intenta de nuevo." }, 500);
+    return json({ error: "Error interno. Por favor, intente nuevamente para seguir adelante con seguridad." }, 500);
   }
 }
+

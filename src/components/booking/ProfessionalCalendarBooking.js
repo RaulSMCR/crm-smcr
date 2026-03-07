@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -46,7 +46,7 @@ export default function ProfessionalCalendarBooking({
         router.push(`/panel/paciente?created=1&series=${res.createdCount || 1}`);
         router.refresh();
       } else {
-        setMsg({ type: "error", text: res?.error || "No se pudo agendar. Intenta nuevamente." });
+        setMsg({ type: "error", text: res?.error || "No se pudo agendar en este intento. Por favor, intentelo nuevamente." });
       }
     });
   };
@@ -72,7 +72,7 @@ export default function ProfessionalCalendarBooking({
               <div className="text-sm text-slate-600">Ver perfil</div>
             </div>
           </Link>
-          <div className="text-sm text-slate-600">Selecciona un horario disponible</div>
+          <div className="text-sm text-slate-600">Seleccione un horario disponible</div>
         </div>
 
         {msg.text && (
@@ -83,7 +83,7 @@ export default function ProfessionalCalendarBooking({
 
         {days.length === 0 ? (
           <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            No hay horarios disponibles en los próximos 14 días.
+            No hay horarios disponibles en los prÃ³ximos 14 dÃ­as.
           </div>
         ) : (
           <div className="mt-6 space-y-6">
@@ -129,15 +129,15 @@ export default function ProfessionalCalendarBooking({
       </div>
 
       <div className="h-fit rounded-2xl border border-slate-200 bg-white p-6">
-        <h3 className="text-lg font-semibold text-slate-900">Confirmación</h3>
+        <h3 className="text-lg font-semibold text-slate-900">ConfirmaciÃ³n</h3>
 
         <div className="mt-3 text-sm text-slate-700">
-          Duración: <b>{durationMin} min</b>
+          DuraciÃ³n: <b>{durationMin} min</b>
         </div>
 
         <div className="mt-3 text-sm text-slate-700">
           Horario seleccionado:{" "}
-          <b>{selectedISO ? new Date(selectedISO).toLocaleString("es-CR") : "—"}</b>
+          <b>{selectedISO ? new Date(selectedISO).toLocaleString("es-CR") : "â€”"}</b>
         </div>
 
         <RecurrenceFields
@@ -157,9 +157,10 @@ export default function ProfessionalCalendarBooking({
         </button>
 
         <p className="mt-3 text-xs text-slate-500">
-          Si activas recurrencia, se crearán varias citas iguales dentro de la serie.
+          Si activas recurrencia, se crearÃ¡n varias citas iguales dentro de la serie.
         </p>
       </div>
     </div>
   );
 }
+

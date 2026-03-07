@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+﻿import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import ProfessionalAppointmentsPanel from "@/components/ProfessionalAppointmentsPanel";
@@ -85,7 +85,7 @@ export default async function ProfesionalCitasPage() {
     <div className="mx-auto max-w-6xl space-y-6 p-8">
       <h1 className="text-3xl font-bold text-slate-800">Citas</h1>
       <p className="text-slate-500">
-        Gestiona tus citas: crear, reagendar, aceptar, completar o marcar ausente.
+        Gestione las citas: crear, reagendar, aceptar, completar o marcar ausente, cuidando la continuidad del paciente.
       </p>
 
       <ProfessionalAppointmentsPanel
@@ -95,3 +95,4 @@ export default async function ProfesionalCitasPage() {
     </div>
   );
 }
+

@@ -1,11 +1,11 @@
-/**
+﻿/**
  * Email para el PROFESIONAL cuando recibe una solicitud
  */
 export const emailNuevaSolicitud = (nombreProfesional, nombrePaciente, fecha, hora, linkPanel) => {
   return `
     <div style="font-family: sans-serif; color: #333;">
-      <h1>Hola, ${nombreProfesional} 👋</h1>
-      <p>Tienes una nueva solicitud de cita pendiente de aprobación.</p>
+      <h1>Estimado/a ${nombreProfesional}</h1>
+      <p>Se registró una nueva solicitud de cita pendiente de aprobación.</p>
       
       <div style="background: #f3f4f6; padding: 20px; border-radius: 10px; margin: 20px 0;">
         <p><strong>Paciente:</strong> ${nombrePaciente}</p>
@@ -14,7 +14,7 @@ export const emailNuevaSolicitud = (nombreProfesional, nombrePaciente, fecha, ho
       </div>
 
       <a href="${linkPanel}" style="background: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-        Gestionar Solicitud
+        Gestionar solicitud
       </a>
     </div>
   `;
@@ -26,8 +26,8 @@ export const emailNuevaSolicitud = (nombreProfesional, nombrePaciente, fecha, ho
 export const emailCitaConfirmada = (nombrePaciente, nombreProfesional, fecha, hora, direccion = "Online / Consultorio") => {
   return `
     <div style="font-family: sans-serif; color: #333;">
-      <h1 style="color: #16a34a;">¡Cita Confirmada! ✅</h1>
-      <p>Hola ${nombrePaciente}, tu cita ha sido aceptada por el profesional.</p>
+      <h1 style="color: #16a34a;">Cita confirmada</h1>
+      <p>Estimado/a ${nombrePaciente}, la cita fue aceptada por el profesional. Seguimos avanzando en su proceso de cuidado.</p>
       
       <div style="border: 1px solid #e5e7eb; padding: 20px; border-radius: 10px; margin: 20px 0;">
         <p><strong>Profesional:</strong> ${nombreProfesional}</p>
@@ -35,7 +35,8 @@ export const emailCitaConfirmada = (nombrePaciente, nombreProfesional, fecha, ho
         <p><strong>Dónde:</strong> ${direccion}</p>
       </div>
 
-      <p>Si necesitas cancelar, por favor hazlo desde tu panel con al menos 24hs de antelación.</p>
+      <p>Si requiere cancelar, realice la gestión desde el panel con al menos 24 horas de antelación.</p>
     </div>
   `;
 };
+

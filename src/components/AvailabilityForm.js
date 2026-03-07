@@ -1,4 +1,4 @@
-// src/components/AvailabilityForm.js
+﻿// src/components/AvailabilityForm.js
 "use client";
 
 import { useMemo, useState } from "react";
@@ -7,10 +7,10 @@ import { updateAvailability } from "@/actions/availability-actions";
 const DAYS = [
   { id: 1, label: "Lunes" },
   { id: 2, label: "Martes" },
-  { id: 3, label: "Miércoles" },
+  { id: 3, label: "MiÃ©rcoles" },
   { id: 4, label: "Jueves" },
   { id: 5, label: "Viernes" },
-  { id: 6, label: "Sábado" },
+  { id: 6, label: "SÃ¡bado" },
   { id: 0, label: "Domingo" },
 ];
 
@@ -110,7 +110,7 @@ export default function AvailabilityForm({ initialData = [] }) {
       if (hasInvalidBlocks) {
         setMsg({
           type: "error",
-          text: "Tenés bloques inválidos: la hora fin debe ser mayor que la hora inicio.",
+          text: "Se detectaron bloques invalidos: la hora de fin debe ser mayor que la hora de inicio.",
         });
         return;
       }
@@ -128,13 +128,13 @@ export default function AvailabilityForm({ initialData = [] }) {
 
       const result = await updateAvailability(payload);
       if (result?.success) {
-        setMsg({ type: "success", text: "✅ Horarios guardados con éxito." });
+        setMsg({ type: "success", text: "âœ… Horarios guardados con Ã©xito." });
       } else {
         const details = result?.details ? ` Detalle: ${result.details}` : "";
-        setMsg({ type: "error", text: `❌ ${result?.error || "Error al guardar."}${details}` });
+        setMsg({ type: "error", text: `âŒ ${result?.error || "Error al guardar."}${details}` });
       }
     } catch (e) {
-      setMsg({ type: "error", text: `❌ Error inesperado: ${String(e?.message ?? e)}` });
+      setMsg({ type: "error", text: `âŒ Error inesperado: ${String(e?.message ?? e)}` });
     } finally {
       setLoading(false);
     }
@@ -145,7 +145,7 @@ export default function AvailabilityForm({ initialData = [] }) {
       <div>
         <h3 className="text-lg font-semibold text-slate-800">Definir turnos de trabajo</h3>
         <p className="text-sm text-slate-500 mt-1">
-          Tip: podés agregar múltiples turnos por día (ej: mañana y tarde). Todas las horas se guardan en hora de Costa Rica.
+          Sugerencia: puede agregar multiples turnos por dia (ejemplo: manana y tarde). Todas las horas se guardan en hora de Costa Rica.
         </p>
       </div>
 
@@ -202,7 +202,7 @@ export default function AvailabilityForm({ initialData = [] }) {
                         ))}
                       </select>
 
-                      <span className="text-slate-400 text-sm">➜</span>
+                      <span className="text-slate-400 text-sm">âžœ</span>
 
                       <select
                         value={block.end}
@@ -227,7 +227,7 @@ export default function AvailabilityForm({ initialData = [] }) {
 
                       {block.start >= block.end && (
                         <span className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded">
-                          ⚠️ Hora inválida
+                          âš ï¸ Hora invÃ¡lida
                         </span>
                       )}
                     </div>
@@ -252,3 +252,4 @@ export default function AvailabilityForm({ initialData = [] }) {
     </div>
   );
 }
+

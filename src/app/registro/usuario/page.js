@@ -52,7 +52,7 @@ export default function RegistroUsuarioPage() {
 
     // ‚úÖ Blindaje: Tel√©fono obligatorio tambi√©n en front (server ya lo exige)
     if (!String(form.phone || "").trim()) {
-      setErrorMsg("‚ö†Ô∏è El tel√©fono es obligatorio.");
+      setErrorMsg("El telÈfono de contacto es obligatorio para avanzar con seguridad en la coordinaciÛn de la atenciÛn.");
       return;
     }
 
@@ -76,7 +76,7 @@ export default function RegistroUsuarioPage() {
       }
     } catch (err) {
       console.error(err);
-      setErrorMsg("Error de conexi√≥n con el servidor.");
+      setErrorMsg("Error de conexiÛn con el servidor. Por favor, intente nuevamente para continuar con seguridad.");
       setLoading(false);
     }
   }
@@ -87,11 +87,10 @@ export default function RegistroUsuarioPage() {
         {/* ENCABEZADO */}
         <div className="text-center">
           <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-            Crear cuenta de Paciente
+            Registro de paciente
           </h2>
           <p className="mt-2 text-sm text-slate-600">
-            √önete para gestionar tus citas m√©dicas de forma simple.
-          </p>
+            Este registro permite avanzar con seguridad en la coordinaciÛn de citas y resguardar la continuidad del cuidado de cada paciente.</p>
         </div>
 
         {/* TARJETA PRINCIPAL */}
@@ -272,7 +271,7 @@ export default function RegistroUsuarioPage() {
 
               {/* Checklist de Seguridad - Dise√±o Horizontal Compacto */}
               <div className="mt-4 bg-slate-50 rounded-lg p-3 border border-slate-200">
-                <p className="text-xs text-slate-500 mb-2 font-medium">Requisitos de contrase√±a:</p>
+                <p className="text-xs text-slate-500 mb-2 font-medium">Requisitos de contraseÒa para proteger la informaciÛn del paciente y avanzar con acceso seguro:</p>
                 <div className="flex flex-wrap gap-2">
                   <StatusBadge valid={passwordChecks.length} label="8+ caracteres" />
                   <StatusBadge valid={passwordChecks.number} label="N√∫mero" />
@@ -293,17 +292,16 @@ export default function RegistroUsuarioPage() {
                       : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200 hover:shadow-indigo-300"
                   }`}
               >
-                {loading ? "Procesando registro..." : "Crear mi cuenta"}
+                {loading ? "Procesando registro..." : "Crear cuenta segura y avanzar"}
               </button>
             </div>
           </form>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-slate-600">
-              ¬øYa tienes una cuenta?{" "}
+              Si ya dispone de una cuenta,{" "}
               <Link href="/ingresar" className="font-medium text-indigo-600 hover:text-indigo-500">
-                Inicia sesi√≥n aqu√≠
-              </Link>
+                ingrese aquÌ</Link>
             </p>
           </div>
         </div>
@@ -325,3 +323,8 @@ function StatusBadge({ valid, label }) {
     </span>
   );
 }
+
+
+
+
+

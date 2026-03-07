@@ -1,4 +1,4 @@
-// src/app/panel/profesional/horarios/page.js
+﻿// src/app/panel/profesional/horarios/page.js
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { getAvailability } from "@/actions/availability-actions";
@@ -24,15 +24,15 @@ export default async function HorariosPage() {
     const response = await getAvailability();
     if (response?.success && Array.isArray(response.data)) availabilityData = response.data;
   } catch (error) {
-    console.error("⚠️ Error cargando horarios:", error);
+    console.error("âš ï¸ Error cargando horarios:", error);
   }
 
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-slate-800">Configuración de Horarios</h1>
+        <h1 className="text-3xl font-bold text-slate-800">ConfiguraciÃ³n de Horarios</h1>
         <p className="text-slate-500 mt-2">
-          Define tus días y horas de atención. Estos horarios se usan para mostrar tu disponibilidad en zona horaria de Costa Rica ({DEFAULT_TZ}).
+          Defina sus dias y horas de atencion. Estos horarios se usan para mostrar su disponibilidad en zona horaria de Costa Rica ({DEFAULT_TZ}).
         </p>
       </div>
 
@@ -42,7 +42,7 @@ export default async function HorariosPage() {
         </div>
         {!profile?.googleRefreshToken && (
           <Link href="/panel/profesional/integraciones" className="mt-2 inline-flex text-blue-700 hover:underline">
-            Conectar Google Calendar para sincronizar automáticamente tus citas
+            Conectar Google Calendar para sincronizar automaticamente las citas y cuidar la continuidad del tratamiento
           </Link>
         )}
       </div>
@@ -51,3 +51,5 @@ export default async function HorariosPage() {
     </div>
   );
 }
+
+

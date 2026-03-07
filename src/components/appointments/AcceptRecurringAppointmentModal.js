@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition } from "react";
 import { confirmAppointmentByProfessional } from "@/actions/agenda-actions";
@@ -47,12 +47,12 @@ export default function AcceptRecurringAppointmentModal({ appointment, onClose, 
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-slate-800">Aceptar cita</h2>
           <button onClick={onClose} className="text-xl font-bold leading-none text-slate-400 hover:text-slate-600">
-            ×
+            Ã—
           </button>
         </div>
 
         <p className="text-sm text-slate-600">
-          Puedes confirmar esta cita normalmente o convertirla en una serie recurrente para{" "}
+          Puede confirmar esta cita o convertirla en una serie recurrente para{" "}
           <strong>{appointment.user?.name}</strong>.
         </p>
 
@@ -73,7 +73,7 @@ export default function AcceptRecurringAppointmentModal({ appointment, onClose, 
                 rel="noreferrer"
                 className="inline-block font-semibold text-brand-700 hover:underline"
               >
-                Abrir calendario del día sugerido
+                Abrir calendario del dÃ­a sugerido
               </a>
             )}
           </div>
@@ -98,3 +98,4 @@ export default function AcceptRecurringAppointmentModal({ appointment, onClose, 
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
@@ -53,7 +53,7 @@ async function findRecurringConflict({ professionalId, starts, ends, ignoreAppoi
     );
 
     if (hasConflict) {
-      return `Hay un conflicto en ${formatConflictDate(start)}. Ajusta la serie e intenta nuevamente.`;
+      return `Hay un conflicto en ${formatConflictDate(start)}. Ajuste la serie e intentelo nuevamente para mantener una coordinacion segura.`;
     }
   }
 
@@ -111,7 +111,7 @@ export async function createAppointmentForPatient({
 }) {
   try {
     const session = await getSession();
-    if (!session) return { success: false, error: "Debes iniciar sesión." };
+    if (!session) return { success: false, error: "Debe iniciar sesión." };
     if (session.role !== "USER") return { success: false, error: "No autorizado." };
 
     const patientId = String(session.sub);
@@ -122,10 +122,10 @@ export async function createAppointmentForPatient({
     const count = rule === RECURRENCE_RULES.NONE ? 1 : normalizeRecurrenceCount(recurrenceCount);
 
     if (!pid || !sid || Number.isNaN(start.getTime())) {
-      return { success: false, error: "Datos inválidos para agendar." };
+      return { success: false, error: "Datos invÃ¡lidos para agendar." };
     }
     if (start < new Date()) {
-      return { success: false, error: "El horario seleccionado ya pasó." };
+      return { success: false, error: "El horario seleccionado ya pasÃ³." };
     }
 
     const [service, professional, assignment] = await Promise.all([
@@ -148,14 +148,14 @@ export async function createAppointmentForPatient({
       return { success: false, error: "Profesional no disponible." };
     }
     if (!assignment || assignment.status !== "APPROVED" || assignment.approvedSessionPrice == null) {
-      return { success: false, error: "Este profesional no está habilitado para este servicio." };
+      return { success: false, error: "Este profesional no estÃ¡ habilitado para este servicio." };
     }
 
     const starts = buildRecurringStarts(start, rule, count);
     const ends = buildOccurrenceEnds(starts, service.durationMin);
 
     if (starts.some((occurrence) => occurrence <= new Date())) {
-      return { success: false, error: "Uno de los horarios de la serie ya pasó." };
+      return { success: false, error: "Uno de los horarios de la serie ya pasÃ³." };
     }
 
     const conflictError = await findRecurringConflict({
@@ -185,7 +185,7 @@ export async function createAppointmentForPatient({
     );
 
     const hydratedAppointments = await hydrateAppointments(createdAppointments.map((item) => item.id));
-    await notifyAppointments(hydratedAppointments, "Se creó una nueva cita en estado pendiente.");
+    await notifyAppointments(hydratedAppointments, "Se creÃ³ una nueva cita en estado pendiente.");
 
     revalidatePath("/panel/paciente");
     revalidatePath("/panel/profesional/citas");
@@ -197,21 +197,21 @@ export async function createAppointmentForPatient({
     };
   } catch (error) {
     console.error("createAppointmentForPatient error:", error);
-    return { success: false, error: "Error interno al agendar. Intenta nuevamente." };
+    return { success: false, error: "Error interno al agendar. Por favor, intente nuevamente." };
   }
 }
 
 export async function cancelAppointmentByPatient(appointmentId, reason) {
   try {
     const session = await getSession();
-    if (!session) return { error: "No autorizado: sesión requerida." };
+    if (!session) return { error: "No autorizado: sesiÃ³n requerida." };
     if (session.role !== "USER") return { error: "No autorizado." };
 
     const patientId = String(session.sub);
     const id = String(appointmentId || "");
 
-    if (!id) return { error: "ID de cita inválido." };
-    if (!reason || !String(reason).trim()) return { error: "Debes indicar el motivo de cancelación." };
+    if (!id) return { error: "ID de cita invÃ¡lido." };
+    if (!reason || !String(reason).trim()) return { error: "Debe indicar el motivo de cancelación." };
 
     const appointment = await prisma.appointment.findUnique({
       where: { id },
@@ -223,9 +223,9 @@ export async function cancelAppointmentByPatient(appointmentId, reason) {
     });
 
     if (!appointment) return { error: "Cita no encontrada." };
-    if (appointment.patientId !== patientId) return { error: "No puedes cancelar citas de otros usuarios." };
+    if (appointment.patientId !== patientId) return { error: "No es posible cancelar citas de otros usuarios." };
     if (!["PENDING", "CONFIRMED"].includes(appointment.status)) {
-      return { error: "Esta cita no puede cancelarse (estado inválido)." };
+      return { error: "Esta cita no puede cancelarse (estado invÃ¡lido)." };
     }
 
     const now = new Date();
@@ -263,7 +263,7 @@ export async function cancelAppointmentByPatient(appointmentId, reason) {
     return { success: true, isLateCancel };
   } catch (error) {
     console.error("cancelAppointmentByPatient error:", error);
-    return { error: "Error interno al cancelar. Intenta nuevamente." };
+    return { error: "Error interno al cancelar. Por favor, intente nuevamente." };
   }
 }
 
@@ -315,7 +315,7 @@ export async function rescheduleAppointmentByPatient(
   if (!session || session.role !== "USER") return { error: "No autorizado." };
 
   const id = String(appointmentId || "");
-  if (!id) return { error: "ID de cita inválido." };
+  if (!id) return { error: "ID de cita invÃ¡lido." };
 
   const appointment = await prisma.appointment.findUnique({
     where: { id },
@@ -339,7 +339,7 @@ export async function rescheduleAppointmentByPatient(
   const count = rule === RECURRENCE_RULES.NONE ? 1 : normalizeRecurrenceCount(recurrenceCount);
 
   if (Number.isNaN(newStart.getTime()) || newStart <= new Date()) {
-    return { error: "Horario inválido." };
+    return { error: "Horario invÃ¡lido." };
   }
 
   const durationMin = appointment.service?.durationMin ?? 60;
@@ -410,7 +410,7 @@ export async function confirmCurrentAppointmentByPatient(appointmentId) {
     if (!session || session.role !== "USER") return { error: "No autorizado." };
 
     const id = String(appointmentId || "");
-    if (!id) return { error: "ID de cita inválido." };
+    if (!id) return { error: "ID de cita invÃ¡lido." };
 
     const appointment = await prisma.appointment.findUnique({
       where: { id },
@@ -430,12 +430,12 @@ export async function confirmCurrentAppointmentByPatient(appointmentId) {
     if (!appointment) return { error: "Cita no encontrada." };
     if (appointment.patientId !== String(session.sub)) return { error: "No autorizado." };
     if (!["PENDING", "CONFIRMED"].includes(appointment.status)) {
-      return { error: "Esta cita ya no admite confirmación de horario." };
+      return { error: "Esta cita ya no admite confirmaciÃ³n de horario." };
     }
 
     await sendAppointmentNotifications(
       appointment,
-      "El paciente confirmó que mantiene el horario actual. Puedes continuar la gestión de la serie."
+      "El paciente confirmÃ³ que mantiene el horario actual. Puede continuar la gestión de la serie."
     );
 
     revalidatePath("/panel/paciente");
@@ -443,6 +443,9 @@ export async function confirmCurrentAppointmentByPatient(appointmentId) {
     return { success: true };
   } catch (error) {
     console.error("confirmCurrentAppointmentByPatient error:", error);
-    return { error: "No se pudo registrar la confirmación." };
+    return { error: "No se pudo registrar la confirmaciÃ³n." };
   }
 }
+
+
+

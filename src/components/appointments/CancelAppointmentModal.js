@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState } from "react";
 
 export default function CancelAppointmentModal({ appointment, onCancel, onClose }) {
@@ -11,7 +11,7 @@ export default function CancelAppointmentModal({ appointment, onCancel, onClose 
 
   async function handleSubmit() {
     if (!reason.trim()) {
-      setError("Por favor indica el motivo de cancelación.");
+      setError("Por favor, indique el motivo de cancelacion.");
       return;
     }
     setLoading(true);
@@ -32,21 +32,21 @@ export default function CancelAppointmentModal({ appointment, onCancel, onClose 
 
         {isLateCancel && (
           <div className="rounded-xl border-l-4 border-amber-500 bg-slate-50 p-4 text-sm text-slate-800">
-            <p><strong>⚠️ Cancelación con menos de 24 horas de antelación</strong></p>
-            <p className="mt-1">Según nuestra política, las cancelaciones con menos de 24 horas
-            de anticipación pueden estar sujetas a penalización.</p>
+            <p><strong>âš ï¸ CancelaciÃ³n con menos de 24 horas de antelaciÃ³n</strong></p>
+            <p className="mt-1">SegÃºn nuestra polÃ­tica, las cancelaciones con menos de 24 horas
+            de anticipaciÃ³n pueden estar sujetas a penalizaciÃ³n.</p>
           </div>
         )}
 
         <div>
           <label className="text-sm font-semibold text-slate-700">
-            Motivo de cancelación <span className="text-red-500">*</span>
+            Motivo de cancelaciÃ³n <span className="text-red-500">*</span>
           </label>
           <textarea
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={4}
-            placeholder="Por favor describe el motivo..."
+            placeholder="Describa brevemente el motivo..."
             className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
           />
         </div>
@@ -65,10 +65,12 @@ export default function CancelAppointmentModal({ appointment, onCancel, onClose 
             disabled={loading}
             className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60"
           >
-            {loading ? "Cancelando..." : "Confirmar cancelación"}
+            {loading ? "Cancelando..." : "Confirmar cancelaciÃ³n"}
           </button>
         </div>
       </div>
     </div>
   );
 }
+
+

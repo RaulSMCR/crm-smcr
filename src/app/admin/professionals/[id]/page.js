@@ -202,7 +202,7 @@ export default function AdminProfessionalDetailPage() {
             {/* Panel de Categorías */}
             <div className="rounded-2xl border bg-white p-5 shadow-sm">
               <h3 className="font-bold text-gray-800 mb-2">Asignar Categorías</h3>
-              <p className="text-xs text-gray-500 mb-4">Selecciona las especialidades oficiales para este profesional.</p>
+              <p className="text-xs text-gray-500 mb-4">Seleccione las especialidades oficiales para este profesional.</p>
               
               {/* Aquí va nuestro componente mágico */}
               <CategorySelector 

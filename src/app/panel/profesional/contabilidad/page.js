@@ -1,4 +1,4 @@
-// src/app/panel/profesional/contabilidad/page.js
+﻿// src/app/panel/profesional/contabilidad/page.js
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
@@ -21,7 +21,7 @@ export default async function ProfesionalContabilidadPage({ searchParams }) {
   const professionalId = String(session.professionalProfileId || "");
   if (!professionalId) redirect("/panel/profesional/perfil");
 
-  // Rango: default últimos 90 días
+  // Rango: default Ãºltimos 90 dÃ­as
   const defaultFrom = new Date();
   defaultFrom.setDate(defaultFrom.getDate() - 90);
   defaultFrom.setHours(0, 0, 0, 0);
@@ -86,7 +86,7 @@ export default async function ProfesionalContabilidadPage({ searchParams }) {
     status: t.status,
     createdAt: t.createdAt.toISOString(),
     p2pPaymentDate: t.p2pPaymentDate?.toISOString() || null,
-    patientName: t.appointment?.patient?.name || "—",
+    patientName: t.appointment?.patient?.name || "â€”",
     serviceTitle: t.appointment?.service?.title || "Consulta",
     appointmentDate: t.appointment?.date?.toISOString() || null,
   }));
@@ -106,7 +106,7 @@ export default async function ProfesionalContabilidadPage({ searchParams }) {
     <div className="max-w-6xl mx-auto p-6 md:p-10 space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-slate-900">Contabilidad</h1>
-        <p className="text-slate-600 mt-1">Tus cobros, ingresos y presentación de facturas a la plataforma.</p>
+        <p className="text-slate-600 mt-1">Cobros, ingresos y presentacion de facturas a la plataforma para sostener una atencion segura.</p>
       </div>
 
       <ProfessionalBillingModule
@@ -119,3 +119,4 @@ export default async function ProfesionalContabilidadPage({ searchParams }) {
     </div>
   );
 }
+

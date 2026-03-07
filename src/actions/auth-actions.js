@@ -67,17 +67,17 @@ export async function login(formData) {
     if (!isValid) return { error: "Credenciales invÃ¡lidas." };
 
     if (!user.emailVerified) {
-      return { error: "Debes verificar tu email primero.", code: "EMAIL_NOT_VERIFIED" };
+      return { error: "Debe verificar el correo electrónico antes de continuar.", code: "EMAIL_NOT_VERIFIED" };
     }
 
     if (!user.isActive) {
-      return { error: "Esta cuenta ha sido desactivada. Contacta soporte." };
+      return { error: "Esta cuenta ha sido desactivada. Por favor, contacte soporte." };
     }
 
     if (user.role === "PROFESSIONAL") {
-      if (!user.professionalProfile) return { error: "Perfil profesional incompleto. Contacta soporte." };
+      if (!user.professionalProfile) return { error: "El perfil profesional está incompleto. Por favor, contacte soporte." };
       if (!user.professionalProfile.isApproved) {
-        return { error: "Tu cuenta profesional estÃ¡ pendiente de aprobaciÃ³n.", code: "PRO_NOT_APPROVED" };
+        return { error: "La cuenta profesional se encuentra pendiente de aprobación.", code: "PRO_NOT_APPROVED" };
       }
     }
 
@@ -304,7 +304,7 @@ export async function registerUser(formData) {
     return { success: true };
   } catch (error) {
     if (error?.code === "P2002") {
-      return { error: "Ya existe un usuario con ese dato Ãºnico. Revisa email/identificaciÃ³n." };
+      return { error: "Ya existe un usuario con ese dato único. Revise correo/identificación." };
     }
     console.error("Error registro usuario:", error);
     return { error: "Error al registrarse. IntÃ©ntalo de nuevo." };
@@ -346,3 +346,5 @@ export async function logout() {
   revalidatePath("/", "layout");
   redirect("/ingresar");
 }
+
+

@@ -1,4 +1,4 @@
-// src/components/HeroSection.js
+﻿// src/components/HeroSection.js
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -10,7 +10,7 @@ export default function HeroSection() {
         <div className="px-6 py-12 sm:px-10 sm:py-16 lg:px-16">
           <div className="max-w-3xl">
 
-            {/* ⭐ Logo + Marca con color destacado */}
+            {/* â­ Logo + Marca con color destacado */}
             <Link href="/" className="mb-10 flex items-center gap-5">
               <Image
                 src="/logo.svg"
@@ -30,7 +30,7 @@ export default function HeroSection() {
             </h1>
 
             <p className="mt-3 text-white/90">
-              Informate y acompañate con los profesionales que aportan a tu salud mental.
+              Informate y acompaÃ±ate con los profesionales que aportan al cuidado de la salud mental.
             </p>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -51,3 +51,4 @@ export default function HeroSection() {
     </section>
   );
 }
+

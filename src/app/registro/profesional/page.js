@@ -80,7 +80,7 @@ export default function RegistroProfesionalPage() {
     if (!isPasswordValid) return;
     
     if (!file) {
-      setErrorMsg("⚠️ Es obligatorio adjuntar tu Curriculum Vitae (PDF).");
+      setErrorMsg("Es obligatorio adjuntar el Curriculum Vitae (PDF) para validar credenciales y continuar con seguridad.");
       return;
     }
 
@@ -139,14 +139,10 @@ export default function RegistroProfesionalPage() {
           <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-6">
             <span className="text-3xl">🎉</span>
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">¡Solicitud Enviada!</h2>
-          <p className="text-slate-600 mb-6 text-sm">
-            Hemos recibido tu perfil profesional y tu CV. Tu cuenta entrará en proceso de revisión.
-            <br/><br/>
-            Te hemos enviado un correo de confirmación. Revisa tu bandeja de entrada.
-          </p>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Solicitud recibida con exito</h2>
+          <p className="text-slate-600 mb-6 text-sm">Hemos recibido el perfil profesional y el CV. El proceso de revision avanza para resguardar la calidad de atencion. Se envio un correo de confirmacion. Revise su bandeja de entrada para continuar.</p>
           <Link href="/ingresar" className="block w-full py-3 px-4 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition font-medium">
-            Ir al Inicio de Sesión
+            Ir al ingreso
           </Link>
         </div>
       </div>
@@ -159,12 +155,8 @@ export default function RegistroProfesionalPage() {
         
         {/* ENCABEZADO */}
         <div className="text-center mb-10">
-          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-            Únete al Equipo Profesional
-          </h2>
-          <p className="mt-2 text-sm text-slate-600">
-            Forma parte de la red de salud mental líder en la región.
-          </p>
+          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Registro profesional seguro</h2>
+          <p className="mt-2 text-sm text-slate-600">Este registro permite avanzar en el proceso de validacion profesional y proteger la atencion de cada paciente.</p>
         </div>
 
         <div className="bg-white shadow-xl shadow-slate-200/60 rounded-2xl border border-slate-100 overflow-hidden">
@@ -301,7 +293,7 @@ export default function RegistroProfesionalPage() {
                     name="bio"
                     rows="3"
                     className="w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5 px-3"
-                    placeholder="Describe tu enfoque y experiencia..."
+                    placeholder="Describa su enfoque y experiencia profesional..."
                     value={form.bio}
                     onChange={handleChange}
                   />
@@ -313,7 +305,7 @@ export default function RegistroProfesionalPage() {
                     name="coverLetter"
                     rows="3"
                     className="w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5 px-3"
-                    placeholder="Cuéntanos por qué quieres formar parte de la red."
+                    placeholder="Comparta por que desea formar parte de la red profesional."
                     value={form.coverLetter}
                     onChange={handleChange}
                   />
@@ -346,7 +338,7 @@ export default function RegistroProfesionalPage() {
                         ) : (
                             <>
                                 <div className="h-12 w-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-2xl mb-2 shadow-sm">cloud_upload</div>
-                                <p className="text-sm font-bold text-blue-900">Sube tu Curriculum Vitae</p>
+                                <p className="text-sm font-bold text-blue-900">Adjunte su Curriculum Vitae</p>
                                 <p className="text-xs text-blue-600 mt-1">Formato PDF (Máx. 5MB)</p>
                             </>
                         )}
@@ -354,7 +346,7 @@ export default function RegistroProfesionalPage() {
                     </label>
                 </div>
                 <p className="text-[10px] text-slate-400 text-center">
-                   * Este documento es confidencial y será usado para validar tu credencial.
+                   * Este documento es confidencial y se utiliza para validar credenciales de forma segura.
                 </p>
 
               </div>
@@ -378,12 +370,12 @@ export default function RegistroProfesionalPage() {
                         </svg>
                         {loadingText}
                     </span>
-                ) : "Completar Registro Profesional"}
+                ) : "Completar registro y continuar"}
               </button>
               
               <div className="mt-6 text-center">
                 <p className="text-sm text-slate-500">
-                    ¿Ya tienes cuenta? <Link href="/ingresar" className="font-semibold text-blue-900 hover:underline">Iniciar Sesión</Link>
+                    Si ya dispone de una cuenta, <Link href="/ingresar" className="font-semibold text-blue-900 hover:underline">ingrese</Link>
                 </p>
               </div>
             </div>
@@ -407,3 +399,6 @@ function Badge({ valid, label }) {
         </span>
     )
 }
+
+
+

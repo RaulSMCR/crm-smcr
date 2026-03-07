@@ -14,7 +14,7 @@ function json(data, status = 200) {
 export async function POST(request) {
   const neutral = {
     ok: true,
-    message: "Si el correo existe, te enviaremos un enlace para restablecer tu contraseÃ±a.",
+    message: "Si el correo existe, se enviará un enlace para restablecer la contraseña y continuar avanzando con acceso protegido.",
   };
 
   try {
@@ -27,7 +27,7 @@ export async function POST(request) {
     const email = String(body?.email || "").trim().toLowerCase();
 
     if (!email || !email.includes("@")) {
-      return json({ error: "Email invÃ¡lido." }, 400);
+      return json({ error: "Correo electrónico inválido." }, 400);
     }
 
     const user = await prisma.user.findUnique({
@@ -61,3 +61,4 @@ export async function POST(request) {
     return json(neutral, 200);
   }
 }
+

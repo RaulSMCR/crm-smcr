@@ -1,4 +1,4 @@
-// src/app/panel/profesional/perfil/page.js
+﻿// src/app/panel/profesional/perfil/page.js
 import { getSession } from "@/actions/auth-actions";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
@@ -23,7 +23,7 @@ export default async function PerfilPage() {
       <div className="max-w-4xl mx-auto p-8">
         <h2 className="text-2xl font-bold text-slate-800">Error de Perfil</h2>
         <p className="mt-2 text-slate-600">
-          No se encontró el perfil asociado. Contacta a soporte.
+          No se encontrÃ³ el perfil asociado. Contacta a soporte.
         </p>
       </div>
     );
@@ -34,7 +34,7 @@ export default async function PerfilPage() {
     orderBy: [{ displayOrder: "asc" }, { title: "asc" }],
   });
 
-  // ✅ Serializar Decimal -> number para props de componente client
+  // âœ… Serializar Decimal -> number para props de componente client
   const allServices = allServicesRaw.map((s) => ({ ...s, price: Number(s.price) }));
 
   const profile = {
@@ -50,7 +50,7 @@ export default async function PerfilPage() {
       <div className="max-w-5xl mx-auto mb-6">
         <h1 className="text-3xl font-bold text-slate-800">Mi Perfil Profesional</h1>
         <p className="text-slate-500 mt-2">
-          Selecciona los servicios que ofreces y propone tu costo por sesión. El administrador puede aprobar, rechazar o ajustar cada solicitud.
+          Seleccione los servicios que ofrece y proponga su costo por sesion. El administrador puede aprobar, rechazar o ajustar cada solicitud.
         </p>
       </div>
 
@@ -58,3 +58,5 @@ export default async function PerfilPage() {
     </div>
   );
 }
+
+

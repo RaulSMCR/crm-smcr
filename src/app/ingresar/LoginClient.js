@@ -23,7 +23,7 @@ export default function LoginClient() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ‚úÖ NUEVO: detecta tipo de registro para mostrar mensaje correcto
+  // Detecta tipo de registro para mostrar mensaje correcto
   const registered = searchParams.get("registered");
   const isProfessionalRegistered = registered === "professional";
   const isGenericRegistered = registered === "true" || registered === "user";
@@ -55,7 +55,7 @@ export default function LoginClient() {
       return;
     }
 
-    setError("No se pudo iniciar sesi√≥n. Intenta de nuevo.");
+    setError("No se logrÛ iniciar sesiÛn. Por favor, intente nuevamente para continuar avanzando.");
     setLoading(false);
   };
 
@@ -66,50 +66,40 @@ export default function LoginClient() {
         className="bg-white p-8 rounded-xl shadow-lg border border-gray-100 space-y-6"
       >
         <div className="text-center pb-4 border-b border-gray-100">
-          <h2 className="text-2xl font-bold text-gray-900">Iniciar Sesi√≥n</h2>
-          <p className="text-sm text-gray-500 mt-1">Accede a tu cuenta de Salud Mental CR</p>
+          <h2 className="text-2xl font-bold text-gray-900">Ingreso seguro</h2>
+          <p className="text-sm text-gray-500 mt-1">Acceso seguro a la cuenta de Salud Mental CR.</p>
         </div>
 
-        {/* ‚úÖ MENSAJE POST-REGISTRO PROFESIONAL (2 PASOS + LLAMADA) */}
         {isProfessionalRegistered && (
           <div className="bg-green-50 text-green-800 p-4 rounded-lg text-sm border border-green-200 font-medium">
             <div className="flex items-center gap-2">
-              ‚úÖ <span className="font-bold">Solicitud profesional enviada con √©xito</span>
+              <span className="font-bold">Solicitud profesional enviada con Èxito</span>
             </div>
 
-            <p className="mt-2 text-green-900">
-              Tu proceso tiene <span className="font-bold">2 pasos</span>:
-            </p>
+            <p className="mt-2 text-green-900">El proceso de habilitaciÛn avanza en <span className="font-bold">2 pasos</span>:</p>
 
             <ol className="mt-2 list-decimal list-inside space-y-1">
               <li>
-                <span className="font-semibold">Verificaci√≥n por correo:</span> revisa tu email (y carpeta de spam)
-                para confirmar tu cuenta.
+                <span className="font-semibold">VerificaciÛn por correo:</span> revise el email (incluida la carpeta de spam) para confirmar la cuenta y proteger la identidad del paciente.
               </li>
               <li>
-                <span className="font-semibold">Entrevista y aprobaci√≥n:</span> luego, el{" "}
-                <span className="font-bold">director del equipo profesional</span> te estar√°{" "}
-                <span className="font-bold">llamando</span> al tel√©fono/WhatsApp que registraste para una breve
-                entrevista y finalizar la aprobaci√≥n.
+                <span className="font-semibold">Entrevista y aprobaciÛn:</span> luego, el <span className="font-bold">director del equipo profesional</span> realizar· una llamada al telÈfono/WhatsApp registrado para completar la validaciÛn y resguardar la calidad de la atenciÛn.
               </li>
             </ol>
 
-            <p className="mt-2 text-xs text-green-800">
-              Mientras se completa el paso 2, tu perfil puede aparecer como <span className="font-semibold">‚Äúen revisi√≥n‚Äù</span>.
-            </p>
+            <p className="mt-2 text-xs text-green-800">Mientras se completa el paso 2, el perfil puede aparecer como <span className="font-semibold">"en revisiÛn"</span>.</p>
           </div>
         )}
 
-        {/* ‚úÖ MENSAJE POST-REGISTRO GEN√âRICO (PACIENTE / OTROS) */}
         {!isProfessionalRegistered && isGenericRegistered && (
           <div className="bg-green-50 text-green-700 p-4 rounded-lg text-sm border border-green-200 font-medium flex items-center gap-2">
-            ‚úÖ ¬°Cuenta creada con √©xito! Revisa tu correo para verificarla y luego inicia sesi√≥n.
+            Cuenta creada con Èxito. El proceso contin˙a: revise su correo para verificarla y habilitar el acceso seguro.
           </div>
         )}
 
         {error && (
           <div className="bg-red-50 text-red-600 p-4 rounded-lg text-sm border border-red-200 font-medium flex items-center gap-2">
-            ‚ö†Ô∏è {error}
+            {error}
           </div>
         )}
 
@@ -121,25 +111,25 @@ export default function LoginClient() {
               type="email"
               required
               className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-              placeholder="tu@email.com"
+              placeholder="correo@dominio.com"
               autoComplete="email"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Contrase√±a</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">ContraseÒa</label>
             <input
               name="password"
               type="password"
               required
               className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-              placeholder="‚Ä¢‚Ä¢‚Ä¢‚Ä¢‚Ä¢‚Ä¢‚Ä¢‚Ä¢"
+              placeholder="ïïïïïïïï"
               autoComplete="current-password"
             />
 
             <div className="mt-2 text-right text-sm">
               <Link href="/recuperar" className="underline text-gray-600 hover:text-gray-900">
-                ¬øOlvidaste tu contrase√±a?
+                øOlvidÛ su contraseÒa?
               </Link>
             </div>
           </div>
@@ -151,38 +141,19 @@ export default function LoginClient() {
             disabled={loading}
             className="w-full bg-gray-900 text-white py-3.5 rounded-lg font-bold hover:bg-black transition disabled:opacity-50 disabled:cursor-not-allowed shadow-md flex justify-center items-center"
           >
-            {loading ? (
-              <span className="flex items-center gap-2">
-                <svg
-                  className="animate-spin h-5 w-5 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
-                Ingresando...
-              </span>
-            ) : (
-              "Ingresar al Portal"
-            )}
+            {loading ? "Validando acceso seguro..." : "Ingresar y continuar"}
           </button>
         </div>
 
         <div className="text-center text-sm text-gray-500 mt-6 pt-4 border-t border-gray-100">
-          ¬øNo tienes cuenta?{" "}
+          Si a˙n no dispone de una cuenta{" "}
           <div className="flex justify-center gap-4 mt-2 font-medium">
             <Link href="/registro/usuario" className="text-blue-600 hover:text-blue-800 transition">
-              Soy Paciente
+              Registro de paciente
             </Link>
             <span className="text-gray-300">|</span>
             <Link href="/registro/profesional" className="text-purple-600 hover:text-purple-800 transition">
-              Soy Profesional
+              Registro profesional
             </Link>
           </div>
         </div>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { DEFAULT_TZ } from "@/lib/timezone";
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -59,7 +59,7 @@ export default function UserAppointmentsPanel({
 
     if (initialAction === "reschedule") {
       setReschedulingApt(targetAppointment);
-      setActionMessage("Selecciona un nuevo horario para tu cita.");
+      setActionMessage("Excelente avance. Seleccione un nuevo horario para continuar con su cuidado.");
       router.replace("/panel/paciente");
       return;
     }
@@ -92,7 +92,10 @@ export default function UserAppointmentsPanel({
     if (result?.success && result.processUrl) {
       window.location.href = result.processUrl;
     } else {
-      setActionMessage(result?.error || "No se pudo iniciar el pago. Intenta nuevamente.");
+      setActionMessage(
+        result?.error ||
+          "No fue posible iniciar el pago en este intento. Por favor, intÃ©ntelo nuevamente para continuar de forma segura."
+      );
     }
   }
 
@@ -162,7 +165,7 @@ export default function UserAppointmentsPanel({
 
       {isApplyingAction && (
         <div className="mx-6 mt-4 rounded-xl border border-brand-300 bg-brand-100 px-4 py-3 text-sm text-neutral-900">
-          Registrando tu confirmacion...
+          Registrando su confirmacion para continuar con seguridad...
         </div>
       )}
 
@@ -273,8 +276,8 @@ export default function UserAppointmentsPanel({
             <h3 className="text-lg font-medium text-gray-900">No hay citas en esta lista</h3>
             <p className="mx-auto mt-1 max-w-sm text-gray-500">
               {filter === "ALL"
-                ? "Aun no has agendado ninguna cita con nuestros profesionales."
-                : "No tienes citas que coincidan con este filtro."}
+                ? "Aun no se registran citas agendadas. Cuando lo desee, podra avanzar con una nueva atencion profesional."
+                : "No se encontraron citas que coincidan con este filtro."}
             </p>
           </div>
         )}
@@ -315,3 +318,4 @@ export default function UserAppointmentsPanel({
     </div>
   );
 }
+

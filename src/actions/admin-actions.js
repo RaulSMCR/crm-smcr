@@ -1,4 +1,4 @@
-// src/actions/admin-actions.js
+﻿// src/actions/admin-actions.js
 "use server";
 
 import { prisma } from "@/lib/prisma";
@@ -15,7 +15,7 @@ function requireAdmin(session) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* 1. GESTIÓN DE USUARIOS                                                     */
+/* 1. GESTIÃ“N DE USUARIOS                                                     */
 /* -------------------------------------------------------------------------- */
 
 export async function approveUser(userId) {
@@ -53,11 +53,11 @@ export async function approveUser(userId) {
       await resend.emails.send({
         from: "Salud Mental Costa Rica <no-reply@saludmentalcostarica.com>",
         to: user.email,
-        subject: "¡Tu perfil ha sido aprobado!",
+        subject: "Perfil aprobado con exito",
         html: `
           <div style="font-family: sans-serif; text-align: center;">
-            <h2>¡Felicidades, ${user.name}!</h2>
-            <p>Tu perfil profesional ha sido aprobado.</p>
+            <h2>Â¡Felicidades, ${user.name}!</h2>
+            <p>El perfil profesional ha sido aprobado con exito.</p>
             <a href="${BASE_URL}/ingresar" style="background: #2563EB; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
               Ir al Panel
             </a>
@@ -108,7 +108,7 @@ export async function rejectUser(userId) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* 2. GESTIÓN DE SERVICIOS                                                    */
+/* 2. GESTIÃ“N DE SERVICIOS                                                    */
 /* -------------------------------------------------------------------------- */
 
 export async function toggleServiceStatus(serviceId, isActive) {
@@ -145,7 +145,7 @@ export async function deleteService(serviceId) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* 3. GESTIÓN EDITORIAL (BLOG)                                                */
+/* 3. GESTIÃ“N EDITORIAL (BLOG)                                                */
 /* -------------------------------------------------------------------------- */
 
 export async function updatePostStatus(postId, newStatus) {
@@ -165,3 +165,4 @@ export async function updatePostStatus(postId, newStatus) {
     return { error: "Error actualizando post" };
   }
 }
+

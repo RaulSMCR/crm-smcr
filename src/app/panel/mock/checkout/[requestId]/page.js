@@ -1,4 +1,4 @@
-// src/app/panel/mock/checkout/[requestId]/page.js
+﻿// src/app/panel/mock/checkout/[requestId]/page.js
 // Página de checkout simulado para testing sin credenciales PlacetoPay reales.
 // Accesible sin autenticación (como lo sería un checkout real externo).
 // Solo disponible cuando PLACETOPAY_MOCK=true.
@@ -37,7 +37,7 @@ export default function MockCheckoutPage({ params }) {
           <p className="text-sm text-slate-500">
             La sesión de pago expiró o el servidor fue reiniciado.
             <br />
-            Vuelve al inicio e intenta nuevamente.
+            Vuelva al inicio e intente nuevamente.
           </p>
           <a
             href="/"

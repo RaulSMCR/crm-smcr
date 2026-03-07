@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
@@ -79,7 +79,7 @@ export default async function ProfesionalDashboardPage() {
     ? nextAppointments.filter((a) => a.date >= nextDayRange.start && a.date < nextDayRange.end)
     : [];
 
-  const agendaTitle = todayAppointments.length > 0 ? "Citas de hoy" : "Próxima jornada";
+  const agendaTitle = todayAppointments.length > 0 ? "Citas de hoy" : "PrÃ³xima jornada";
   const agendaItems = todayAppointments.length > 0 ? todayAppointments : nextDayAppointments;
 
   return (
@@ -87,7 +87,7 @@ export default async function ProfesionalDashboardPage() {
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold text-slate-800">Panel Profesional</h1>
         <p className="text-slate-500">
-          Hola, <span className="font-medium text-slate-700">{profile.user?.name || "Profesional"}</span>.
+          Bienvenida, <span className="font-medium text-slate-700">{profile.user?.name || "Profesional"}</span>. Seguimos avanzando en el cuidado de los pacientes.
         </p>
       </div>
 
@@ -97,8 +97,8 @@ export default async function ProfesionalDashboardPage() {
             <h2 className="text-lg font-semibold text-slate-800">{agendaTitle}</h2>
             <p className="text-sm text-slate-500">
               {todayAppointments.length > 0
-                ? "Tus citas pendientes o confirmadas para hoy."
-                : "Ya no hay citas para hoy; aquí ves el siguiente día con agenda."}
+                ? "Citas pendientes o confirmadas para hoy."
+                : "No hay mas citas para hoy; aqui se presenta la siguiente jornada para continuar la atencion."}
             </p>
           </div>
           <Link
@@ -117,7 +117,7 @@ export default async function ProfesionalDashboardPage() {
               <div key={a.id} className="px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div>
                   <div className="font-medium text-slate-800">
-                    {a.service?.title || "Servicio"} · {a.patient?.name || "Paciente"}
+                    {a.service?.title || "Servicio"} Â· {a.patient?.name || "Paciente"}
                   </div>
                   <div className="text-sm text-slate-500">{formatDateTime(a.date)}</div>
                 </div>
@@ -140,7 +140,7 @@ export default async function ProfesionalDashboardPage() {
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
           <div className="text-sm text-slate-500">Citas (total)</div>
           <div className="mt-1 text-3xl font-bold text-slate-800">{profile._count?.appointments ?? 0}</div>
-          <div className="mt-2 text-xs text-slate-500">Próximas: {profile.appointments?.length ?? 0}</div>
+          <div className="mt-2 text-xs text-slate-500">PrÃ³ximas: {profile.appointments?.length ?? 0}</div>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
@@ -151,7 +151,7 @@ export default async function ProfesionalDashboardPage() {
               href="/panel/profesional/editar-articulo/new"
               className="text-sm inline-flex items-center rounded-xl border border-slate-200 px-3 py-1 hover:bg-slate-50"
             >
-              Crear artículo
+              Crear artÃ­culo
             </Link>
           </div>
         </div>
@@ -161,30 +161,30 @@ export default async function ProfesionalDashboardPage() {
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-slate-800">Perfil y servicios</h2>
-            <p className="text-sm text-slate-500">Edita tus datos, solicita vinculación y actualiza precios propuestos.</p>
+            <p className="text-sm text-slate-500">Actualice sus datos, solicite vinculacion y mantenga precios propuestos para sostener una atencion segura.</p>
           </div>
           <Link href="/panel/profesional/perfil" className="text-sm inline-flex items-center rounded-xl bg-slate-900 px-4 py-2 text-white hover:bg-slate-800">
-            Editar perfil
+            Actualizar perfil
           </Link>
         </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-slate-800">Mis artículos</h2>
+          <h2 className="text-lg font-semibold text-slate-800">Mis artÃ­culos</h2>
           <Link href="/panel/profesional/editar-articulo/new" className="text-sm inline-flex items-center rounded-xl border border-slate-200 px-4 py-2 hover:bg-slate-50">
-            Nuevo artículo
+            Nuevo artÃ­culo
           </Link>
         </div>
         <div className="divide-y divide-slate-100">
           {(profile.posts || []).length === 0 ? (
-            <div className="px-6 py-5 text-slate-500">Aún no has publicado artículos.</div>
+            <div className="px-6 py-5 text-slate-500">Aun no se registran articulos publicados.</div>
           ) : (
             profile.posts.map((post) => (
               <div key={post.id} className="px-6 py-4 flex items-center justify-between gap-3">
                 <div>
                   <div className="font-medium text-slate-800">{post.title}</div>
-                  <div className="text-xs text-slate-500">{new Date(post.createdAt).toLocaleDateString("es-CR")} · {post.status === "PUBLISHED" ? "Publicado" : "Pendiente de aprobación"}</div>
+                  <div className="text-xs text-slate-500">{new Date(post.createdAt).toLocaleDateString("es-CR")} Â· {post.status === "PUBLISHED" ? "Publicado" : "Pendiente de aprobaciÃ³n"}</div>
                 </div>
                 <Link href={`/panel/profesional/editar-articulo/${post.id}`} className="text-sm text-blue-700 hover:underline">
                   Editar
@@ -209,3 +209,5 @@ export default async function ProfesionalDashboardPage() {
     </div>
   );
 }
+
+

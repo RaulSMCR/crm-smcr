@@ -50,7 +50,7 @@ export default async function NosotrosPage() {
       <div className="text-center mb-16">
         <h1 className="text-4xl font-bold text-gray-900 mb-4">Nuestro Equipo</h1>
         <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-          Profesionales dedicados a tu bienestar emocional y mental, altamente calificados.
+          Profesionales dedicados al bienestar emocional y mental, altamente calificados.
         </p>
       </div>
 

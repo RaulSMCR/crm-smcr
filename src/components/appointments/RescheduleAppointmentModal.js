@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { getAppointmentRescheduleData, rescheduleAppointmentByPatient } from "@/actions/patient-booking-actions";
@@ -54,7 +54,7 @@ export default function RescheduleAppointmentModal({ appointment, onClose }) {
 
   function handleConfirm() {
     if (!selectedISO) {
-      setError("Selecciona un horario.");
+      setError("Seleccione un horario.");
       return;
     }
 
@@ -84,13 +84,13 @@ export default function RescheduleAppointmentModal({ appointment, onClose }) {
             onClick={onClose}
             className="text-xl font-bold leading-none text-slate-400 hover:text-slate-600"
           >
-            ×
+            Ã—
           </button>
         </div>
 
         <p className="text-sm text-slate-600">
-          Selecciona un nuevo horario para tu cita de <strong>{appointment.service?.title || "consulta"}</strong>.
-          La cita quedará en estado <strong>Pendiente</strong> hasta que el profesional la confirme.
+          Excelente avance. Seleccione un nuevo horario para la cita de <strong>{appointment.service?.title || "consulta"}</strong>.
+          El proceso avanzara con estado <strong>Pendiente</strong> hasta la confirmacion profesional para cuidar una coordinacion segura.
         </p>
 
         {loadingData && <div className="py-8 text-center text-sm text-slate-500">Cargando disponibilidad...</div>}
@@ -101,7 +101,7 @@ export default function RescheduleAppointmentModal({ appointment, onClose }) {
 
         {!loadingData && !dataError && days.length === 0 && (
           <div className="py-8 text-center text-sm text-slate-500">
-            No hay horarios disponibles en los próximos 14 días.
+            No hay horarios disponibles en los prÃ³ximos 14 dÃ­as.
           </div>
         )}
 
@@ -186,3 +186,5 @@ export default function RescheduleAppointmentModal({ appointment, onClose }) {
     </div>
   );
 }
+
+
