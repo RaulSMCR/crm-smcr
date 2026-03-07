@@ -1,4 +1,4 @@
-// src/app/panel/admin/personal/page.js
+﻿// src/app/panel/admin/personal/page.js
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -46,9 +46,7 @@ export default async function AdminPersonalPage() {
       <div className="flex items-start justify-between gap-6">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Personal (Profesionales)</h1>
-          <p className="text-slate-600 mt-2">
-            Vista administrativa de profesionales y servicios vinculados (M2M).
-          </p>
+          <p className="text-slate-600 mt-2">Vista administrativa de profesionales y servicios vinculados (M2M).</p>
         </div>
 
         <Link
@@ -61,9 +59,7 @@ export default async function AdminPersonalPage() {
 
       <div className="space-y-4">
         {professionals.map((p) => {
-          const approvedServices = p.serviceAssignments.filter(
-            (assignment) => assignment.status === "APPROVED",
-          );
+          const approvedServices = p.serviceAssignments.filter((assignment) => assignment.status === "APPROVED");
 
           return (
             <div key={p.id} className="bg-white rounded-2xl border border-slate-200 p-6">
@@ -101,16 +97,32 @@ export default async function AdminPersonalPage() {
 
                     {!p.isApproved && (
                       <div className="ml-2 flex gap-2">
-                        <AdminApproveButton
-                          endpoint={`/api/admin/professionals/${p.id}/approve`}
-                          label="Aprobar"
-                        />
+                        <AdminApproveButton endpoint={`/api/admin/professionals/${p.id}/approve`} label="Aprobar" />
                         <AdminApproveButton
                           endpoint={`/api/admin/professionals/${p.id}/reject`}
                           label="Rechazar"
                           pendingLabel="Rechazando..."
                           buttonClassName="bg-red-600 hover:bg-red-700"
                           confirmMessage="¿Confirmar rechazo de esta postulación profesional?"
+                        />
+                      </div>
+                    )}
+
+                    {p.user?.isActive && (
+                      <div className="ml-2 flex gap-2">
+                        <AdminApproveButton
+                          endpoint={`/api/admin/professionals/${p.id}/request-meeting`}
+                          label="Solicitar reunión"
+                          pendingLabel="Enviando..."
+                          buttonClassName="bg-indigo-600 hover:bg-indigo-700"
+                          confirmMessage="¿Enviar correo para solicitar reunión con administración?"
+                        />
+                        <AdminApproveButton
+                          endpoint={`/api/admin/professionals/${p.id}/inactivate`}
+                          label="Inactivar"
+                          pendingLabel="Inactivando..."
+                          buttonClassName="bg-rose-700 hover:bg-rose-800"
+                          confirmMessage="¿Inactivar esta cuenta profesional y bloquear nuevas citas?"
                         />
                       </div>
                     )}
@@ -148,9 +160,7 @@ export default async function AdminPersonalPage() {
         })}
 
         {professionals.length === 0 && (
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 text-slate-700">
-            No hay profesionales.
-          </div>
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 text-slate-700">No hay profesionales.</div>
         )}
       </div>
     </div>
