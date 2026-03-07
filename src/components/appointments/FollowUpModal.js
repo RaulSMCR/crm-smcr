@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { getFollowUpScheduleData, createFollowUpAppointment } from "@/actions/agenda-actions";
@@ -77,14 +77,14 @@ export default function FollowUpModal({ appointment, onClose, onSuccess }) {
             onClick={onClose}
             className="text-xl font-bold leading-none text-slate-400 hover:text-slate-600"
           >
-            Ã—
+            ×
           </button>
         </div>
 
         {data && (
           <p className="text-sm text-slate-600">
             Se agendara una cita de seguimiento para{" "}
-            <strong>{data.patientName}</strong> â€”{" "}
+            <strong>{data.patientName}</strong> —{" "}
             <strong>{data.serviceName}</strong>.
           </p>
         )}
@@ -101,7 +101,7 @@ export default function FollowUpModal({ appointment, onClose, onSuccess }) {
 
         {!loadingData && !dataError && days.length === 0 && (
           <div className="py-8 text-center text-sm text-slate-500">
-            No hay horarios disponibles en los prÃ³ximos 14 dÃ­as.
+            No hay horarios disponibles en los próximos 14 días.
           </div>
         )}
 

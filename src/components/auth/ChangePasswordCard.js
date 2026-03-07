@@ -69,7 +69,7 @@ export default function ChangePasswordCard({ title = "Actualización de contrase
 
       <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">ContraseÃ±a actual</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Contraseña actual</label>
           <input
             type="password"
             value={pw.currentPassword}
@@ -81,7 +81,7 @@ export default function ChangePasswordCard({ title = "Actualización de contrase
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Nueva contraseÃ±a</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Nueva contraseña</label>
           <input
             type="password"
             value={pw.newPassword}

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -83,7 +83,7 @@ export default function ProfessionalCalendarBooking({
 
         {days.length === 0 ? (
           <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            No hay horarios disponibles en los prÃ³ximos 14 dÃ­as.
+            No hay horarios disponibles en los próximos 14 días.
           </div>
         ) : (
           <div className="mt-6 space-y-6">
@@ -129,15 +129,15 @@ export default function ProfessionalCalendarBooking({
       </div>
 
       <div className="h-fit rounded-2xl border border-slate-200 bg-white p-6">
-        <h3 className="text-lg font-semibold text-slate-900">ConfirmaciÃ³n</h3>
+        <h3 className="text-lg font-semibold text-slate-900">Confirmación</h3>
 
         <div className="mt-3 text-sm text-slate-700">
-          DuraciÃ³n: <b>{durationMin} min</b>
+          Duración: <b>{durationMin} min</b>
         </div>
 
         <div className="mt-3 text-sm text-slate-700">
           Horario seleccionado:{" "}
-          <b>{selectedISO ? new Date(selectedISO).toLocaleString("es-CR") : "â€”"}</b>
+          <b>{selectedISO ? new Date(selectedISO).toLocaleString("es-CR") : "—"}</b>
         </div>
 
         <RecurrenceFields
@@ -157,7 +157,7 @@ export default function ProfessionalCalendarBooking({
         </button>
 
         <p className="mt-3 text-xs text-slate-500">
-          Si activas recurrencia, se crearÃ¡n varias citas iguales dentro de la serie.
+          Si activas recurrencia, se crearán varias citas iguales dentro de la serie.
         </p>
       </div>
     </div>

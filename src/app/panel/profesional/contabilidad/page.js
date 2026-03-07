@@ -1,4 +1,4 @@
-﻿// src/app/panel/profesional/contabilidad/page.js
+// src/app/panel/profesional/contabilidad/page.js
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
@@ -21,7 +21,7 @@ export default async function ProfesionalContabilidadPage({ searchParams }) {
   const professionalId = String(session.professionalProfileId || "");
   if (!professionalId) redirect("/panel/profesional/perfil");
 
-  // Rango: default Ãºltimos 90 dÃ­as
+  // Rango: default últimos 90 días
   const defaultFrom = new Date();
   defaultFrom.setDate(defaultFrom.getDate() - 90);
   defaultFrom.setHours(0, 0, 0, 0);
@@ -86,7 +86,7 @@ export default async function ProfesionalContabilidadPage({ searchParams }) {
     status: t.status,
     createdAt: t.createdAt.toISOString(),
     p2pPaymentDate: t.p2pPaymentDate?.toISOString() || null,
-    patientName: t.appointment?.patient?.name || "â€”",
+    patientName: t.appointment?.patient?.name || "—",
     serviceTitle: t.appointment?.service?.title || "Consulta",
     appointmentDate: t.appointment?.date?.toISOString() || null,
   }));

@@ -1,11 +1,11 @@
-﻿import Link from 'next/link';
+import Link from 'next/link';
 
 export default function RegistroPage() {
   return (
     <div className="bg-neutral-250 py-12">
       <div className="container mx-auto px-6">
         <div className="text-center max-w-3xl mx-auto">
-          <h1 className="text-4xl font-bold text-brand-600 mb-4">Ãšnete a Nuestra Comunidad</h1>
+          <h1 className="text-4xl font-bold text-brand-600 mb-4">Únete a Nuestra Comunidad</h1>
           <p className="text-lg text-breand-300 mb-10">
             Seleccione el tipo de cuenta que mejor se adapte a sus necesidades.
           </p>

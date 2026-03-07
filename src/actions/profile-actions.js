@@ -1,4 +1,4 @@
-﻿// src/actions/profile-actions.js
+// src/actions/profile-actions.js
 "use server";
 
 import { prisma } from "@/lib/prisma";
@@ -32,7 +32,7 @@ function isPhoneValid(v) {
  *    - si selecciona un servicio NUEVO => create PENDING
  *    - si estaba REJECTED y lo re-selecciona => pasa a PENDING
  *    - si deselecciona => delete assignment
- *    - si estÃ¡ APPROVED y cambia el precio => vuelve a PENDING para revisiÃ³n admin
+ *    - si está APPROVED y cambia el precio => vuelve a PENDING para revisión admin
  */
 export async function updateProfile(formData) {
   try {
@@ -50,8 +50,8 @@ export async function updateProfile(formData) {
     if (!specialty) return { success: false, error: "La especialidad es obligatoria." };
 
     if (phoneRaw !== null && phoneRaw !== undefined) {
-      if (!phone) return { success: false, error: "El telÃ©fono es obligatorio." };
-      if (!isPhoneValid(phone)) return { success: false, error: "TelÃ©fono invÃ¡lido." };
+      if (!phone) return { success: false, error: "El teléfono es obligatorio." };
+      if (!isPhoneValid(phone)) return { success: false, error: "Teléfono inválido." };
     }
 
     const requestedServiceIds = (formData.getAll("serviceIds") || [])
@@ -66,7 +66,7 @@ export async function updateProfile(formData) {
       proposedPricesEntries.filter(([, amount]) => Number.isFinite(amount) && amount >= 0)
     );
 
-    // Validar que existan y estÃ©n activos (evita ids basura)
+    // Validar que existan y estén activos (evita ids basura)
     const validServices = await prisma.service.findMany({
       where: { id: { in: requestedServiceIds }, isActive: true },
       select: { id: true },
@@ -216,7 +216,7 @@ export async function updateProfile(formData) {
     revalidatePath("/panel/profesional");
     revalidatePath("/servicios");
 
-    // Si tenÃ©s la pÃ¡gina pÃºblica del profesional por slug:
+    // Si tenés la página pública del profesional por slug:
     if (session?.slug) revalidatePath(`/profesionales/${session.slug}`);
 
     return { success: true };

@@ -1,5 +1,4 @@
-// src/app/ingresar/LoginClient.js
-
+﻿// src/app/ingresar/LoginClient.js
 "use client";
 
 import { useState } from "react";
@@ -8,7 +7,6 @@ import { login } from "@/actions/auth-actions";
 import Link from "next/link";
 
 function safeNextPath(nextValue) {
-  // Solo permitimos rutas relativas internas para evitar open-redirect
   const next = String(nextValue || "");
   if (!next) return null;
   if (!next.startsWith("/")) return null;
@@ -23,7 +21,6 @@ export default function LoginClient() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Detecta tipo de registro para mostrar mensaje correcto
   const registered = searchParams.get("registered");
   const isProfessionalRegistered = registered === "professional";
   const isGenericRegistered = registered === "true" || registered === "user";
@@ -55,7 +52,7 @@ export default function LoginClient() {
       return;
     }
 
-    setError("No se logró iniciar sesión. Por favor, intente nuevamente para continuar avanzando.");
+    setError("No se logró iniciar sesión. Por favor, intente nuevamente.");
     setLoading(false);
   };
 
@@ -67,33 +64,35 @@ export default function LoginClient() {
       >
         <div className="text-center pb-4 border-b border-gray-100">
           <h2 className="text-2xl font-bold text-gray-900">Ingreso seguro</h2>
-          <p className="text-sm text-gray-500 mt-1">Acceso seguro a la cuenta de Salud Mental CR.</p>
+          <p className="text-sm text-gray-500 mt-1">Acceso seguro a la cuenta de Salud Mental Costa Rica.</p>
         </div>
 
         {isProfessionalRegistered && (
           <div className="bg-green-50 text-green-800 p-4 rounded-lg text-sm border border-green-200 font-medium">
             <div className="flex items-center gap-2">
-              <span className="font-bold">Solicitud profesional enviada con éxito</span>
+              <span className="font-bold">Postulación profesional enviada con éxito</span>
             </div>
 
-            <p className="mt-2 text-green-900">El proceso de habilitación avanza en <span className="font-bold">2 pasos</span>:</p>
+            <p className="mt-2 text-green-900">El proceso de habilitación avanza en 2 pasos:</p>
 
             <ol className="mt-2 list-decimal list-inside space-y-1">
               <li>
-                <span className="font-semibold">Verificación por correo:</span> revise el email (incluida la carpeta de spam) para confirmar la cuenta y proteger la identidad del paciente.
+                <span className="font-semibold">Verificación por correo:</span> revise su correo (incluida la carpeta de spam).
               </li>
               <li>
-                <span className="font-semibold">Entrevista y aprobación:</span> luego, el <span className="font-bold">director del equipo profesional</span> realizará una llamada al teléfono/WhatsApp registrado para completar la validación y resguardar la calidad de la atención.
+                <span className="font-semibold">Entrevista y aprobación:</span> el coordinador del sitio se comunicará por teléfono o WhatsApp para agendar entrevista.
               </li>
             </ol>
 
-            <p className="mt-2 text-xs text-green-800">Mientras se completa el paso 2, el perfil puede aparecer como <span className="font-semibold">"en revisión"</span>.</p>
+            <p className="mt-2 text-xs text-green-800">
+              Mientras se completa la revisión, la postulación puede mostrarse como <span className="font-semibold">"en revisión"</span>.
+            </p>
           </div>
         )}
 
         {!isProfessionalRegistered && isGenericRegistered && (
           <div className="bg-green-50 text-green-700 p-4 rounded-lg text-sm border border-green-200 font-medium flex items-center gap-2">
-            Cuenta creada con éxito. El proceso continúa: revise su correo para verificarla y habilitar el acceso seguro.
+            Cuenta creada con éxito. Revise su correo para verificarla y habilitar el acceso.
           </div>
         )}
 
@@ -105,7 +104,7 @@ export default function LoginClient() {
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Email</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Correo electrónico</label>
             <input
               name="email"
               type="email"
@@ -141,12 +140,12 @@ export default function LoginClient() {
             disabled={loading}
             className="w-full bg-gray-900 text-white py-3.5 rounded-lg font-bold hover:bg-black transition disabled:opacity-50 disabled:cursor-not-allowed shadow-md flex justify-center items-center"
           >
-            {loading ? "Validando acceso seguro..." : "Ingresar y continuar"}
+            {loading ? "Validando acceso..." : "Ingresar"}
           </button>
         </div>
 
         <div className="text-center text-sm text-gray-500 mt-6 pt-4 border-t border-gray-100">
-          Si aún no dispone de una cuenta{" "}
+          Si aún no dispone de una cuenta:
           <div className="flex justify-center gap-4 mt-2 font-medium">
             <Link href="/registro/usuario" className="text-blue-600 hover:text-blue-800 transition">
               Registro de paciente

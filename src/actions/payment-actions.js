@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 // src/actions/payment-actions.js
 import { prisma } from "@/lib/prisma";
@@ -9,9 +9,9 @@ import { v4 as uuidv4 } from "uuid";
 
 const APP_URL = process.env.APP_URL || "http://localhost:3000";
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────
 // Helpers
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────
 
 function buildReference(appointmentId, type) {
   // Max 32 chars para PlacetoPay
@@ -24,12 +24,12 @@ function roundCRC(amount) {
   return Math.round(Number(amount));
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// 1. Iniciar pago de depÃ³sito (50% primera cita)
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────
+// 1. Iniciar pago de depósito (50% primera cita)
+// ─────────────────────────────────────────────
 
 /**
- * Inicia la sesiÃ³n de pago del depÃ³sito del 50% para la primera cita.
+ * Inicia la sesión de pago del depósito del 50% para la primera cita.
  * Solo aplica cuando appointment.isFirstWithProfessional === true.
  *
  * @param {string} appointmentId
@@ -40,7 +40,7 @@ export async function initiateDepositPayment(appointmentId, { ipAddress, userAge
   try {
     const session = await getSession();
     if (!session || session.role !== "USER") {
-      return { success: false, error: "Debes iniciar sesiÃ³n como paciente." };
+      return { success: false, error: "Debes iniciar sesión como paciente." };
     }
 
     const appointment = await prisma.appointment.findUnique({
@@ -54,16 +54,16 @@ export async function initiateDepositPayment(appointmentId, { ipAddress, userAge
     if (!appointment) return { success: false, error: "Cita no encontrada." };
     if (appointment.patientId !== session.sub) return { success: false, error: "No autorizado." };
     if (!appointment.isFirstWithProfessional) {
-      return { success: false, error: "Esta cita no requiere depÃ³sito anticipado." };
+      return { success: false, error: "Esta cita no requiere depósito anticipado." };
     }
     if (appointment.paymentStatus !== "UNPAID") {
       return { success: false, error: "Ya existe un pago registrado para esta cita." };
     }
     if (!appointment.pricePaid || Number(appointment.pricePaid) <= 0) {
-      return { success: false, error: "El precio de la cita no estÃ¡ definido." };
+      return { success: false, error: "El precio de la cita no está definido." };
     }
 
-    // Verificar que no haya ya una transacciÃ³n PENDING/PROCESSING/APPROVED de depÃ³sito
+    // Verificar que no haya ya una transacción PENDING/PROCESSING/APPROVED de depósito
     const existing = await prisma.paymentTransaction.findFirst({
       where: {
         appointmentId,
@@ -73,9 +73,9 @@ export async function initiateDepositPayment(appointmentId, { ipAddress, userAge
     });
     if (existing) {
       if (existing.status === "APPROVED") {
-        return { success: false, error: "El depÃ³sito ya fue aprobado." };
+        return { success: false, error: "El depósito ya fue aprobado." };
       }
-      // Devolver URL existente si aÃºn estÃ¡ activa
+      // Devolver URL existente si aún está activa
       if (existing.p2pProcessUrl) {
         return { success: true, processUrl: existing.p2pProcessUrl, requestId: existing.p2pRequestId };
       }
@@ -86,7 +86,7 @@ export async function initiateDepositPayment(appointmentId, { ipAddress, userAge
     const proName = appointment.professional?.user?.name || "el profesional";
     const serviceTitle = appointment.service?.title || "Consulta";
 
-    // Crear registro de transacciÃ³n
+    // Crear registro de transacción
     const transaction = await prisma.paymentTransaction.create({
       data: {
         appointmentId,
@@ -105,7 +105,7 @@ export async function initiateDepositPayment(appointmentId, { ipAddress, userAge
     try {
       p2pResult = await createSession({
         reference,
-        description: `DepÃ³sito 50% - ${serviceTitle} con ${proName}`,
+        description: `Depósito 50% - ${serviceTitle} con ${proName}`,
         amount: depositAmount,
         currency: "CRC",
         returnUrl: `${APP_URL}/panel/paciente/pago/resultado?ref=${reference}`,
@@ -114,15 +114,15 @@ export async function initiateDepositPayment(appointmentId, { ipAddress, userAge
         userAgent: userAgent || "Mozilla/5.0",
       });
     } catch (p2pError) {
-      // Revertir transacciÃ³n a REJECTED si P2P falla
+      // Revertir transacción a REJECTED si P2P falla
       await prisma.paymentTransaction.update({
         where: { id: transaction.id },
         data: { status: "REJECTED", p2pStatusMessage: p2pError.message },
       });
-      return { success: false, error: "No se pudo iniciar la sesiÃ³n de pago. Intenta nuevamente." };
+      return { success: false, error: "No se pudo iniciar la sesión de pago. Intenta nuevamente." };
     }
 
-    // Actualizar transacciÃ³n con datos de P2P
+    // Actualizar transacción con datos de P2P
     await prisma.paymentTransaction.update({
       where: { id: transaction.id },
       data: {
@@ -145,9 +145,9 @@ export async function initiateDepositPayment(appointmentId, { ipAddress, userAge
   }
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────
 // 2. Iniciar pago de saldo (50% o 100% post-cita)
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────
 
 /**
  * Inicia el pago del saldo restante una vez completada la cita.
@@ -180,7 +180,7 @@ export async function initiateBalancePayment(appointmentId, { ipAddress, userAge
       return { success: false, error: "Esta cita ya fue pagada en su totalidad." };
     }
     if (!appointment.pricePaid || Number(appointment.pricePaid) <= 0) {
-      return { success: false, error: "El precio de la cita no estÃ¡ definido." };
+      return { success: false, error: "El precio de la cita no está definido." };
     }
 
     const isFirst = appointment.isFirstWithProfessional;
@@ -189,7 +189,7 @@ export async function initiateBalancePayment(appointmentId, { ipAddress, userAge
       ? roundCRC(Number(appointment.pricePaid) * 0.5)
       : roundCRC(Number(appointment.pricePaid));
 
-    // Verificar que no haya transacciÃ³n activa del mismo tipo
+    // Verificar que no haya transacción activa del mismo tipo
     const existing = await prisma.paymentTransaction.findFirst({
       where: {
         appointmentId,
@@ -243,7 +243,7 @@ export async function initiateBalancePayment(appointmentId, { ipAddress, userAge
         where: { id: transaction.id },
         data: { status: "REJECTED", p2pStatusMessage: p2pError.message },
       });
-      return { success: false, error: "No se pudo iniciar la sesiÃ³n de pago. Intenta nuevamente." };
+      return { success: false, error: "No se pudo iniciar la sesión de pago. Intenta nuevamente." };
     }
 
     await prisma.paymentTransaction.update({
@@ -269,14 +269,14 @@ export async function initiateBalancePayment(appointmentId, { ipAddress, userAge
   }
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// 3. Crear sesiÃ³n de pago de saldo automÃ¡ticamente (uso interno)
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────
+// 3. Crear sesión de pago de saldo automáticamente (uso interno)
+// ─────────────────────────────────────────────
 
 /**
- * Genera la sesiÃ³n de pago de saldo cuando una cita es marcada COMPLETED.
- * No verifica sesiÃ³n de usuario â€” solo para uso interno desde server actions.
- * Es idempotente: si ya existe transacciÃ³n activa, no crea una nueva.
+ * Genera la sesión de pago de saldo cuando una cita es marcada COMPLETED.
+ * No verifica sesión de usuario — solo para uso interno desde server actions.
+ * Es idempotente: si ya existe transacción activa, no crea una nueva.
  */
 export async function createBalancePaymentAuto(appointmentId) {
   try {
@@ -299,7 +299,7 @@ export async function createBalancePaymentAuto(appointmentId) {
       ? roundCRC(Number(appointment.pricePaid) * 0.5)
       : roundCRC(Number(appointment.pricePaid));
 
-    // Idempotencia: no duplicar si ya existe transacciÃ³n activa
+    // Idempotencia: no duplicar si ya existe transacción activa
     const existing = await prisma.paymentTransaction.findFirst({
       where: {
         appointmentId: id,
@@ -357,9 +357,9 @@ export async function createBalancePaymentAuto(appointmentId) {
   }
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// 4. Consultar transacciones de una cita (auditorÃ­a)
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────
+// 4. Consultar transacciones de una cita (auditoría)
+// ─────────────────────────────────────────────
 
 /**
  * Devuelve todas las transacciones de pago de una cita.

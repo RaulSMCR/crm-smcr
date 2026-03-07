@@ -1,4 +1,4 @@
-﻿// src/app/panel/profesional/perfil/page.js
+// src/app/panel/profesional/perfil/page.js
 import { getSession } from "@/actions/auth-actions";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
@@ -23,7 +23,7 @@ export default async function PerfilPage() {
       <div className="max-w-4xl mx-auto p-8">
         <h2 className="text-2xl font-bold text-slate-800">Error de Perfil</h2>
         <p className="mt-2 text-slate-600">
-          No se encontrÃ³ el perfil asociado. Contacta a soporte.
+          No se encontró el perfil asociado. Contacta a soporte.
         </p>
       </div>
     );
@@ -34,7 +34,7 @@ export default async function PerfilPage() {
     orderBy: [{ displayOrder: "asc" }, { title: "asc" }],
   });
 
-  // âœ… Serializar Decimal -> number para props de componente client
+  // ✅ Serializar Decimal -> number para props de componente client
   const allServices = allServicesRaw.map((s) => ({ ...s, price: Number(s.price) }));
 
   const profile = {

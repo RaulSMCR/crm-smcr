@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import { isFuture, isToday } from 'date-fns';
@@ -43,7 +43,7 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
   };
 
   const handleStatusChange = async (id, newStatus) => {
-    if (!confirm('Â¿Confirma el cambio de estado de esta cita?')) return;
+    if (!confirm('¿Confirma el cambio de estado de esta cita?')) return;
 
     setLoadingId(id);
     const result = await updateAppointmentStatus(id, newStatus);
@@ -146,13 +146,13 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
                         <span className="rounded px-2 py-1 text-xs font-bold bg-emerald-100 text-emerald-700">Pagado</span>
                       )}
                       {appointment.paymentStatus === "PARTIALLY_PAID" && (
-                        <span className="rounded px-2 py-1 text-xs font-bold bg-amber-100 text-amber-700">DepÃ³sito</span>
+                        <span className="rounded px-2 py-1 text-xs font-bold bg-amber-100 text-amber-700">Depósito</span>
                       )}
                       {appointment.paymentStatus === "UNPAID" && appointment.status === "COMPLETED" && (
                         <span className="rounded px-2 py-1 text-xs font-bold bg-red-100 text-red-700">Sin pagar</span>
                       )}
                       {appointment.parentAppointmentId && (
-                        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-500">â†© Seguimiento</span>
+                        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-500">↩ Seguimiento</span>
                       )}
                     </div>
                   </td>

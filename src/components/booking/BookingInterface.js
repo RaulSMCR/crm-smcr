@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -76,10 +76,10 @@ export default function BookingInterface({ professionalId, servicePrice, service
         <div className="mt-2 flex items-end justify-between">
           <div>
             <p className="text-2xl font-bold">{serviceTitle}</p>
-            <p className="text-sm opacity-70">DuraciÃ³n: 60 min</p>
+            <p className="text-sm opacity-70">Duración: 60 min</p>
           </div>
           <div className="text-right">
-            <span className="block text-xl font-bold">â‚¡{Number(servicePrice).toLocaleString('es-CR')}</span>
+            <span className="block text-xl font-bold">₡{Number(servicePrice).toLocaleString('es-CR')}</span>
           </div>
         </div>
       </div>
@@ -102,7 +102,7 @@ export default function BookingInterface({ professionalId, servicePrice, service
         <div>
           <label className="mb-2 block text-sm font-medium text-gray-700">2. Horarios disponibles</label>
           <p className="mb-3 text-xs text-gray-500">
-            Todos los horarios estÃ¡n expresados en hora de Costa Rica; si estÃ¡s en otro huso horario, tenlo en cuenta.
+            Todos los horarios están expresados en hora de Costa Rica; si estás en otro huso horario, tenlo en cuenta.
           </p>
 
           {loading ? (
@@ -129,13 +129,13 @@ export default function BookingInterface({ professionalId, servicePrice, service
           ) : (
             <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 py-8 text-center">
               <p className="text-sm text-gray-500">No hay horarios disponibles.</p>
-              <p className="mt-1 text-xs text-gray-400">Prueba seleccionando otro dÃ­a.</p>
+              <p className="mt-1 text-xs text-gray-400">Prueba seleccionando otro día.</p>
             </div>
           )}
         </div>
 
         <div>
-          <label className="mb-2 block text-sm font-medium text-gray-700">3. RepeticiÃ³n de la cita</label>
+          <label className="mb-2 block text-sm font-medium text-gray-700">3. Repetición de la cita</label>
           <RecurrenceFields
             recurrenceRule={recurrenceRule}
             recurrenceCount={recurrenceCount}
@@ -165,7 +165,7 @@ export default function BookingInterface({ professionalId, servicePrice, service
 
           {selectedSlot && (
             <p className="mt-3 text-center text-xs text-gray-500">
-              La cita quedarÃ¡ pendiente de confirmaciÃ³n por el profesional.
+              La cita quedará pendiente de confirmación por el profesional.
             </p>
           )}
         </div>

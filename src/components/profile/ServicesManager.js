@@ -1,4 +1,4 @@
-﻿//src/components/profile/ServicesManager.js
+//src/components/profile/ServicesManager.js
 
 'use client';
 
@@ -10,7 +10,7 @@ export default function ServicesManager({ services = [] }) {
   const [currentService, setCurrentService] = useState(null); // null = nuevo, obj = editar
   const [loading, setLoading] = useState(false);
 
-  // Formulario inicial vacÃ­o
+  // Formulario inicial vacío
   const emptyForm = { title: '', description: '', price: '', durationMin: '60' };
   const [formData, setFormData] = useState(emptyForm);
 
@@ -32,7 +32,7 @@ export default function ServicesManager({ services = [] }) {
   };
 
   const handleDelete = async (id) => {
-    if(!confirm("Â¿EstÃ¡s seguro de borrar este servicio?")) return;
+    if(!confirm("¿Estás seguro de borrar este servicio?")) return;
     await manageService('DELETE', { id });
   };
 
@@ -75,7 +75,7 @@ export default function ServicesManager({ services = [] }) {
             <div key={svc.id} className="flex justify-between items-center p-4 bg-gray-50 rounded-lg border border-gray-100">
               <div>
                 <h4 className="font-bold text-gray-900">{svc.title}</h4>
-                <p className="text-xs text-gray-500">{svc.durationMin} min â€¢ ${Number(svc.price)}</p>
+                <p className="text-xs text-gray-500">{svc.durationMin} min • ${Number(svc.price)}</p>
               </div>
               <div className="flex gap-2">
                 <button onClick={() => openEdit(svc)} className="text-xs text-blue-600 hover:underline">Editar</button>
@@ -94,7 +94,7 @@ export default function ServicesManager({ services = [] }) {
             
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase">TÃ­tulo</label>
+                <label className="block text-xs font-bold text-gray-500 uppercase">Título</label>
                 <input required type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full border rounded p-2 text-sm" placeholder="Ej: Consulta General"/>
               </div>
               
@@ -104,13 +104,13 @@ export default function ServicesManager({ services = [] }) {
                    <input required type="number" min="0" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full border rounded p-2 text-sm"/>
                 </div>
                 <div className="w-1/2">
-                   <label className="block text-xs font-bold text-gray-500 uppercase">DuraciÃ³n (min)</label>
+                   <label className="block text-xs font-bold text-gray-500 uppercase">Duración (min)</label>
                    <input required type="number" min="15" step="15" value={formData.durationMin} onChange={e => setFormData({...formData, durationMin: e.target.value})} className="w-full border rounded p-2 text-sm"/>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase">DescripciÃ³n</label>
+                <label className="block text-xs font-bold text-gray-500 uppercase">Descripción</label>
                 <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full border rounded p-2 text-sm" rows="3"></textarea>
               </div>
 

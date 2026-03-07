@@ -87,7 +87,7 @@ export default async function PagoResultadoPage({ searchParams }) {
               con {transaction.appointment.professional?.user?.name}
             </p>
             <p className="mt-1 text-slate-500">
-              Monto: â‚¡{Number(transaction.amount).toLocaleString("es-CR")}
+              Monto: ₡{Number(transaction.amount).toLocaleString("es-CR")}
             </p>
           </div>
         )}

@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
@@ -42,13 +42,13 @@ function formatConflictDate(date) {
 
 async function requireProfessionalProfileId() {
   const session = await getSession();
-  if (!session) throw new Error("No autorizado: sesiÃ³n requerida.");
+  if (!session) throw new Error("No autorizado: sesión requerida.");
   if (toStr(session.role) !== "PROFESSIONAL") {
     throw new Error("No autorizado: rol PROFESSIONAL requerido.");
   }
 
   const professionalId = toStr(session.professionalProfileId);
-  if (!professionalId) throw new Error("No se encontrÃ³ professionalProfileId en la sesiÃ³n.");
+  if (!professionalId) throw new Error("No se encontró professionalProfileId en la sesión.");
 
   return professionalId;
 }
@@ -269,10 +269,10 @@ export async function createAppointmentByProfessional({
     const count = rule === RECURRENCE_RULES.NONE ? 1 : normalizeRecurrenceCount(recurrenceCount);
 
     if (!pid || !sid || Number.isNaN(start.getTime())) {
-      return { success: false, error: "Datos invÃ¡lidos para agendar." };
+      return { success: false, error: "Datos inválidos para agendar." };
     }
     if (start <= new Date()) {
-      return { success: false, error: "El horario seleccionado ya pasÃ³." };
+      return { success: false, error: "El horario seleccionado ya pasó." };
     }
 
     const [patient, service, assignment] = await Promise.all([
@@ -366,7 +366,7 @@ export async function createAppointmentByProfessional({
     );
 
     const hydratedAppointments = await hydrateAppointments(createdAppointments.map((item) => item.id));
-    await notifyAppointments(hydratedAppointments, "El profesional creÃ³ una nueva cita en estado pendiente.");
+    await notifyAppointments(hydratedAppointments, "El profesional creó una nueva cita en estado pendiente.");
     revalidateAgendaPaths();
 
     return {
@@ -393,9 +393,9 @@ export async function rescheduleAppointmentByProfessional(
     const rule = normalizeRecurrenceRule(recurrenceRule);
     const count = rule === RECURRENCE_RULES.NONE ? 1 : normalizeRecurrenceCount(recurrenceCount);
 
-    if (!id) return { success: false, error: "ID invÃ¡lido." };
+    if (!id) return { success: false, error: "ID inválido." };
     if (Number.isNaN(newStart.getTime()) || newStart <= new Date()) {
-      return { success: false, error: "Horario invÃ¡lido." };
+      return { success: false, error: "Horario inválido." };
     }
 
     const appointment = await prisma.appointment.findUnique({
@@ -521,7 +521,7 @@ export async function confirmAppointmentByProfessional(
     const rule = normalizeRecurrenceRule(recurrenceRule);
     const count = rule === RECURRENCE_RULES.NONE ? 1 : normalizeRecurrenceCount(recurrenceCount);
 
-    if (!id) return { success: false, error: "ID invÃ¡lido." };
+    if (!id) return { success: false, error: "ID inválido." };
 
     const appointment = await prisma.appointment.findUnique({
       where: { id },
@@ -638,7 +638,7 @@ export async function updateAppointmentStatus(appointmentId, newStatus) {
     const id = toStr(appointmentId);
     const status = toStr(newStatus);
 
-    if (!id) return { success: false, error: "ID invÃ¡lido." };
+    if (!id) return { success: false, error: "ID inválido." };
     if (!ALLOWED_PRO_STATUS.has(status)) {
       return { success: false, error: `Estado no permitido: ${status}` };
     }
@@ -660,7 +660,7 @@ export async function updateAppointmentStatus(appointmentId, newStatus) {
         (status === "COMPLETED" || status === "NO_SHOW" || status === "CANCELLED_BY_PRO"));
 
     if (!okTransition) {
-      return { success: false, error: `TransiciÃ³n invÃ¡lida: ${from} -> ${status}` };
+      return { success: false, error: `Transición inválida: ${from} -> ${status}` };
     }
 
     const updatedAppointment = await prisma.appointment.update({
@@ -681,7 +681,7 @@ export async function updateAppointmentStatus(appointmentId, newStatus) {
 
     await Promise.allSettled([
       syncGoogleCalendarEvent(updatedAppointment),
-      sendAppointmentNotifications(updatedAppointment, `La cita cambiÃ³ de estado a ${status}.`),
+      sendAppointmentNotifications(updatedAppointment, `La cita cambió de estado a ${status}.`),
       ...(status === "COMPLETED" ? [createBalancePaymentAuto(id)] : []),
     ]);
 
@@ -699,8 +699,8 @@ export async function cancelAppointmentByProfessional(appointmentId, reason) {
     const id = toStr(appointmentId);
     const reasonStr = toStr(reason).trim();
 
-    if (!id) return { error: "ID de cita invÃ¡lido." };
-    if (!reasonStr) return { error: "Debes indicar el motivo de cancelaciÃ³n." };
+    if (!id) return { error: "ID de cita inválido." };
+    if (!reasonStr) return { error: "Debes indicar el motivo de cancelación." };
 
     const appointment = await prisma.appointment.findUnique({
       where: { id },
@@ -716,7 +716,7 @@ export async function cancelAppointmentByProfessional(appointmentId, reason) {
       return { error: "No es posible cancelar citas de otro profesional." };
     }
     if (!["PENDING", "CONFIRMED"].includes(appointment.status)) {
-      return { error: "Esta cita no puede cancelarse (estado invÃ¡lido)." };
+      return { error: "Esta cita no puede cancelarse (estado inválido)." };
     }
 
     const updated = await prisma.appointment.update({
@@ -816,7 +816,7 @@ export async function createFollowUpAppointment(parentAppointmentId, startISO) {
     const newStart = new Date(startISO);
     const newEnd = new Date(newStart.getTime() + durationMin * 60000);
 
-    if (isNaN(newStart.getTime())) return { error: "Fecha invÃ¡lida." };
+    if (isNaN(newStart.getTime())) return { error: "Fecha inválida." };
 
     const conflict = await prisma.appointment.findFirst({
       where: {
@@ -854,7 +854,7 @@ export async function createFollowUpAppointment(parentAppointmentId, startISO) {
 
     await Promise.allSettled([
       syncGoogleCalendarEvent(created),
-      sendAppointmentNotifications(created, "Se agendÃ³ una cita de seguimiento."),
+      sendAppointmentNotifications(created, "Se agendó una cita de seguimiento."),
     ]);
 
     revalidateAgendaPaths();

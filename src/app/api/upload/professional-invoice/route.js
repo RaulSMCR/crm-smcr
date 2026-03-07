@@ -1,4 +1,4 @@
-﻿// src/app/api/upload/professional-invoice/route.js
+// src/app/api/upload/professional-invoice/route.js
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSession } from "@/lib/auth";
@@ -22,7 +22,7 @@ export async function POST(request) {
       return NextResponse.json({ error: "Perfil profesional no encontrado." }, { status: 403 });
     }
 
-    // Verificar que el profesional estÃ© aprobado
+    // Verificar que el profesional esté aprobado
     const profile = await prisma.professionalProfile.findUnique({
       where: { id: professionalId },
       select: { isApproved: true },
@@ -35,7 +35,7 @@ export async function POST(request) {
     const file = formData.get("file");
 
     if (!file) {
-      return NextResponse.json({ error: "No se recibiÃ³ ningÃºn archivo." }, { status: 400 });
+      return NextResponse.json({ error: "No se recibió ningún archivo." }, { status: 400 });
     }
 
     if (file.type !== "application/pdf") {
@@ -43,7 +43,7 @@ export async function POST(request) {
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      return NextResponse.json({ error: "El archivo no puede pesar mÃ¡s de 5MB." }, { status: 400 });
+      return NextResponse.json({ error: "El archivo no puede pesar más de 5MB." }, { status: 400 });
     }
 
     const path = `${professionalId}/${uuidv4()}.pdf`;

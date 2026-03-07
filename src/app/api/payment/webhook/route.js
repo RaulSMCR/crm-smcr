@@ -1,10 +1,10 @@
-﻿// src/app/api/payment/webhook/route.js
+// src/app/api/payment/webhook/route.js
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyWebhookSignature } from "@/lib/placetopay/webhook";
 import { resend } from "@/lib/resend";
 
-// â”€â”€ Helpers de facturaciÃ³n automÃ¡tica â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Helpers de facturación automática ───────────────────────────────────────
 
 function buildAutoInvoiceNumber(sequence, now) {
   const padded = String(sequence.currentNumber).padStart(sequence.padding || 4, "0");
@@ -12,7 +12,7 @@ function buildAutoInvoiceNumber(sequence, now) {
 }
 
 /**
- * Crea y valida automÃ¡ticamente una CUSTOMER_INVOICE al aprobarse un pago.
+ * Crea y valida automáticamente una CUSTOMER_INVOICE al aprobarse un pago.
  * Fire-and-forget: errores se logean pero no interrumpen la respuesta.
  */
 async function createAutoInvoice(transaction, appointmentServiceTitle) {
@@ -20,7 +20,7 @@ async function createAutoInvoice(transaction, appointmentServiceTitle) {
     const amount = Number(transaction.amount);
     if (!amount || amount <= 0) return;
 
-    const typeLabels = { DEPOSIT_50: "DepÃ³sito 50%", BALANCE_50: "Saldo 50%", FULL_100: "Pago completo" };
+    const typeLabels = { DEPOSIT_50: "Depósito 50%", BALANCE_50: "Saldo 50%", FULL_100: "Pago completo" };
     const lineLabel = `${typeLabels[transaction.type] || transaction.type} - ${appointmentServiceTitle || "Consulta"}`;
     const now = new Date();
 
@@ -60,13 +60,13 @@ async function createAutoInvoice(transaction, appointmentServiceTitle) {
         },
       });
 
-      // 2. Incrementar secuencia atÃ³micamente
+      // 2. Incrementar secuencia atómicamente
       const sequence = await tx.invoiceSequence.update({
         where: { sequenceType: "CUSTOMER_INVOICE" },
         data: { currentNumber: { increment: 1 }, year: now.getFullYear() },
       });
 
-      // 3. Validar â†’ PAID directo (el pago ya fue cobrado por PlacetoPay)
+      // 3. Validar → PAID directo (el pago ya fue cobrado por PlacetoPay)
       await tx.invoice.update({
         where: { id: invoice.id },
         data: {
@@ -79,7 +79,7 @@ async function createAutoInvoice(transaction, appointmentServiceTitle) {
       });
     });
 
-    console.log(`[Payment webhook] Invoice auto-creada para transacciÃ³n ${transaction.id}`);
+    console.log(`[Payment webhook] Invoice auto-creada para transacción ${transaction.id}`);
   } catch (err) {
     console.error("[Payment webhook] Error en createAutoInvoice:", err);
   }
@@ -92,9 +92,9 @@ const FROM_EMAIL = process.env.EMAIL_FROM || "Salud Mental Costa Rica <onboardin
 
 /**
  * POST /api/payment/webhook
- * Ruta pÃºblica â€” verificada por firma PlacetoPay, NO por JWT.
+ * Ruta pública — verificada por firma PlacetoPay, NO por JWT.
  *
- * PlacetoPay envÃ­a notificaciones cuando cambia el estado de una sesiÃ³n de pago.
+ * PlacetoPay envía notificaciones cuando cambia el estado de una sesión de pago.
  * Siempre responde 200 para evitar reintentos innecesarios.
  */
 export async function POST(request) {
@@ -102,8 +102,8 @@ export async function POST(request) {
   try {
     rawBody = await request.json();
   } catch {
-    // Si el body es invÃ¡lido, responder 200 de todas formas para que P2P no reintente
-    console.error("[Payment webhook] Body JSON invÃ¡lido.");
+    // Si el body es inválido, responder 200 de todas formas para que P2P no reintente
+    console.error("[Payment webhook] Body JSON inválido.");
     return NextResponse.json({ ok: false, message: "Invalid body" }, { status: 200 });
   }
 
@@ -114,7 +114,7 @@ export async function POST(request) {
 
   console.log("[Payment webhook] Recibido desde IP:", ip, "| requestId:", rawBody?.requestId);
 
-  // â”€â”€ 1. Verificar firma â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── 1. Verificar firma ───────────────────────────────────────────────────
   const { requestId, status: statusObj, signature } = rawBody;
   const p2pStatus = statusObj?.status;
   const p2pDate   = statusObj?.date;
@@ -133,11 +133,11 @@ export async function POST(request) {
   });
 
   if (!isValid) {
-    console.error("[Payment webhook] Firma invÃ¡lida. Descartando notificaciÃ³n.");
+    console.error("[Payment webhook] Firma inválida. Descartando notificación.");
     return NextResponse.json({ ok: false, message: "Invalid signature" }, { status: 200 });
   }
 
-  // â”€â”€ 2. Buscar transacciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── 2. Buscar transacción ────────────────────────────────────────────────
   const transaction = await prisma.paymentTransaction.findUnique({
     where: { p2pRequestId: Number(requestId) },
     include: {
@@ -156,17 +156,17 @@ export async function POST(request) {
   });
 
   if (!transaction) {
-    console.warn("[Payment webhook] TransacciÃ³n no encontrada para requestId:", requestId);
+    console.warn("[Payment webhook] Transacción no encontrada para requestId:", requestId);
     return NextResponse.json({ ok: true }, { status: 200 });
   }
 
   // Idempotencia: ignorar si ya fue procesada
   if (transaction.status === "APPROVED" || transaction.status === "REFUNDED") {
-    console.log("[Payment webhook] TransacciÃ³n ya procesada. Ignorando.");
+    console.log("[Payment webhook] Transacción ya procesada. Ignorando.");
     return NextResponse.json({ ok: true }, { status: 200 });
   }
 
-  // â”€â”€ 3. Mapear estado P2P â†’ interno â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── 3. Mapear estado P2P → interno ──────────────────────────────────────
   const statusMap = {
     APPROVED: "APPROVED",
     REJECTED: "REJECTED",
@@ -176,7 +176,7 @@ export async function POST(request) {
   };
   const newStatus = statusMap[p2pStatus] || "PENDING";
 
-  // â”€â”€ 4. Actualizar transacciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── 4. Actualizar transacción ────────────────────────────────────────────
   await prisma.paymentTransaction.update({
     where: { id: transaction.id },
     data: {
@@ -188,7 +188,7 @@ export async function POST(request) {
     },
   });
 
-  // â”€â”€ 5. Actualizar paymentStatus de la cita â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── 5. Actualizar paymentStatus de la cita ───────────────────────────────
   if (newStatus === "APPROVED") {
     const isDeposit = transaction.type === "DEPOSIT_50";
     const newPaymentStatus = isDeposit ? "PARTIALLY_PAID" : "PAID";
@@ -199,10 +199,10 @@ export async function POST(request) {
     });
 
     console.log(
-      `[Payment webhook] Cita ${transaction.appointmentId} â†’ paymentStatus: ${newPaymentStatus}`
+      `[Payment webhook] Cita ${transaction.appointmentId} → paymentStatus: ${newPaymentStatus}`
     );
 
-    // â”€â”€ 6. Generar factura automÃ¡tica + enviar email â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── 6. Generar factura automática + enviar email ───────────────────
     await Promise.allSettled([
       createAutoInvoice(transaction, transaction.appointment?.service?.title),
       sendPaymentConfirmationEmail({ transaction, p2pStatus, isDeposit }),
@@ -215,7 +215,7 @@ export async function POST(request) {
   return NextResponse.json({ ok: true }, { status: 200 });
 }
 
-// â”€â”€ Email helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Email helpers ────────────────────────────────────────────────────────────
 
 async function sendPaymentConfirmationEmail({ transaction, isDeposit }) {
   const patientEmail = transaction.patient?.email;
@@ -252,7 +252,7 @@ async function sendPaymentFailedEmail({ transaction }) {
   const APP_URL = process.env.APP_URL || "http://localhost:3000";
   const retryUrl = `${APP_URL}/panel/paciente`;
 
-  const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#0f172a;"><h2>Pago no procesado</h2><p>Estimado/a ${patientName}, el pago no pudo ser procesado.</p><p><a href="${retryUrl}" style="background:#000;color:#fff;padding:10px 20px;text-decoration:none;border-radius:5px;">Reintentar pago</a></p><p style="font-size:12px;color:#64748b;">Este correo fue generado automÃ¡ticamente.</p></div>`;
+  const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#0f172a;"><h2>Pago no procesado</h2><p>Estimado/a ${patientName}, el pago no pudo ser procesado.</p><p><a href="${retryUrl}" style="background:#000;color:#fff;padding:10px 20px;text-decoration:none;border-radius:5px;">Reintentar pago</a></p><p style="font-size:12px;color:#64748b;">Este correo fue generado automáticamente.</p></div>`;
 
   const { error } = await resend.emails.send({
     from: FROM_EMAIL,

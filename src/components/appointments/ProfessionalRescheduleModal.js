@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { getProfessionalRescheduleData, rescheduleAppointmentByProfessional } from "@/actions/agenda-actions";
@@ -97,7 +97,7 @@ export default function ProfessionalRescheduleModal({ appointment, onClose, onSu
             onClick={onClose}
             className="text-xl font-bold leading-none text-slate-400 hover:text-slate-600"
           >
-            Ã—
+            ×
           </button>
         </div>
 
@@ -114,7 +114,7 @@ export default function ProfessionalRescheduleModal({ appointment, onClose, onSu
 
         {!loadingData && !dataError && days.length === 0 && (
           <div className="py-8 text-center text-sm text-slate-500">
-            No hay horarios disponibles en los prÃ³ximos 14 dÃ­as.
+            No hay horarios disponibles en los próximos 14 días.
           </div>
         )}
 
@@ -188,7 +188,7 @@ export default function ProfessionalRescheduleModal({ appointment, onClose, onSu
                 rel="noreferrer"
                 className="inline-block font-semibold text-brand-700 hover:underline"
               >
-                Abrir calendario del dÃ­a sugerido
+                Abrir calendario del día sugerido
               </a>
             )}
           </div>

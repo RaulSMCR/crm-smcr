@@ -100,11 +100,19 @@ export default async function AdminPersonalPage() {
                     </span>
 
                     {!p.isApproved && (
-                      <AdminApproveButton
-                        endpoint={`/api/admin/professionals/${p.id}/approve`}
-                        label="Aprobar"
-                        className="ml-2"
-                      />
+                      <div className="ml-2 flex gap-2">
+                        <AdminApproveButton
+                          endpoint={`/api/admin/professionals/${p.id}/approve`}
+                          label="Aprobar"
+                        />
+                        <AdminApproveButton
+                          endpoint={`/api/admin/professionals/${p.id}/reject`}
+                          label="Rechazar"
+                          pendingLabel="Rechazando..."
+                          buttonClassName="bg-red-600 hover:bg-red-700"
+                          confirmMessage="¿Confirmar rechazo de esta postulación profesional?"
+                        />
+                      </div>
                     )}
                   </div>
                 </div>

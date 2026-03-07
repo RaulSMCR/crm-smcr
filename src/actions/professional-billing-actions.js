@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 // src/actions/professional-billing-actions.js
 import { prisma } from "@/lib/prisma";
@@ -39,7 +39,7 @@ export async function submitProfessionalInvoice({
     const amt = Number(amount);
     const url = String(fileUrl || "").trim();
 
-    if (!ref) return { success: false, error: "El nÃºmero de factura es obligatorio." };
+    if (!ref) return { success: false, error: "El número de factura es obligatorio." };
     if (!amt || amt <= 0) return { success: false, error: "El monto debe ser mayor a cero." };
     if (!url) return { success: false, error: "Debes subir el PDF de la factura." };
 
@@ -48,8 +48,8 @@ export async function submitProfessionalInvoice({
 
     const periodLabel =
       pStart && pEnd
-        ? `${pStart.toLocaleDateString("es-CR")} â€“ ${pEnd.toLocaleDateString("es-CR")}`
-        : "perÃ­odo reciente";
+        ? `${pStart.toLocaleDateString("es-CR")} – ${pEnd.toLocaleDateString("es-CR")}`
+        : "período reciente";
 
     const now = new Date();
     const dueDate = new Date(now);

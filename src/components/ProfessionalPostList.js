@@ -1,4 +1,4 @@
-﻿// src/components/ProfessionalPostList.js
+// src/components/ProfessionalPostList.js
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -22,16 +22,16 @@ export default function ProfessionalPostList() {
   }, []);
 
   const handleDelete = async (postId) => {
-    if (confirm('Â¿EstÃ¡s seguro de que quieres eliminar este artÃ­culo? Esta acciÃ³n no se puede deshacer.')) {
+    if (confirm('¿Estás seguro de que quieres eliminar este artículo? Esta acción no se puede deshacer.')) {
       setMessage('Eliminando...');
       const response = await fetch(`/api/professional/posts/${postId}`, {
         method: 'DELETE',
       });
       if (response.ok) {
-        setMessage('ArtÃ­culo eliminado con Ã©xito.');
+        setMessage('Artículo eliminado con éxito.');
         fetchPosts(); // Recargar la lista
       } else {
-        setMessage('Error al eliminar el artÃ­culo.');
+        setMessage('Error al eliminar el artículo.');
       }
     }
   };
@@ -57,7 +57,7 @@ export default function ProfessionalPostList() {
                 </span>
               </div>
               <div className="flex items-center space-x-4">
-                {/* --- BOTÃ“N DE EDITAR AÃ‘ADIDO --- */}
+                {/* --- BOTÓN DE EDITAR AÑADIDO --- */}
                 <Link
                   href={`/dashboard-profesional/editar-articulo/${post.id}`}
                   className="text-blue-500 hover:text-blue-700 text-sm font-semibold"

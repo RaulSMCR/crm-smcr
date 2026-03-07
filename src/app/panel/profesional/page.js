@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
@@ -79,7 +79,7 @@ export default async function ProfesionalDashboardPage() {
     ? nextAppointments.filter((a) => a.date >= nextDayRange.start && a.date < nextDayRange.end)
     : [];
 
-  const agendaTitle = todayAppointments.length > 0 ? "Citas de hoy" : "PrÃ³xima jornada";
+  const agendaTitle = todayAppointments.length > 0 ? "Citas de hoy" : "Próxima jornada";
   const agendaItems = todayAppointments.length > 0 ? todayAppointments : nextDayAppointments;
 
   return (
@@ -117,7 +117,7 @@ export default async function ProfesionalDashboardPage() {
               <div key={a.id} className="px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div>
                   <div className="font-medium text-slate-800">
-                    {a.service?.title || "Servicio"} Â· {a.patient?.name || "Paciente"}
+                    {a.service?.title || "Servicio"} · {a.patient?.name || "Paciente"}
                   </div>
                   <div className="text-sm text-slate-500">{formatDateTime(a.date)}</div>
                 </div>
@@ -140,7 +140,7 @@ export default async function ProfesionalDashboardPage() {
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
           <div className="text-sm text-slate-500">Citas (total)</div>
           <div className="mt-1 text-3xl font-bold text-slate-800">{profile._count?.appointments ?? 0}</div>
-          <div className="mt-2 text-xs text-slate-500">PrÃ³ximas: {profile.appointments?.length ?? 0}</div>
+          <div className="mt-2 text-xs text-slate-500">Próximas: {profile.appointments?.length ?? 0}</div>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
@@ -151,7 +151,7 @@ export default async function ProfesionalDashboardPage() {
               href="/panel/profesional/editar-articulo/new"
               className="text-sm inline-flex items-center rounded-xl border border-slate-200 px-3 py-1 hover:bg-slate-50"
             >
-              Crear artÃ­culo
+              Crear artículo
             </Link>
           </div>
         </div>
@@ -171,9 +171,9 @@ export default async function ProfesionalDashboardPage() {
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-slate-800">Mis artÃ­culos</h2>
+          <h2 className="text-lg font-semibold text-slate-800">Mis artículos</h2>
           <Link href="/panel/profesional/editar-articulo/new" className="text-sm inline-flex items-center rounded-xl border border-slate-200 px-4 py-2 hover:bg-slate-50">
-            Nuevo artÃ­culo
+            Nuevo artículo
           </Link>
         </div>
         <div className="divide-y divide-slate-100">
@@ -184,7 +184,7 @@ export default async function ProfesionalDashboardPage() {
               <div key={post.id} className="px-6 py-4 flex items-center justify-between gap-3">
                 <div>
                   <div className="font-medium text-slate-800">{post.title}</div>
-                  <div className="text-xs text-slate-500">{new Date(post.createdAt).toLocaleDateString("es-CR")} Â· {post.status === "PUBLISHED" ? "Publicado" : "Pendiente de aprobaciÃ³n"}</div>
+                  <div className="text-xs text-slate-500">{new Date(post.createdAt).toLocaleDateString("es-CR")} · {post.status === "PUBLISHED" ? "Publicado" : "Pendiente de aprobación"}</div>
                 </div>
                 <Link href={`/panel/profesional/editar-articulo/${post.id}`} className="text-sm text-blue-700 hover:underline">
                   Editar

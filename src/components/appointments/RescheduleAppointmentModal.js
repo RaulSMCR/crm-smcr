@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { getAppointmentRescheduleData, rescheduleAppointmentByPatient } from "@/actions/patient-booking-actions";
@@ -84,7 +84,7 @@ export default function RescheduleAppointmentModal({ appointment, onClose }) {
             onClick={onClose}
             className="text-xl font-bold leading-none text-slate-400 hover:text-slate-600"
           >
-            Ã—
+            ×
           </button>
         </div>
 
@@ -101,7 +101,7 @@ export default function RescheduleAppointmentModal({ appointment, onClose }) {
 
         {!loadingData && !dataError && days.length === 0 && (
           <div className="py-8 text-center text-sm text-slate-500">
-            No hay horarios disponibles en los prÃ³ximos 14 dÃ­as.
+            No hay horarios disponibles en los próximos 14 días.
           </div>
         )}
 

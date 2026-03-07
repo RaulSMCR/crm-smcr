@@ -1,4 +1,4 @@
-﻿// src/components/ContactForm.js
+// src/components/ContactForm.js
 "use client";
 
 import { useState } from "react";
@@ -23,7 +23,7 @@ export default function ContactForm() {
 
   return (
     <form onSubmit={handleSubmit} className="rounded-lg border bg-neutral-200 p-8 shadow-md">
-      <h2 className="mb-6 text-2xl font-bold text-brand-700">EnvÃ­anos un Mensaje</h2>
+      <h2 className="mb-6 text-2xl font-bold text-brand-700">Envíanos un Mensaje</h2>
 
       <div className="mb-4">
         <label htmlFor="name" className="mb-2 block font-medium text-brand-700">
@@ -79,8 +79,8 @@ export default function ContactForm() {
 
       <div className="mt-4 space-y-2 text-center text-xs text-brand-700">
         <p>
-          Se le contactarÃ¡ tan pronto haya un profesional disponible (1-2 horas en dÃ­as hÃ¡biles).
-          Fines de semana se responderÃ¡ al lunes siguiente.
+          Se le contactará tan pronto haya un profesional disponible (1-2 horas en días hábiles).
+          Fines de semana se responderá al lunes siguiente.
         </p>
         <p className="emergency-alert rounded-md border px-3 py-2 font-bold">
           Si se trata de una emergencia, por favor contacte al 911.

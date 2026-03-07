@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect, useTransition } from 'react';
 import { DayPicker } from 'react-day-picker';
@@ -21,9 +21,9 @@ export default function BookingWidget({ professionalId, onSlotSelect }) {
       return;
     }
 
-    // Resetear selecciÃ³n previa
+    // Resetear selección previa
     setSelectedSlot(null);
-    onSlotSelect(null); // Avisar al padre que se limpiÃ³ selecciÃ³n
+    onSlotSelect(null); // Avisar al padre que se limpió selección
 
     startTransition(async () => {
       setError(null);
@@ -96,7 +96,7 @@ export default function BookingWidget({ professionalId, onSlotSelect }) {
 
         {date && !isPending && slots.length === 0 && !error && (
           <div className="text-amber-600 bg-amber-50 p-4 rounded border border-amber-200">
-            No hay turnos disponibles para este dÃ­a.
+            No hay turnos disponibles para este día.
           </div>
         )}
 

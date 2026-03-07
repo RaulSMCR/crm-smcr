@@ -1,4 +1,4 @@
-//src/app/verificar-email/VerifyEmailClient.js
+﻿// src/app/verificar-email/VerifyEmailClient.js
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -10,17 +10,14 @@ export default function VerifyEmailClient() {
 
   const token = sp.get("token") || "";
 
-  const [status, setStatus] = useState("loading"); // loading | ok | error
+  const [status, setStatus] = useState("loading");
   const [message, setMessage] = useState("Verificando su correo para continuar con acceso seguro...");
 
   const [emailForResend, setEmailForResend] = useState("");
   const [resendPending, setResendPending] = useState(false);
-  const [resendMsg, setResendMsg] = useState(null); // {kind:"ok"|"error", text:string} | null
+  const [resendMsg, setResendMsg] = useState(null);
 
   const canVerify = useMemo(() => token.length > 0, [token]);
-
-  // âœ… Ya creamos /api/auth/resend-verification
-  const RESEND_ENABLED = true;
 
   useEffect(() => {
     let cancelled = false;
@@ -28,7 +25,7 @@ export default function VerifyEmailClient() {
     async function run() {
       if (!canVerify) {
         setStatus("error");
-        setMessage("Token faltante. Revise el enlace enviado por correo para continuar avanzando con seguridad.");
+        setMessage("Token faltante. Revise el enlace enviado por correo para continuar.");
         return;
       }
 
@@ -44,24 +41,20 @@ export default function VerifyEmailClient() {
 
         if (!res.ok || !data?.ok) {
           setStatus("error");
-          setMessage(
-            data?.error ||
-              "No fue posible verificar el correo. El enlace podría haber expirado."
-          );
+          setMessage(data?.error || "No fue posible verificar el correo. El enlace podría haber expirado.");
           return;
         }
 
         setStatus("ok");
-        setMessage("Correo verificado con éxito. Su proceso avanza correctamente y ya puede ingresar.");
+        setMessage("Correo verificado con éxito. Ya puede ingresar.");
 
-        // âœ… Ruta real de login en tu proyecto
         setTimeout(() => {
           if (!cancelled) router.push("/ingresar");
         }, 1200);
       } catch {
         if (cancelled) return;
         setStatus("error");
-        setMessage("Error de red. Por favor, intente nuevamente para seguir adelante con seguridad.");
+        setMessage("Error de red. Por favor, intente nuevamente.");
       }
     }
 
@@ -77,7 +70,7 @@ export default function VerifyEmailClient() {
 
     const email = String(emailForResend || "").trim().toLowerCase();
     if (!email) {
-      setResendMsg({ kind: "error", text: "Ingrese su correo para reenviar el enlace y continuar con la verificación segura." });
+      setResendMsg({ kind: "error", text: "Ingrese su correo para reenviar el enlace." });
       return;
     }
 
@@ -98,13 +91,10 @@ export default function VerifyEmailClient() {
 
       setResendMsg({
         kind: "ok",
-        text: "Si ese correo existe en el sistema, se enviará un nuevo enlace de verificación para continuar avanzando.",
+        text: "Si el correo existe en el sistema, se enviará un nuevo enlace de verificación.",
       });
     } catch (e) {
-      setResendMsg({
-        kind: "error",
-        text: e?.message || "No fue posible reenviar el enlace. Por favor, intente nuevamente.",
-      });
+      setResendMsg({ kind: "error", text: e?.message || "No fue posible reenviar el enlace." });
     } finally {
       setResendPending(false);
     }
@@ -112,17 +102,13 @@ export default function VerifyEmailClient() {
 
   return (
     <div className="w-full max-w-md rounded border bg-white p-6">
-      <h1 className="text-xl font-bold mb-2">ConfirmaciÃ³n de correo</h1>
+      <h1 className="text-xl font-bold mb-2">Confirmación de correo</h1>
 
-      <p className={status === "error" ? "text-red-600" : "text-gray-700"}>
-        {message}
-      </p>
+      <p className={status === "error" ? "text-red-600" : "text-gray-700"}>{message}</p>
 
-      {status === "error" && RESEND_ENABLED ? (
+      {status === "error" ? (
         <div className="mt-4 rounded border bg-neutral-50 p-3">
-          <div className="text-sm mb-2">
-            Si el enlace venció, puede solicitar uno nuevo y continuar avanzando con seguridad:
-          </div>
+          <div className="text-sm mb-2">Si el enlace venció, puede solicitar uno nuevo:</div>
 
           <input
             type="email"
@@ -139,7 +125,7 @@ export default function VerifyEmailClient() {
             disabled={resendPending}
             className="mt-3 w-full px-4 py-2 rounded bg-neutral-800 text-white hover:bg-neutral-900 disabled:opacity-70"
           >
-            {resendPending ? "Enviando enlace seguro..." : "Reenviar enlace y continuar"}
+            {resendPending ? "Enviando..." : "Reenviar enlace"}
           </button>
 
           {resendMsg ? (
@@ -159,6 +145,3 @@ export default function VerifyEmailClient() {
     </div>
   );
 }
-
-
-

@@ -65,7 +65,7 @@ export async function sendVerificationEmail(email, token) {
       );
     }
   } catch (error) {
-    console.error("Error enviando email de verificaciÃ³n:", error);
+    console.error("Error enviando email de verificación:", error);
     throw error;
   }
 }

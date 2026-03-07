@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { DEFAULT_TZ } from "@/lib/timezone";
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -94,7 +94,7 @@ export default function UserAppointmentsPanel({
     } else {
       setActionMessage(
         result?.error ||
-          "No fue posible iniciar el pago en este intento. Por favor, intÃ©ntelo nuevamente para continuar de forma segura."
+          "No fue posible iniciar el pago en este intento. Por favor, inténtelo nuevamente para continuar de forma segura."
       );
     }
   }

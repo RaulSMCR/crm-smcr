@@ -121,7 +121,7 @@ export default function RegistroProfesionalPage() {
         setLoading(false);
       } else {
         setSuccess(true);
-        setTimeout(() => router.push("/ingresar?role=professional"), 4000);
+        setTimeout(() => router.push("/ingresar?registered=professional"), 4000);
       }
 
     } catch (err) {
@@ -338,15 +338,15 @@ export default function RegistroProfesionalPage() {
                         ) : (
                             <>
                                 <div className="h-12 w-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-2xl mb-2 shadow-sm">cloud_upload</div>
-                                <p className="text-sm font-bold text-blue-900">Adjunte su Curriculum Vitae</p>
-                                <p className="text-xs text-blue-600 mt-1">Formato PDF (Máx. 5MB)</p>
+                                <p className="text-sm font-bold text-blue-900">Adjunte su Currículum Vitae (CV)</p>
+                                <p className="text-xs text-blue-600 mt-1">Seleccione un archivo PDF desde su dispositivo. Tamaño máximo: 5 MB.</p>
                             </>
                         )}
                         <input type="file" className="hidden" accept=".pdf" onChange={handleFileChange} />
                     </label>
                 </div>
                 <p className="text-[10px] text-slate-400 text-center">
-                   * Este documento es confidencial y se utiliza para validar credenciales de forma segura.
+                   * Este documento es obligatorio para validar credenciales profesionales. Solo se acepta PDF y se usa de forma confidencial para el proceso de revisión.
                 </p>
 
               </div>

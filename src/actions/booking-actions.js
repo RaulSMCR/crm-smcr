@@ -194,7 +194,7 @@ export async function requestAppointment(
       });
 
       if (!assignment || assignment.status !== "APPROVED") {
-        return { error: "El servicio seleccionado no estÃ¡ disponible para este profesional." };
+        return { error: "El servicio seleccionado no está disponible para este profesional." };
       }
 
       duration = assignment.service?.durationMin || 60;
@@ -216,7 +216,7 @@ export async function requestAppointment(
     const ends = buildOccurrenceEnds(starts, duration);
 
     if (starts.some((start) => start <= new Date())) {
-      return { error: "Uno de los horarios de la serie ya pasÃ³." };
+      return { error: "Uno de los horarios de la serie ya pasó." };
     }
 
     const conflictError = await findRecurringConflict({
@@ -258,7 +258,7 @@ export async function requestAppointment(
     );
 
     const hydratedAppointments = await hydrateAppointments(createdAppointments.map((item) => item.id));
-    await notifyAppointments(hydratedAppointments, "Se creÃ³ una nueva cita en estado pendiente.");
+    await notifyAppointments(hydratedAppointments, "Se creó una nueva cita en estado pendiente.");
 
     revalidatePath(`/agendar/${professionalId}`);
     revalidatePath('/panel/paciente');

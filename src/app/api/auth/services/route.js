@@ -1,4 +1,4 @@
-﻿// src/app/api/auth/services/route.js
+// src/app/api/auth/services/route.js
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -74,7 +74,7 @@ export async function GET(request) {
       return NextResponse.json(services);
     }
 
-    return NextResponse.json({ message: "AcciÃ³n no permitida" }, { status: 403 });
+    return NextResponse.json({ message: "Acción no permitida" }, { status: 403 });
   } catch (e) {
     console.error("GET /api/auth/services error:", e);
     return NextResponse.json({ message: "Error al obtener servicios" }, { status: 500 });

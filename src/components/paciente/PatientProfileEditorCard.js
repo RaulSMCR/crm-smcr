@@ -1,4 +1,4 @@
-﻿// src/components/paciente/PatientProfileEditorCard.js
+// src/components/paciente/PatientProfileEditorCard.js
 "use client";
 
 import { useState, useTransition } from "react";
@@ -38,7 +38,7 @@ export default function PatientProfileEditorCard({ user }) {
     startTransition(async () => {
       const res = await updatePatientProfile(fd);
       if (res?.error) setMsg({ type: "error", text: res.error });
-      else setMsg({ type: "ok", text: "âœ… Perfil actualizado." });
+      else setMsg({ type: "ok", text: "✅ Perfil actualizado." });
     });
   }
 
@@ -82,7 +82,7 @@ export default function PatientProfileEditorCard({ user }) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700">TelÃ©fono</label>
+          <label className="block text-sm font-medium text-slate-700">Teléfono</label>
           <input
             name="phone"
             value={form.phone}
@@ -93,7 +93,7 @@ export default function PatientProfileEditorCard({ user }) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700">IdentificaciÃ³n / CÃ©dula</label>
+          <label className="block text-sm font-medium text-slate-700">Identificación / Cédula</label>
           <input
             name="identification"
             value={form.identification}
@@ -115,14 +115,14 @@ export default function PatientProfileEditorCard({ user }) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700">GÃ©nero</label>
+          <label className="block text-sm font-medium text-slate-700">Género</label>
           <select
             name="gender"
             value={form.gender}
             onChange={onChange}
             className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
           >
-            <option value="">â€”</option>
+            <option value="">—</option>
             <option value="F">Femenino</option>
             <option value="M">Masculino</option>
             <option value="O">Otro</option>
