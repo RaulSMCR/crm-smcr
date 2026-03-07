@@ -1,4 +1,4 @@
-// src/app/registro/profesional/page.js
+﻿// src/app/registro/profesional/page.js
 "use client";
 
 import { useState, useMemo } from "react";
@@ -7,12 +7,18 @@ import { supabase } from "@/lib/supabase-client";
 import { registerProfessional } from "@/actions/auth-actions";
 import Link from "next/link";
 
+function isEmailFormatValid(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim().toLowerCase());
+}
+
+
 export default function RegistroProfesionalPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [loadingText, setLoadingText] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [success, setSuccess] = useState(false);
+  const [successMsg, setSuccessMsg] = useState("");
 
   // Estados del formulario
   const [form, setForm] = useState({
@@ -56,45 +62,74 @@ export default function RegistroProfesionalPage() {
     const selected = e.target.files[0];
     if (selected) {
       if (selected.type !== "application/pdf") {
-        setErrorMsg("⚠️ Solo se permiten archivos PDF.");
+        setErrorMsg("Solo se permite CV en formato PDF.");
         e.target.value = null;
         return;
       }
-      // Validación de tamaño (5MB)
-      if (selected.size > 5 * 1024 * 1024) { 
-        setErrorMsg("⚠️ El archivo es muy pesado (Máx 5MB).");
+      if (selected.size > 5 * 1024 * 1024) {
+        setErrorMsg("El archivo supera el tamaño permitido. Máximo 5 MB.");
         e.target.value = null;
         return;
       }
       setFile(selected);
-      setErrorMsg(""); 
+      setErrorMsg("");
     }
   }
-
-  // --- ENVÍO ---
+  // --- ENVÃO ---
   async function onSubmit(e) {
     e.preventDefault();
     setErrorMsg("");
     setTouched(true);
 
-    if (!isPasswordValid) return;
-    
+    if (!String(form.name || "").trim()) {
+      setErrorMsg("Falta el nombre completo para continuar con la postulación.");
+      return;
+    }
+
+    if (!String(form.email || "").trim()) {
+      setErrorMsg("Falta el correo electrónico para proteger y validar el acceso.");
+      return;
+    }
+
+    if (!isEmailFormatValid(form.email)) {
+      setErrorMsg("El correo electrónico no tiene un formato válido.");
+      return;
+    }
+
+    if (!String(form.phone || "").trim()) {
+      setErrorMsg("Falta el teléfono de contacto para coordinar el proceso de forma segura.");
+      return;
+    }
+
+    if (!String(form.specialty || "").trim()) {
+      setErrorMsg("Falta indicar la especialidad profesional.");
+      return;
+    }
+
+    if (!String(form.licenseNumber || "").trim()) {
+      setErrorMsg("Falta el número de licencia o matrícula profesional.");
+      return;
+    }
+
+    if (!isPasswordValid) {
+      setErrorMsg("No fue posible completar la seguridad de la cuenta. Revise los requisitos de contraseña.");
+      return;
+    }
+
     if (!file) {
-      setErrorMsg("Es obligatorio adjuntar el Curriculum Vitae (PDF) para validar credenciales y continuar con seguridad.");
+      setErrorMsg("Falta adjuntar el CV en PDF para validar credenciales profesionales.");
       return;
     }
 
     setLoading(true);
 
     try {
-      // 1. SUBIDA A SUPABASE (BUCKET 'CVS' EN MAYÚSCULA)
       setLoadingText("Subiendo documentación...");
-      
       const cvFile = file;
 
       const uploadData = new FormData();
       uploadData.append("file", cvFile);
-      uploadData.append("userId", crypto.randomUUID()); // ID temporal hasta que se cree el usuario
+      uploadData.append("userId", crypto.randomUUID());
 
       const res = await fetch("/api/upload/cv", {
         method: "POST",
@@ -102,17 +137,16 @@ export default function RegistroProfesionalPage() {
       });
 
       const result = await res.json();
-      if (!res.ok) throw new Error(result.error || "Error subiendo CV.");
+      if (!res.ok) throw new Error(result.error || "No fue posible subir el CV.");
       const cvUrl = result.url;
 
-      // 2. REGISTRO EN BACKEND
       setLoadingText("Creando perfil...");
 
       const formData = new FormData();
       Object.entries(form).forEach(([key, value]) => {
         formData.append(key, value);
       });
-      formData.append('cvUrl', cvUrl);
+      formData.append("cvUrl", cvUrl);
 
       const registerRes = await registerProfessional(formData);
 
@@ -120,6 +154,11 @@ export default function RegistroProfesionalPage() {
         setErrorMsg(registerRes.error);
         setLoading(false);
       } else {
+        setSuccessMsg(
+          registerRes?.warning ||
+            registerRes?.message ||
+            "Se recibió el perfil profesional y el CV. El proceso de revisión avanza para resguardar la calidad de atención. Se envió un correo de confirmación. Revise su bandeja de entrada para continuar."
+        );
         setSuccess(true);
         setTimeout(() => router.push("/ingresar?registered=professional"), 4000);
       }
@@ -130,17 +169,16 @@ export default function RegistroProfesionalPage() {
       setLoading(false);
     }
   }
-
-  // --- VISTA DE ÉXITO ---
+  // --- VISTA DE Ã‰XITO ---
   if (success) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
         <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-lg border border-green-100 text-center animate-fade-in">
           <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-6">
-            <span className="text-3xl">🎉</span>
+            <span className="text-3xl">ðŸŽ‰</span>
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Solicitud recibida con éxito</h2>
-          <p className="text-slate-600 mb-6 text-sm">Se recibió el perfil profesional y el CV. El proceso de revisión avanza para resguardar la calidad de atención. Se envió un correo de confirmación. Revise su bandeja de entrada para continuar.</p>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Solicitud recibida con Ã©xito</h2>
+          <p className="text-slate-600 mb-6 text-sm">{successMsg}</p>
           <Link href="/ingresar" className="block w-full py-3 px-4 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition font-medium">
             Ir al ingreso
           </Link>
@@ -156,7 +194,7 @@ export default function RegistroProfesionalPage() {
         {/* ENCABEZADO */}
         <div className="text-center mb-10">
           <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Registro profesional seguro</h2>
-          <p className="mt-2 text-sm text-slate-600">Este registro permite avanzar en el proceso de validación profesional y proteger la atención de cada paciente.</p>
+          <p className="mt-2 text-sm text-slate-600">Este registro permite avanzar en el proceso de validaciÃ³n profesional y proteger la atenciÃ³n de cada paciente.</p>
         </div>
 
         <div className="bg-white shadow-xl shadow-slate-200/60 rounded-2xl border border-slate-100 overflow-hidden">
@@ -164,7 +202,7 @@ export default function RegistroProfesionalPage() {
           {errorMsg && (
             <div className="bg-red-50 border-l-4 border-red-500 p-4 m-6 mb-0 rounded-r-md">
               <div className="flex">
-                <span className="text-red-500 mr-3 text-xl">⚠️</span>
+                <span className="text-red-500 mr-3 text-xl">âš ï¸</span>
                 <p className="text-sm text-red-700 font-medium self-center">{errorMsg}</p>
               </div>
             </div>
@@ -182,14 +220,14 @@ export default function RegistroProfesionalPage() {
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Nombre Completo</label>
                   <input
-                    name="name" type="text" required placeholder="Ej: Lic. Juan Pérez"
+                    name="name" type="text" required placeholder="Ej: Lic. Juan PÃ©rez"
                     className="w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5 px-3"
                     value={form.name} onChange={handleChange}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Correo Electrónico</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Correo ElectrÃ³nico</label>
                   <input
                     name="email" type="email" required placeholder="profesional@ejemplo.com"
                     className="w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5 px-3"
@@ -198,7 +236,7 @@ export default function RegistroProfesionalPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Teléfono Móvil</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">TelÃ©fono MÃ³vil</label>
                   <input
                     name="phone"
                     type="tel"
@@ -215,7 +253,7 @@ export default function RegistroProfesionalPage() {
                 {/* Password Fields */}
                 <div className="pt-2">
                     <div className="relative mb-4">
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Contraseña</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">ContraseÃ±a</label>
                         <div className="relative">
                             <input
                                 name="password"
@@ -235,7 +273,7 @@ export default function RegistroProfesionalPage() {
                     </div>
 
                     <div className="mb-4">
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Confirmar Contraseña</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Confirmar ContraseÃ±a</label>
                         <input
                             name="confirmPassword"
                             type="password"
@@ -251,8 +289,8 @@ export default function RegistroProfesionalPage() {
 
                     <div className="flex flex-wrap gap-2">
                         <Badge valid={passwordChecks.length} label="8+ Caracteres" />
-                        <Badge valid={passwordChecks.number} label="Número" />
-                        <Badge valid={passwordChecks.special} label="Símbolo" />
+                        <Badge valid={passwordChecks.number} label="NÃºmero" />
+                        <Badge valid={passwordChecks.special} label="SÃ­mbolo" />
                         <Badge valid={passwordChecks.match} label="Coinciden" />
                     </div>
                 </div>
@@ -271,14 +309,14 @@ export default function RegistroProfesionalPage() {
                             name="specialty" 
                             type="text" 
                             required 
-                            placeholder="Ej: Psicología Clínica"
+                            placeholder="Ej: PsicologÃ­a ClÃ­nica"
                             className="w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5 px-3"
                             value={form.specialty} 
                             onChange={handleChange}
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Nº Licencia / Matrícula</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">NÂº Licencia / MatrÃ­cula</label>
                         <input
                             name="licenseNumber" type="text" required
                             className="w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5 px-3"
@@ -288,7 +326,7 @@ export default function RegistroProfesionalPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Biografía Pública</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">BiografÃ­a PÃºblica</label>
                   <textarea
                     name="bio"
                     rows="3"
@@ -300,7 +338,7 @@ export default function RegistroProfesionalPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Carta de presentación (opcional)</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Carta de presentaciÃ³n (opcional)</label>
                   <textarea
                     name="coverLetter"
                     rows="3"
@@ -312,7 +350,7 @@ export default function RegistroProfesionalPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Video de introducción (URL, opcional)</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Video de introducciÃ³n (URL, opcional)</label>
                   <input
                     name="introVideoUrl"
                     type="url"
@@ -323,14 +361,14 @@ export default function RegistroProfesionalPage() {
                   />
                 </div>
 
-                {/* SECCIÓN UPLOAD */}
+                {/* SECCIÃ“N UPLOAD */}
                 <div className={`transition-all duration-200 border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center
                     ${file ? 'border-green-300 bg-green-50' : 'border-blue-200 bg-blue-50 hover:bg-blue-100 cursor-pointer'}`}>
                     
                     <label className="w-full h-full flex flex-col items-center cursor-pointer">
                         {file ? (
                             <>
-                                <div className="h-12 w-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-2xl mb-2 shadow-sm">📄</div>
+                                <div className="h-12 w-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-2xl mb-2 shadow-sm">ðŸ“„</div>
                                 <p className="text-sm font-bold text-green-800 break-all px-4">{file.name}</p>
                                 <p className="text-xs text-green-600 mt-1">{(file.size / 1024 / 1024).toFixed(2)} MB - Listo para subir</p>
                                 <span className="mt-3 text-xs text-green-700 underline cursor-pointer hover:text-green-900">Cambiar archivo</span>
@@ -338,15 +376,15 @@ export default function RegistroProfesionalPage() {
                         ) : (
                             <>
                                 <div className="h-12 w-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-2xl mb-2 shadow-sm">cloud_upload</div>
-                                <p className="text-sm font-bold text-blue-900">Adjunte su Currículum Vitae (CV)</p>
-                                <p className="text-xs text-blue-600 mt-1">Seleccione un archivo PDF desde su dispositivo. Tamaño máximo: 5 MB.</p>
+                                <p className="text-sm font-bold text-blue-900">Adjunte su CurrÃ­culum Vitae (CV)</p>
+                                <p className="text-xs text-blue-600 mt-1">Seleccione un archivo PDF desde su dispositivo. TamaÃ±o mÃ¡ximo: 5 MB.</p>
                             </>
                         )}
                         <input type="file" className="hidden" accept=".pdf" onChange={handleFileChange} />
                     </label>
                 </div>
                 <p className="text-[10px] text-slate-400 text-center">
-                   * Este documento es obligatorio para validar credenciales profesionales. Solo se acepta PDF y se usa de forma confidencial para el proceso de revisión.
+                   * Este documento es obligatorio para validar credenciales profesionales. Solo se acepta PDF y se usa de forma confidencial para el proceso de revisiÃ³n.
                 </p>
 
               </div>
@@ -387,7 +425,7 @@ export default function RegistroProfesionalPage() {
   );
 }
 
-// Subcomponente de validación visual
+// Subcomponente de validaciÃ³n visual
 function Badge({ valid, label }) {
     return (
         <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide transition-colors border ${
@@ -395,7 +433,7 @@ function Badge({ valid, label }) {
             ? 'bg-green-50 text-green-700 border-green-200' 
             : 'bg-slate-100 text-slate-400 border-slate-200'
         }`}>
-            {valid ? '✓' : '•'} {label}
+            {valid ? 'âœ“' : 'â€¢'} {label}
         </span>
     )
 }

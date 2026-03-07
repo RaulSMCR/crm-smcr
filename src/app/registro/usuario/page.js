@@ -1,10 +1,14 @@
-// src/app/registro/usuario/page.js
+﻿// src/app/registro/usuario/page.js
 "use client";
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { registerUser } from "@/actions/auth-actions";
 import Link from "next/link";
+
+function isEmailFormatValid(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim().toLowerCase());
+}
 
 export default function RegistroUsuarioPage() {
   const router = useRouter();
@@ -26,7 +30,7 @@ export default function RegistroUsuarioPage() {
     interests: "",
   });
 
-  // --- VALIDACIONES DE CONTRASEÑA ---
+  // --- VALIDACIONES DE CONTRASEÃ‘A ---
   const passwordChecks = useMemo(() => {
     const pwd = form.password || "";
     return {
@@ -50,13 +54,35 @@ export default function RegistroUsuarioPage() {
     setErrorMsg("");
     setTouched(true);
 
-    // ✅ Blindaje: Teléfono obligatorio también en front (server ya lo exige)
-    if (!String(form.phone || "").trim()) {
-      setErrorMsg("El teléfono de contacto es obligatorio para avanzar con seguridad en la coordinación de la atención.");
+    if (!String(form.name || "").trim()) {
+      setErrorMsg("Falta el nombre completo para crear la cuenta.");
       return;
     }
 
-    if (!isPasswordValid) return; // Validación visual ya muestra errores
+    if (!String(form.email || "").trim()) {
+      setErrorMsg("Falta el correo electrónico para proteger y validar el acceso.");
+      return;
+    }
+
+    if (!isEmailFormatValid(form.email)) {
+      setErrorMsg("El correo electrónico no tiene un formato válido.");
+      return;
+    }
+
+    if (!String(form.phone || "").trim()) {
+      setErrorMsg("Falta el teléfono de contacto para coordinar la atención de forma segura.");
+      return;
+    }
+
+    if (!String(form.identification || "").trim()) {
+      setErrorMsg("Falta la identificación para completar el registro seguro.");
+      return;
+    }
+
+    if (!isPasswordValid) {
+      setErrorMsg("No fue posible completar la seguridad de la cuenta. Revise los requisitos de contraseña.");
+      return;
+    }
 
     setLoading(true);
 
@@ -71,6 +97,9 @@ export default function RegistroUsuarioPage() {
       if (res?.error) {
         setErrorMsg(res.error);
         setLoading(false);
+      } else if (res?.warning) {
+        setErrorMsg(res.warning);
+        setLoading(false);
       } else {
         router.push("/ingresar?registered=true");
       }
@@ -80,7 +109,6 @@ export default function RegistroUsuarioPage() {
       setLoading(false);
     }
   }
-
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl w-full space-y-8">
@@ -90,7 +118,7 @@ export default function RegistroUsuarioPage() {
             Registro de paciente
           </h2>
           <p className="mt-2 text-sm text-slate-600">
-            Este registro permite avanzar con seguridad en la coordinación de citas y resguardar la continuidad del cuidado de cada paciente.</p>
+            Este registro permite avanzar con seguridad en la coordinaciÃ³n de citas y resguardar la continuidad del cuidado de cada paciente.</p>
         </div>
 
         {/* TARJETA PRINCIPAL */}
@@ -98,7 +126,7 @@ export default function RegistroUsuarioPage() {
           {errorMsg && (
             <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-md">
               <div className="flex">
-                <div className="flex-shrink-0">⚠️</div>
+                <div className="flex-shrink-0">âš ï¸</div>
                 <div className="ml-3">
                   <p className="text-sm text-red-700 font-medium">{errorMsg}</p>
                 </div>
@@ -107,10 +135,10 @@ export default function RegistroUsuarioPage() {
           )}
 
           <form className="space-y-6" onSubmit={onSubmit}>
-            {/* SECCIÓN 1: DATOS BÁSICOS */}
+            {/* SECCIÃ“N 1: DATOS BÃSICOS */}
             <div>
               <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">
-                Información Personal
+                InformaciÃ³n Personal
               </h3>
               <div className="grid grid-cols-1 gap-y-6 gap-x-6 sm:grid-cols-2">
                 <div className="sm:col-span-2">
@@ -130,7 +158,7 @@ export default function RegistroUsuarioPage() {
 
                 <div className="sm:col-span-2">
                   <label htmlFor="email" className="block text-sm font-medium text-slate-700">
-                    Correo Electrónico
+                    Correo ElectrÃ³nico
                   </label>
                   <input
                     id="email"
@@ -143,10 +171,10 @@ export default function RegistroUsuarioPage() {
                   />
                 </div>
 
-                {/* ✅ TELÉFONO OBLIGATORIO (nuevo) */}
+                {/* âœ… TELÃ‰FONO OBLIGATORIO (nuevo) */}
                 <div className="sm:col-span-2">
                   <label htmlFor="phone" className="block text-sm font-medium text-slate-700">
-                    Teléfono (obligatorio)
+                    TelÃ©fono (obligatorio)
                   </label>
                   <input
                     id="phone"
@@ -163,7 +191,7 @@ export default function RegistroUsuarioPage() {
 
                 <div>
                   <label htmlFor="identification" className="block text-sm font-medium text-slate-700">
-                    DNI / Cédula
+                    DNI / CÃ©dula
                   </label>
                   <input
                     name="identification"
@@ -191,7 +219,7 @@ export default function RegistroUsuarioPage() {
 
                 <div>
                   <label htmlFor="gender" className="block text-sm font-medium text-slate-700">
-                    Género
+                    GÃ©nero
                   </label>
                   <select
                     id="gender"
@@ -210,7 +238,7 @@ export default function RegistroUsuarioPage() {
 
                 <div className="sm:col-span-2">
                   <label htmlFor="interests" className="block text-sm font-medium text-slate-700">
-                    Intereses terapéuticos
+                    Intereses terapÃ©uticos
                   </label>
                   <textarea
                     id="interests"
@@ -225,14 +253,14 @@ export default function RegistroUsuarioPage() {
               </div>
             </div>
 
-            {/* SECCIÓN 2: SEGURIDAD */}
+            {/* SECCIÃ“N 2: SEGURIDAD */}
             <div className="pt-2">
               <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">
                 Seguridad
               </h3>
               <div className="grid grid-cols-1 gap-y-6 gap-x-6 sm:grid-cols-2">
                 <div className="relative">
-                  <label className="block text-sm font-medium text-slate-700">Contraseña</label>
+                  <label className="block text-sm font-medium text-slate-700">ContraseÃ±a</label>
                   <div className="relative mt-1">
                     <input
                       name="password"
@@ -269,13 +297,13 @@ export default function RegistroUsuarioPage() {
                 </div>
               </div>
 
-              {/* Checklist de Seguridad - Diseño Horizontal Compacto */}
+              {/* Checklist de Seguridad - DiseÃ±o Horizontal Compacto */}
               <div className="mt-4 bg-slate-50 rounded-lg p-3 border border-slate-200">
-                <p className="text-xs text-slate-500 mb-2 font-medium">Requisitos de contraseña para proteger la información del paciente y avanzar con acceso seguro:</p>
+                <p className="text-xs text-slate-500 mb-2 font-medium">Requisitos de contraseÃ±a para proteger la informaciÃ³n del paciente y avanzar con acceso seguro:</p>
                 <div className="flex flex-wrap gap-2">
                   <StatusBadge valid={passwordChecks.length} label="8+ caracteres" />
-                  <StatusBadge valid={passwordChecks.number} label="Número" />
-                  <StatusBadge valid={passwordChecks.special} label="Símbolo" />
+                  <StatusBadge valid={passwordChecks.number} label="NÃºmero" />
+                  <StatusBadge valid={passwordChecks.special} label="SÃ­mbolo" />
                   <StatusBadge valid={passwordChecks.match} label="Coinciden" />
                 </div>
               </div>
@@ -301,7 +329,7 @@ export default function RegistroUsuarioPage() {
             <p className="text-sm text-slate-600">
               Si ya dispone de una cuenta,{" "}
               <Link href="/ingresar" className="font-medium text-indigo-600 hover:text-indigo-500">
-                ingrese aquí</Link>
+                ingrese aquÃ­</Link>
             </p>
           </div>
         </div>
@@ -310,7 +338,7 @@ export default function RegistroUsuarioPage() {
   );
 }
 
-// Subcomponente Estético
+// Subcomponente EstÃ©tico
 function StatusBadge({ valid, label }) {
   return (
     <span

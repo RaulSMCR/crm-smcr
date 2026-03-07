@@ -1,4 +1,4 @@
-// src/actions/auth-actions.js
+﻿// src/actions/auth-actions.js
 "use server";
 
 import { prisma } from "@/lib/prisma";
@@ -40,6 +40,20 @@ function isIdentificationValid(value) {
   return compact.length >= 5 && compact.length <= 32;
 }
 
+function isEmailValid(value) {
+  const email = normalizeEmail(value);
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function getPasswordIssues(password, confirmPassword) {
+  const issues = [];
+  if (String(password || "").length < 8) issues.push("Debe incluir al menos 8 caracteres.");
+  if (!/\d/.test(String(password || ""))) issues.push("Debe incluir al menos un número.");
+  if (!/[!@#$%^&*(),.?\":{}|<>]/.test(String(password || ""))) issues.push("Debe incluir al menos un símbolo.");
+  if (String(password || "") !== String(confirmPassword || "")) issues.push("La confirmación no coincide.");
+  return issues;
+}
+
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -61,13 +75,13 @@ export async function login(formData) {
       include: { professionalProfile: true },
     });
 
-    if (!user || !user.passwordHash) return { error: "Credenciales inválidas." };
+    if (!user || !user.passwordHash) return { error: "Credenciales invÃ¡lidas." };
 
     const isValid = await bcrypt.compare(password, user.passwordHash);
-    if (!isValid) return { error: "Credenciales inválidas." };
+    if (!isValid) return { error: "Credenciales invÃ¡lidas." };
 
     if (!user.emailVerified) {
-      return { error: "Debe verificar el correo electrónico antes de continuar.", code: "EMAIL_NOT_VERIFIED" };
+      return { error: "Debe verificar el correo electrÃ³nico antes de continuar.", code: "EMAIL_NOT_VERIFIED" };
     }
 
     if (!user.isActive) {
@@ -75,11 +89,11 @@ export async function login(formData) {
     }
 
     if (user.role === "PROFESSIONAL") {
-      if (!user.professionalProfile) return { error: "El perfil profesional está incompleto. Por favor, contacte soporte." };
+      if (!user.professionalProfile) return { error: "El perfil profesional estÃ¡ incompleto. Por favor, contacte soporte." };
       if (!user.professionalProfile.isApproved) {
         return {
           error:
-            "Su postulación está en revisión. El coordinador del sitio le estará contactando para agendar una entrevista.",
+            "Su postulaciÃ³n estÃ¡ en revisiÃ³n. El coordinador del sitio le estarÃ¡ contactando para agendar una entrevista.",
           code: "PRO_NOT_APPROVED",
         };
       }
@@ -114,7 +128,7 @@ export async function login(formData) {
     return { success: true, role: user.role };
   } catch (error) {
     console.error("Login error:", error);
-    return { error: "Ocurrió un error inesperado." };
+    return { error: "OcurriÃ³ un error inesperado." };
   }
 }
 
@@ -136,16 +150,32 @@ export async function registerProfessional(formData) {
     ? String(formData.get("acquisitionChannel")).trim()
     : "Directo";
 
-  if (!name || !email || !password || !specialty) return { error: "Faltan campos obligatorios." };
-  if (!phone) return { error: "El teléfono es obligatorio." };
-  if (!isPhoneValid(phone)) return { error: "Teléfono inválido. Usa un número real (mínimo 8 dígitos)." };
-  if (identification && !isIdentificationValid(identification)) return { error: "Identificación inválida." };
-  if (password !== confirmPassword) return { error: "Las contraseñas no coinciden." };
-  if (password.length < 8) return { error: "La contraseña debe tener al menos 8 caracteres." };
+  if (!name) return { error: "Falta el nombre completo para continuar con el registro." };
+  if (!email) return { error: "Falta el correo electrónico para proteger y validar el acceso." };
+  if (!isEmailValid(email)) return { error: "El correo electrónico no tiene un formato válido." };
+  if (!phone) return { error: "Falta el teléfono de contacto para continuar con seguridad." };
+  if (!isPhoneValid(phone)) return { error: "El teléfono no es válido. Debe incluir al menos 8 dígitos." };
+  if (!specialty) return { error: "Falta indicar la especialidad profesional." };
+  if (!licenseNumber) return { error: "Falta el número de licencia o matrícula profesional." };
+  if (!cvUrl) return { error: "Falta adjuntar el CV en PDF para validar credenciales profesionales." };
+  if (identification && !isIdentificationValid(identification)) return { error: "La identificación ingresada no es válida." };
+  if (introVideoUrl) {
+    try {
+      new URL(introVideoUrl);
+    } catch {
+      return { error: "La URL del video de introducción no es válida." };
+    }
+  }
+  const professionalPasswordIssues = getPasswordIssues(password, confirmPassword);
+  if (professionalPasswordIssues.length > 0) {
+    return {
+      error: `No fue posible completar la seguridad de la cuenta. ${professionalPasswordIssues.join(" ")}`,
+    };
+  }
 
   try {
     const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) return { error: "El correo ya está registrado." };
+    if (existing) return { error: "El correo ya estÃ¡ registrado." };
 
     let slugBase = name.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-");
     let slug = slugBase || "profesional";
@@ -180,7 +210,7 @@ export async function registerProfessional(formData) {
           verifyTokenHash,
           verifyTokenExp: new Date(Date.now() + 24 * 60 * 60 * 1000),
           acquisitionChannel,
-          campaignName: "Captación Profesionales",
+          campaignName: "CaptaciÃ³n Profesionales",
         },
       });
 
@@ -230,18 +260,28 @@ export async function registerProfessional(formData) {
       console.error("Error handling CV move:", error);
     }
 
+    let verificationEmailSent = false;
     if (process.env.RESEND_API_KEY) {
       try {
         await sendVerificationEmail(email, verifyToken);
+        verificationEmailSent = true;
       } catch (error) {
         console.error("Error enviando email de verificacion a profesional:", error);
       }
     }
 
-    return { success: true };
+    if (!process.env.RESEND_API_KEY || !verificationEmailSent) {
+      return {
+        success: true,
+        warning:
+          "El perfil fue creado, pero no fue posible enviar el correo de verificación en este momento. Para proteger su acceso, solicite reenvío del enlace desde la pantalla de verificación.",
+      };
+    }
+
+    return { success: true, message: "Registro completado. Se envió un correo de verificación para continuar de forma segura." };
   } catch (error) {
     console.error("Error registro profesional:", error);
-    return { error: "Error al crear la cuenta. Inténtalo de nuevo." };
+    return { error: "Error al crear la cuenta. IntÃ©ntalo de nuevo." };
   }
 }
 
@@ -261,18 +301,24 @@ export async function registerUser(formData) {
     ? String(formData.get("acquisitionChannel")).trim()
     : "Directo";
 
-  if (!name || !email || !password) return { error: "Datos incompletos." };
-  if (!phone) return { error: "El teléfono es obligatorio." };
-  if (!isPhoneValid(phone)) return { error: "Teléfono inválido. Usa un número real (mínimo 8 dígitos)." };
-  if (!identification) return { error: "La identificación es obligatoria." };
-  if (!isIdentificationValid(identification)) return { error: "Identificación inválida." };
-  if (birthDateRaw && Number.isNaN(birthDate?.getTime?.())) return { error: "Fecha de nacimiento inválida." };
-  if (password !== confirmPassword) return { error: "Las contraseñas no coinciden." };
-  if (password.length < 8) return { error: "La contraseña debe tener al menos 8 caracteres." };
+  if (!name) return { error: "Falta el nombre completo para crear la cuenta." };
+  if (!email) return { error: "Falta el correo electrónico para proteger y validar el acceso." };
+  if (!isEmailValid(email)) return { error: "El correo electrónico no tiene un formato válido." };
+  if (!phone) return { error: "Falta el teléfono de contacto para coordinar la atención de forma segura." };
+  if (!isPhoneValid(phone)) return { error: "El teléfono no es válido. Debe incluir al menos 8 dígitos." };
+  if (!identification) return { error: "Falta la identificación para completar el registro seguro." };
+  if (!isIdentificationValid(identification)) return { error: "La identificación ingresada no es válida." };
+  if (birthDateRaw && Number.isNaN(birthDate?.getTime?.())) return { error: "La fecha de nacimiento no es válida." };
+  const userPasswordIssues = getPasswordIssues(password, confirmPassword);
+  if (userPasswordIssues.length > 0) {
+    return {
+      error: `No fue posible completar la seguridad de la cuenta. ${userPasswordIssues.join(" ")}`,
+    };
+  }
 
   try {
     const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) return { error: "El correo ya está registrado." };
+    if (existing) return { error: "El correo ya estÃ¡ registrado." };
 
     const hashedPassword = await bcrypt.hash(password, 12);
     const verifyToken = crypto.randomBytes(32).toString("hex");
@@ -297,27 +343,37 @@ export async function registerUser(formData) {
       },
     });
 
+    let verificationEmailSent = false;
     if (process.env.RESEND_API_KEY) {
       try {
         await sendVerificationEmail(email, verifyToken);
+        verificationEmailSent = true;
       } catch (error) {
         console.error("Error enviando email de verificacion a paciente:", error);
       }
     }
 
-    return { success: true };
+    if (!process.env.RESEND_API_KEY || !verificationEmailSent) {
+      return {
+        success: true,
+        warning:
+          "La cuenta fue creada, pero no fue posible enviar el correo de verificación en este momento. Para proteger su acceso, solicite reenvío del enlace desde la pantalla de verificación.",
+      };
+    }
+
+    return { success: true, message: "Registro completado. Se envió un correo de verificación para continuar de forma segura." };
   } catch (error) {
     if (error?.code === "P2002") {
-      return { error: "Ya existe un usuario con ese dato único. Revise correo/identificación." };
+      return { error: "Ya existe un usuario con ese dato Ãºnico. Revise correo/identificaciÃ³n." };
     }
     console.error("Error registro usuario:", error);
-    return { error: "Error al registrarse. Inténtalo de nuevo." };
+    return { error: "Error al registrarse. IntÃ©ntalo de nuevo." };
   }
 }
 
 export async function verifyEmail(token) {
   const rawToken = String(token || "");
-  if (!rawToken) return { error: "Token inválido." };
+  if (!rawToken) return { error: "Token invÃ¡lido." };
 
   const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
 
@@ -326,7 +382,7 @@ export async function verifyEmail(token) {
       where: { verifyTokenHash: tokenHash, verifyTokenExp: { gt: new Date() } },
     });
 
-    if (!user) return { error: "Token inválido o expirado." };
+    if (!user) return { error: "Token invÃ¡lido o expirado." };
 
     await prisma.user.update({
       where: { id: user.id },
@@ -344,11 +400,12 @@ export async function logout() {
   try {
     cookies().delete("session");
   } catch (error) {
-    console.error("Error al borrar cookie en logout (no crítico):", error);
+    console.error("Error al borrar cookie en logout (no crÃ­tico):", error);
   }
 
   revalidatePath("/", "layout");
   redirect("/ingresar");
 }
+
 
 
