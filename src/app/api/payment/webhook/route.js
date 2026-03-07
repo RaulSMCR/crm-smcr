@@ -4,6 +4,87 @@ import { prisma } from "@/lib/prisma";
 import { verifyWebhookSignature } from "@/lib/placetopay/webhook";
 import { resend } from "@/lib/resend";
 
+// ── Helpers de facturación automática ───────────────────────────────────────
+
+function buildAutoInvoiceNumber(sequence, now) {
+  const padded = String(sequence.currentNumber).padStart(sequence.padding || 4, "0");
+  return `${sequence.prefix || ""}${padded}`;
+}
+
+/**
+ * Crea y valida automáticamente una CUSTOMER_INVOICE al aprobarse un pago.
+ * Fire-and-forget: errores se logean pero no interrumpen la respuesta.
+ */
+async function createAutoInvoice(transaction, appointmentServiceTitle) {
+  try {
+    const amount = Number(transaction.amount);
+    if (!amount || amount <= 0) return;
+
+    const typeLabels = { DEPOSIT_50: "Depósito 50%", BALANCE_50: "Saldo 50%", FULL_100: "Pago completo" };
+    const lineLabel = `${typeLabels[transaction.type] || transaction.type} - ${appointmentServiceTitle || "Consulta"}`;
+    const now = new Date();
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Crear borrador
+      const invoice = await tx.invoice.create({
+        data: {
+          invoiceNumber: `AUTO-${Date.now()}`,
+          invoiceType: "CUSTOMER_INVOICE",
+          status: "DRAFT",
+          contactId: transaction.patientId,
+          appointmentId: transaction.appointmentId,
+          professionalId: transaction.professionalId,
+          invoiceDate: now,
+          dueDate: now,
+          subtotal: amount,
+          taxAmount: 0,
+          discountAmount: 0,
+          total: amount,
+          amountPaid: 0,
+          balance: amount,
+          currency: transaction.currency || "CRC",
+          notes: `PlacetoPay ref: ${transaction.p2pReference || transaction.p2pRequestId}`,
+          lines: {
+            create: {
+              productName: lineLabel,
+              quantity: 1,
+              unitPrice: amount,
+              discountPercent: 0,
+              taxRate: 0,
+              taxAmount: 0,
+              lineSubtotal: amount,
+              lineTotal: amount,
+              sortOrder: 0,
+            },
+          },
+        },
+      });
+
+      // 2. Incrementar secuencia atómicamente
+      const sequence = await tx.invoiceSequence.update({
+        where: { sequenceType: "CUSTOMER_INVOICE" },
+        data: { currentNumber: { increment: 1 }, year: now.getFullYear() },
+      });
+
+      // 3. Validar → PAID directo (el pago ya fue cobrado por PlacetoPay)
+      await tx.invoice.update({
+        where: { id: invoice.id },
+        data: {
+          invoiceNumber: buildAutoInvoiceNumber(sequence, now),
+          status: "PAID",
+          amountPaid: amount,
+          balance: 0,
+          paymentDate: now,
+        },
+      });
+    });
+
+    console.log(`[Payment webhook] Invoice auto-creada para transacción ${transaction.id}`);
+  } catch (err) {
+    console.error("[Payment webhook] Error en createAutoInvoice:", err);
+  }
+}
+
 export const dynamic = "force-dynamic";
 
 const SECRET_KEY = process.env.PLACETOPAY_SECRET_KEY;
@@ -66,6 +147,7 @@ export async function POST(request) {
           isFirstWithProfessional: true,
           paymentStatus: true,
           pricePaid: true,
+          service: { select: { title: true } },
         },
       },
       patient: { select: { name: true, email: true } },
@@ -120,15 +202,15 @@ export async function POST(request) {
       `[Payment webhook] Cita ${transaction.appointmentId} → paymentStatus: ${newPaymentStatus}`
     );
 
-    // ── 6. Enviar email de confirmación ──────────────────────────────────
-    await sendPaymentConfirmationEmail({
-      transaction,
-      p2pStatus,
-      isDeposit,
-    });
+    // ── 6. Generar factura automática + enviar email ───────────────────
+    await Promise.allSettled([
+      createAutoInvoice(transaction, transaction.appointment?.service?.title),
+      sendPaymentConfirmationEmail({ transaction, p2pStatus, isDeposit }),
+    ]);
   } else if (newStatus === "REJECTED" || newStatus === "EXPIRED") {
     await sendPaymentFailedEmail({ transaction });
   }
+
 
   return NextResponse.json({ ok: true }, { status: 200 });
 }

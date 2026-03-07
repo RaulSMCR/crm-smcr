@@ -8,6 +8,7 @@ import {
   sendRecurringConflictResolutionEmail,
   syncGoogleCalendarEvent,
 } from "@/lib/appointments";
+import { createBalancePaymentAuto } from "@/actions/payment-actions";
 import { scheduleReminder } from "@/lib/qstash";
 import { buildSlots } from "@/lib/appointment-slots";
 import {
@@ -681,6 +682,7 @@ export async function updateAppointmentStatus(appointmentId, newStatus) {
     await Promise.allSettled([
       syncGoogleCalendarEvent(updatedAppointment),
       sendAppointmentNotifications(updatedAppointment, `La cita cambió de estado a ${status}.`),
+      ...(status === "COMPLETED" ? [createBalancePaymentAuto(id)] : []),
     ]);
 
     revalidateAgendaPaths();

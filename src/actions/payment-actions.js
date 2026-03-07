@@ -270,7 +270,95 @@ export async function initiateBalancePayment(appointmentId, { ipAddress, userAge
 }
 
 // ─────────────────────────────────────────────
-// 3. Consultar transacciones de una cita (auditoría)
+// 3. Crear sesión de pago de saldo automáticamente (uso interno)
+// ─────────────────────────────────────────────
+
+/**
+ * Genera la sesión de pago de saldo cuando una cita es marcada COMPLETED.
+ * No verifica sesión de usuario — solo para uso interno desde server actions.
+ * Es idempotente: si ya existe transacción activa, no crea una nueva.
+ */
+export async function createBalancePaymentAuto(appointmentId) {
+  try {
+    const id = String(appointmentId);
+    const appointment = await prisma.appointment.findUnique({
+      where: { id },
+      include: {
+        service: { select: { title: true } },
+        professional: { select: { user: { select: { name: true } } } },
+      },
+    });
+
+    if (!appointment) return;
+    if (appointment.paymentStatus === "PAID") return;
+    if (!appointment.pricePaid || Number(appointment.pricePaid) <= 0) return;
+
+    const isFirst = appointment.isFirstWithProfessional;
+    const txType = isFirst ? "BALANCE_50" : "FULL_100";
+    const balanceAmount = isFirst
+      ? roundCRC(Number(appointment.pricePaid) * 0.5)
+      : roundCRC(Number(appointment.pricePaid));
+
+    // Idempotencia: no duplicar si ya existe transacción activa
+    const existing = await prisma.paymentTransaction.findFirst({
+      where: {
+        appointmentId: id,
+        type: txType,
+        status: { in: ["PENDING", "PROCESSING", "APPROVED"] },
+      },
+    });
+    if (existing) return;
+
+    const reference = buildReference(id, txType);
+    const proName = appointment.professional?.user?.name || "el profesional";
+    const serviceTitle = appointment.service?.title || "Consulta";
+    const desc = isFirst
+      ? `Saldo 50% - ${serviceTitle} con ${proName}`
+      : `Pago completo - ${serviceTitle} con ${proName}`;
+
+    const transaction = await prisma.paymentTransaction.create({
+      data: {
+        appointmentId: id,
+        professionalId: appointment.professionalId,
+        patientId: appointment.patientId,
+        type: txType,
+        amount: balanceAmount,
+        currency: "CRC",
+        p2pReference: reference,
+        status: "PENDING",
+      },
+    });
+
+    const p2pResult = await createSession({
+      reference,
+      description: desc,
+      amount: balanceAmount,
+      currency: "CRC",
+      returnUrl: `${APP_URL}/panel/paciente/pago/resultado?ref=${reference}`,
+      notifyUrl: `${APP_URL}/api/payment/webhook`,
+      ipAddress: "127.0.0.1",
+      userAgent: "Mozilla/5.0",
+    });
+
+    await prisma.paymentTransaction.update({
+      where: { id: transaction.id },
+      data: {
+        p2pRequestId: p2pResult.requestId,
+        p2pProcessUrl: p2pResult.processUrl,
+        status: "PROCESSING",
+      },
+    });
+
+    revalidatePath("/panel/paciente");
+    revalidatePath("/panel/admin/citas");
+  } catch (error) {
+    console.error("[payment] createBalancePaymentAuto error:", error);
+    // Fire-and-forget: no re-throw
+  }
+}
+
+// ─────────────────────────────────────────────
+// 4. Consultar transacciones de una cita (auditoría)
 // ─────────────────────────────────────────────
 
 /**

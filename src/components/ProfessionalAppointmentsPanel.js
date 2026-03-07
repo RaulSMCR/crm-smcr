@@ -140,12 +140,21 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
                     <span className="text-xs font-bold text-green-600">${Number(appointment.service?.price || 0)}</span>
                   </td>
                   <td className="px-6 py-4">
-                    {getStatusBadge(appointment.status)}
-                    {appointment.parentAppointmentId && (
-                      <span className="ml-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-500">
-                        ↩ Seguimiento
-                      </span>
-                    )}
+                    <div className="flex flex-wrap items-center gap-1">
+                      {getStatusBadge(appointment.status)}
+                      {appointment.paymentStatus === "PAID" && (
+                        <span className="rounded px-2 py-1 text-xs font-bold bg-emerald-100 text-emerald-700">Pagado</span>
+                      )}
+                      {appointment.paymentStatus === "PARTIALLY_PAID" && (
+                        <span className="rounded px-2 py-1 text-xs font-bold bg-amber-100 text-amber-700">Depósito</span>
+                      )}
+                      {appointment.paymentStatus === "UNPAID" && appointment.status === "COMPLETED" && (
+                        <span className="rounded px-2 py-1 text-xs font-bold bg-red-100 text-red-700">Sin pagar</span>
+                      )}
+                      {appointment.parentAppointmentId && (
+                        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-500">↩ Seguimiento</span>
+                      )}
+                    </div>
                   </td>
                   <td className="space-x-2 px-6 py-4 text-right">
                     {(appointment.status === 'PENDING' || appointment.status === 'CONFIRMED') && isFuture(new Date(appointment.date)) && (

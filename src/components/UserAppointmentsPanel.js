@@ -10,6 +10,7 @@ import {
   cancelAppointmentByPatient,
   confirmCurrentAppointmentByPatient,
 } from "@/actions/patient-booking-actions";
+import { initiateBalancePayment } from "@/actions/payment-actions";
 
 const formatDateInTZ = (date) =>
   new Intl.DateTimeFormat("es-CR", {
@@ -37,6 +38,7 @@ export default function UserAppointmentsPanel({
   const [reschedulingApt, setReschedulingApt] = useState(null);
   const [actionMessage, setActionMessage] = useState("");
   const [isApplyingAction, startActionTransition] = useTransition();
+  const [payingAptId, setPayingAptId] = useState(null);
   const router = useRouter();
   const handledIntentRef = useRef(false);
 
@@ -76,6 +78,23 @@ export default function UserAppointmentsPanel({
       });
     }
   }, [initialAction, initialActionAppointmentId, initialAppointments, router]);
+
+  async function handlePay(apt) {
+    // Si ya hay URL generada (auto-creada al completar), redirigir directo
+    const existingUrl = apt.paymentTransactions?.[0]?.p2pProcessUrl;
+    if (existingUrl) {
+      window.location.href = existingUrl;
+      return;
+    }
+    setPayingAptId(apt.id);
+    const result = await initiateBalancePayment(apt.id);
+    setPayingAptId(null);
+    if (result?.success && result.processUrl) {
+      window.location.href = result.processUrl;
+    } else {
+      setActionMessage(result?.error || "No se pudo iniciar el pago. Intenta nuevamente.");
+    }
+  }
 
   async function handleCancel(appointmentId, reason) {
     const result = await cancelAppointmentByPatient(appointmentId, reason);
@@ -206,6 +225,16 @@ export default function UserAppointmentsPanel({
                   <span className="text-sm font-medium text-gray-900">
                     ${Number(apt.service.price).toLocaleString("es-AR")}
                   </span>
+                )}
+
+                {apt.status === "COMPLETED" && apt.paymentStatus !== "PAID" && (
+                  <button
+                    onClick={() => handlePay(apt)}
+                    disabled={payingAptId === apt.id}
+                    className="mt-2 w-full rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
+                  >
+                    {payingAptId === apt.id ? "Procesando..." : "Pagar"}
+                  </button>
                 )}
 
                 {(apt.status === "PENDING" || apt.status === "CONFIRMED") &&

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { sendAppointmentNotifications, syncGoogleCalendarEvent } from "@/lib/appointments";
+import { createBalancePaymentAuto } from "@/actions/payment-actions";
 
 const ADMIN_ALLOWED_STATUSES = new Set([
   "PENDING",
@@ -105,6 +106,7 @@ export async function adminUpdateAppointmentStatus(appointmentId, nextStatus, ca
   await Promise.allSettled([
     syncGoogleCalendarEvent(appointment),
     sendAppointmentNotifications(appointment, `El administrador actualizó el estado a ${status}.`),
+    ...(status === "COMPLETED" ? [createBalancePaymentAuto(id)] : []),
   ]);
 
   revalidatePath("/panel/admin/citas");

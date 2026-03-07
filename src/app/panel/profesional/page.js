@@ -202,6 +202,9 @@ export default async function ProfesionalDashboardPage() {
         <Link href="/panel/profesional/integraciones" className="text-sm inline-flex items-center rounded-xl border border-slate-200 px-4 py-2 hover:bg-slate-50">
           Calendario e integraciones
         </Link>
+        <Link href="/panel/profesional/contabilidad" className="text-sm inline-flex items-center rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 font-medium text-blue-700 hover:bg-blue-100">
+          Contabilidad
+        </Link>
       </div>
     </div>
   );
