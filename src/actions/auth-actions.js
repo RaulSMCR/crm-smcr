@@ -75,13 +75,13 @@ export async function login(formData) {
       include: { professionalProfile: true },
     });
 
-    if (!user || !user.passwordHash) return { error: "Credenciales invÃ¡lidas." };
+    if (!user || !user.passwordHash) return { error: "Credenciales inválidas." };
 
     const isValid = await bcrypt.compare(password, user.passwordHash);
-    if (!isValid) return { error: "Credenciales invÃ¡lidas." };
+    if (!isValid) return { error: "Credenciales inválidas." };
 
     if (!user.emailVerified) {
-      return { error: "Debe verificar el correo electrÃ³nico antes de continuar.", code: "EMAIL_NOT_VERIFIED" };
+      return { error: "Debe verificar el correo electrónico antes de continuar.", code: "EMAIL_NOT_VERIFIED" };
     }
 
     if (!user.isActive) {
@@ -89,11 +89,11 @@ export async function login(formData) {
     }
 
     if (user.role === "PROFESSIONAL") {
-      if (!user.professionalProfile) return { error: "El perfil profesional estÃ¡ incompleto. Por favor, contacte soporte." };
+      if (!user.professionalProfile) return { error: "El perfil profesional está incompleto. Por favor, contacte soporte." };
       if (!user.professionalProfile.isApproved) {
         return {
           error:
-            "Su postulaciÃ³n estÃ¡ en revisiÃ³n. El coordinador del sitio le estarÃ¡ contactando para agendar una entrevista.",
+            "Su postulación está en revisión. El coordinador del sitio le estará contactando para agendar una entrevista.",
           code: "PRO_NOT_APPROVED",
         };
       }
@@ -128,7 +128,7 @@ export async function login(formData) {
     return { success: true, role: user.role };
   } catch (error) {
     console.error("Login error:", error);
-    return { error: "OcurriÃ³ un error inesperado." };
+    return { error: "Ocurrió un error inesperado." };
   }
 }
 
@@ -175,7 +175,7 @@ export async function registerProfessional(formData) {
 
   try {
     const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) return { error: "El correo ya estÃ¡ registrado." };
+    if (existing) return { error: "El correo ya está registrado." };
 
     let slugBase = name.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-");
     let slug = slugBase || "profesional";
@@ -210,7 +210,7 @@ export async function registerProfessional(formData) {
           verifyTokenHash,
           verifyTokenExp: new Date(Date.now() + 24 * 60 * 60 * 1000),
           acquisitionChannel,
-          campaignName: "CaptaciÃ³n Profesionales",
+          campaignName: "Captación Profesionales",
         },
       });
 
@@ -281,7 +281,7 @@ export async function registerProfessional(formData) {
     return { success: true, message: "Registro completado. Se envió un correo de verificación para continuar de forma segura." };
   } catch (error) {
     console.error("Error registro profesional:", error);
-    return { error: "Error al crear la cuenta. IntÃ©ntalo de nuevo." };
+    return { error: "Error al crear la cuenta. Inténtalo de nuevo." };
   }
 }
 
@@ -318,7 +318,7 @@ export async function registerUser(formData) {
 
   try {
     const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) return { error: "El correo ya estÃ¡ registrado." };
+    if (existing) return { error: "El correo ya está registrado." };
 
     const hashedPassword = await bcrypt.hash(password, 12);
     const verifyToken = crypto.randomBytes(32).toString("hex");
@@ -364,16 +364,16 @@ export async function registerUser(formData) {
     return { success: true, message: "Registro completado. Se envió un correo de verificación para continuar de forma segura." };
   } catch (error) {
     if (error?.code === "P2002") {
-      return { error: "Ya existe un usuario con ese dato Ãºnico. Revise correo/identificaciÃ³n." };
+      return { error: "Ya existe un usuario con ese dato único. Revise correo/identificación." };
     }
     console.error("Error registro usuario:", error);
-    return { error: "Error al registrarse. IntÃ©ntalo de nuevo." };
+    return { error: "Error al registrarse. Inténtalo de nuevo." };
   }
 }
 
 export async function verifyEmail(token) {
   const rawToken = String(token || "");
-  if (!rawToken) return { error: "Token invÃ¡lido." };
+  if (!rawToken) return { error: "Token inválido." };
 
   const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
 
@@ -382,7 +382,7 @@ export async function verifyEmail(token) {
       where: { verifyTokenHash: tokenHash, verifyTokenExp: { gt: new Date() } },
     });
 
-    if (!user) return { error: "Token invÃ¡lido o expirado." };
+    if (!user) return { error: "Token inválido o expirado." };
 
     await prisma.user.update({
       where: { id: user.id },
@@ -400,7 +400,7 @@ export async function logout() {
   try {
     cookies().delete("session");
   } catch (error) {
-    console.error("Error al borrar cookie en logout (no crÃ­tico):", error);
+    console.error("Error al borrar cookie en logout (no crítico):", error);
   }
 
   revalidatePath("/", "layout");

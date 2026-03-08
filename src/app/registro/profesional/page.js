@@ -1,9 +1,9 @@
-﻿// src/app/registro/profesional/page.js
+// src/app/registro/profesional/page.js
 "use client";
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase-client"; 
+import { supabase } from "@/lib/supabase-client";
 import { registerProfessional } from "@/actions/auth-actions";
 import Link from "next/link";
 
@@ -75,7 +75,7 @@ export default function RegistroProfesionalPage() {
       setErrorMsg("");
     }
   }
-  // --- ENVÃO ---
+  // --- ENVÍO ---
   async function onSubmit(e) {
     e.preventDefault();
     setErrorMsg("");
@@ -169,15 +169,15 @@ export default function RegistroProfesionalPage() {
       setLoading(false);
     }
   }
-  // --- VISTA DE Ã‰XITO ---
+  // --- VISTA DE ÉXITO ---
   if (success) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
         <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-lg border border-green-100 text-center animate-fade-in">
           <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-6">
-            <span className="text-3xl">ðŸŽ‰</span>
+            <span className="text-3xl">🎉</span>
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Solicitud recibida con Ã©xito</h2>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Solicitud recibida con éxito</h2>
           <p className="text-slate-600 mb-6 text-sm">{successMsg}</p>
           <Link href="/ingresar" className="block w-full py-3 px-4 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition font-medium">
             Ir al ingreso
@@ -190,19 +190,19 @@ export default function RegistroProfesionalPage() {
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto">
-        
+
         {/* ENCABEZADO */}
         <div className="text-center mb-10">
           <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Registro profesional seguro</h2>
-          <p className="mt-2 text-sm text-slate-600">Este registro permite avanzar en el proceso de validaciÃ³n profesional y proteger la atenciÃ³n de cada paciente.</p>
+          <p className="mt-2 text-sm text-slate-600">Este registro permite avanzar en el proceso de validación profesional y proteger la atención de cada paciente.</p>
         </div>
 
         <div className="bg-white shadow-xl shadow-slate-200/60 rounded-2xl border border-slate-100 overflow-hidden">
-          
+
           {errorMsg && (
             <div className="bg-red-50 border-l-4 border-red-500 p-4 m-6 mb-0 rounded-r-md">
               <div className="flex">
-                <span className="text-red-500 mr-3 text-xl">âš ï¸</span>
+                <span className="text-red-500 mr-3 text-xl">⚠️</span>
                 <p className="text-sm text-red-700 font-medium self-center">{errorMsg}</p>
               </div>
             </div>
@@ -210,7 +210,7 @@ export default function RegistroProfesionalPage() {
 
           <form onSubmit={onSubmit} className="p-6 sm:p-10">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-              
+
               {/* COLUMNA IZQUIERDA: DATOS DE CUENTA */}
               <div className="space-y-6">
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2 mb-4">
@@ -220,14 +220,14 @@ export default function RegistroProfesionalPage() {
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Nombre Completo</label>
                   <input
-                    name="name" type="text" required placeholder="Ej: Lic. Juan PÃ©rez"
+                    name="name" type="text" required placeholder="Ej: Lic. Juan Pérez"
                     className="w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5 px-3"
                     value={form.name} onChange={handleChange}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Correo ElectrÃ³nico</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Correo Electrónico</label>
                   <input
                     name="email" type="email" required placeholder="profesional@ejemplo.com"
                     className="w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5 px-3"
@@ -236,7 +236,7 @@ export default function RegistroProfesionalPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">TelÃ©fono MÃ³vil</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Teléfono Móvil</label>
                   <input
                     name="phone"
                     type="tel"
@@ -253,7 +253,7 @@ export default function RegistroProfesionalPage() {
                 {/* Password Fields */}
                 <div className="pt-2">
                     <div className="relative mb-4">
-                        <label className="block text-sm font-medium text-slate-700 mb-1">ContraseÃ±a</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Contraseña</label>
                         <div className="relative">
                             <input
                                 name="password"
@@ -273,14 +273,14 @@ export default function RegistroProfesionalPage() {
                     </div>
 
                     <div className="mb-4">
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Confirmar ContraseÃ±a</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Confirmar Contraseña</label>
                         <input
                             name="confirmPassword"
                             type="password"
                             required
                             className={`w-full rounded-lg shadow-sm py-2.5 px-3 transition-colors ${
-                                touched && !passwordChecks.match 
-                                ? 'border-red-300 bg-red-50 focus:border-red-500' 
+                                touched && !passwordChecks.match
+                                ? 'border-red-300 bg-red-50 focus:border-red-500'
                                 : 'border-slate-300 focus:border-blue-500'
                             }`}
                             value={form.confirmPassword} onChange={handleChange}
@@ -289,8 +289,8 @@ export default function RegistroProfesionalPage() {
 
                     <div className="flex flex-wrap gap-2">
                         <Badge valid={passwordChecks.length} label="8+ Caracteres" />
-                        <Badge valid={passwordChecks.number} label="NÃºmero" />
-                        <Badge valid={passwordChecks.special} label="SÃ­mbolo" />
+                        <Badge valid={passwordChecks.number} label="Número" />
+                        <Badge valid={passwordChecks.special} label="Símbolo" />
                         <Badge valid={passwordChecks.match} label="Coinciden" />
                     </div>
                 </div>
@@ -306,17 +306,17 @@ export default function RegistroProfesionalPage() {
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Especialidad</label>
                         <input
-                            name="specialty" 
-                            type="text" 
-                            required 
-                            placeholder="Ej: PsicologÃ­a ClÃ­nica"
+                            name="specialty"
+                            type="text"
+                            required
+                            placeholder="Ej: Psicología Clínica"
                             className="w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5 px-3"
-                            value={form.specialty} 
+                            value={form.specialty}
                             onChange={handleChange}
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">NÂº Licencia / MatrÃ­cula</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Nº Licencia / Matrícula</label>
                         <input
                             name="licenseNumber" type="text" required
                             className="w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5 px-3"
@@ -326,7 +326,7 @@ export default function RegistroProfesionalPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">BiografÃ­a PÃºblica</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Biografía Pública</label>
                   <textarea
                     name="bio"
                     rows="3"
@@ -338,7 +338,7 @@ export default function RegistroProfesionalPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Carta de presentaciÃ³n (opcional)</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Carta de presentación (opcional)</label>
                   <textarea
                     name="coverLetter"
                     rows="3"
@@ -350,7 +350,7 @@ export default function RegistroProfesionalPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Video de introducciÃ³n (URL, opcional)</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Video de introducción (URL, opcional)</label>
                   <input
                     name="introVideoUrl"
                     type="url"
@@ -361,14 +361,14 @@ export default function RegistroProfesionalPage() {
                   />
                 </div>
 
-                {/* SECCIÃ“N UPLOAD */}
+                {/* SECCIÓN UPLOAD */}
                 <div className={`transition-all duration-200 border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center
                     ${file ? 'border-green-300 bg-green-50' : 'border-blue-200 bg-blue-50 hover:bg-blue-100 cursor-pointer'}`}>
-                    
+
                     <label className="w-full h-full flex flex-col items-center cursor-pointer">
                         {file ? (
                             <>
-                                <div className="h-12 w-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-2xl mb-2 shadow-sm">ðŸ“„</div>
+                                <div className="h-12 w-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-2xl mb-2 shadow-sm">📄</div>
                                 <p className="text-sm font-bold text-green-800 break-all px-4">{file.name}</p>
                                 <p className="text-xs text-green-600 mt-1">{(file.size / 1024 / 1024).toFixed(2)} MB - Listo para subir</p>
                                 <span className="mt-3 text-xs text-green-700 underline cursor-pointer hover:text-green-900">Cambiar archivo</span>
@@ -376,15 +376,15 @@ export default function RegistroProfesionalPage() {
                         ) : (
                             <>
                                 <div className="h-12 w-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-2xl mb-2 shadow-sm">cloud_upload</div>
-                                <p className="text-sm font-bold text-blue-900">Adjunte su CurrÃ­culum Vitae (CV)</p>
-                                <p className="text-xs text-blue-600 mt-1">Seleccione un archivo PDF desde su dispositivo. TamaÃ±o mÃ¡ximo: 5 MB.</p>
+                                <p className="text-sm font-bold text-blue-900">Adjunte su Currículum Vitae (CV)</p>
+                                <p className="text-xs text-blue-600 mt-1">Seleccione un archivo PDF desde su dispositivo. Tamaño máximo: 5 MB.</p>
                             </>
                         )}
                         <input type="file" className="hidden" accept=".pdf" onChange={handleFileChange} />
                     </label>
                 </div>
                 <p className="text-[10px] text-slate-400 text-center">
-                   * Este documento es obligatorio para validar credenciales profesionales. Solo se acepta PDF y se usa de forma confidencial para el proceso de revisiÃ³n.
+                   * Este documento es obligatorio para validar credenciales profesionales. Solo se acepta PDF y se usa de forma confidencial para el proceso de revisión.
                 </p>
 
               </div>
@@ -397,7 +397,7 @@ export default function RegistroProfesionalPage() {
                 disabled={loading || !isPasswordValid || !file}
                 className={`w-full sm:w-1/2 flex justify-center py-3.5 px-4 border border-transparent rounded-lg shadow-md text-sm font-bold text-white transition-all
                   ${loading || !isPasswordValid || !file
-                    ? 'bg-slate-300 cursor-not-allowed text-slate-500 shadow-none' 
+                    ? 'bg-slate-300 cursor-not-allowed text-slate-500 shadow-none'
                     : 'bg-blue-900 hover:bg-blue-800 hover:shadow-lg hover:-translate-y-0.5'}`}
               >
                 {loading ? (
@@ -410,7 +410,7 @@ export default function RegistroProfesionalPage() {
                     </span>
                 ) : "Completar registro y continuar"}
               </button>
-              
+
               <div className="mt-6 text-center">
                 <p className="text-sm text-slate-500">
                     Si ya dispone de una cuenta, <Link href="/ingresar" className="font-semibold text-blue-900 hover:underline">ingrese</Link>
@@ -425,15 +425,15 @@ export default function RegistroProfesionalPage() {
   );
 }
 
-// Subcomponente de validaciÃ³n visual
+// Subcomponente de validación visual
 function Badge({ valid, label }) {
     return (
         <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide transition-colors border ${
-            valid 
-            ? 'bg-green-50 text-green-700 border-green-200' 
+            valid
+            ? 'bg-green-50 text-green-700 border-green-200'
             : 'bg-slate-100 text-slate-400 border-slate-200'
         }`}>
-            {valid ? 'âœ“' : 'â€¢'} {label}
+            {valid ? '✓' : '•'} {label}
         </span>
     )
 }

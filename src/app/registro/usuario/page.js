@@ -1,4 +1,4 @@
-﻿// src/app/registro/usuario/page.js
+// src/app/registro/usuario/page.js
 "use client";
 
 import { useState, useMemo } from "react";
@@ -16,6 +16,7 @@ export default function RegistroUsuarioPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [touched, setTouched] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Estados del formulario
   const [form, setForm] = useState({
@@ -30,7 +31,7 @@ export default function RegistroUsuarioPage() {
     interests: "",
   });
 
-  // --- VALIDACIONES DE CONTRASEÃ‘A ---
+  // --- VALIDACIONES DE CONTRASEÑA ---
   const passwordChecks = useMemo(() => {
     const pwd = form.password || "";
     return {
@@ -109,6 +110,7 @@ export default function RegistroUsuarioPage() {
       setLoading(false);
     }
   }
+
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl w-full space-y-8">
@@ -118,7 +120,7 @@ export default function RegistroUsuarioPage() {
             Registro de paciente
           </h2>
           <p className="mt-2 text-sm text-slate-600">
-            Este registro permite avanzar con seguridad en la coordinaciÃ³n de citas y resguardar la continuidad del cuidado de cada paciente.</p>
+            Este registro permite avanzar con seguridad en la coordinación de citas y resguardar la continuidad del cuidado de cada paciente.</p>
         </div>
 
         {/* TARJETA PRINCIPAL */}
@@ -126,7 +128,7 @@ export default function RegistroUsuarioPage() {
           {errorMsg && (
             <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-md">
               <div className="flex">
-                <div className="flex-shrink-0">âš ï¸</div>
+                <div className="flex-shrink-0">⚠️</div>
                 <div className="ml-3">
                   <p className="text-sm text-red-700 font-medium">{errorMsg}</p>
                 </div>
@@ -135,10 +137,10 @@ export default function RegistroUsuarioPage() {
           )}
 
           <form className="space-y-6" onSubmit={onSubmit}>
-            {/* SECCIÃ“N 1: DATOS BÃSICOS */}
+            {/* SECCIÓN 1: DATOS BÁSICOS */}
             <div>
               <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">
-                InformaciÃ³n Personal
+                Información Personal
               </h3>
               <div className="grid grid-cols-1 gap-y-6 gap-x-6 sm:grid-cols-2">
                 <div className="sm:col-span-2">
@@ -158,7 +160,7 @@ export default function RegistroUsuarioPage() {
 
                 <div className="sm:col-span-2">
                   <label htmlFor="email" className="block text-sm font-medium text-slate-700">
-                    Correo ElectrÃ³nico
+                    Correo Electrónico
                   </label>
                   <input
                     id="email"
@@ -171,10 +173,10 @@ export default function RegistroUsuarioPage() {
                   />
                 </div>
 
-                {/* âœ… TELÃ‰FONO OBLIGATORIO (nuevo) */}
+                {/* ✅ TELÉFONO OBLIGATORIO */}
                 <div className="sm:col-span-2">
                   <label htmlFor="phone" className="block text-sm font-medium text-slate-700">
-                    TelÃ©fono (obligatorio)
+                    Teléfono (obligatorio)
                   </label>
                   <input
                     id="phone"
@@ -191,7 +193,7 @@ export default function RegistroUsuarioPage() {
 
                 <div>
                   <label htmlFor="identification" className="block text-sm font-medium text-slate-700">
-                    DNI / CÃ©dula
+                    DNI / Cédula
                   </label>
                   <input
                     name="identification"
@@ -219,7 +221,7 @@ export default function RegistroUsuarioPage() {
 
                 <div>
                   <label htmlFor="gender" className="block text-sm font-medium text-slate-700">
-                    GÃ©nero
+                    Género
                   </label>
                   <select
                     id="gender"
@@ -238,7 +240,7 @@ export default function RegistroUsuarioPage() {
 
                 <div className="sm:col-span-2">
                   <label htmlFor="interests" className="block text-sm font-medium text-slate-700">
-                    Intereses terapÃ©uticos
+                    Intereses terapéuticos
                   </label>
                   <textarea
                     id="interests"
@@ -253,20 +255,20 @@ export default function RegistroUsuarioPage() {
               </div>
             </div>
 
-            {/* SECCIÃ“N 2: SEGURIDAD */}
+            {/* SECCIÓN 2: SEGURIDAD */}
             <div className="pt-2">
               <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">
                 Seguridad
               </h3>
               <div className="grid grid-cols-1 gap-y-6 gap-x-6 sm:grid-cols-2">
                 <div className="relative">
-                  <label className="block text-sm font-medium text-slate-700">ContraseÃ±a</label>
+                  <label className="block text-sm font-medium text-slate-700">Contraseña</label>
                   <div className="relative mt-1">
                     <input
                       name="password"
                       type={showPassword ? "text" : "password"}
                       required
-                      className="block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5 px-3 pr-10"
+                      className="block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5 px-3 pr-16"
                       value={form.password}
                       onChange={handleChange}
                     />
@@ -282,28 +284,37 @@ export default function RegistroUsuarioPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700">Confirmar</label>
-                  <input
-                    name="confirmPassword"
-                    type="password"
-                    required
-                    className={`mt-1 block w-full rounded-lg shadow-sm focus:ring-indigo-500 sm:text-sm py-2.5 px-3 transition-colors ${
-                      touched && !passwordChecks.match
-                        ? "border-red-300 focus:border-red-500 bg-red-50"
-                        : "border-slate-300 focus:border-indigo-500"
-                    }`}
-                    value={form.confirmPassword}
-                    onChange={handleChange}
-                  />
+                  <div className="relative mt-1">
+                    <input
+                      name="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      required
+                      className={`block w-full rounded-lg shadow-sm focus:ring-indigo-500 sm:text-sm py-2.5 px-3 pr-16 transition-colors ${
+                        touched && !passwordChecks.match
+                          ? "border-red-300 focus:border-red-500 bg-red-50"
+                          : "border-slate-300 focus:border-indigo-500"
+                      }`}
+                      value={form.confirmPassword}
+                      onChange={handleChange}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      <span className="text-xs font-semibold">{showConfirmPassword ? "OCULTAR" : "VER"}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* Checklist de Seguridad - DiseÃ±o Horizontal Compacto */}
+              {/* Checklist de Seguridad - Diseño Horizontal Compacto */}
               <div className="mt-4 bg-slate-50 rounded-lg p-3 border border-slate-200">
-                <p className="text-xs text-slate-500 mb-2 font-medium">Requisitos de contraseÃ±a para proteger la informaciÃ³n del paciente y avanzar con acceso seguro:</p>
+                <p className="text-xs text-slate-500 mb-2 font-medium">Requisitos de contraseña para proteger la información del paciente y avanzar con acceso seguro:</p>
                 <div className="flex flex-wrap gap-2">
                   <StatusBadge valid={passwordChecks.length} label="8+ caracteres" />
-                  <StatusBadge valid={passwordChecks.number} label="NÃºmero" />
-                  <StatusBadge valid={passwordChecks.special} label="SÃ­mbolo" />
+                  <StatusBadge valid={passwordChecks.number} label="Número" />
+                  <StatusBadge valid={passwordChecks.special} label="Símbolo" />
                   <StatusBadge valid={passwordChecks.match} label="Coinciden" />
                 </div>
               </div>
@@ -329,7 +340,7 @@ export default function RegistroUsuarioPage() {
             <p className="text-sm text-slate-600">
               Si ya dispone de una cuenta,{" "}
               <Link href="/ingresar" className="font-medium text-indigo-600 hover:text-indigo-500">
-                ingrese aquÃ­</Link>
+                ingrese aquí</Link>
             </p>
           </div>
         </div>
@@ -338,7 +349,7 @@ export default function RegistroUsuarioPage() {
   );
 }
 
-// Subcomponente EstÃ©tico
+// Subcomponente Estético
 function StatusBadge({ valid, label }) {
   return (
     <span
@@ -351,8 +362,3 @@ function StatusBadge({ valid, label }) {
     </span>
   );
 }
-
-
-
-
-
