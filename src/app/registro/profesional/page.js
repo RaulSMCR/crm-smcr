@@ -3,7 +3,6 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase-client";
 import { registerProfessional } from "@/actions/auth-actions";
 import Link from "next/link";
 
