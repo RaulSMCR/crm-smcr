@@ -164,6 +164,55 @@ export async function sendRecurringConflictResolutionEmail({
   }
 }
 
+export async function sendPaymentRequestEmail({
+  patientName,
+  patientEmail,
+  processUrl,
+  amount,
+  serviceTitle,
+  proName,
+  isFirst,
+}) {
+  if (!patientEmail) return;
+  if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY === "re_dummy_key") {
+    console.warn("[Resend] RESEND_API_KEY no configurada, omitiendo email de solicitud de pago.");
+    return;
+  }
+
+  const amountFormatted = new Intl.NumberFormat("es-CR", { style: "currency", currency: "CRC", maximumFractionDigits: 0 }).format(amount);
+  const subject = isFirst ? "Pago de saldo pendiente — su sesión fue completada" : "Pago pendiente — su sesión fue completada";
+  const intro = isFirst
+    ? `Su sesión de <strong>${serviceTitle}</strong> con <strong>${proName}</strong> ha sido completada. Queda pendiente el pago del saldo (50% restante) por un monto de <strong>${amountFormatted}</strong>.`
+    : `Su sesión de <strong>${serviceTitle}</strong> con <strong>${proName}</strong> ha sido completada. El monto a pagar es de <strong>${amountFormatted}</strong>.`;
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;line-height:1.5;color:#1f2937;">
+      <h2 style="margin-bottom:6px;">Solicitud de pago</h2>
+      <p>Estimado/a ${patientName || ""},</p>
+      <p>${intro}</p>
+      <p style="margin:20px 0;">
+        ${buildPrimaryButton("Realizar pago ahora", processUrl)}
+      </p>
+      <p style="font-size:12px;color:#6b7280;">
+        El enlace de pago es seguro y está disponible por tiempo limitado. Si tiene alguna consulta, contáctenos directamente.
+      </p>
+    </div>
+  `;
+
+  try {
+    const result = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: patientEmail,
+      subject,
+      html,
+    });
+    if (result.error) console.error("[Resend] Error enviando email de solicitud de pago:", result.error);
+    else console.log("[Resend] Email de pago enviado a:", patientEmail, "id:", result.data?.id);
+  } catch (error) {
+    console.error("[Resend] Error enviando email de solicitud de pago:", error);
+  }
+}
+
 function buildGoogleEvent(appointment) {
   const title = `${appointment.service?.title || "Consulta"} - ${appointment.patient?.name || "Paciente"}`;
   const description = [

@@ -6,6 +6,7 @@ import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { createSession } from "@/lib/placetopay/client";
 import { v4 as uuidv4 } from "uuid";
+import { sendPaymentRequestEmail } from "@/lib/appointments";
 
 const APP_URL = process.env.APP_URL || "http://localhost:3000";
 
@@ -285,6 +286,7 @@ export async function createBalancePaymentAuto(appointmentId) {
       where: { id },
       include: {
         service: { select: { title: true } },
+        patient: { select: { name: true, email: true } },
         professional: { select: { user: { select: { name: true } } } },
       },
     });
@@ -348,6 +350,17 @@ export async function createBalancePaymentAuto(appointmentId) {
         status: "PROCESSING",
       },
     });
+
+    // Enviar email al paciente con el link de pago (fire-and-forget)
+    sendPaymentRequestEmail({
+      patientName: appointment.patient?.name,
+      patientEmail: appointment.patient?.email,
+      processUrl: p2pResult.processUrl,
+      amount: balanceAmount,
+      serviceTitle: appointment.service?.title || "Consulta",
+      proName: appointment.professional?.user?.name || "el profesional",
+      isFirst: appointment.isFirstWithProfessional,
+    }).catch((err) => console.error("[payment] Error enviando email de pago:", err));
 
     revalidatePath("/panel/paciente");
     revalidatePath("/panel/admin/citas");

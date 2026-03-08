@@ -54,7 +54,11 @@ async function findRecurringConflict({ professionalId, starts, ends }) {
     );
 
     if (hasConflict) {
-      return `Hay un conflicto en ${formatConflictDate(start)}. Ajuste la recurrencia e intente nuevamente.`;
+      return {
+        label: `Hay un conflicto en ${formatConflictDate(start)}.`,
+        dateString: format(start, "yyyy-MM-dd"),
+        occurrenceIndex: index,
+      };
     }
   }
 
@@ -226,7 +230,14 @@ export async function requestAppointment(
     });
 
     if (conflictError) {
-      return { error: conflictError };
+      return {
+        error: `${conflictError.label} Seleccione un horario alternativo para esa sesión.`,
+        conflictInfo: {
+          dateString: conflictError.dateString,
+          occurrenceIndex: conflictError.occurrenceIndex,
+          label: conflictError.label,
+        },
+      };
     }
 
     // Determinar si es la primera cita de este paciente con este profesional

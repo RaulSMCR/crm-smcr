@@ -24,6 +24,12 @@ export default function BookingInterface({ professionalId, servicePrice, service
   const [recurrenceRule, setRecurrenceRule] = useState(RECURRENCE_RULES.NONE);
   const [recurrenceCount, setRecurrenceCount] = useState(4);
 
+  // Estado de conflicto en recurrencia
+  const [conflict, setConflict] = useState(null); // { dateString, label, occurrenceIndex }
+  const [conflictSlots, setConflictSlots] = useState([]);
+  const [loadingConflictSlots, setLoadingConflictSlots] = useState(false);
+  const [altSlot, setAltSlot] = useState(null);
+
   useEffect(() => {
     const fetchSlots = async () => {
       setLoading(true);
@@ -41,33 +47,70 @@ export default function BookingInterface({ professionalId, servicePrice, service
     if (selectedDate) fetchSlots();
   }, [selectedDate, professionalId]);
 
-  const handleBooking = async () => {
-    if (!selectedSlot) return;
+  // Cuando se detecta conflicto, carga slots para esa fecha
+  useEffect(() => {
+    if (!conflict) return;
+
+    const fetchConflictSlots = async () => {
+      setLoadingConflictSlots(true);
+      setAltSlot(null);
+      const result = await getAvailableSlots(professionalId, conflict.dateString);
+      setConflictSlots(result.success ? result.slots : []);
+      setLoadingConflictSlots(false);
+    };
+
+    fetchConflictSlots();
+  }, [conflict, professionalId]);
+
+  async function submitBooking(timeOverride) {
     setIsBooking(true);
 
     const result = await requestAppointment(
       professionalId,
       selectedDate,
-      selectedSlot,
+      timeOverride || selectedSlot,
       serviceId,
       recurrenceRule,
       recurrenceCount
     );
 
     if (result.success) {
+      setConflict(null);
       router.push(`/panel/paciente?new_appointment=true&series=${result.createdCount || 1}`);
     } else if (result.errorCode === 'UNAUTHENTICATED') {
       const callbackUrl = encodeURIComponent(`/agendar/${professionalId}`);
       router.push(`/ingresar?callbackUrl=${callbackUrl}`);
+    } else if (result.conflictInfo) {
+      setConflict(result.conflictInfo);
     } else {
       alert(`Error: ${result.error}`);
-      if (result.error && result.error.includes('ocup')) {
-        setSelectedSlot(null);
-      }
+      if (result.error && result.error.includes('ocup')) setSelectedSlot(null);
     }
 
     setIsBooking(false);
-  };
+  }
+
+  function handleBooking() {
+    if (!selectedSlot) return;
+    submitBooking(null);
+  }
+
+  function handleConflictRetry() {
+    if (!altSlot) return;
+    setConflict(null);
+    setConflictSlots([]);
+    submitBooking(altSlot);
+  }
+
+  function handleDismissConflict() {
+    setConflict(null);
+    setConflictSlots([]);
+    setAltSlot(null);
+  }
+
+  const conflictDateLabel = conflict
+    ? format(new Date(`${conflict.dateString}T00:00:00`), "EEEE d 'de' MMMM", { locale: es })
+    : '';
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg">
@@ -84,14 +127,85 @@ export default function BookingInterface({ professionalId, servicePrice, service
         </div>
       </div>
 
+      {/* Panel de resolución de conflicto */}
+      {conflict && (
+        <div className="border-b border-amber-200 bg-amber-50 p-5">
+          <div className="mb-3 flex items-start gap-3">
+            <span className="mt-0.5 text-xl">⚠️</span>
+            <div>
+              <p className="font-semibold text-amber-900">Conflicto de horario detectado</p>
+              <p className="mt-1 text-sm text-amber-800">
+                {conflict.label} Seleccione un horario alternativo para la sesión del{' '}
+                <strong className="capitalize">{conflictDateLabel}</strong>:
+              </p>
+            </div>
+          </div>
+
+          {loadingConflictSlots ? (
+            <div className="flex items-center gap-2 py-4 text-sm text-amber-700">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-amber-600 border-t-transparent"></span>
+              Buscando horarios disponibles...
+            </div>
+          ) : conflictSlots.length > 0 ? (
+            <>
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                {conflictSlots.map((time) => (
+                  <button
+                    key={time}
+                    onClick={() => setAltSlot(time)}
+                    className={`rounded-lg border px-1 py-2 text-sm font-medium transition-all ${
+                      altSlot === time
+                        ? 'scale-105 border-amber-600 bg-amber-600 text-white shadow-md'
+                        : 'border-amber-300 bg-white text-amber-800 hover:border-amber-500 hover:bg-amber-100'
+                    }`}
+                  >
+                    {time}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-4 flex gap-3">
+                <button
+                  onClick={handleConflictRetry}
+                  disabled={!altSlot || isBooking}
+                  className="flex-1 rounded-lg bg-amber-600 py-2.5 text-sm font-bold text-white transition-all hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isBooking ? 'Procesando...' : altSlot ? `Confirmar ${altSlot} para esa sesión` : 'Seleccione un horario'}
+                </button>
+                <button
+                  onClick={handleDismissConflict}
+                  className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="rounded-lg border border-dashed border-amber-300 bg-white py-5 text-center">
+              <p className="text-sm text-amber-700">No hay horarios disponibles ese día.</p>
+              <p className="mt-1 text-xs text-amber-600">Elija una fecha de inicio diferente.</p>
+              <button
+                onClick={handleDismissConflict}
+                className="mt-3 text-sm font-medium text-amber-800 underline"
+              >
+                Volver al formulario
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="space-y-6 p-6">
         <div>
-          <label className="mb-2 block text-sm font-medium text-gray-700">1. Seleccione el dia</label>
+          <label className="mb-2 block text-sm font-medium text-gray-700">1. Seleccione el día</label>
           <input
             type="date"
             value={selectedDate}
             min={new Date().toISOString().split('T')[0]}
-            onChange={(event) => setSelectedDate(event.target.value)}
+            onChange={(event) => {
+              setSelectedDate(event.target.value);
+              setConflict(null);
+            }}
             className="w-full rounded-lg border border-gray-300 p-3 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
           />
           <p className="mt-2 text-xs capitalize text-gray-500">
@@ -102,7 +216,7 @@ export default function BookingInterface({ professionalId, servicePrice, service
         <div>
           <label className="mb-2 block text-sm font-medium text-gray-700">2. Horarios disponibles</label>
           <p className="mb-3 text-xs text-gray-500">
-            Todos los horarios están expresados en hora de Costa Rica; si estás en otro huso horario, tenlo en cuenta.
+            Todos los horarios están expresados en hora de Costa Rica; si está en otro huso horario, téngalo en cuenta.
           </p>
 
           {loading ? (
@@ -129,7 +243,7 @@ export default function BookingInterface({ professionalId, servicePrice, service
           ) : (
             <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 py-8 text-center">
               <p className="text-sm text-gray-500">No hay horarios disponibles.</p>
-              <p className="mt-1 text-xs text-gray-400">Prueba seleccionando otro día.</p>
+              <p className="mt-1 text-xs text-gray-400">Pruebe seleccionando otro día.</p>
             </div>
           )}
         </div>
@@ -147,7 +261,7 @@ export default function BookingInterface({ professionalId, servicePrice, service
 
         <div className="border-t border-gray-100 pt-4">
           <button
-            disabled={!selectedSlot || isBooking}
+            disabled={!selectedSlot || isBooking || !!conflict}
             onClick={handleBooking}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 py-4 text-lg font-bold text-white shadow-lg transition-all hover:bg-green-700 hover:shadow-green-900/20 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -163,7 +277,7 @@ export default function BookingInterface({ professionalId, servicePrice, service
             )}
           </button>
 
-          {selectedSlot && (
+          {selectedSlot && !conflict && (
             <p className="mt-3 text-center text-xs text-gray-500">
               La cita quedará pendiente de confirmación por el profesional.
             </p>
@@ -173,4 +287,3 @@ export default function BookingInterface({ professionalId, servicePrice, service
     </div>
   );
 }
-
