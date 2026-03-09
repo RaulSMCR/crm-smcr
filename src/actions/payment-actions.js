@@ -319,7 +319,7 @@ export async function createBalancePaymentAuto(appointmentId) {
       ? roundCRC(Number(appointment.pricePaid) * 0.5)
       : roundCRC(Number(appointment.pricePaid));
 
-    // Idempotencia: no duplicar si ya existe transacción activa
+    // Idempotencia: si ya existe transacción activa con URL, no duplicar
     const existing = await prisma.paymentTransaction.findFirst({
       where: {
         appointmentId: id,
@@ -328,8 +328,24 @@ export async function createBalancePaymentAuto(appointmentId) {
       },
     });
     if (existing) {
-      console.log(`[payment] createBalancePaymentAuto: cita ${id} ya tiene transacción activa (${existing.id}), omitiendo.`);
-      return null;
+      if (existing.status === "APPROVED") {
+        console.log(`[payment] createBalancePaymentAuto: cita ${id} ya APPROVED.`);
+        return null;
+      }
+      if (existing.p2pProcessUrl) {
+        // Ya tiene URL válida — devolver para que el caller pueda usarla
+        const emailUrl = IS_MOCK
+          ? `${APP_URL}/api/mock/payment/approve?requestId=${existing.p2pRequestId}`
+          : existing.p2pProcessUrl;
+        console.log(`[payment] createBalancePaymentAuto: cita ${id} ya tiene transacción con URL, reutilizando.`);
+        return { processUrl: existing.p2pProcessUrl, emailUrl, amount: balanceAmount, isFirst };
+      }
+      // Transacción huérfana (sin URL): marcar como EXPIRED para poder reintentar
+      console.warn(`[payment] createBalancePaymentAuto: cita ${id} tiene transacción sin URL (${existing.id}), marcando EXPIRED y reintentando.`);
+      await prisma.paymentTransaction.update({
+        where: { id: existing.id },
+        data: { status: "EXPIRED" },
+      });
     }
 
     // Contar intentos fallidos para generar referencia única en reintentos
