@@ -5,10 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { createSession } from "@/lib/placetopay/client";
-import { v4 as uuidv4 } from "uuid";
-import { sendPaymentRequestEmail } from "@/lib/appointments";
 
 const APP_URL = process.env.APP_URL || "http://localhost:3000";
+const IS_MOCK = process.env.PLACETOPAY_MOCK === "true";
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -363,13 +362,19 @@ export async function createBalancePaymentAuto(appointmentId) {
       },
     });
 
-    console.log(`[payment] createBalancePaymentAuto: sesión creada para cita ${id}, processUrl=${p2pResult.processUrl}`);
+    // En modo mock, el email usa un link directo que aprueba el pago sin pasar por la UI de checkout
+    const emailUrl = IS_MOCK
+      ? `${APP_URL}/api/mock/payment/approve?requestId=${p2pResult.requestId}`
+      : p2pResult.processUrl;
+
+    console.log(`[payment] createBalancePaymentAuto: sesión creada para cita ${id}, emailUrl=${emailUrl}`);
 
     revalidatePath("/panel/paciente");
     revalidatePath("/panel/admin/citas");
 
     return {
       processUrl: p2pResult.processUrl,
+      emailUrl,
       amount: balanceAmount,
       isFirst,
     };

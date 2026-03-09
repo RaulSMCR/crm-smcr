@@ -251,9 +251,27 @@ export default function UserAppointmentsPanel({
                           Reagendar
                         </button>
                       ) : (
-                        <div className="mt-2 w-full cursor-default rounded-xl bg-amber-500 px-3 py-2 text-center text-sm font-semibold text-white">
-                          Pendiente de confirmacion
-                        </div>
+                        <button
+                          onClick={() =>
+                            startActionTransition(async () => {
+                              const result = await confirmCurrentAppointmentByPatient(apt.id);
+                              if (result?.success) {
+                                setAppointments((prev) =>
+                                  prev.map((a) =>
+                                    a.id === apt.id ? { ...a, status: "CONFIRMED" } : a
+                                  )
+                                );
+                                setActionMessage("Cita confirmada. El profesional ha sido notificado.");
+                              } else {
+                                setActionMessage(result?.error || "No se pudo confirmar la cita.");
+                              }
+                            })
+                          }
+                          disabled={isApplyingAction}
+                          className="mt-2 w-full rounded-xl bg-amber-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-amber-600 disabled:opacity-60"
+                        >
+                          {isApplyingAction ? "Confirmando..." : "Confirmar cita"}
+                        </button>
                       )}
                       <button
                         onClick={() => setCancelingApt(apt)}

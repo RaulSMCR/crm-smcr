@@ -77,7 +77,8 @@ export async function sendAppointmentNotifications(appointment, reason, paymentI
   if (patientEmail) {
     let patientHtml = buildNotificationHtml({ recipientName: appointment.patient?.name, appointment, reason });
 
-    if (paymentInfo?.processUrl) {
+    if (paymentInfo?.emailUrl || paymentInfo?.processUrl) {
+      const paymentUrl = paymentInfo.emailUrl || paymentInfo.processUrl;
       const amountFormatted = new Intl.NumberFormat("es-CR", {
         style: "currency",
         currency: "CRC",
@@ -91,8 +92,20 @@ export async function sendAppointmentNotifications(appointment, reason, paymentI
         <div style="margin-top:20px;padding:16px;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;">
           <p style="margin:0 0 12px;font-weight:600;color:#166534;">Pago pendiente</p>
           <p style="margin:0 0 14px;color:#1f2937;">${paymentIntro}</p>
-          ${buildPrimaryButton("Realizar pago ahora", paymentInfo.processUrl)}
+          ${buildPrimaryButton("Realizar pago ahora", paymentUrl)}
           <p style="margin:12px 0 0;font-size:12px;color:#6b7280;">El enlace de pago es seguro y está disponible por tiempo limitado.</p>
+        </div>
+      `;
+    }
+
+    // Cuando el profesional crea la cita (status=PENDING), incluir botón de confirmación
+    if (appointment.status === "PENDING") {
+      const confirmUrl = `${APP_DOMAIN}/panel/paciente?appointmentAction=confirm&appointmentId=${appointment.id}`;
+      patientHtml += `
+        <div style="margin-top:20px;padding:16px;background:#eff6ff;border-radius:8px;border:1px solid #bfdbfe;">
+          <p style="margin:0 0 12px;font-weight:600;color:#1e40af;">Confirme su cita</p>
+          <p style="margin:0 0 14px;color:#1f2937;">Por favor confirme que asistirá a esta sesión para que el profesional pueda prepararse.</p>
+          ${buildPrimaryButton("Confirmar cita", confirmUrl)}
         </div>
       `;
     }

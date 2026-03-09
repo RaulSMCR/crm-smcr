@@ -433,9 +433,26 @@ export async function confirmCurrentAppointmentByPatient(appointmentId) {
       return { error: "Esta cita ya no admite confirmación de horario." };
     }
 
+    // Actualizar estado a CONFIRMED en DB
+    const confirmed = await prisma.appointment.update({
+      where: { id },
+      data: { status: "CONFIRMED" },
+      include: {
+        patient: { select: { name: true, email: true } },
+        professional: {
+          select: {
+            id: true,
+            googleRefreshToken: true,
+            user: { select: { name: true, email: true } },
+          },
+        },
+        service: { select: { title: true } },
+      },
+    });
+
     await sendAppointmentNotifications(
-      appointment,
-      "El paciente confirmó que mantiene el horario actual. Puede continuar la gestión de la serie."
+      confirmed,
+      "El paciente confirmó la cita."
     );
 
     revalidatePath("/panel/paciente");
