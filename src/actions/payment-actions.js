@@ -302,15 +302,15 @@ export async function createBalancePaymentAuto(appointmentId) {
     });
 
     if (!appointment) {
-      console.warn(`[payment] createBalancePaymentAuto: cita ${id} no encontrada.`);
+      console.error(`[payment] createBalancePaymentAuto: cita ${id} no encontrada.`);
       return null;
     }
     if (appointment.paymentStatus === "PAID") {
-      console.log(`[payment] createBalancePaymentAuto: cita ${id} ya está PAID, omitiendo.`);
+      console.error(`[payment] createBalancePaymentAuto: cita ${id} ya está PAID, omitiendo.`);
       return null;
     }
     if (!appointment.pricePaid || Number(appointment.pricePaid) <= 0) {
-      console.warn(`[payment] createBalancePaymentAuto: cita ${id} sin pricePaid (valor: ${appointment.pricePaid}), omitiendo generación de pago.`);
+      console.error(`[payment] createBalancePaymentAuto: cita ${id} sin pricePaid (valor: ${appointment.pricePaid}), omitiendo generación de pago.`);
       return null;
     }
 

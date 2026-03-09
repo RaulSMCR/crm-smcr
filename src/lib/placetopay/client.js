@@ -1,15 +1,15 @@
 // src/lib/placetopay/client.js
 import { getAuth } from "./auth.js";
-import { setSession, getSession, updateSession } from "./mock-store.js";
+import { setSession, getSession } from "./mock-store.js";
 
 const BASE_URL = process.env.PLACETOPAY_BASE_URL || "https://checkout-qa.placetopay.dev";
 const APP_URL  = process.env.APP_URL || "http://localhost:3000";
 const IS_MOCK  = process.env.PLACETOPAY_MOCK === "true";
 
-// Contador persistente para mock requestIds (numérico como PlacetoPay real)
+// Contador para mock requestIds — usa Date.now() * 1000 + random para evitar
+// colisiones de @unique en la DB cuando la función serverless se reinicia.
 function nextMockRequestId() {
-  if (!global.__mockP2PCounter) global.__mockP2PCounter = Date.now();
-  return ++global.__mockP2PCounter;
+  return Date.now() * 1000 + Math.floor(Math.random() * 1000);
 }
 
 /**
