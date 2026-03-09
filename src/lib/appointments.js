@@ -57,7 +57,13 @@ function buildSecondaryButton(label, href) {
   return `<a href="${href}" style="display:inline-block;background:#fb7a62;color:#ffffff;text-decoration:none;padding:11px 16px;border-radius:10px;font-weight:700;">${label}</a>`;
 }
 
-export async function sendAppointmentNotifications(appointment, reason) {
+/**
+ * @param {object} appointment
+ * @param {string} reason
+ * @param {{ processUrl: string, amount: number, isFirst: boolean }|null} [paymentInfo]
+ *   Si se provee, se incluye un botón de pago en el email al paciente.
+ */
+export async function sendAppointmentNotifications(appointment, reason, paymentInfo = null) {
   const patientEmail = appointment.patient?.email;
   const proEmail = appointment.professional?.user?.email;
 
@@ -69,12 +75,34 @@ export async function sendAppointmentNotifications(appointment, reason) {
   const deliveries = [];
 
   if (patientEmail) {
+    let patientHtml = buildNotificationHtml({ recipientName: appointment.patient?.name, appointment, reason });
+
+    if (paymentInfo?.processUrl) {
+      const amountFormatted = new Intl.NumberFormat("es-CR", {
+        style: "currency",
+        currency: "CRC",
+        maximumFractionDigits: 0,
+      }).format(paymentInfo.amount);
+      const paymentIntro = paymentInfo.isFirst
+        ? `Queda pendiente el pago del saldo restante (50%) por <strong>${amountFormatted}</strong>.`
+        : `El monto a pagar es de <strong>${amountFormatted}</strong>.`;
+
+      patientHtml += `
+        <div style="margin-top:20px;padding:16px;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;">
+          <p style="margin:0 0 12px;font-weight:600;color:#166534;">Pago pendiente</p>
+          <p style="margin:0 0 14px;color:#1f2937;">${paymentIntro}</p>
+          ${buildPrimaryButton("Realizar pago ahora", paymentInfo.processUrl)}
+          <p style="margin:12px 0 0;font-size:12px;color:#6b7280;">El enlace de pago es seguro y está disponible por tiempo limitado.</p>
+        </div>
+      `;
+    }
+
     deliveries.push(
       resend.emails.send({
         from: FROM_EMAIL,
         to: patientEmail,
-        subject: "Actualización de cita",
-        html: buildNotificationHtml({ recipientName: appointment.patient?.name, appointment, reason }),
+        subject: appointment.status === "COMPLETED" ? "Su sesión fue completada — pago pendiente" : "Actualización de cita",
+        html: patientHtml,
       }).then((res) => {
         if (res.error) console.error("[Resend] Error enviando email al paciente:", res.error);
         else console.log("[Resend] Email enviado al paciente:", patientEmail, "id:", res.data?.id);

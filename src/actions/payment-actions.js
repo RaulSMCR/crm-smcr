@@ -291,9 +291,18 @@ export async function createBalancePaymentAuto(appointmentId) {
       },
     });
 
-    if (!appointment) return;
-    if (appointment.paymentStatus === "PAID") return;
-    if (!appointment.pricePaid || Number(appointment.pricePaid) <= 0) return;
+    if (!appointment) {
+      console.warn(`[payment] createBalancePaymentAuto: cita ${id} no encontrada.`);
+      return null;
+    }
+    if (appointment.paymentStatus === "PAID") {
+      console.log(`[payment] createBalancePaymentAuto: cita ${id} ya está PAID, omitiendo.`);
+      return null;
+    }
+    if (!appointment.pricePaid || Number(appointment.pricePaid) <= 0) {
+      console.warn(`[payment] createBalancePaymentAuto: cita ${id} sin pricePaid (valor: ${appointment.pricePaid}), omitiendo generación de pago.`);
+      return null;
+    }
 
     const isFirst = appointment.isFirstWithProfessional;
     const txType = isFirst ? "BALANCE_50" : "FULL_100";
@@ -309,7 +318,10 @@ export async function createBalancePaymentAuto(appointmentId) {
         status: { in: ["PENDING", "PROCESSING", "APPROVED"] },
       },
     });
-    if (existing) return;
+    if (existing) {
+      console.log(`[payment] createBalancePaymentAuto: cita ${id} ya tiene transacción activa (${existing.id}), omitiendo.`);
+      return null;
+    }
 
     const reference = buildReference(id, txType);
     const proName = appointment.professional?.user?.name || "el profesional";
@@ -351,22 +363,19 @@ export async function createBalancePaymentAuto(appointmentId) {
       },
     });
 
-    // Enviar email al paciente con el link de pago (fire-and-forget)
-    sendPaymentRequestEmail({
-      patientName: appointment.patient?.name,
-      patientEmail: appointment.patient?.email,
-      processUrl: p2pResult.processUrl,
-      amount: balanceAmount,
-      serviceTitle: appointment.service?.title || "Consulta",
-      proName: appointment.professional?.user?.name || "el profesional",
-      isFirst: appointment.isFirstWithProfessional,
-    }).catch((err) => console.error("[payment] Error enviando email de pago:", err));
+    console.log(`[payment] createBalancePaymentAuto: sesión creada para cita ${id}, processUrl=${p2pResult.processUrl}`);
 
     revalidatePath("/panel/paciente");
     revalidatePath("/panel/admin/citas");
+
+    return {
+      processUrl: p2pResult.processUrl,
+      amount: balanceAmount,
+      isFirst,
+    };
   } catch (error) {
     console.error("[payment] createBalancePaymentAuto error:", error);
-    // Fire-and-forget: no re-throw
+    return null;
   }
 }
 

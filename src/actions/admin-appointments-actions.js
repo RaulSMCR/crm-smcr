@@ -103,10 +103,15 @@ export async function adminUpdateAppointmentStatus(appointmentId, nextStatus, ca
     },
   });
 
+  // Si la cita se completa, generar link de pago primero para incluirlo en el email
+  let paymentInfo = null;
+  if (status === "COMPLETED") {
+    paymentInfo = await createBalancePaymentAuto(id);
+  }
+
   await Promise.allSettled([
     syncGoogleCalendarEvent(appointment),
-    sendAppointmentNotifications(appointment, `El administrador actualizó el estado a ${status}.`),
-    ...(status === "COMPLETED" ? [createBalancePaymentAuto(id)] : []),
+    sendAppointmentNotifications(appointment, `El administrador actualizó el estado a ${status}.`, paymentInfo),
   ]);
 
   revalidatePath("/panel/admin/citas");
