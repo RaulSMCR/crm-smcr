@@ -23,6 +23,17 @@ export async function generarUrlConexionGoogle() {
   return url;
 }
 
+/** 3) Desconectar Google Calendar */
+export async function desconectarGoogle() {
+  const professionalId = await requireProfessionalProfileId();
+  await prisma.professionalProfile.update({
+    where: { id: String(professionalId) },
+    data: { googleRefreshToken: null },
+  });
+  revalidatePath("/panel/profesional/integraciones");
+  return { success: true };
+}
+
 /** 2) Intercambiar code por tokens y guardar refresh_token */
 export async function guardarCredencialesGoogle(code) {
   const professionalId = await requireProfessionalProfileId();
