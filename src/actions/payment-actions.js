@@ -213,7 +213,7 @@ export async function initiateBalancePayment(appointmentId, { ipAddress, userAge
       where: {
         appointmentId,
         type: txType,
-        status: { in: ["REJECTED", "FAILED", "EXPIRED"] },
+        status: { in: ["REJECTED", "EXPIRED"] },
       },
     });
     const reference = buildReference(appointmentId, txType, failedAttempts);
@@ -337,7 +337,7 @@ export async function createBalancePaymentAuto(appointmentId) {
       where: {
         appointmentId: id,
         type: txType,
-        status: { in: ["REJECTED", "FAILED", "EXPIRED"] },
+        status: { in: ["REJECTED", "EXPIRED"] },
       },
     });
     const reference = buildReference(id, txType, failedAttempts);
@@ -403,7 +403,107 @@ export async function createBalancePaymentAuto(appointmentId) {
 }
 
 // ─────────────────────────────────────────────
-// 4. Consultar transacciones de una cita (auditoría)
+// 4. Cobrar cita (acción del profesional)
+// ─────────────────────────────────────────────
+
+/**
+ * Permite al profesional enviar o reenviar el cobro al paciente.
+ * - Si ya existe transacción activa con URL → reenvía el email con el link existente.
+ * - Si no existe transacción activa → crea sesión PlacetoPay y envía email.
+ * Requiere sesión PROFESSIONAL.
+ */
+export async function cobrarCita(appointmentId) {
+  try {
+    const session = await getSession();
+    if (!session || session.role !== "PROFESSIONAL") {
+      return { success: false, error: "No autorizado." };
+    }
+
+    const id = String(appointmentId || "");
+    if (!id) return { success: false, error: "ID de cita inválido." };
+
+    const appointment = await prisma.appointment.findUnique({
+      where: { id },
+      include: {
+        service: { select: { title: true } },
+        patient: { select: { name: true, email: true } },
+        professional: { select: { userId: true, user: { select: { name: true } } } },
+      },
+    });
+
+    if (!appointment) return { success: false, error: "Cita no encontrada." };
+    if (appointment.status !== "COMPLETED") {
+      return { success: false, error: "Solo se puede cobrar citas completadas." };
+    }
+    if (appointment.paymentStatus === "PAID") {
+      return { success: false, error: "Esta cita ya está pagada." };
+    }
+    if (!appointment.pricePaid || Number(appointment.pricePaid) <= 0) {
+      return { success: false, error: "El precio de la cita no está definido." };
+    }
+
+    const { sendPaymentRequestEmail } = await import("@/lib/appointments");
+
+    const isFirst = appointment.isFirstWithProfessional;
+    const txType = isFirst ? "BALANCE_50" : "FULL_100";
+    const balanceAmount = isFirst
+      ? roundCRC(Number(appointment.pricePaid) * 0.5)
+      : roundCRC(Number(appointment.pricePaid));
+
+    // Si ya hay transacción activa con URL → reenviar email con link existente
+    const active = await prisma.paymentTransaction.findFirst({
+      where: {
+        appointmentId: id,
+        type: txType,
+        status: { in: ["PENDING", "PROCESSING"] },
+        p2pProcessUrl: { not: null },
+      },
+    });
+
+    if (active) {
+      const emailUrl = IS_MOCK
+        ? `${APP_URL}/api/mock/payment/approve?requestId=${active.p2pRequestId}`
+        : active.p2pProcessUrl;
+
+      await sendPaymentRequestEmail({
+        patientName: appointment.patient?.name,
+        patientEmail: appointment.patient?.email,
+        processUrl: emailUrl,
+        amount: balanceAmount,
+        serviceTitle: appointment.service?.title || "Consulta",
+        proName: appointment.professional?.user?.name || "el profesional",
+        isFirst,
+      });
+
+      return { success: true, message: "Enlace de pago reenviado al paciente por email." };
+    }
+
+    // No hay transacción activa → crear nueva sesión y enviar email
+    const paymentInfo = await createBalancePaymentAuto(id);
+    if (!paymentInfo) {
+      return { success: false, error: "No se pudo generar la sesión de pago. Revise los logs." };
+    }
+
+    await sendPaymentRequestEmail({
+      patientName: appointment.patient?.name,
+      patientEmail: appointment.patient?.email,
+      processUrl: paymentInfo.emailUrl,
+      amount: paymentInfo.amount,
+      serviceTitle: appointment.service?.title || "Consulta",
+      proName: appointment.professional?.user?.name || "el profesional",
+      isFirst: paymentInfo.isFirst,
+    });
+
+    revalidatePath("/panel/profesional/citas");
+    return { success: true, message: "Orden de cobro enviada al paciente por email." };
+  } catch (error) {
+    console.error("[payment] cobrarCita error:", error);
+    return { success: false, error: "Error interno al procesar el cobro." };
+  }
+}
+
+// ─────────────────────────────────────────────
+// 5. Consultar transacciones de una cita (auditoría)
 // ─────────────────────────────────────────────
 
 /**

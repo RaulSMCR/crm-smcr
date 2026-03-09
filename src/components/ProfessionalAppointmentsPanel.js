@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { isFuture, isToday } from 'date-fns';
 import { DEFAULT_TZ } from '@/lib/timezone';
 import { updateAppointmentStatus, cancelAppointmentByProfessional } from '@/actions/agenda-actions';
+import { cobrarCita } from '@/actions/payment-actions';
 import CancelAppointmentModal from './appointments/CancelAppointmentModal';
 import ProfessionalRescheduleModal from './appointments/ProfessionalRescheduleModal';
 import CreateProfessionalAppointmentModal from './appointments/CreateProfessionalAppointmentModal';
@@ -33,6 +34,8 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [acceptingApt, setAcceptingApt] = useState(null);
   const [followUpApt, setFollowUpApt] = useState(null);
+  const [cobrandoId, setCobrandoId] = useState(null);
+  const [cobroMsg, setCobroMsg] = useState('');
 
   const updateAppointmentLocally = (appointmentId, changes) => {
     setAppointments((current) =>
@@ -56,6 +59,19 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
       alert(result.error || 'Error al actualizar');
     }
     setLoadingId(null);
+  };
+
+  const handleCobrar = async (appointmentId) => {
+    setCobrandoId(appointmentId);
+    setCobroMsg('');
+    const result = await cobrarCita(appointmentId);
+    setCobrandoId(null);
+    if (result?.success) {
+      setCobroMsg(result.message || 'Orden de cobro enviada.');
+      setTimeout(() => setCobroMsg(''), 5000);
+    } else {
+      alert(result?.error || 'No se pudo enviar el cobro.');
+    }
   };
 
   const handleCancel = async (appointmentId, reason) => {
@@ -111,6 +127,12 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
           Nueva cita
         </button>
       </div>
+
+      {cobroMsg && (
+        <div className="mx-4 mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-800">
+          {cobroMsg}
+        </div>
+      )}
 
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-left">
@@ -212,12 +234,24 @@ export default function ProfessionalAppointmentsPanel({ initialAppointments = []
                     )}
 
                     {appointment.status === 'COMPLETED' && (
-                      <button
-                        onClick={() => setFollowUpApt(appointment)}
-                        className="rounded bg-brand-700 px-3 py-1 text-xs text-white hover:bg-brand-800"
-                      >
-                        Seguimiento
-                      </button>
+                      <>
+                        {appointment.paymentStatus !== 'PAID' && (
+                          <button
+                            onClick={() => handleCobrar(appointment.id)}
+                            disabled={cobrandoId === appointment.id}
+                            className="rounded bg-emerald-600 px-3 py-1 text-xs text-white hover:bg-emerald-700 disabled:opacity-50"
+                            title="Enviar o reenviar orden de cobro al paciente"
+                          >
+                            {cobrandoId === appointment.id ? '...' : 'Cobrar'}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setFollowUpApt(appointment)}
+                          className="rounded bg-brand-700 px-3 py-1 text-xs text-white hover:bg-brand-800"
+                        >
+                          Seguimiento
+                        </button>
+                      </>
                     )}
                   </td>
                 </tr>
