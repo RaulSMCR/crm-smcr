@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { createSession } from "@/lib/placetopay/client";
+import { sendPaymentRequestEmail } from "@/lib/appointments";
 
 const APP_URL = process.env.APP_URL || "http://localhost:3000";
 const IS_MOCK = process.env.PLACETOPAY_MOCK === "true";
@@ -457,8 +458,6 @@ export async function cobrarCita(appointmentId) {
     if (!appointment.pricePaid || Number(appointment.pricePaid) <= 0) {
       return { success: false, error: "El precio de la cita no está definido." };
     }
-
-    const { sendPaymentRequestEmail } = await import("@/lib/appointments");
 
     const isFirst = appointment.isFirstWithProfessional;
     const txType = isFirst ? "BALANCE_50" : "FULL_100";
