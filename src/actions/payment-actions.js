@@ -13,10 +13,11 @@ const IS_MOCK = process.env.PLACETOPAY_MOCK === "true";
 // Helpers
 // ─────────────────────────────────────────────
 
-function buildReference(appointmentId, type) {
+function buildReference(appointmentId, type, attempt = 0) {
   // Max 32 chars para PlacetoPay
   const prefix = type === "DEPOSIT_50" ? "DEP" : type === "BALANCE_50" ? "BAL" : "FUL";
-  return `${prefix}-${appointmentId}`.slice(0, 32);
+  const suffix = attempt > 0 ? `-${attempt}` : "";
+  return `${prefix}-${appointmentId}${suffix}`.slice(0, 32);
 }
 
 function roundCRC(amount) {
@@ -206,7 +207,16 @@ export async function initiateBalancePayment(appointmentId, { ipAddress, userAge
       }
     }
 
-    const reference = buildReference(appointmentId, txType);
+    // Contar intentos fallidos para generar referencia única en reintentos
+    // (evita unique constraint violation en p2pReference)
+    const failedAttempts = await prisma.paymentTransaction.count({
+      where: {
+        appointmentId,
+        type: txType,
+        status: { in: ["REJECTED", "FAILED", "EXPIRED"] },
+      },
+    });
+    const reference = buildReference(appointmentId, txType, failedAttempts);
     const proName = appointment.professional?.user?.name || "el profesional";
     const serviceTitle = appointment.service?.title || "Consulta";
     const desc = isFirst
@@ -322,7 +332,15 @@ export async function createBalancePaymentAuto(appointmentId) {
       return null;
     }
 
-    const reference = buildReference(id, txType);
+    // Contar intentos fallidos para generar referencia única en reintentos
+    const failedAttempts = await prisma.paymentTransaction.count({
+      where: {
+        appointmentId: id,
+        type: txType,
+        status: { in: ["REJECTED", "FAILED", "EXPIRED"] },
+      },
+    });
+    const reference = buildReference(id, txType, failedAttempts);
     const proName = appointment.professional?.user?.name || "el profesional";
     const serviceTitle = appointment.service?.title || "Consulta";
     const desc = isFirst
