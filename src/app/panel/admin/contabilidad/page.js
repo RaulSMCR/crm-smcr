@@ -131,7 +131,7 @@ export default async function AdminAccountingPage({ searchParams }) {
         ...(patientId ? { patientId } : {}),
       },
       include: {
-        service: { select: { title: true, price: true } },
+        service: { select: { title: true } },
         professional: { select: { id: true, user: { select: { name: true } } } },
         patient: { select: { id: true, name: true } },
       },
@@ -162,10 +162,7 @@ export default async function AdminAccountingPage({ searchParams }) {
     }),
   ]);
 
-  const appointmentRevenue = appointments.reduce(
-    (acc, appt) => acc + Number(appt.pricePaid ?? appt.service?.price ?? 0),
-    0
-  );
+  const appointmentRevenue = appointments.reduce((acc, appt) => acc + Number(appt.pricePaid ?? 0), 0);
   const pendingAppointments = appointments.filter((a) => a.status === "PENDING").length;
   const completedAppointments = appointments.filter((a) => a.status === "COMPLETED").length;
 
@@ -173,7 +170,7 @@ export default async function AdminAccountingPage({ searchParams }) {
   const byPatientMap = new Map();
 
   for (const appt of appointments) {
-    const amount = Number(appt.pricePaid ?? appt.service?.price ?? 0);
+    const amount = Number(appt.pricePaid ?? 0);
     const pKey = appt.professional?.id || "none";
     const pCurrent = byProfessionalMap.get(pKey) || {
       name: appt.professional?.user?.name || "Sin profesional",

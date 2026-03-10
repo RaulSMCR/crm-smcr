@@ -41,12 +41,15 @@ export default function CategorySection({ categories, title }) {
                 )}
 
                 {category.artworkTitle || category.artworkAuthor || category.artworkNote ? (
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-4 text-white opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                  <div className="absolute inset-x-3 bottom-3 rounded-2xl border border-white/10 bg-brand-950/90 p-4 text-white opacity-0 shadow-xl backdrop-blur-md transition-opacity duration-300 group-hover:opacity-100">
+                    <div className="mb-2 inline-flex rounded-full bg-accent-600 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white">
+                      Obra destacada
+                    </div>
                     {category.artworkTitle ? (
-                      <div className="text-sm font-semibold">{category.artworkTitle}</div>
+                      <div className="text-sm font-semibold text-white">{category.artworkTitle}</div>
                     ) : null}
                     {category.artworkAuthor ? (
-                      <div className="text-xs text-white/85">{category.artworkAuthor}</div>
+                      <div className="text-xs text-white/75">{category.artworkAuthor}</div>
                     ) : null}
                     {category.artworkNote ? (
                       <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-white/80">

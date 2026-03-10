@@ -1,10 +1,17 @@
-// src/app/panel/paciente/agendar/page.js
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/actions/auth-actions";
 import ProfessionalCalendarBooking from "@/components/booking/ProfessionalCalendarBooking";
 
 export const dynamic = "force-dynamic";
+
+function formatCRC(value) {
+  return new Intl.NumberFormat("es-CR", {
+    style: "currency",
+    currency: "CRC",
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
+}
 
 export default async function PacienteAgendarPage({ searchParams }) {
   const session = await getSession();
@@ -18,7 +25,7 @@ export default async function PacienteAgendarPage({ searchParams }) {
   const [service, professional, assignment, availability, appts] = await Promise.all([
     prisma.service.findUnique({
       where: { id: serviceId },
-      select: { id: true, title: true, durationMin: true, price: true, isActive: true },
+      select: { id: true, title: true, durationMin: true, isActive: true },
     }),
     prisma.professionalProfile.findUnique({
       where: { id: professionalId },
@@ -56,7 +63,7 @@ export default async function PacienteAgendarPage({ searchParams }) {
       <div className="max-w-4xl mx-auto p-8">
         <h1 className="text-2xl font-bold text-slate-900">Agenda no disponible</h1>
         <p className="mt-2 text-slate-700">
-          Este profesional aún no está habilitado para agendar en este servicio.
+          Este profesional aun no esta habilitado para agendar en este servicio.
         </p>
         <div className="mt-4">
           <a className="text-blue-600 hover:underline" href={`/servicios/${serviceId}`}>
@@ -79,14 +86,14 @@ export default async function PacienteAgendarPage({ searchParams }) {
       <div>
         <div className="text-sm text-slate-600">
           <a className="hover:underline" href={`/servicios/${serviceId}`}>
-            ← Volver al servicio
+            Volver al servicio
           </a>
         </div>
 
         <h1 className="text-3xl font-bold text-slate-900 mt-2">Agendar cita</h1>
         <p className="text-slate-600 mt-1">
-          Servicio: <b>{service.title}</b> · Duración: <b>{service.durationMin} min</b> · Desde:{" "}
-          <b>₡{Number(assignment.approvedSessionPrice)}</b>
+          Servicio: <b>{service.title}</b> · Duracion: <b>{service.durationMin} min</b> · Tarifa aprobada:{" "}
+          <b>{formatCRC(assignment.approvedSessionPrice)}</b>
         </p>
       </div>
 

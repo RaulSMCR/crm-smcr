@@ -94,12 +94,15 @@ export default async function ServiciosPage() {
                 )}
 
                 {service.bannerArtworkTitle || service.bannerArtworkAuthor || service.bannerArtworkNote ? (
-                  <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/75 via-black/40 to-transparent p-4 text-white opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                  <div className="absolute left-4 top-4 max-w-sm rounded-2xl border border-white/10 bg-brand-950/90 p-4 text-white opacity-0 shadow-xl backdrop-blur-md transition-opacity duration-300 group-hover:opacity-100">
+                    <div className="mb-2 inline-flex rounded-full bg-accent-600 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white">
+                      Obra destacada
+                    </div>
                     {service.bannerArtworkTitle ? (
-                      <div className="text-sm font-semibold">{service.bannerArtworkTitle}</div>
+                      <div className="text-sm font-semibold text-white">{service.bannerArtworkTitle}</div>
                     ) : null}
                     {service.bannerArtworkAuthor ? (
-                      <div className="text-xs text-white/85">{service.bannerArtworkAuthor}</div>
+                      <div className="text-xs text-white/75">{service.bannerArtworkAuthor}</div>
                     ) : null}
                     {service.bannerArtworkNote ? (
                       <p className="mt-2 line-clamp-3 max-w-xl text-xs leading-relaxed text-white/80">

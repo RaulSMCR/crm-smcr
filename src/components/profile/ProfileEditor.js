@@ -1,4 +1,3 @@
-// src/components/profile/ProfileEditor.js
 "use client";
 
 import { useMemo, useState } from "react";
@@ -6,8 +5,17 @@ import { useRouter } from "next/navigation";
 import ChangePasswordCard from "@/components/auth/ChangePasswordCard";
 import { updateProfile } from "@/actions/profile-actions";
 
-function badgeFor(status, isSelected) {
-  // status puede ser null si nunca se solicitó
+function formatCRC(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return "No definido";
+  return new Intl.NumberFormat("es-CR", {
+    style: "currency",
+    currency: "CRC",
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+function badgeFor(status) {
   if (!status) return null;
 
   if (status === "APPROVED") {
@@ -17,21 +25,23 @@ function badgeFor(status, isSelected) {
       </span>
     );
   }
+
   if (status === "PENDING") {
     return (
       <span className="text-xs font-semibold px-2 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
-        En revisión
+        En revision
       </span>
     );
   }
+
   if (status === "REJECTED") {
-    // si el usuario lo vuelve a seleccionar, lo vamos a enviar como PENDING al guardar
     return (
       <span className="text-xs font-semibold px-2 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
         Rechazado
       </span>
     );
   }
+
   return null;
 }
 
@@ -41,9 +51,9 @@ export default function ProfileEditor({ profile, allServices = [] }) {
   const [msg, setMsg] = useState({ type: "", text: "" });
 
   const assignmentsByServiceId = useMemo(() => {
-    const m = new Map();
-    (profile.serviceAssignments || []).forEach((a) => m.set(a.serviceId, a));
-    return m;
+    const map = new Map();
+    (profile.serviceAssignments || []).forEach((assignment) => map.set(assignment.serviceId, assignment));
+    return map;
   }, [profile.serviceAssignments]);
 
   const [form, setForm] = useState({
@@ -54,17 +64,17 @@ export default function ProfileEditor({ profile, allServices = [] }) {
     bio: profile.bio || "",
   });
 
-  // Inicial: seleccionamos PENDING+APPROVED (REJECTED queda desmarcado)
   const [selectedServices, setSelectedServices] = useState(() => {
     const base = (profile.serviceAssignments || [])
-      .filter((a) => a.status !== "REJECTED")
-      .map((a) => a.serviceId);
+      .filter((assignment) => assignment.status !== "REJECTED")
+      .map((assignment) => assignment.serviceId);
     return Array.from(new Set(base));
   });
+
   const [proposedPrices, setProposedPrices] = useState(() => {
     const base = {};
-    (profile.serviceAssignments || []).forEach((a) => {
-      base[a.serviceId] = a.proposedSessionPrice ?? "";
+    (profile.serviceAssignments || []).forEach((assignment) => {
+      base[assignment.serviceId] = assignment.proposedSessionPrice ?? "";
     });
     return base;
   });
@@ -72,8 +82,8 @@ export default function ProfileEditor({ profile, allServices = [] }) {
   const [avatarFile, setAvatarFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(profile.user?.image || null);
 
-  const handleInputChange = (e) => {
-    setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
+  const handleInputChange = (event) => {
+    setForm((prev) => ({ ...prev, [event.target.name]: event.target.value }));
   };
 
   const handleServiceToggle = (serviceId) => {
@@ -82,15 +92,15 @@ export default function ProfileEditor({ profile, allServices = [] }) {
     );
   };
 
-  const handleImageChange = (e) => {
-    const file = e.target.files?.[0];
+  const handleImageChange = (event) => {
+    const file = event.target.files?.[0];
     if (!file) return;
     setPreviewUrl(URL.createObjectURL(file));
     setAvatarFile(file);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setLoading(true);
     setMsg({ type: "", text: "" });
 
@@ -101,40 +111,40 @@ export default function ProfileEditor({ profile, allServices = [] }) {
         const uploadData = new FormData();
         uploadData.append("file", avatarFile);
 
-        const res = await fetch("/api/upload/avatar", {
+        const uploadResponse = await fetch("/api/upload/avatar", {
           method: "POST",
           body: uploadData,
         });
 
-        const result = await res.json();
-        if (!res.ok) throw new Error(result.error || "Error subiendo imagen.");
-        publicUrl = result.url;
+        const uploadResult = await uploadResponse.json();
+        if (!uploadResponse.ok) throw new Error(uploadResult.error || "Error subiendo imagen.");
+        publicUrl = uploadResult.url;
       }
 
-      const fd = new FormData();
-      fd.append("name", form.name);
-      fd.append("phone", form.phone);
-      fd.append("specialty", form.specialty);
-      fd.append("licenseNumber", form.licenseNumber);
-      fd.append("bio", form.bio);
-      if (publicUrl) fd.append("imageUrl", publicUrl);
+      const formData = new FormData();
+      formData.append("name", form.name);
+      formData.append("phone", form.phone);
+      formData.append("specialty", form.specialty);
+      formData.append("licenseNumber", form.licenseNumber);
+      formData.append("bio", form.bio);
+      if (publicUrl) formData.append("imageUrl", publicUrl);
 
       selectedServices.forEach((id) => {
-        fd.append("serviceIds", id);
-        fd.append("proposedPrice", `${id}:${proposedPrices[id] ?? ""}`);
+        formData.append("serviceIds", id);
+        formData.append("proposedPrice", `${id}:${proposedPrices[id] ?? ""}`);
       });
 
-      const res = await updateProfile(fd);
+      const result = await updateProfile(formData);
 
-      if (res?.success) {
-        setMsg({ type: "success", text: "✅ Perfil guardado correctamente" });
+      if (result?.success) {
+        setMsg({ type: "success", text: "Perfil guardado correctamente" });
         router.refresh();
       } else {
-        setMsg({ type: "error", text: "❌ " + (res?.error || "No se pudo guardar") });
+        setMsg({ type: "error", text: result?.error || "No se pudo guardar" });
       }
     } catch (error) {
       console.error(error);
-      setMsg({ type: "error", text: "Ocurrió un error inesperado." });
+      setMsg({ type: "error", text: "Ocurrio un error inesperado." });
     } finally {
       setLoading(false);
     }
@@ -155,10 +165,9 @@ export default function ProfileEditor({ profile, allServices = [] }) {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* FOTO */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <h3 className="text-lg font-semibold text-slate-800">Foto</h3>
-          <p className="text-sm text-slate-500 mt-1">Recomendado 500×500px.</p>
+          <p className="text-sm text-slate-500 mt-1">Recomendado 500x500 px.</p>
 
           <div className="mt-4 flex items-center gap-4">
             <div className="w-16 h-16 rounded-full overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center">
@@ -179,9 +188,8 @@ export default function ProfileEditor({ profile, allServices = [] }) {
           </div>
         </div>
 
-        {/* INFO PÚBLICA */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6">
-          <h3 className="text-lg font-semibold text-slate-800">Información pública</h3>
+          <h3 className="text-lg font-semibold text-slate-800">Informacion publica</h3>
 
           <div className="mt-4 grid md:grid-cols-2 gap-4">
             <div>
@@ -195,7 +203,7 @@ export default function ProfileEditor({ profile, allServices = [] }) {
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-slate-700">Teléfono</label>
+              <label className="text-sm font-semibold text-slate-700">Telefono</label>
               <input
                 name="phone"
                 value={form.phone}
@@ -205,7 +213,7 @@ export default function ProfileEditor({ profile, allServices = [] }) {
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-slate-700">Especialidad (Título)</label>
+              <label className="text-sm font-semibold text-slate-700">Especialidad (Titulo)</label>
               <input
                 name="specialty"
                 value={form.specialty}
@@ -215,7 +223,7 @@ export default function ProfileEditor({ profile, allServices = [] }) {
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-slate-700">Matrícula / Licencia</label>
+              <label className="text-sm font-semibold text-slate-700">Matricula / Licencia</label>
               <input
                 name="licenseNumber"
                 value={form.licenseNumber}
@@ -225,7 +233,7 @@ export default function ProfileEditor({ profile, allServices = [] }) {
             </div>
 
             <div className="md:col-span-2">
-              <label className="text-sm font-semibold text-slate-700">Biografía</label>
+              <label className="text-sm font-semibold text-slate-700">Biografia</label>
               <textarea
                 name="bio"
                 value={form.bio}
@@ -237,17 +245,15 @@ export default function ProfileEditor({ profile, allServices = [] }) {
           </div>
         </div>
 
-        {/* SERVICIOS */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6">
           <h3 className="text-lg font-semibold text-slate-800">Mis servicios</h3>
           <p className="text-sm text-slate-500 mt-1">
-            Si seleccionas un servicio nuevo, quedará <span className="font-semibold">En revisión</span>{" "}
-            hasta aprobación del administrador.
+            Si seleccionas un servicio nuevo, quedara <span className="font-semibold">En revision</span> hasta aprobacion del administrador.
           </p>
 
           {allServices.length === 0 ? (
             <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              ⚠️ No hay servicios disponibles. Contacta al administrador.
+              No hay servicios disponibles. Contacta al administrador.
             </div>
           ) : (
             <div className="mt-4 grid md:grid-cols-2 gap-3">
@@ -271,46 +277,54 @@ export default function ProfileEditor({ profile, allServices = [] }) {
                       <div>
                         <div className="flex items-center gap-2">
                           <div className="font-semibold text-slate-800">{service.title}</div>
-                          {badgeFor(status, isSelected)}
+                          {badgeFor(status)}
                         </div>
 
                         <div className="text-sm text-slate-500 mt-1">
-                          {service.description || "Sin descripción"}
+                          {service.description || "Sin descripcion"}
                         </div>
                       </div>
 
                       <div className="text-xs text-slate-600 whitespace-nowrap">
-                        {service.durationMin} min · ${String(service.price)}
+                        {service.durationMin} min · Referencia sugerida: {formatCRC(service.price)}
                       </div>
                     </div>
 
                     {isSelected && (
                       <div className="mt-3">
-                        <label className="text-xs font-semibold text-slate-700">Costo propuesto por sesión (₡)</label>
+                        <label className="text-xs font-semibold text-slate-700">
+                          Costo propuesto por sesion (CRC)
+                        </label>
                         <input
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(event) => event.stopPropagation()}
                           type="number"
                           min="0"
                           step="0.01"
                           value={proposedPrices[service.id] ?? ""}
-                          onChange={(e) =>
-                            setProposedPrices((prev) => ({ ...prev, [service.id]: e.target.value }))
+                          onChange={(event) =>
+                            setProposedPrices((prev) => ({ ...prev, [service.id]: event.target.value }))
                           }
                           className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1 text-sm"
                         />
+                        <p className="mt-1 text-[11px] text-slate-500">
+                          Este valor define tu tarifa solicitada. El monto real cobrado al paciente y usado para pago y factura sera el aprobado por administracion.
+                        </p>
                       </div>
                     )}
 
-                    {assignment?.approvedSessionPrice ? (
-                      <div className="mt-2 text-xs text-emerald-700">Costo aprobado: ₡{String(assignment.approvedSessionPrice)}</div>
+                    {assignment?.approvedSessionPrice != null ? (
+                      <div className="mt-2 text-xs text-emerald-700">
+                        Costo aprobado: {formatCRC(assignment.approvedSessionPrice)}
+                      </div>
                     ) : null}
+
                     {assignment?.adminReviewNote ? (
                       <div className="mt-1 text-xs text-slate-600">Nota admin: {assignment.adminReviewNote}</div>
                     ) : null}
 
                     {status === "REJECTED" && !isSelected && (
                       <div className="mt-3 text-xs text-rose-700">
-                        Este servicio fue rechazado. Si lo seleccionas y guardas, se enviará una nueva solicitud.
+                        Este servicio fue rechazado. Si lo seleccionas y guardas, se enviara una nueva solicitud.
                       </div>
                     )}
                   </button>

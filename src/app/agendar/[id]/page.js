@@ -1,4 +1,3 @@
-//src/app/agendar/[id]/page.js
 import { prisma } from '@/lib/prisma';
 import { notFound } from 'next/navigation';
 import BookingInterface from '@/components/booking/BookingInterface';
@@ -17,12 +16,12 @@ export default async function AgendarPage({ params, searchParams }) {
         },
       },
       serviceAssignments: {
-        where: { status: 'APPROVED' },
-        orderBy: [{ service: { displayOrder: "asc" } }, { service: { title: "asc" } }],
+        where: { status: 'APPROVED', approvedSessionPrice: { not: null } },
+        orderBy: [{ service: { displayOrder: 'asc' } }, { service: { title: 'asc' } }],
         select: {
           approvedSessionPrice: true,
           service: {
-            select: { id: true, title: true, price: true },
+            select: { id: true, title: true },
           },
         },
       },
@@ -38,14 +37,27 @@ export default async function AgendarPage({ params, searchParams }) {
       if (!assignment.service) return null;
 
       const approvedPrice = Number(assignment.approvedSessionPrice);
-      const basePrice = Number(assignment.service.price);
+      if (!Number.isFinite(approvedPrice) || approvedPrice <= 0) return null;
 
       return {
         ...assignment.service,
-        displayPrice: Number.isFinite(approvedPrice) ? approvedPrice : basePrice,
+        displayPrice: approvedPrice,
       };
     })
     .filter(Boolean);
+
+  if (services.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 px-4 py-12">
+        <div className="mx-auto max-w-3xl rounded-2xl border border-amber-200 bg-amber-50 p-8">
+          <h1 className="text-2xl font-bold text-slate-900">Agenda no disponible</h1>
+          <p className="mt-3 text-slate-700">
+            Este profesional no tiene valores de consulta aprobados para servicios agendables en este momento.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   let selectedService = null;
 
@@ -53,11 +65,7 @@ export default async function AgendarPage({ params, searchParams }) {
     selectedService = services.find((service) => service.id === preSelectedServiceId);
   }
 
-  const activeService = selectedService || services[0] || {
-    id: null,
-    title: 'Consulta General',
-    displayPrice: 50,
-  };
+  const activeService = selectedService || services[0];
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-12">
@@ -88,15 +96,15 @@ export default async function AgendarPage({ params, searchParams }) {
 
           <div className="rounded-xl border border-blue-100 bg-blue-50 p-5">
             <h4 className="mb-2 flex items-center gap-2 font-semibold text-accent-600">
-              Reserva Segura
+              Reserva segura
             </h4>
             <ul className="space-y-2 text-sm text-accent-600">
-              <li>Confirmación inmediata</li>
+              <li>Confirmacion inmediata</li>
               <li>Recordatorios por email</li>
               <li>
-                Cancelación sin costo hasta 24 horas antes de la cita
+                Cancelacion sin costo hasta 24 horas antes de la cita
                 <p className="mt-1 text-xs text-white">
-                  Se debe tener en cuenta que en caso de cancelación dentro de las 24 horas anteriores a la cita se cobrará un 50% del valor de la consulta.
+                  Si cancelas dentro de las 24 horas previas, se puede cobrar un 50% del valor real de la consulta aprobado para este profesional.
                 </p>
               </li>
             </ul>

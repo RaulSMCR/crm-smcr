@@ -193,7 +193,7 @@ export async function requestAppointment(
         select: {
           status: true,
           approvedSessionPrice: true,
-          service: { select: { durationMin: true, price: true } },
+          service: { select: { durationMin: true } },
         },
       });
 
@@ -203,12 +203,13 @@ export async function requestAppointment(
 
       duration = assignment.service?.durationMin || 60;
       const approvedPrice = Number(assignment.approvedSessionPrice);
-      const fallbackPrice = Number(assignment.service?.price);
-      pricePaid = Number.isFinite(approvedPrice)
-        ? approvedPrice
-        : Number.isFinite(fallbackPrice)
-          ? fallbackPrice
-          : null;
+      if (!Number.isFinite(approvedPrice) || approvedPrice <= 0) {
+        return {
+          error:
+            "Este profesional aÃºn no tiene un valor de consulta aprobado para este servicio.",
+        };
+      }
+      pricePaid = approvedPrice;
     }
 
     const dateTimeString = `${dateString}T${timeString}:00`;

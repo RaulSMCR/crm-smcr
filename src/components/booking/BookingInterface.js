@@ -10,6 +10,7 @@ import RecurrenceFields from '@/components/appointments/RecurrenceFields';
 
 export default function BookingInterface({ professionalId, servicePrice, serviceTitle, serviceId }) {
   const router = useRouter();
+  const hasValidPrice = Number.isFinite(Number(servicePrice)) && Number(servicePrice) > 0;
 
   const [selectedDate, setSelectedDate] = useState(() => {
     const tomorrow = new Date();
@@ -23,9 +24,7 @@ export default function BookingInterface({ professionalId, servicePrice, service
   const [isBooking, setIsBooking] = useState(false);
   const [recurrenceRule, setRecurrenceRule] = useState(RECURRENCE_RULES.NONE);
   const [recurrenceCount, setRecurrenceCount] = useState(4);
-
-  // Estado de conflicto en recurrencia
-  const [conflict, setConflict] = useState(null); // { dateString, label, occurrenceIndex }
+  const [conflict, setConflict] = useState(null);
   const [conflictSlots, setConflictSlots] = useState([]);
   const [loadingConflictSlots, setLoadingConflictSlots] = useState(false);
   const [altSlot, setAltSlot] = useState(null);
@@ -47,7 +46,6 @@ export default function BookingInterface({ professionalId, servicePrice, service
     if (selectedDate) fetchSlots();
   }, [selectedDate, professionalId]);
 
-  // Cuando se detecta conflicto, carga slots para esa fecha
   useEffect(() => {
     if (!conflict) return;
 
@@ -116,26 +114,30 @@ export default function BookingInterface({ professionalId, servicePrice, service
     <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg">
       <div className="bg-gray-900 p-6 text-white">
         <h3 className="text-lg font-semibold opacity-90">Agendar cita</h3>
-        <div className="mt-2 flex items-end justify-between">
+        <div className="mt-2 flex items-end justify-between gap-4">
           <div>
             <p className="text-2xl font-bold">{serviceTitle}</p>
-            <p className="text-sm opacity-70">Duración: 60 min</p>
+            <p className="text-sm opacity-70">Duracion: 60 min</p>
           </div>
           <div className="text-right">
-            <span className="block text-xl font-bold">₡{Number(servicePrice).toLocaleString('es-CR')}</span>
+            <span className="block text-xl font-bold">
+              {hasValidPrice ? `₡${Number(servicePrice).toLocaleString('es-CR')}` : "Valor no disponible"}
+            </span>
+            <span className="mt-1 block text-xs opacity-70">
+              Valor real en colones segun la tarifa aprobada del profesional.
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Panel de resolución de conflicto */}
       {conflict && (
         <div className="border-b border-amber-200 bg-amber-50 p-5">
           <div className="mb-3 flex items-start gap-3">
-            <span className="mt-0.5 text-xl">⚠️</span>
+            <span className="mt-0.5 text-xl">⚠</span>
             <div>
               <p className="font-semibold text-amber-900">Conflicto de horario detectado</p>
               <p className="mt-1 text-sm text-amber-800">
-                {conflict.label} Seleccione un horario alternativo para la sesión del{' '}
+                {conflict.label} Seleccione un horario alternativo para la sesion del{' '}
                 <strong className="capitalize">{conflictDateLabel}</strong>:
               </p>
             </div>
@@ -170,7 +172,7 @@ export default function BookingInterface({ professionalId, servicePrice, service
                   disabled={!altSlot || isBooking}
                   className="flex-1 rounded-lg bg-amber-600 py-2.5 text-sm font-bold text-white transition-all hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {isBooking ? 'Procesando...' : altSlot ? `Confirmar ${altSlot} para esa sesión` : 'Seleccione un horario'}
+                  {isBooking ? 'Procesando...' : altSlot ? `Confirmar ${altSlot} para esa sesion` : 'Seleccione un horario'}
                 </button>
                 <button
                   onClick={handleDismissConflict}
@@ -182,7 +184,7 @@ export default function BookingInterface({ professionalId, servicePrice, service
             </>
           ) : (
             <div className="rounded-lg border border-dashed border-amber-300 bg-white py-5 text-center">
-              <p className="text-sm text-amber-700">No hay horarios disponibles ese día.</p>
+              <p className="text-sm text-amber-700">No hay horarios disponibles ese dia.</p>
               <p className="mt-1 text-xs text-amber-600">Elija una fecha de inicio diferente.</p>
               <button
                 onClick={handleDismissConflict}
@@ -197,7 +199,7 @@ export default function BookingInterface({ professionalId, servicePrice, service
 
       <div className="space-y-6 p-6">
         <div>
-          <label className="mb-2 block text-sm font-medium text-gray-700">1. Seleccione el día</label>
+          <label className="mb-2 block text-sm font-medium text-gray-700">1. Seleccione el dia</label>
           <input
             type="date"
             value={selectedDate}
@@ -216,7 +218,7 @@ export default function BookingInterface({ professionalId, servicePrice, service
         <div>
           <label className="mb-2 block text-sm font-medium text-gray-700">2. Horarios disponibles</label>
           <p className="mb-3 text-xs text-gray-500">
-            Todos los horarios están expresados en hora de Costa Rica; si está en otro huso horario, téngalo en cuenta.
+            Todos los horarios estan expresados en hora de Costa Rica; si esta en otro huso horario, tengalo en cuenta.
           </p>
 
           {loading ? (
@@ -243,13 +245,13 @@ export default function BookingInterface({ professionalId, servicePrice, service
           ) : (
             <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 py-8 text-center">
               <p className="text-sm text-gray-500">No hay horarios disponibles.</p>
-              <p className="mt-1 text-xs text-gray-400">Pruebe seleccionando otro día.</p>
+              <p className="mt-1 text-xs text-gray-400">Pruebe seleccionando otro dia.</p>
             </div>
           )}
         </div>
 
         <div>
-          <label className="mb-2 block text-sm font-medium text-gray-700">3. Repetición de la cita</label>
+          <label className="mb-2 block text-sm font-medium text-gray-700">3. Repeticion de la cita</label>
           <RecurrenceFields
             recurrenceRule={recurrenceRule}
             recurrenceCount={recurrenceCount}
@@ -279,7 +281,7 @@ export default function BookingInterface({ professionalId, servicePrice, service
 
           {selectedSlot && !conflict && (
             <p className="mt-3 text-center text-xs text-gray-500">
-              La cita quedará pendiente de confirmación por el profesional.
+              La cita quedara pendiente de confirmacion por el profesional.
             </p>
           )}
         </div>

@@ -48,7 +48,7 @@ export default async function PacientePanelPage({ searchParams }) {
           },
         },
         service: {
-          select: { title: true, price: true },
+          select: { title: true },
         },
         paymentTransactions: {
           where: { status: { in: ["PENDING", "PROCESSING"] } },

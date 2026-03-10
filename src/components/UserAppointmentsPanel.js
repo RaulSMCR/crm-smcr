@@ -224,9 +224,9 @@ export default function UserAppointmentsPanel({
               <div className="flex flex-col items-end gap-2">
                 {getStatusBadge(apt.status)}
 
-                {apt.service?.price && (
+                {apt.pricePaid && (
                   <span className="text-sm font-medium text-gray-900">
-                    ${Number(apt.service.price).toLocaleString("es-AR")}
+                    ₡{Number(apt.pricePaid).toLocaleString("es-CR")}
                   </span>
                 )}
 
