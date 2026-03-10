@@ -181,6 +181,11 @@ model Service {
   title       String
   description String? @db.Text
   bannerImage String?
+  bannerFocusX Int     @default(50)
+  bannerFocusY Int     @default(50)
+  bannerArtworkTitle String?
+  bannerArtworkAuthor String?
+  bannerArtworkNote String? @db.Text
 
   price       Decimal @db.Decimal(10, 2)
   durationMin Int

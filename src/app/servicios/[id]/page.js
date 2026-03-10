@@ -28,6 +28,11 @@ export default async function ServiceDetailPage({ params }) {
       title: true,
       description: true,
       bannerImage: true,
+      bannerFocusX: true,
+      bannerFocusY: true,
+      bannerArtworkTitle: true,
+      bannerArtworkAuthor: true,
+      bannerArtworkNote: true,
       durationMin: true,
       professionalAssignments: {
         where: {
@@ -78,15 +83,32 @@ export default async function ServiceDetailPage({ params }) {
         ← Volver a Servicios
       </Link>
 
-      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div className="group overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
         <div className="relative h-72 bg-slate-200 md:h-80">
           {service.bannerImage ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={service.bannerImage} alt={service.title} className="h-full w-full object-cover" />
+            <img
+              src={service.bannerImage}
+              alt={service.title}
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+              style={{ objectPosition: `${service.bannerFocusX ?? 50}% ${service.bannerFocusY ?? 50}%` }}
+            />
           ) : (
             <div className="h-full w-full bg-gradient-to-br from-slate-200 via-slate-100 to-white" />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-900/30 to-transparent" />
+          {service.bannerArtworkTitle || service.bannerArtworkAuthor || service.bannerArtworkNote ? (
+            <div className="absolute right-0 top-0 max-w-md bg-gradient-to-l from-black/80 via-black/55 to-transparent p-5 text-right text-white opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+              {service.bannerArtworkTitle ? (
+                <div className="text-sm font-semibold">{service.bannerArtworkTitle}</div>
+              ) : null}
+              {service.bannerArtworkAuthor ? (
+                <div className="text-xs text-white/85">{service.bannerArtworkAuthor}</div>
+              ) : null}
+              {service.bannerArtworkNote ? (
+                <p className="mt-2 text-xs leading-relaxed text-white/80">{service.bannerArtworkNote}</p>
+              ) : null}
+            </div>
+          ) : null}
           <div className="absolute inset-x-0 bottom-0 p-6 md:p-8">
             <h1 className="text-3xl font-bold text-white md:text-4xl">{service.title}</h1>
             <div className="mt-3 text-sm text-slate-100">
@@ -117,7 +139,6 @@ export default async function ServiceDetailPage({ params }) {
                   className="inline-flex items-center gap-3 rounded-lg p-1 transition hover:bg-blue-50"
                 >
                   {professional.user?.image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={professional.user.image}
                       alt={professional.user?.name || "Profesional"}

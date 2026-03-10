@@ -1,59 +1,72 @@
-// src/components/CategorySection.js
-// src/components/CategorySection.js
-import Link from 'next/link';
+import Link from "next/link";
 
 export default function CategorySection({ categories, title }) {
-  // 🛡️ Seguridad: Si por alguna razón los datos llegan vacíos, no rompemos la web
   if (!categories || categories.length === 0) {
     return (
-      <section className="py-12 bg-gray-50 text-center">
+      <section className="bg-gray-50 py-12 text-center">
         <p className="text-gray-500">Cargando servicios...</p>
       </section>
     );
   }
 
   return (
-    <section className="py-16 bg-white">
+    <section className="bg-white py-16">
       <div className="container mx-auto px-4">
-        {/* Título de la Sección */}
-        <h2 className="text-3xl font-bold text-center text-gray-800 mb-12">
+        <h2 className="mb-12 text-center text-3xl font-bold text-gray-800">
           {title || "Nuestros Servicios"}
         </h2>
 
-        {/* Rejilla de Tarjetas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
           {categories.map((category) => (
             <Link
               key={category.slug}
               href={`/servicios/${category.slug}`}
-              className="group flex flex-col bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg transition-all duration-300"
+              className="group flex flex-col overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:shadow-lg"
             >
-              {/* Imagen de la tarjeta */}
-              <div className="h-48 overflow-hidden relative bg-gray-200">
+              <div className="relative h-48 overflow-hidden bg-gray-200">
                 {category.imageUrl ? (
                   <img
                     src={category.imageUrl}
                     alt={category.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    style={{ objectPosition: category.imagePosition || "50% 50%" }}
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-400">
-                    <span className="text-4xl">📷</span>
+                  <div className="flex h-full w-full items-center justify-center text-gray-400">
+                    <span className="text-4xl">Imagen</span>
                   </div>
                 )}
+
+                {category.artworkTitle || category.artworkAuthor || category.artworkNote ? (
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-4 text-white opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                    {category.artworkTitle ? (
+                      <div className="text-sm font-semibold">{category.artworkTitle}</div>
+                    ) : null}
+                    {category.artworkAuthor ? (
+                      <div className="text-xs text-white/85">{category.artworkAuthor}</div>
+                    ) : null}
+                    {category.artworkNote ? (
+                      <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-white/80">
+                        {category.artworkNote}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
 
-              {/* Contenido de la tarjeta */}
-              <div className="p-6 flex flex-col flex-grow">
-                <h3 className="text-xl font-bold text-gray-800 mb-2 group-hover:text-blue-600 transition-colors">
+              <div className="flex flex-grow flex-col p-6">
+                <h3 className="mb-2 text-xl font-bold text-gray-800 transition-colors group-hover:text-blue-600">
                   {category.name}
                 </h3>
-                <p className="text-gray-600 text-sm line-clamp-3 flex-grow">
-                  {category.description}
-                </p>
-                <div className="mt-4 text-blue-600 font-medium text-sm flex items-center">
-                  Ver más 
-                  <svg className="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <p className="flex-grow text-sm text-gray-600 line-clamp-3">{category.description}</p>
+                <div className="mt-4 flex items-center text-sm font-medium text-blue-600">
+                  Ver mas
+                  <svg
+                    className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                   </svg>
                 </div>

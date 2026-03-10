@@ -17,6 +17,11 @@ export default async function ServiciosPage() {
       title: true,
       description: true,
       bannerImage: true,
+      bannerFocusX: true,
+      bannerFocusY: true,
+      bannerArtworkTitle: true,
+      bannerArtworkAuthor: true,
+      bannerArtworkNote: true,
       durationMin: true,
       professionalAssignments: {
         where: {
@@ -67,11 +72,15 @@ export default async function ServiciosPage() {
             : "Precio segun profesional";
 
           return (
-            <div key={service.id} className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <div key={service.id} className="group flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
               <div className="relative h-56 bg-slate-200">
                 {service.bannerImage ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={service.bannerImage} alt={service.title} className="h-full w-full object-cover" />
+                  <img
+                    src={service.bannerImage}
+                    alt={service.title}
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                    style={{ objectPosition: `${service.bannerFocusX ?? 50}% ${service.bannerFocusY ?? 50}%` }}
+                  />
                 ) : (
                   <div className="flex h-full items-end bg-gradient-to-br from-slate-200 via-slate-100 to-white p-6">
                     <span className="rounded-full bg-white/85 px-3 py-1 text-xs font-semibold text-slate-700">
@@ -79,6 +88,23 @@ export default async function ServiciosPage() {
                     </span>
                   </div>
                 )}
+
+                {service.bannerArtworkTitle || service.bannerArtworkAuthor || service.bannerArtworkNote ? (
+                  <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/75 via-black/40 to-transparent p-4 text-white opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                    {service.bannerArtworkTitle ? (
+                      <div className="text-sm font-semibold">{service.bannerArtworkTitle}</div>
+                    ) : null}
+                    {service.bannerArtworkAuthor ? (
+                      <div className="text-xs text-white/85">{service.bannerArtworkAuthor}</div>
+                    ) : null}
+                    {service.bannerArtworkNote ? (
+                      <p className="mt-2 line-clamp-3 max-w-xl text-xs leading-relaxed text-white/80">
+                        {service.bannerArtworkNote}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/80 via-slate-900/35 to-transparent p-6">
                   <h2 className="text-xl font-bold text-white">{service.title}</h2>
                   <div className="mt-2 text-sm text-slate-100">
@@ -113,7 +139,6 @@ export default async function ServiciosPage() {
                         className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 transition hover:border-blue-300 hover:bg-blue-50"
                       >
                         {professional.user?.image ? (
-                          // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={professional.user.image}
                             alt={professional.user.name || "Profesional"}

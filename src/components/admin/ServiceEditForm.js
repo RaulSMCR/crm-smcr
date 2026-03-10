@@ -40,7 +40,12 @@ export default function ServiceEditForm({ service }) {
               Ajusta la imagen principal visible en home, listado y detalle del servicio.
             </p>
           </div>
-          <ServiceBannerField serviceId={service.id} initialUrl={service.bannerImage || ""} />
+          <ServiceBannerField
+            serviceId={service.id}
+            initialUrl={service.bannerImage || ""}
+            initialFocusX={service.bannerFocusX ?? 50}
+            initialFocusY={service.bannerFocusY ?? 50}
+          />
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
@@ -113,6 +118,39 @@ export default function ServiceEditForm({ service }) {
             defaultValue={service.description || ""}
             rows={4}
             className="w-full rounded-lg border border-slate-300 px-3 py-2"
+          />
+        </label>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="text-sm text-slate-700">
+            <span className="mb-1 block font-medium">Obra</span>
+            <input
+              name="bannerArtworkTitle"
+              defaultValue={service.bannerArtworkTitle || ""}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              placeholder="Ej: La noche estrellada"
+            />
+          </label>
+
+          <label className="text-sm text-slate-700">
+            <span className="mb-1 block font-medium">Autor</span>
+            <input
+              name="bannerArtworkAuthor"
+              defaultValue={service.bannerArtworkAuthor || ""}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              placeholder="Ej: Vincent van Gogh"
+            />
+          </label>
+        </div>
+
+        <label className="block text-sm text-slate-700">
+          <span className="mb-1 block font-medium">Reseña de la imagen</span>
+          <textarea
+            name="bannerArtworkNote"
+            defaultValue={service.bannerArtworkNote || ""}
+            rows={3}
+            className="w-full rounded-lg border border-slate-300 px-3 py-2"
+            placeholder="Breve texto para reconocer la obra, contexto o técnica."
           />
         </label>
 

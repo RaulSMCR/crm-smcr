@@ -5,9 +5,16 @@ import { useId, useState } from "react";
 const FALLBACK_BANNER =
   "https://images.unsplash.com/photo-1526253038957-bce54e05968c?w=1600&q=80&auto=format&fit=crop";
 
-export default function ServiceBannerField({ serviceId = null, initialUrl = "" }) {
+export default function ServiceBannerField({
+  serviceId = null,
+  initialUrl = "",
+  initialFocusX = 50,
+  initialFocusY = 50,
+}) {
   const inputId = useId();
   const [bannerUrl, setBannerUrl] = useState(initialUrl || "");
+  const [focusX, setFocusX] = useState(initialFocusX ?? 50);
+  const [focusY, setFocusY] = useState(initialFocusY ?? 50);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [tempKey] = useState(() => {
@@ -52,6 +59,8 @@ export default function ServiceBannerField({ serviceId = null, initialUrl = "" }
   return (
     <div className="space-y-3">
       <input type="hidden" name="bannerImage" value={bannerUrl} />
+      <input type="hidden" name="bannerFocusX" value={focusX} />
+      <input type="hidden" name="bannerFocusY" value={focusY} />
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -59,6 +68,7 @@ export default function ServiceBannerField({ serviceId = null, initialUrl = "" }
           src={bannerUrl || FALLBACK_BANNER}
           alt="Vista previa del banner del servicio"
           className="h-48 w-full object-cover md:h-56"
+          style={{ objectPosition: `${focusX}% ${focusY}%` }}
         />
       </div>
 
@@ -94,6 +104,34 @@ export default function ServiceBannerField({ serviceId = null, initialUrl = "" }
       />
 
       {error ? <p className="text-sm text-rose-700">{error}</p> : null}
+
+      <div className="grid gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-2">
+        <label className="text-sm text-slate-700">
+          <span className="mb-1 block font-medium">Mover imagen horizontalmente</span>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={focusX}
+            onChange={(event) => setFocusX(Number(event.target.value))}
+            className="w-full"
+          />
+          <span className="mt-1 block text-xs text-slate-500">Posicion X: {focusX}%</span>
+        </label>
+
+        <label className="text-sm text-slate-700">
+          <span className="mb-1 block font-medium">Mover imagen verticalmente</span>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={focusY}
+            onChange={(event) => setFocusY(Number(event.target.value))}
+            className="w-full"
+          />
+          <span className="mt-1 block text-xs text-slate-500">Posicion Y: {focusY}%</span>
+        </label>
+      </div>
     </div>
   );
 }

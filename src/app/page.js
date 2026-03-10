@@ -32,6 +32,11 @@ export default async function HomePage() {
         title: true,
         description: true,
         bannerImage: true,
+        bannerFocusX: true,
+        bannerFocusY: true,
+        bannerArtworkTitle: true,
+        bannerArtworkAuthor: true,
+        bannerArtworkNote: true,
       },
     });
 
@@ -47,6 +52,10 @@ export default async function HomePage() {
         slug: service.id,
         description: service.description || "Servicio profesional.",
         imageUrl: service.bannerImage || STOCK_IMAGES[index % STOCK_IMAGES.length],
+        imagePosition: `${service.bannerFocusX ?? 50}% ${service.bannerFocusY ?? 50}%`,
+        artworkTitle: service.bannerArtworkTitle || "",
+        artworkAuthor: service.bannerArtworkAuthor || "",
+        artworkNote: service.bannerArtworkNote || "",
       }));
     }
   } catch (error) {

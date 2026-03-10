@@ -15,6 +15,12 @@ function toNum(value) {
   return Number.isFinite(number) ? number : NaN;
 }
 
+function clampPercent(value, fallback = 50) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(100, Math.max(0, Math.trunc(number)));
+}
+
 export async function createService(formData) {
   try {
     const session = await getSession();
@@ -23,6 +29,11 @@ export async function createService(formData) {
     const title = String(formData.get("title") || "").trim();
     const description = String(formData.get("description") || "").trim();
     const bannerImage = String(formData.get("bannerImage") || "").trim();
+    const bannerFocusX = clampPercent(formData.get("bannerFocusX"), 50);
+    const bannerFocusY = clampPercent(formData.get("bannerFocusY"), 50);
+    const bannerArtworkTitle = String(formData.get("bannerArtworkTitle") || "").trim();
+    const bannerArtworkAuthor = String(formData.get("bannerArtworkAuthor") || "").trim();
+    const bannerArtworkNote = String(formData.get("bannerArtworkNote") || "").trim();
     const price = toNum(formData.get("price"));
     const durationMin = toNum(formData.get("durationMin"));
     const displayOrder = toNum(formData.get("displayOrder"));
@@ -40,6 +51,11 @@ export async function createService(formData) {
         title,
         description: description || null,
         bannerImage: bannerImage || null,
+        bannerFocusX,
+        bannerFocusY,
+        bannerArtworkTitle: bannerArtworkTitle || null,
+        bannerArtworkAuthor: bannerArtworkAuthor || null,
+        bannerArtworkNote: bannerArtworkNote || null,
         price,
         durationMin: Math.trunc(durationMin),
         displayOrder: Math.trunc(displayOrder),
@@ -63,6 +79,11 @@ export async function updateServiceDetails(serviceId, formData) {
     const title = String(formData.get("title") || "").trim();
     const description = String(formData.get("description") || "").trim();
     const bannerImage = String(formData.get("bannerImage") || "").trim();
+    const bannerFocusX = clampPercent(formData.get("bannerFocusX"), 50);
+    const bannerFocusY = clampPercent(formData.get("bannerFocusY"), 50);
+    const bannerArtworkTitle = String(formData.get("bannerArtworkTitle") || "").trim();
+    const bannerArtworkAuthor = String(formData.get("bannerArtworkAuthor") || "").trim();
+    const bannerArtworkNote = String(formData.get("bannerArtworkNote") || "").trim();
     const price = toNum(formData.get("price"));
     const durationMin = toNum(formData.get("durationMin"));
     const displayOrder = toNum(formData.get("displayOrder"));
@@ -82,6 +103,11 @@ export async function updateServiceDetails(serviceId, formData) {
         title,
         description: description || null,
         bannerImage: bannerImage || null,
+        bannerFocusX,
+        bannerFocusY,
+        bannerArtworkTitle: bannerArtworkTitle || null,
+        bannerArtworkAuthor: bannerArtworkAuthor || null,
+        bannerArtworkNote: bannerArtworkNote || null,
         price,
         durationMin: Math.trunc(durationMin),
         displayOrder: Math.trunc(displayOrder),

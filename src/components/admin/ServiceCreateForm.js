@@ -119,6 +119,36 @@ export default function ServiceCreateForm() {
         />
       </label>
 
+      <div className="grid gap-4 md:grid-cols-2">
+        <label className="text-sm text-slate-700">
+          <span className="mb-1 block font-medium">Obra</span>
+          <input
+            name="bannerArtworkTitle"
+            placeholder="Ej: La noche estrellada"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2"
+          />
+        </label>
+
+        <label className="text-sm text-slate-700">
+          <span className="mb-1 block font-medium">Autor</span>
+          <input
+            name="bannerArtworkAuthor"
+            placeholder="Ej: Vincent van Gogh"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2"
+          />
+        </label>
+      </div>
+
+      <label className="block text-sm text-slate-700">
+        <span className="mb-1 block font-medium">Reseña de la imagen</span>
+        <textarea
+          name="bannerArtworkNote"
+          placeholder="Breve texto para reconocer la obra, contexto o técnica."
+          rows={3}
+          className="w-full rounded-lg border border-slate-300 px-3 py-2"
+        />
+      </label>
+
       {error ? (
         <p className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
           {error}
