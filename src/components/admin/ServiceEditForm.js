@@ -3,6 +3,7 @@
 import { useState, useTransition, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { updateServiceDetails } from "@/actions/service-actions";
+import ServiceBannerField from "@/components/admin/ServiceBannerField";
 import Toast from "@/components/ui/Toast";
 
 export default function ServiceEditForm({ service }) {
@@ -32,6 +33,16 @@ export default function ServiceEditForm({ service }) {
           });
         }}
       >
+        <div className="space-y-2">
+          <div>
+            <h3 className="text-sm font-medium text-slate-900">Banner del servicio</h3>
+            <p className="text-sm text-slate-500">
+              Ajusta la imagen principal visible en home, listado y detalle del servicio.
+            </p>
+          </div>
+          <ServiceBannerField serviceId={service.id} initialUrl={service.bannerImage || ""} />
+        </div>
+
         <div className="grid gap-4 md:grid-cols-2">
           <label className="text-sm text-slate-700">
             <span className="mb-1 block font-medium">Titulo</span>

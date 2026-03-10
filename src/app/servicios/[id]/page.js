@@ -27,6 +27,7 @@ export default async function ServiceDetailPage({ params }) {
       id: true,
       title: true,
       description: true,
+      bannerImage: true,
       durationMin: true,
       professionalAssignments: {
         where: {
@@ -68,7 +69,7 @@ export default async function ServiceDetailPage({ params }) {
   }, null);
 
   const priceLabel = Number.isFinite(minApprovedPrice)
-    ? `Desde ₡${minApprovedPrice.toLocaleString("es-CR")}`
+    ? `Desde CRC ${minApprovedPrice.toLocaleString("es-CR")}`
     : "Precio segun profesional";
 
   return (
@@ -77,10 +78,21 @@ export default async function ServiceDetailPage({ params }) {
         ← Volver a Servicios
       </Link>
 
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">{service.title}</h1>
-        <div className="mt-3 text-sm text-slate-700">
-          ⏱ {service.durationMin} min · {priceLabel}
+      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <div className="relative h-72 bg-slate-200 md:h-80">
+          {service.bannerImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={service.bannerImage} alt={service.title} className="h-full w-full object-cover" />
+          ) : (
+            <div className="h-full w-full bg-gradient-to-br from-slate-200 via-slate-100 to-white" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-900/30 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 p-6 md:p-8">
+            <h1 className="text-3xl font-bold text-white md:text-4xl">{service.title}</h1>
+            <div className="mt-3 text-sm text-slate-100">
+              {service.durationMin} min · {priceLabel}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -124,9 +136,11 @@ export default async function ServiceDetailPage({ params }) {
                   </div>
                 </Link>
 
-                {professional.bio && <p className="mt-3 text-justify text-sm text-slate-700">{professional.bio}</p>}
+                {professional.bio ? (
+                  <p className="mt-3 text-justify text-sm text-slate-700">{professional.bio}</p>
+                ) : null}
                 <p className="mt-2 text-sm font-semibold text-emerald-700">
-                  Valor de la cita: ₡{Number(professional.approvedSessionPrice).toLocaleString("es-CR")}
+                  Valor de la cita: CRC {Number(professional.approvedSessionPrice).toLocaleString("es-CR")}
                 </p>
 
                 <Link

@@ -180,6 +180,7 @@ model Service {
   id          String  @id @default(cuid())
   title       String
   description String? @db.Text
+  bannerImage String?
 
   price       Decimal @db.Decimal(10, 2)
   durationMin Int

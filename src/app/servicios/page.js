@@ -16,6 +16,7 @@ export default async function ServiciosPage() {
       id: true,
       title: true,
       description: true,
+      bannerImage: true,
       durationMin: true,
       professionalAssignments: {
         where: {
@@ -55,42 +56,54 @@ export default async function ServiciosPage() {
           const professionals = (service.professionalAssignments || []).map(
             (assignment) => assignment.professional
           );
-          const minApprovedPrice = (service.professionalAssignments || []).reduce(
-            (min, assignment) => {
-              const current = Number(assignment?.approvedSessionPrice);
-              if (!Number.isFinite(current)) return min;
-              return min === null ? current : Math.min(min, current);
-            },
-            null
-          );
+          const minApprovedPrice = (service.professionalAssignments || []).reduce((min, assignment) => {
+            const current = Number(assignment?.approvedSessionPrice);
+            if (!Number.isFinite(current)) return min;
+            return min === null ? current : Math.min(min, current);
+          }, null);
 
           const priceLabel = Number.isFinite(minApprovedPrice)
-            ? `Desde ₡${minApprovedPrice.toLocaleString("es-CR")}`
+            ? `Desde CRC ${minApprovedPrice.toLocaleString("es-CR")}`
             : "Precio segun profesional";
 
           return (
-            <div key={service.id} className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-6">
-              <div className="flex flex-1 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0 flex-1">
-                  <h2 className="text-xl font-bold text-slate-900">{service.title}</h2>
-                  <p className="mt-2 text-justify text-slate-600">
-                    {service.description || "Sin descripcion disponible."}
-                  </p>
-                  <div className="mt-3 text-sm text-slate-700">
+            <div key={service.id} className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
+              <div className="relative h-56 bg-slate-200">
+                {service.bannerImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={service.bannerImage} alt={service.title} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full items-end bg-gradient-to-br from-slate-200 via-slate-100 to-white p-6">
+                    <span className="rounded-full bg-white/85 px-3 py-1 text-xs font-semibold text-slate-700">
+                      Servicio destacado
+                    </span>
+                  </div>
+                )}
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/80 via-slate-900/35 to-transparent p-6">
+                  <h2 className="text-xl font-bold text-white">{service.title}</h2>
+                  <div className="mt-2 text-sm text-slate-100">
                     {priceLabel} · {service.durationMin} min
                   </div>
+                </div>
+              </div>
+
+              <div className="flex flex-1 flex-col gap-4 p-6">
+                <div className="min-w-0 flex-1">
+                  <p className="text-justify text-slate-600">
+                    {service.description || "Sin descripcion disponible."}
+                  </p>
                 </div>
 
                 <Link
                   href={`/servicios/${service.id}`}
-                  className="mt-auto inline-flex w-full items-center justify-center whitespace-nowrap rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700 sm:mt-0 sm:w-auto"
+                  className="inline-flex w-full items-center justify-center whitespace-nowrap rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700 sm:w-auto"
                 >
                   Ver detalles
                 </Link>
               </div>
 
-              {professionals.length > 0 && (
-                <div className="mt-5">
+              {professionals.length > 0 ? (
+                <div className="border-t border-slate-100 px-6 pb-6 pt-5">
                   <div className="text-sm font-semibold text-slate-800">Disponible con:</div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {professionals.map((professional) => (
@@ -116,7 +129,7 @@ export default async function ServiciosPage() {
                     ))}
                   </div>
                 </div>
-              )}
+              ) : null}
             </div>
           );
         })}

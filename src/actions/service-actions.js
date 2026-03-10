@@ -22,6 +22,7 @@ export async function createService(formData) {
 
     const title = String(formData.get("title") || "").trim();
     const description = String(formData.get("description") || "").trim();
+    const bannerImage = String(formData.get("bannerImage") || "").trim();
     const price = toNum(formData.get("price"));
     const durationMin = toNum(formData.get("durationMin"));
     const displayOrder = toNum(formData.get("displayOrder"));
@@ -38,6 +39,7 @@ export async function createService(formData) {
       data: {
         title,
         description: description || null,
+        bannerImage: bannerImage || null,
         price,
         durationMin: Math.trunc(durationMin),
         displayOrder: Math.trunc(displayOrder),
@@ -60,6 +62,7 @@ export async function updateServiceDetails(serviceId, formData) {
 
     const title = String(formData.get("title") || "").trim();
     const description = String(formData.get("description") || "").trim();
+    const bannerImage = String(formData.get("bannerImage") || "").trim();
     const price = toNum(formData.get("price"));
     const durationMin = toNum(formData.get("durationMin"));
     const displayOrder = toNum(formData.get("displayOrder"));
@@ -78,6 +81,7 @@ export async function updateServiceDetails(serviceId, formData) {
       data: {
         title,
         description: description || null,
+        bannerImage: bannerImage || null,
         price,
         durationMin: Math.trunc(durationMin),
         displayOrder: Math.trunc(displayOrder),

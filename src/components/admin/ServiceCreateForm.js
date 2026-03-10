@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createService } from "@/actions/service-actions";
+import ServiceBannerField from "@/components/admin/ServiceBannerField";
 
 export default function ServiceCreateForm() {
   const router = useRouter();
@@ -34,6 +35,16 @@ export default function ServiceCreateForm() {
         });
       }}
     >
+      <div className="space-y-2">
+        <div>
+          <h3 className="text-sm font-medium text-slate-900">Banner del servicio</h3>
+          <p className="text-sm text-slate-500">
+            Esta imagen se mostrara en la home y en las paginas publicas del servicio.
+          </p>
+        </div>
+        <ServiceBannerField />
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2">
         <label className="text-sm text-slate-700">
           <span className="mb-1 block font-medium">Titulo *</span>

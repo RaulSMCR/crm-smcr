@@ -22,6 +22,7 @@ export default async function AdminServicioDetallePage({ params }) {
       id: true,
       title: true,
       description: true,
+      bannerImage: true,
       price: true,
       durationMin: true,
       displayOrder: true,
