@@ -45,6 +45,7 @@ export default function ServiceEditForm({ service }) {
             initialUrl={service.bannerImage || ""}
             initialFocusX={service.bannerFocusX ?? 50}
             initialFocusY={service.bannerFocusY ?? 50}
+            initialScale={service.bannerScale ?? 100}
           />
         </div>
 

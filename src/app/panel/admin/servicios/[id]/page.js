@@ -25,6 +25,7 @@ export default async function AdminServicioDetallePage({ params }) {
       bannerImage: true,
       bannerFocusX: true,
       bannerFocusY: true,
+      bannerScale: true,
       bannerArtworkTitle: true,
       bannerArtworkAuthor: true,
       bannerArtworkNote: true,

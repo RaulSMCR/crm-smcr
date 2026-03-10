@@ -28,8 +28,11 @@ export default function CategorySection({ categories, title }) {
                   <img
                     src={category.imageUrl}
                     alt={category.name}
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    style={{ objectPosition: category.imagePosition || "50% 50%" }}
+                    className="h-full w-full object-cover transition-transform duration-500"
+                    style={{
+                      objectPosition: category.imagePosition || "50% 50%",
+                      transform: `scale(${(category.imageScale || 100) / 100})`,
+                    }}
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-gray-400">

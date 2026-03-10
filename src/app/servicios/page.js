@@ -19,6 +19,7 @@ export default async function ServiciosPage() {
       bannerImage: true,
       bannerFocusX: true,
       bannerFocusY: true,
+      bannerScale: true,
       bannerArtworkTitle: true,
       bannerArtworkAuthor: true,
       bannerArtworkNote: true,
@@ -78,8 +79,11 @@ export default async function ServiciosPage() {
                   <img
                     src={service.bannerImage}
                     alt={service.title}
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-                    style={{ objectPosition: `${service.bannerFocusX ?? 50}% ${service.bannerFocusY ?? 50}%` }}
+                    className="h-full w-full object-cover transition-transform duration-500"
+                    style={{
+                      objectPosition: `${service.bannerFocusX ?? 50}% ${service.bannerFocusY ?? 50}%`,
+                      transform: `scale(${(service.bannerScale ?? 100) / 100})`,
+                    }}
                   />
                 ) : (
                   <div className="flex h-full items-end bg-gradient-to-br from-slate-200 via-slate-100 to-white p-6">

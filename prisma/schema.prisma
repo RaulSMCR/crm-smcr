@@ -183,6 +183,7 @@ model Service {
   bannerImage String?
   bannerFocusX Int     @default(50)
   bannerFocusY Int     @default(50)
+  bannerScale Int      @default(100)
   bannerArtworkTitle String?
   bannerArtworkAuthor String?
   bannerArtworkNote String? @db.Text
