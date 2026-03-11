@@ -34,7 +34,7 @@ export default async function ProfesionalContabilidadPage({ searchParams }) {
   const [profile, transactions, submittedInvoices] = await Promise.all([
     prisma.professionalProfile.findUnique({
       where: { id: professionalId },
-      select: { id: true, commission: true, userId: true },
+      select: { id: true, userId: true },
     }),
 
     prisma.paymentTransaction.findMany({
@@ -106,13 +106,12 @@ export default async function ProfesionalContabilidadPage({ searchParams }) {
     <div className="max-w-6xl mx-auto p-6 md:p-10 space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-slate-900">Contabilidad</h1>
-        <p className="text-slate-600 mt-1">Cobros, ingresos y presentacion de facturas a la plataforma para sostener una atencion segura.</p>
+        <p className="text-slate-600 mt-1">Cobros, ingresos y presentacion de facturas del profesional.</p>
       </div>
 
       <ProfessionalBillingModule
         transactions={txForClient}
         submittedInvoices={invoicesForClient}
-        commission={profile.commission}
         rangeFrom={rangeFrom.toISOString()}
         rangeTo={rangeTo.toISOString()}
       />

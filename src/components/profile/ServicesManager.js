@@ -2,13 +2,16 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { manageService } from '@/actions/profile-actions';
+import Toast from '@/components/ui/Toast';
 
 export default function ServicesManager({ services = [] }) {
   const [isEditing, setIsEditing] = useState(false);
   const [currentService, setCurrentService] = useState(null); // null = nuevo, obj = editar
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState(null);
+  const dismissToast = useCallback(() => setToast(null), []);
 
   // Formulario inicial vacío
   const emptyForm = { title: '', description: '', price: '', durationMin: '60' };
@@ -33,7 +36,9 @@ export default function ServicesManager({ services = [] }) {
 
   const handleDelete = async (id) => {
     if(!confirm("¿Estás seguro de borrar este servicio?")) return;
-    await manageService('DELETE', { id });
+    const res = await manageService('DELETE', { id });
+    if (res?.success) setToast({ message: "Servicio eliminado.", type: "success" });
+    else setToast({ message: res?.error || "No se pudo eliminar el servicio.", type: "error" });
   };
 
   const handleSubmit = async (e) => {
@@ -48,8 +53,9 @@ export default function ServicesManager({ services = [] }) {
     if (res.success) {
       setIsEditing(false);
       setFormData(emptyForm);
+      setToast({ message: currentService ? "Servicio actualizado correctamente." : "Servicio creado correctamente.", type: "success" });
     } else {
-      alert("Error: " + res.error);
+      setToast({ message: res.error || "No se pudo guardar el servicio.", type: "error" });
     }
     setLoading(false);
   };
@@ -85,6 +91,8 @@ export default function ServicesManager({ services = [] }) {
           ))
         )}
       </div>
+
+      <Toast message={toast?.message} type={toast?.type} onDismiss={dismissToast} />
 
       {/* MODAL / FORMULARIO (Inline por simplicidad) */}
       {isEditing && (

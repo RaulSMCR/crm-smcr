@@ -1,8 +1,9 @@
 // src/components/AvailabilityForm.js
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { updateAvailability } from "@/actions/availability-actions";
+import Toast from "@/components/ui/Toast";
 
 const DAYS = [
   { id: 1, label: "Lunes" },
@@ -37,7 +38,8 @@ function addMinutes(time, minutes) {
 
 export default function AvailabilityForm({ initialData = [] }) {
   const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState(null); // { type, text }
+  const [toast, setToast] = useState(null);
+  const dismissToast = useCallback(() => setToast(null), []);
 
   const [schedule, setSchedule] = useState(() => {
     const map = {};
@@ -61,7 +63,7 @@ export default function AvailabilityForm({ initialData = [] }) {
   }, [schedule]);
 
   const addBlock = (dayId) => {
-    setMsg(null);
+    setToast(null);
     setSchedule((prev) => {
       const blocks = [...(prev[dayId] || [])];
       const last = blocks[blocks.length - 1];
@@ -85,7 +87,7 @@ export default function AvailabilityForm({ initialData = [] }) {
   };
 
   const removeBlock = (dayId, index) => {
-    setMsg(null);
+    setToast(null);
     setSchedule((prev) => ({
       ...prev,
       [dayId]: (prev[dayId] || []).filter((_, i) => i !== index),
@@ -93,7 +95,7 @@ export default function AvailabilityForm({ initialData = [] }) {
   };
 
   const updateBlock = (dayId, index, field, value) => {
-    setMsg(null);
+    setToast(null);
     setSchedule((prev) => {
       const blocks = [...(prev[dayId] || [])];
       blocks[index] = { ...blocks[index], [field]: value };
@@ -103,15 +105,12 @@ export default function AvailabilityForm({ initialData = [] }) {
   };
 
   const handleSubmit = async () => {
-    setMsg(null);
+    setToast(null);
     setLoading(true);
 
     try {
       if (hasInvalidBlocks) {
-        setMsg({
-          type: "error",
-          text: "Se detectaron bloques invalidos: la hora de fin debe ser mayor que la hora de inicio.",
-        });
+        setToast({ message: "Se detectaron bloques invalidos: la hora de fin debe ser mayor que la hora de inicio.", type: "error" });
         return;
       }
 
@@ -128,13 +127,13 @@ export default function AvailabilityForm({ initialData = [] }) {
 
       const result = await updateAvailability(payload);
       if (result?.success) {
-        setMsg({ type: "success", text: "✅ Horarios guardados con éxito." });
+        setToast({ message: "Horarios guardados con éxito.", type: "success" });
       } else {
         const details = result?.details ? ` Detalle: ${result.details}` : "";
-        setMsg({ type: "error", text: `❌ ${result?.error || "Error al guardar."}${details}` });
+        setToast({ message: `${result?.error || "Error al guardar."}${details}`, type: "error" });
       }
     } catch (e) {
-      setMsg({ type: "error", text: `❌ Error inesperado: ${String(e?.message ?? e)}` });
+      setToast({ message: `Error inesperado: ${String(e?.message ?? e)}`, type: "error" });
     } finally {
       setLoading(false);
     }
@@ -148,18 +147,6 @@ export default function AvailabilityForm({ initialData = [] }) {
           Sugerencia: puede agregar multiples turnos por dia (ejemplo: manana y tarde). Todas las horas se guardan en hora de Costa Rica.
         </p>
       </div>
-
-      {msg && (
-        <div
-          className={`rounded-xl border px-4 py-3 text-sm ${
-            msg.type === "success"
-              ? "bg-emerald-50 border-emerald-200 text-emerald-900"
-              : "bg-rose-50 border-rose-200 text-rose-900"
-          }`}
-        >
-          {msg.text}
-        </div>
-      )}
 
       <div className="space-y-4">
         {DAYS.map((day) => {
@@ -249,6 +236,8 @@ export default function AvailabilityForm({ initialData = [] }) {
           {loading ? "Guardando..." : "Guardar todos los horarios"}
         </button>
       </div>
+
+      <Toast message={toast?.message} type={toast?.type} onDismiss={dismissToast} />
     </div>
   );
 }

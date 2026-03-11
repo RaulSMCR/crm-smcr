@@ -1,9 +1,10 @@
 "use client";
 
 import { DEFAULT_TZ } from "@/lib/timezone";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Toast from "@/components/ui/Toast";
 import CancelAppointmentModal from "./appointments/CancelAppointmentModal";
 import RescheduleAppointmentModal from "./appointments/RescheduleAppointmentModal";
 import {
@@ -11,6 +12,8 @@ import {
   confirmCurrentAppointmentByPatient,
 } from "@/actions/patient-booking-actions";
 import { initiateBalancePayment } from "@/actions/payment-actions";
+
+const CANCELLED_STATUSES = new Set(["CANCELLED_BY_USER", "CANCELLED_BY_PRO"]);
 
 const formatDateInTZ = (date) =>
   new Intl.DateTimeFormat("es-CR", {
@@ -27,16 +30,59 @@ const formatTimeInTZ = (date) =>
     minute: "2-digit",
   }).format(new Date(date));
 
+function getStatusBadge(status) {
+  const config = {
+    PENDING: { label: "Pendiente", style: "bg-amber-500 text-white border-amber-500" },
+    CONFIRMED: { label: "Confirmada", style: "bg-green-600 text-white border-green-600" },
+    CANCELLED_BY_USER: { label: "Cancelada", style: "bg-red-600 text-white border-red-600" },
+    CANCELLED_BY_PRO: {
+      label: "Cancelada por profesional",
+      style: "bg-red-600 text-white border-red-600",
+    },
+    COMPLETED: { label: "Completada", style: "bg-slate-600 text-white border-slate-600" },
+    NO_SHOW: { label: "Ausente", style: "bg-purple-600 text-white border-purple-600" },
+  };
+
+  const current = config[status] || { label: status, style: "bg-gray-100" };
+  return (
+    <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${current.style}`}>
+      {current.label}
+    </span>
+  );
+}
+
+function EmptySection({ title }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+      No hay citas en {title.toLowerCase()}.
+    </div>
+  );
+}
+
+function SectionHeader({ title, count, description }) {
+  return (
+    <div className="mb-4 flex items-end justify-between gap-3">
+      <div>
+        <h3 className="text-lg font-bold text-slate-900">{title}</h3>
+        <p className="text-sm text-slate-500">{description}</p>
+      </div>
+      <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700">
+        {count}
+      </span>
+    </div>
+  );
+}
+
 export default function UserAppointmentsPanel({
   initialAppointments = [],
   initialAction = "",
   initialActionAppointmentId = "",
 }) {
   const [appointments, setAppointments] = useState(initialAppointments);
-  const [filter, setFilter] = useState("ALL");
   const [cancelingApt, setCancelingApt] = useState(null);
   const [reschedulingApt, setReschedulingApt] = useState(null);
-  const [actionMessage, setActionMessage] = useState("");
+  const [toast, setToast] = useState(null);
+  const dismissToast = useCallback(() => setToast(null), []);
   const [isApplyingAction, startActionTransition] = useTransition();
   const [payingAptId, setPayingAptId] = useState(null);
   const router = useRouter();
@@ -52,14 +98,14 @@ export default function UserAppointmentsPanel({
       (item) => item.id === initialActionAppointmentId
     );
     if (!targetAppointment) {
-      setActionMessage("No se encontro la cita del enlace recibido.");
+      setToast({ message: "No se encontro la cita del enlace recibido.", type: "error" });
       router.replace("/panel/paciente");
       return;
     }
 
     if (initialAction === "reschedule") {
       setReschedulingApt(targetAppointment);
-      setActionMessage("Excelente avance. Seleccione un nuevo horario para continuar con su cuidado.");
+      setToast({ message: "Seleccione un nuevo horario para continuar con su cuidado.", type: "success" });
       router.replace("/panel/paciente");
       return;
     }
@@ -68,240 +114,314 @@ export default function UserAppointmentsPanel({
       startActionTransition(async () => {
         const result = await confirmCurrentAppointmentByPatient(initialActionAppointmentId);
         if (result?.success) {
-          setActionMessage(
-            "Horario confirmado. Avisamos al profesional para continuar con la serie."
+          setAppointments((prev) =>
+            prev.map((item) =>
+              item.id === initialActionAppointmentId ? { ...item, status: "CONFIRMED" } : item
+            )
           );
+          setToast({ message: "Horario confirmado. Avisamos al profesional para continuar con la serie.", type: "success" });
         } else {
-          setActionMessage(result?.error || "No se pudo confirmar el horario.");
+          setToast({ message: result?.error || "No se pudo confirmar el horario.", type: "error" });
         }
         router.replace("/panel/paciente");
       });
     }
   }, [initialAction, initialActionAppointmentId, initialAppointments, router]);
 
-  async function handlePay(apt) {
-    // Si ya hay URL generada (auto-creada al completar), redirigir directo
-    const existingUrl = apt.paymentTransactions?.[0]?.p2pProcessUrl;
+  async function handlePay(appointment) {
+    const existingUrl = appointment.paymentTransactions?.[0]?.p2pProcessUrl;
     if (existingUrl) {
       window.location.href = existingUrl;
       return;
     }
-    setPayingAptId(apt.id);
-    const result = await initiateBalancePayment(apt.id);
+
+    setPayingAptId(appointment.id);
+    const result = await initiateBalancePayment(appointment.id);
     setPayingAptId(null);
+
     if (result?.success && result.processUrl) {
       window.location.href = result.processUrl;
-    } else {
-      setActionMessage(
-        result?.error ||
-          "No fue posible iniciar el pago en este intento. Por favor, inténtelo nuevamente para continuar de forma segura."
-      );
+      return;
     }
+
+    setToast({
+      message: result?.error || "No fue posible iniciar el pago en este intento. Intente nuevamente para continuar.",
+      type: "error",
+    });
   }
 
   async function handleCancel(appointmentId, reason) {
     const result = await cancelAppointmentByPatient(appointmentId, reason);
     if (result?.success) {
       setAppointments((prev) =>
-        prev.map((a) => (a.id === appointmentId ? { ...a, status: "CANCELLED_BY_USER" } : a))
+        prev.map((item) =>
+          item.id === appointmentId ? { ...item, status: "CANCELLED_BY_USER" } : item
+        )
       );
+      setToast({ message: "Cita cancelada correctamente.", type: "success" });
+    } else {
+      setToast({ message: result?.error || "No se pudo cancelar la cita.", type: "error" });
     }
     return result;
   }
 
-  const getStatusBadge = (status) => {
-    const config = {
-      PENDING: { label: "Pendiente", style: "bg-amber-500 text-white border-amber-500" },
-      CONFIRMED: { label: "Confirmada", style: "bg-green-600 text-white border-green-600" },
-      CANCELLED_BY_USER: { label: "Cancelada", style: "bg-red-600 text-white border-red-600" },
-      CANCELLED_BY_PRO: {
-        label: "Cancelada por Prof.",
-        style: "bg-red-600 text-white border-red-600",
-      },
-      COMPLETED: { label: "Completada", style: "bg-slate-600 text-white border-slate-600" },
-      NO_SHOW: { label: "Ausente", style: "bg-purple-600 text-white border-purple-600" },
-    };
+  const sections = useMemo(() => {
+    const now = Date.now();
 
-    const current = config[status] || { label: status, style: "bg-gray-100" };
+    const cancelled = [];
+    const unpaid = [];
+    const reschedule = [];
+    const future = [];
+    const paid = [];
+
+    for (const appointment of appointments) {
+      const dateValue = new Date(appointment.date).getTime();
+      const isFuture = dateValue > now;
+      const isCancelled = CANCELLED_STATUSES.has(appointment.status);
+      const isPaid = appointment.paymentStatus === "PAID";
+      const isConfirmedFuture = appointment.status === "CONFIRMED" && isFuture;
+      const isPendingFuture = appointment.status === "PENDING" && isFuture;
+      const isPastOrCompleted = appointment.status === "COMPLETED" || dateValue <= now;
+
+      if (isCancelled) {
+        cancelled.push(appointment);
+        continue;
+      }
+
+      if (!isPaid && isPastOrCompleted) {
+        unpaid.push(appointment);
+        continue;
+      }
+
+      if (isConfirmedFuture) {
+        reschedule.push(appointment);
+        continue;
+      }
+
+      if (isPendingFuture) {
+        future.push(appointment);
+        continue;
+      }
+
+      if (isPaid) {
+        paid.push(appointment);
+      }
+    }
+
+    return { future, cancelled, unpaid, reschedule, paid };
+  }, [appointments]);
+
+  const renderAppointment = (appointment) => {
+    const payLabel = payingAptId === appointment.id ? "Procesando..." : "Pagar";
+
     return (
-      <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${current.style}`}>
-        {current.label}
-      </span>
+      <div
+        key={appointment.id}
+        className="flex flex-col justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5 transition-colors hover:bg-slate-50 sm:flex-row"
+      >
+        <div className="flex gap-4">
+          <Link
+            href={`/agendar/${appointment.professionalId}${
+              appointment.serviceId ? `?serviceId=${appointment.serviceId}` : ""
+            }`}
+            className="flex-shrink-0 rounded-full transition hover:ring-2 hover:ring-blue-200"
+          >
+            {appointment.professional.user?.image ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={appointment.professional.user.image}
+                alt={appointment.professional.user?.name}
+                className="h-12 w-12 rounded-full border object-cover"
+              />
+            ) : (
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-lg font-bold text-blue-600">
+                {appointment.professional.user?.name?.charAt(0) ?? "?"}
+              </div>
+            )}
+          </Link>
+
+          <div>
+            <Link
+              href={`/agendar/${appointment.professionalId}${
+                appointment.serviceId ? `?serviceId=${appointment.serviceId}` : ""
+              }`}
+              className="font-semibold text-gray-900 hover:text-blue-700"
+            >
+              {appointment.professional.user?.name}
+            </Link>
+            <p className="text-sm text-gray-500">
+              {appointment.service?.title || "Consulta General"}
+            </p>
+
+            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-gray-600">
+              <div className="flex items-center gap-1">
+                <svg
+                  className="h-4 w-4 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+                {formatDateInTZ(appointment.date)}
+              </div>
+              <div className="flex items-center gap-1">
+                <svg
+                  className="h-4 w-4 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                {formatTimeInTZ(appointment.date)} hs
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col items-end gap-2">
+          {getStatusBadge(appointment.status)}
+
+          {appointment.pricePaid ? (
+            <span className="text-sm font-medium text-gray-900">
+              ₡{Number(appointment.pricePaid).toLocaleString("es-CR")}
+            </span>
+          ) : null}
+
+          {appointment.status === "COMPLETED" && appointment.paymentStatus !== "PAID" ? (
+            <button
+              onClick={() => handlePay(appointment)}
+              disabled={payingAptId === appointment.id}
+              className="mt-2 w-full rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
+            >
+              {payLabel}
+            </button>
+          ) : null}
+
+          {(appointment.status === "PENDING" || appointment.status === "CONFIRMED") &&
+          new Date(appointment.date) > new Date() ? (
+            <>
+              {appointment.status === "CONFIRMED" ? (
+                <button
+                  onClick={() => setReschedulingApt(appointment)}
+                  className="mt-2 w-full rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+                >
+                  Reagendar
+                </button>
+              ) : (
+                <button
+                  onClick={() =>
+                    startActionTransition(async () => {
+                      const result = await confirmCurrentAppointmentByPatient(appointment.id);
+                      if (result?.success) {
+                        setAppointments((prev) =>
+                          prev.map((item) =>
+                            item.id === appointment.id
+                              ? { ...item, status: "CONFIRMED" }
+                              : item
+                          )
+                        );
+                        setToast({ message: "Cita confirmada. El profesional ha sido notificado.", type: "success" });
+                      } else {
+                        setToast({ message: result?.error || "No se pudo confirmar la cita.", type: "error" });
+                      }
+                    })
+                  }
+                  disabled={isApplyingAction}
+                  className="mt-2 w-full rounded-xl bg-amber-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-amber-600 disabled:opacity-60"
+                >
+                  {isApplyingAction ? "Confirmando..." : "Confirmar cita"}
+                </button>
+              )}
+
+              <button
+                onClick={() => setCancelingApt(appointment)}
+                className="mt-2 w-full rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700"
+              >
+                Cancelar cita
+              </button>
+            </>
+          ) : null}
+        </div>
+      </div>
     );
   };
 
-  const filteredAppointments = appointments.filter((apt) => {
-    if (filter === "ALL") return true;
-    const isPast = new Date(apt.date) < new Date();
-    return filter === "PAST" ? isPast : !isPast;
-  });
-
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-      <div className="flex flex-col items-center justify-between gap-4 border-b border-gray-100 p-6 sm:flex-row">
-        <h2 className="text-xl font-bold text-gray-800">Mis Citas</h2>
-        <div className="rounded-lg bg-gray-100 p-1">
-          {["ALL", "UPCOMING", "PAST"].map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`rounded-md px-4 py-1.5 text-sm font-medium transition-all ${
-                filter === f
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-slate-700 hover:text-slate-900"
-              }`}
-            >
-              {f === "ALL" ? "Todas" : f === "UPCOMING" ? "Proximas" : "Historial"}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {actionMessage && (
-        <div className="mx-6 mt-4 rounded-xl border border-brand-300 bg-brand-100 px-4 py-3 text-sm text-neutral-900">
-          {actionMessage}
-        </div>
-      )}
-
-      {isApplyingAction && (
-        <div className="mx-6 mt-4 rounded-xl border border-brand-300 bg-brand-100 px-4 py-3 text-sm text-neutral-900">
+    <div className="space-y-6">
+      {isApplyingAction ? (
+        <div className="rounded-xl border border-brand-300 bg-brand-100 px-4 py-3 text-sm text-neutral-900">
           Registrando su confirmacion para continuar con seguridad...
         </div>
-      )}
+      ) : null}
 
-      <div className="divide-y divide-gray-100">
-        {filteredAppointments.length > 0 ? (
-          filteredAppointments.map((apt) => (
-            <div
-              key={apt.id}
-              className="flex flex-col justify-between gap-4 p-6 transition-colors hover:bg-gray-50 sm:flex-row"
-            >
-              <div className="flex gap-4">
-                <Link
-                  href={`/agendar/${apt.professionalId}${apt.serviceId ? `?serviceId=${apt.serviceId}` : ""}`}
-                  className="flex-shrink-0 rounded-full transition hover:ring-2 hover:ring-blue-200"
-                >
-                  {apt.professional.user?.image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={apt.professional.user.image}
-                      alt={apt.professional.user?.name}
-                      className="h-12 w-12 rounded-full border object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-lg font-bold text-blue-600">
-                      {apt.professional.user?.name?.charAt(0) ?? "?"}
-                    </div>
-                  )}
-                </Link>
+      <section>
+        <SectionHeader
+          title="Citas futuras"
+          count={sections.future.length}
+          description="Citas pendientes de confirmacion o por realizar."
+        />
+        <div className="space-y-4">
+          {sections.future.length > 0 ? sections.future.map(renderAppointment) : <EmptySection title="Citas futuras" />}
+        </div>
+      </section>
 
-                <div>
-                  <Link
-                    href={`/agendar/${apt.professionalId}${apt.serviceId ? `?serviceId=${apt.serviceId}` : ""}`}
-                    className="font-semibold text-gray-900 hover:text-blue-700"
-                  >
-                    {apt.professional.user?.name}
-                  </Link>
-                  <p className="text-sm text-gray-500">{apt.service?.title || "Consulta General"}</p>
+      <section>
+        <SectionHeader
+          title="Citas para reagendar"
+          count={sections.reschedule.length}
+          description="Citas confirmadas que aun pueden mover de horario."
+        />
+        <div className="space-y-4">
+          {sections.reschedule.length > 0 ? sections.reschedule.map(renderAppointment) : <EmptySection title="Citas para reagendar" />}
+        </div>
+      </section>
 
-                  <div className="mt-2 flex items-center gap-3 text-sm text-gray-600">
-                    <div className="flex items-center gap-1">
-                      <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      {formatDateInTZ(apt.date)}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      {formatTimeInTZ(apt.date)} hs
-                    </div>
-                  </div>
-                </div>
-              </div>
+      <section>
+        <SectionHeader
+          title="Citas sin pagar"
+          count={sections.unpaid.length}
+          description="Citas finalizadas o vencidas con saldo pendiente."
+        />
+        <div className="space-y-4">
+          {sections.unpaid.length > 0 ? sections.unpaid.map(renderAppointment) : <EmptySection title="Citas sin pagar" />}
+        </div>
+      </section>
 
-              <div className="flex flex-col items-end gap-2">
-                {getStatusBadge(apt.status)}
+      <section>
+        <SectionHeader
+          title="Citas pagadas"
+          count={sections.paid.length}
+          description="Citas con pago registrado correctamente."
+        />
+        <div className="space-y-4">
+          {sections.paid.length > 0 ? sections.paid.map(renderAppointment) : <EmptySection title="Citas pagadas" />}
+        </div>
+      </section>
 
-                {apt.pricePaid && (
-                  <span className="text-sm font-medium text-gray-900">
-                    ₡{Number(apt.pricePaid).toLocaleString("es-CR")}
-                  </span>
-                )}
+      <section>
+        <SectionHeader
+          title="Citas canceladas"
+          count={sections.cancelled.length}
+          description="Historial de citas anuladas por usted o por el profesional."
+        />
+        <div className="space-y-4">
+          {sections.cancelled.length > 0 ? sections.cancelled.map(renderAppointment) : <EmptySection title="Citas canceladas" />}
+        </div>
+      </section>
 
-                {apt.status === "COMPLETED" && apt.paymentStatus !== "PAID" && (
-                  <button
-                    onClick={() => handlePay(apt)}
-                    disabled={payingAptId === apt.id}
-                    className="mt-2 w-full rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
-                  >
-                    {payingAptId === apt.id ? "Procesando..." : "Pagar"}
-                  </button>
-                )}
-
-                {(apt.status === "PENDING" || apt.status === "CONFIRMED") &&
-                  new Date(apt.date) > new Date() && (
-                    <>
-                      {apt.status === "CONFIRMED" ? (
-                        <button
-                          onClick={() => setReschedulingApt(apt)}
-                          className="mt-2 w-full rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
-                        >
-                          Reagendar
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() =>
-                            startActionTransition(async () => {
-                              const result = await confirmCurrentAppointmentByPatient(apt.id);
-                              if (result?.success) {
-                                setAppointments((prev) =>
-                                  prev.map((a) =>
-                                    a.id === apt.id ? { ...a, status: "CONFIRMED" } : a
-                                  )
-                                );
-                                setActionMessage("Cita confirmada. El profesional ha sido notificado.");
-                              } else {
-                                setActionMessage(result?.error || "No se pudo confirmar la cita.");
-                              }
-                            })
-                          }
-                          disabled={isApplyingAction}
-                          className="mt-2 w-full rounded-xl bg-amber-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-amber-600 disabled:opacity-60"
-                        >
-                          {isApplyingAction ? "Confirmando..." : "Confirmar cita"}
-                        </button>
-                      )}
-                      <button
-                        onClick={() => setCancelingApt(apt)}
-                        className="mt-2 w-full rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700"
-                      >
-                        Cancelar cita
-                      </button>
-                    </>
-                  )}
-              </div>
-            </div>
-          ))
-        ) : (
-          <div className="py-12 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-50">
-              <svg className="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-medium text-gray-900">No hay citas en esta lista</h3>
-            <p className="mx-auto mt-1 max-w-sm text-gray-500">
-              {filter === "ALL"
-                ? "Aún no se registran citas agendadas. Cuando lo desee, podrá avanzar con una nueva atención profesional."
-                : "No se encontraron citas que coincidan con este filtro."}
-            </p>
-          </div>
-        )}
-      </div>
-
-      <div className="border-t border-gray-100 bg-white p-6">
+      <div className="border-t border-gray-100 bg-white pt-4">
         <div className="flex flex-col justify-center gap-3 sm:flex-row sm:justify-end">
           <Link
             href="/servicios"
@@ -318,22 +438,23 @@ export default function UserAppointmentsPanel({
         </div>
       </div>
 
-      {reschedulingApt && (
+      {reschedulingApt ? (
         <RescheduleAppointmentModal
           appointment={reschedulingApt}
           onClose={() => setReschedulingApt(null)}
         />
-      )}
+      ) : null}
 
-      {cancelingApt && (
+      {cancelingApt ? (
         <CancelAppointmentModal
           appointment={cancelingApt}
           onCancel={handleCancel}
           onClose={() => setCancelingApt(null)}
           role="patient"
         />
-      )}
+      ) : null}
+
+      <Toast message={toast?.message} type={toast?.type} onDismiss={dismissToast} />
     </div>
   );
 }
-

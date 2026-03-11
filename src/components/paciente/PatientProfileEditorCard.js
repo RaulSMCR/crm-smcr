@@ -1,12 +1,14 @@
 // src/components/paciente/PatientProfileEditorCard.js
 "use client";
 
-import { useState, useTransition } from "react";
+import { useCallback, useState, useTransition } from "react";
 import { updatePatientProfile } from "@/actions/patient-profile-actions";
+import Toast from "@/components/ui/Toast";
 
 export default function PatientProfileEditorCard({ user }) {
   const [isPending, startTransition] = useTransition();
-  const [msg, setMsg] = useState(null);
+  const [toast, setToast] = useState(null);
+  const dismissToast = useCallback(() => setToast(null), []);
 
   const [form, setForm] = useState({
     name: user?.name || "",
@@ -37,8 +39,8 @@ export default function PatientProfileEditorCard({ user }) {
 
     startTransition(async () => {
       const res = await updatePatientProfile(fd);
-      if (res?.error) setMsg({ type: "error", text: res.error });
-      else setMsg({ type: "ok", text: "✅ Perfil actualizado." });
+      if (res?.error) setToast({ message: res.error, type: "error" });
+      else setToast({ message: "Perfil actualizado correctamente.", type: "success" });
     });
   }
 
@@ -46,18 +48,6 @@ export default function PatientProfileEditorCard({ user }) {
     <div className="bg-white rounded-2xl border border-slate-200 p-6">
       <h2 className="text-xl font-bold text-slate-900">Mi perfil</h2>
       <p className="text-sm text-slate-600 mt-1">Actualice sus datos personales para mantener una atencion segura.</p>
-
-      {msg && (
-        <div
-          className={`mt-4 rounded-xl border px-4 py-3 text-sm ${
-            msg.type === "ok"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-              : "border-rose-200 bg-rose-50 text-rose-900"
-          }`}
-        >
-          {msg.text}
-        </div>
-      )}
 
       <form onSubmit={onSubmit} className="mt-5 space-y-4">
         <div>
@@ -149,6 +139,8 @@ export default function PatientProfileEditorCard({ user }) {
           {isPending ? "Guardando..." : "Guardar cambios"}
         </button>
       </form>
+
+      <Toast message={toast?.message} type={toast?.type} onDismiss={dismissToast} />
     </div>
   );
 }

@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import ChangePasswordCard from "@/components/auth/ChangePasswordCard";
 import { updateProfile } from "@/actions/profile-actions";
+import Toast from "@/components/ui/Toast";
 
 function formatCRC(value) {
   const amount = Number(value);
@@ -48,7 +49,8 @@ function badgeFor(status) {
 export default function ProfileEditor({ profile, allServices = [] }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState({ type: "", text: "" });
+  const [toast, setToast] = useState(null);
+  const dismissToast = useCallback(() => setToast(null), []);
 
   const assignmentsByServiceId = useMemo(() => {
     const map = new Map();
@@ -137,14 +139,14 @@ export default function ProfileEditor({ profile, allServices = [] }) {
       const result = await updateProfile(formData);
 
       if (result?.success) {
-        setMsg({ type: "success", text: "Perfil guardado correctamente" });
+        setToast({ message: "Perfil guardado correctamente.", type: "success" });
         router.refresh();
       } else {
-        setMsg({ type: "error", text: result?.error || "No se pudo guardar" });
+        setToast({ message: result?.error || "No se pudo guardar.", type: "error" });
       }
     } catch (error) {
       console.error(error);
-      setMsg({ type: "error", text: "Ocurrió un error inesperado." });
+      setToast({ message: "Ocurrió un error inesperado.", type: "error" });
     } finally {
       setLoading(false);
     }
@@ -152,18 +154,6 @@ export default function ProfileEditor({ profile, allServices = [] }) {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6">
-      {msg.text && (
-        <div
-          className={`rounded-xl border px-4 py-3 text-sm ${
-            msg.type === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-              : "border-rose-200 bg-rose-50 text-rose-800"
-          }`}
-        >
-          {msg.text}
-        </div>
-      )}
-
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="rounded-2xl border border-slate-200 bg-white p-6">
           <h3 className="text-lg font-semibold text-slate-800">Foto</h3>
@@ -346,6 +336,8 @@ export default function ProfileEditor({ profile, allServices = [] }) {
       </form>
 
       <ChangePasswordCard />
+
+      <Toast message={toast?.message} type={toast?.type} onDismiss={dismissToast} />
     </div>
   );
 }

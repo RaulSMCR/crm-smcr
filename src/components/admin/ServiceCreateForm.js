@@ -1,35 +1,35 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useCallback, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createService } from "@/actions/service-actions";
 import ServiceBannerField from "@/components/admin/ServiceBannerField";
+import Toast from "@/components/ui/Toast";
 
 export default function ServiceCreateForm() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [toast, setToast] = useState(null);
+  const dismissToast = useCallback(() => setToast(null), []);
 
   return (
+    <>
     <form
       className="space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
-        setMessage("");
-        setError("");
         const formData = new FormData(e.currentTarget);
 
         startTransition(async () => {
           const result = await createService(formData);
           if (result?.error) {
-            setError(result.error);
+            setToast({ message: result.error, type: "error" });
             return;
           }
-          if (result?.success && result?.newId) {
-            setMessage("Servicio creado correctamente. Redirigiendo...");
+          if (result?.success) {
+            setToast({ message: "Servicio creado correctamente.", type: "success" });
             setTimeout(() => {
-              router.push(`/panel/admin/servicios/${result.newId}`);
+              router.push("/panel/admin/servicios");
             }, 1000);
           }
         });
@@ -149,17 +149,6 @@ export default function ServiceCreateForm() {
         />
       </label>
 
-      {error ? (
-        <p className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
-          {error}
-        </p>
-      ) : null}
-      {message ? (
-        <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
-          {message}
-        </p>
-      ) : null}
-
       <div className="flex gap-3 pt-2">
         <button
           type="submit"
@@ -170,12 +159,15 @@ export default function ServiceCreateForm() {
         </button>
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={() => router.push("/panel/admin/servicios")}
           className="rounded-lg border border-slate-300 px-6 py-2 text-slate-700 hover:bg-slate-50"
         >
-          Cancelar
+          Volver a servicios
         </button>
       </div>
     </form>
+
+    <Toast message={toast?.message} type={toast?.type} onDismiss={dismissToast} />
+    </>
   );
 }

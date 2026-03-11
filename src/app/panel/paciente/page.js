@@ -1,4 +1,3 @@
-// src/app/panel/paciente/page.js
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/actions/auth-actions";
@@ -66,32 +65,48 @@ export default async function PacientePanelPage({ searchParams }) {
   const created = String(searchParams?.created || "") === "1";
   const appointmentAction = String(searchParams?.appointmentAction || "");
   const appointmentId = String(searchParams?.appointmentId || "");
+  const unpaidAppointmentsCount = appointments.filter((appointment) => {
+    const appointmentDate = new Date(appointment.date).getTime();
+    const isPastOrCompleted =
+      appointment.status === "COMPLETED" || appointmentDate <= Date.now();
+    return appointment.paymentStatus !== "PAID" && isPastOrCompleted;
+  }).length;
 
   return (
-    <div className="max-w-6xl mx-auto p-6 md:p-10 space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6 p-6 md:p-10">
       <div className="flex items-start justify-between gap-6">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Panel del paciente</h1>
-          <p className="text-slate-600 mt-2">Citas e información personal.</p>
+          <p className="mt-2 text-slate-600">Citas e informacion personal.</p>
         </div>
 
         <Link
           href="/servicios"
-          className="rounded-xl bg-blue-600 text-white px-4 py-2 font-semibold hover:bg-blue-700"
+          className="rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700"
         >
           Agendar nueva cita
         </Link>
       </div>
 
-      {created && (
+      {created ? (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-          Cita creada con éxito. El proceso de atención continúa.
+          Cita creada con exito. El proceso de atencion continua.
         </div>
-      )}
+      ) : null}
 
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+        <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+          Citas sin pagar
+        </p>
+        <p className="mt-2 text-3xl font-bold text-amber-900">{unpaidAppointmentsCount}</p>
+        <p className="mt-1 text-sm text-amber-800">
+          Citas finalizadas o vencidas que siguen con saldo pendiente.
+        </p>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <div className="bg-white rounded-2xl border border-slate-200 p-6">
+          <div className="rounded-2xl border border-slate-200 bg-white p-6">
             <h2 className="text-xl font-bold text-slate-900">Mis citas</h2>
 
             <UserAppointmentsPanel
@@ -107,6 +122,3 @@ export default async function PacientePanelPage({ searchParams }) {
     </div>
   );
 }
-
-
-

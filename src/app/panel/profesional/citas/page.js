@@ -71,6 +71,10 @@ export default async function ProfesionalCitasPage() {
     user: appointment.patient,
   }));
 
+  const appointmentsToCollectCount = appointments.filter((appointment) => {
+    return appointment.status === "COMPLETED" && appointment.paymentStatus !== "PAID";
+  }).length;
+
   const bookingContext = {
     services: serviceAssignments.map((assignment) => assignment.service).filter(Boolean),
     availability,
@@ -87,6 +91,20 @@ export default async function ProfesionalCitasPage() {
       <p className="text-slate-500">
         Gestione las citas: crear, reagendar, aceptar, completar o marcar ausente, cuidando la continuidad del paciente.
       </p>
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <article className="rounded-3xl border border-accent-200 bg-accent-50 p-5 shadow-sm">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-accent-800">
+            Citas por cobrar
+          </p>
+          <p className="mt-3 text-4xl font-semibold text-accent-900">
+            {appointmentsToCollectCount}
+          </p>
+          <p className="mt-2 max-w-xs text-sm text-accent-900/80">
+            Citas completadas que todavia requieren cobro o pago confirmado del paciente.
+          </p>
+        </article>
+      </section>
 
       <ProfessionalAppointmentsPanel
         initialAppointments={initialAppointments}

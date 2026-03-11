@@ -1,8 +1,9 @@
-﻿// src/components/AdminApproveButton.js
+// src/components/AdminApproveButton.js
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useCallback, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import Toast from '@/components/ui/Toast';
 
 export default function AdminApproveButton({
   label = 'Aprobar',
@@ -12,15 +13,17 @@ export default function AdminApproveButton({
   pendingLabel = 'Procesando...',
   buttonClassName = 'bg-green-600 hover:bg-green-700',
   confirmMessage = '',
+  successMessage = '',
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [error, setError] = useState(null);
+  const [toast, setToast] = useState(null);
+  const dismissToast = useCallback(() => setToast(null), []);
 
   async function onApprove() {
     if (confirmMessage && !window.confirm(confirmMessage)) return;
 
-    setError(null);
+    setToast(null);
     try {
       const res = await fetch(endpoint, {
         method,
@@ -31,9 +34,10 @@ export default function AdminApproveButton({
         const j = await res.json().catch(() => ({}));
         throw new Error(j?.message || `Error ${res.status}`);
       }
+      setToast({ message: successMessage || `${label} realizado correctamente.`, type: 'success' });
       startTransition(() => router.refresh());
     } catch (e) {
-      setError(e.message);
+      setToast({ message: e.message, type: 'error' });
     }
   }
 
@@ -46,7 +50,7 @@ export default function AdminApproveButton({
       >
         {pending ? pendingLabel : label}
       </button>
-      {error ? <span className="text-xs text-red-600">{error}</span> : null}
+      <Toast message={toast?.message} type={toast?.type} onDismiss={dismissToast} />
     </div>
   );
 }
