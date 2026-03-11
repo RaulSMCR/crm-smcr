@@ -50,7 +50,7 @@ export default async function PerfilPage() {
       <div className="max-w-5xl mx-auto mb-6">
         <h1 className="text-3xl font-bold text-slate-800">Mi Perfil Profesional</h1>
         <p className="text-slate-500 mt-2">
-          Seleccione los servicios que ofrece y proponga su costo por sesion. El administrador puede aprobar, rechazar o ajustar cada solicitud.
+          Seleccione los servicios que ofrece y proponga su costo por sesión. El administrador puede aprobar, rechazar o ajustar cada solicitud.
         </p>
       </div>
 

@@ -32,7 +32,7 @@ async function requireProfessionalApproved(session) {
     select: { id: true, isApproved: true },
   });
   if (!prof) return { ok: false, status: 404, message: "Profesional no encontrado" };
-  if (!prof.isApproved) return { ok: false, status: 403, message: "La cuenta aun no fue aprobada por un administrador" };
+  if (!prof.isApproved) return { ok: false, status: 403, message: "La cuenta aún no fue aprobada por un administrador" };
 
   return { ok: true, proId };
 }

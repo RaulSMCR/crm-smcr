@@ -54,7 +54,7 @@ export async function GET(request) {
       });
 
       if (!prof) return NextResponse.json({ message: "Profesional no encontrado" }, { status: 404 });
-      if (!prof.isApproved) return NextResponse.json({ message: "La cuenta aun no fue aprobada" }, { status: 403 });
+      if (!prof.isApproved) return NextResponse.json({ message: "La cuenta aún no fue aprobada" }, { status: 403 });
 
       const services = await prisma.service.findMany({
         where: {

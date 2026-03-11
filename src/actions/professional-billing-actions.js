@@ -15,7 +15,7 @@ async function requireApprovedProfessional() {
     select: { id: true, userId: true, commission: true, isApproved: true },
   });
   if (!profile) return { error: "Perfil profesional no encontrado." };
-  if (!profile.isApproved) return { error: "El perfil profesional aun no ha sido aprobado." };
+  if (!profile.isApproved) return { error: "El perfil profesional aún no ha sido aprobado." };
   return { profile };
 }
 
