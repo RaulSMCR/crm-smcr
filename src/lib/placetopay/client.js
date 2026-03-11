@@ -6,10 +6,11 @@ const BASE_URL = process.env.PLACETOPAY_BASE_URL || "https://checkout-qa.placeto
 const APP_URL  = process.env.APP_URL || "http://localhost:3000";
 const IS_MOCK  = process.env.PLACETOPAY_MOCK === "true";
 
-// Contador para mock requestIds — usa Date.now() * 1000 + random para evitar
-// colisiones de @unique en la DB cuando la función serverless se reinicia.
+// Genera un requestId mock dentro del rango Int32 de PostgreSQL (max ~2.1 billion).
+// Date.now() * 1000 desborda Int32 — en cambio usamos (segundos % 1_000_000) * 1000 + random(0-999)
+// Resultado: 0 – ~1_000_000_000, siempre dentro de Int32.
 function nextMockRequestId() {
-  return Date.now() * 1000 + Math.floor(Math.random() * 1000);
+  return (Math.floor(Date.now() / 1000) % 1_000_000) * 1000 + Math.floor(Math.random() * 1000);
 }
 
 /**

@@ -843,6 +843,7 @@ export async function createFollowUpAppointment(parentAppointmentId, startISO) {
         professionalId: parent.professionalId,
         serviceId: parent.serviceId,
         parentAppointmentId: id,
+        pricePaid: parent.pricePaid ?? null,
       },
       include: {
         patient: { select: { name: true, email: true } },

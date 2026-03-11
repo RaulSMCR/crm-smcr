@@ -306,19 +306,37 @@ export async function createBalancePaymentAuto(appointmentId) {
       return null;
     }
     if (appointment.paymentStatus === "PAID") {
-      console.error(`[payment] createBalancePaymentAuto: cita ${id} ya está PAID, omitiendo.`);
+      console.log(`[payment] createBalancePaymentAuto: cita ${id} ya está PAID, omitiendo.`);
       return null;
     }
-    if (!appointment.pricePaid || Number(appointment.pricePaid) <= 0) {
-      console.error(`[payment] createBalancePaymentAuto: cita ${id} sin pricePaid (valor: ${appointment.pricePaid}), omitiendo generación de pago.`);
-      return null;
+
+    // Obtener precio: pricePaid en la cita, o bien approvedSessionPrice del servicio asignado
+    let price = appointment.pricePaid ? Number(appointment.pricePaid) : 0;
+    if (!price || price <= 0) {
+      if (appointment.serviceId) {
+        const assignment = await prisma.serviceAssignment.findUnique({
+          where: {
+            professionalId_serviceId: {
+              professionalId: appointment.professionalId,
+              serviceId: appointment.serviceId,
+            },
+          },
+          select: { approvedSessionPrice: true },
+        }).catch(() => null);
+        price = assignment?.approvedSessionPrice ? Number(assignment.approvedSessionPrice) : 0;
+      }
+      if (!price || price <= 0) {
+        console.error(`[payment] createBalancePaymentAuto: cita ${id} sin precio definido (pricePaid=${appointment.pricePaid}, serviceId=${appointment.serviceId}), omitiendo.`);
+        return null;
+      }
+      // Persistir el precio encontrado para que futuros intentos no repitan la búsqueda
+      await prisma.appointment.update({ where: { id }, data: { pricePaid: price } }).catch(() => {});
+      console.log(`[payment] createBalancePaymentAuto: cita ${id} precio recuperado de approvedSessionPrice: ${price}`);
     }
 
     const isFirst = appointment.isFirstWithProfessional;
     const txType = isFirst ? "BALANCE_50" : "FULL_100";
-    const balanceAmount = isFirst
-      ? roundCRC(Number(appointment.pricePaid) * 0.5)
-      : roundCRC(Number(appointment.pricePaid));
+    const balanceAmount = isFirst ? roundCRC(price * 0.5) : roundCRC(price);
 
     // Idempotencia: si ya existe transacción activa con URL, no duplicar
     const existing = await prisma.paymentTransaction.findFirst({
