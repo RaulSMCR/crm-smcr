@@ -473,24 +473,16 @@ export async function cobrarCita(appointmentId) {
     if (appointment.paymentStatus === "PAID") {
       return { success: false, error: "Esta cita ya está pagada." };
     }
-    if (!appointment.pricePaid || Number(appointment.pricePaid) <= 0) {
-      return { success: false, error: "El precio de la cita no está definido." };
-    }
-
-    const isFirst = appointment.isFirstWithProfessional;
-    const txType = isFirst ? "BALANCE_50" : "FULL_100";
-    const balanceAmount = isFirst
-      ? roundCRC(Number(appointment.pricePaid) * 0.5)
-      : roundCRC(Number(appointment.pricePaid));
 
     // Si ya hay transacción activa con URL → reenviar email con link existente
+    // (buscamos sin filtrar por txType para que funcione aunque pricePaid sea null)
     const active = await prisma.paymentTransaction.findFirst({
       where: {
         appointmentId: id,
-        type: txType,
         status: { in: ["PENDING", "PROCESSING"] },
         p2pProcessUrl: { not: null },
       },
+      orderBy: { createdAt: "desc" },
     });
 
     if (active) {
@@ -502,19 +494,19 @@ export async function cobrarCita(appointmentId) {
         patientName: appointment.patient?.name,
         patientEmail: appointment.patient?.email,
         processUrl: emailUrl,
-        amount: balanceAmount,
+        amount: Number(active.amount),
         serviceTitle: appointment.service?.title || "Consulta",
         proName: appointment.professional?.user?.name || "el profesional",
-        isFirst,
+        isFirst: appointment.isFirstWithProfessional,
       });
 
       return { success: true, message: "Enlace de pago reenviado al paciente por email." };
     }
 
-    // No hay transacción activa → crear nueva sesión y enviar email
+    // No hay transacción activa → delegar en createBalancePaymentAuto (incluye fallback de precio)
     const paymentInfo = await createBalancePaymentAuto(id);
     if (!paymentInfo) {
-      return { success: false, error: "No se pudo generar la sesión de pago. Revise los logs." };
+      return { success: false, error: "No se pudo generar la sesión de pago. Verifique que el servicio tenga precio aprobado." };
     }
 
     await sendPaymentRequestEmail({
