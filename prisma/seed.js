@@ -44,6 +44,24 @@ async function upsertAdmin(prefix, defaults) {
   return { admin, config };
 }
 
+async function seedInvoiceSequences() {
+  const year = new Date().getFullYear();
+  const sequences = [
+    { sequenceType: "CUSTOMER_INVOICE",     prefix: "",          padding: 4 },
+    { sequenceType: "SUPPLIER_INVOICE",     prefix: "FACT/",     padding: 4 },
+    { sequenceType: "CUSTOMER_CREDIT_NOTE", prefix: "",          padding: 4 },
+    { sequenceType: "SUPPLIER_CREDIT_NOTE", prefix: "NC-PROV/",  padding: 4 },
+  ];
+  for (const s of sequences) {
+    await prisma.invoiceSequence.upsert({
+      where:  { sequenceType: s.sequenceType },
+      update: {},  // no resetear el contador si ya existe
+      create: { sequenceType: s.sequenceType, prefix: s.prefix, padding: s.padding, currentNumber: 0, year },
+    });
+  }
+  console.log("InvoiceSequences listas (4 tipos).");
+}
+
 async function main() {
   const primary = await upsertAdmin("ADMIN", {
     email: "admin@saludmentalcostarica.com",
@@ -58,6 +76,8 @@ async function main() {
     name: "Admin 2 SMCR",
     phone: "71291910",
   });
+
+  await seedInvoiceSequences();
 
   console.log("Admin listo:", primary.admin);
   console.log("Credenciales ADMIN:");

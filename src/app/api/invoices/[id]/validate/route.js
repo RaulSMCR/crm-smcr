@@ -54,9 +54,16 @@ export async function POST(_request, { params }) {
         return { error: { message: "La factura no tiene líneas.", status: 400 } };
       }
 
-      const sequence = await tx.invoiceSequence.update({
+      const DEFAULT_SEQ_PREFIX = {
+        CUSTOMER_INVOICE: "",
+        SUPPLIER_INVOICE: "FACT/",
+        CUSTOMER_CREDIT_NOTE: "",
+        SUPPLIER_CREDIT_NOTE: "NC-PROV/",
+      };
+      const sequence = await tx.invoiceSequence.upsert({
         where: { sequenceType: invoice.invoiceType },
-        data: { currentNumber: { increment: 1 }, year: now.getFullYear() },
+        update: { currentNumber: { increment: 1 }, year: now.getFullYear() },
+        create: { sequenceType: invoice.invoiceType, currentNumber: 1, year: now.getFullYear(), prefix: DEFAULT_SEQ_PREFIX[invoice.invoiceType] ?? "", padding: 4 },
       });
 
       const nextNumber = buildInvoiceNumber(invoice.invoiceType, sequence, now);

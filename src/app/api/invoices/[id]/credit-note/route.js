@@ -57,9 +57,11 @@ export async function POST(request, { params }) {
       }
 
       const creditType = toCreditType(origin.invoiceType);
-      const seq = await tx.invoiceSequence.update({
+      const DEFAULT_CREDIT_SEQ_PREFIX = { CUSTOMER_CREDIT_NOTE: "", SUPPLIER_CREDIT_NOTE: "NC-PROV/" };
+      const seq = await tx.invoiceSequence.upsert({
         where: { sequenceType: creditType },
-        data: { currentNumber: { increment: 1 }, year: now.getFullYear() },
+        update: { currentNumber: { increment: 1 }, year: now.getFullYear() },
+        create: { sequenceType: creditType, currentNumber: 1, year: now.getFullYear(), prefix: DEFAULT_CREDIT_SEQ_PREFIX[creditType] ?? "", padding: 4 },
       });
 
       const creditNumber = buildCreditNoteNumber(creditType, seq, now.getFullYear());

@@ -60,10 +60,11 @@ async function createAutoInvoice(transaction, appointmentServiceTitle) {
         },
       });
 
-      // 2. Incrementar secuencia atómicamente
-      const sequence = await tx.invoiceSequence.update({
+      // 2. Incrementar secuencia atómicamente (upsert: la crea con valores por defecto si no existe)
+      const sequence = await tx.invoiceSequence.upsert({
         where: { sequenceType: "CUSTOMER_INVOICE" },
-        data: { currentNumber: { increment: 1 }, year: now.getFullYear() },
+        update: { currentNumber: { increment: 1 }, year: now.getFullYear() },
+        create: { sequenceType: "CUSTOMER_INVOICE", currentNumber: 1, year: now.getFullYear(), prefix: "", padding: 4 },
       });
 
       // 3. Validar → PAID directo (el pago ya fue cobrado por PlacetoPay)
