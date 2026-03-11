@@ -206,7 +206,7 @@ export async function requestAppointment(
       if (!Number.isFinite(approvedPrice) || approvedPrice <= 0) {
         return {
           error:
-            "Este profesional aÃºn no tiene un valor de consulta aprobado para este servicio.",
+            "Este profesional aún no tiene un valor de consulta aprobado para este servicio.",
         };
       }
       pricePaid = approvedPrice;

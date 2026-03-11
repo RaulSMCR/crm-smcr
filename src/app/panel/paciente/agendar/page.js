@@ -60,13 +60,13 @@ export default async function PacienteAgendarPage({ searchParams }) {
 
   if (!assignment || assignment.status !== "APPROVED" || assignment.approvedSessionPrice == null) {
     return (
-      <div className="max-w-4xl mx-auto p-8">
+      <div className="mx-auto max-w-4xl p-8">
         <h1 className="text-2xl font-bold text-slate-900">Agenda no disponible</h1>
         <p className="mt-2 text-slate-700">
-          Este profesional aun no esta habilitado para agendar en este servicio.
+          Este profesional aún no está habilitado para agendar en este servicio.
         </p>
         <div className="mt-4">
-          <a className="text-blue-600 hover:underline" href={`/servicios/${serviceId}`}>
+          <a className="text-brand-800 hover:text-brand-900 hover:underline" href={`/servicios/${serviceId}`}>
             Volver al servicio
           </a>
         </div>
@@ -82,7 +82,7 @@ export default async function PacienteAgendarPage({ searchParams }) {
     }));
 
   return (
-    <div className="max-w-6xl mx-auto p-6 md:p-10 space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6 p-6 md:p-10">
       <div>
         <div className="text-sm text-slate-600">
           <a className="hover:underline" href={`/servicios/${serviceId}`}>
@@ -90,9 +90,9 @@ export default async function PacienteAgendarPage({ searchParams }) {
           </a>
         </div>
 
-        <h1 className="text-3xl font-bold text-slate-900 mt-2">Agendar cita</h1>
-        <p className="text-slate-600 mt-1">
-          Servicio: <b>{service.title}</b> · Duracion: <b>{service.durationMin} min</b> · Tarifa aprobada:{" "}
+        <h1 className="mt-2 text-3xl font-bold text-slate-900">Agendar cita</h1>
+        <p className="mt-1 text-slate-600">
+          Servicio: <b>{service.title}</b> · Duración: <b>{service.durationMin} min</b> · Tarifa aprobada:{" "}
           <b>{formatCRC(assignment.approvedSessionPrice)}</b>
         </p>
       </div>

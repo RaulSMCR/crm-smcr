@@ -20,7 +20,7 @@ function badgeFor(status) {
 
   if (status === "APPROVED") {
     return (
-      <span className="text-xs font-semibold px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
         Aprobado
       </span>
     );
@@ -28,15 +28,15 @@ function badgeFor(status) {
 
   if (status === "PENDING") {
     return (
-      <span className="text-xs font-semibold px-2 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
-        En revision
+      <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
+        En revisión
       </span>
     );
   }
 
   if (status === "REJECTED") {
     return (
-      <span className="text-xs font-semibold px-2 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+      <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700">
         Rechazado
       </span>
     );
@@ -144,14 +144,14 @@ export default function ProfileEditor({ profile, allServices = [] }) {
       }
     } catch (error) {
       console.error(error);
-      setMsg({ type: "error", text: "Ocurrio un error inesperado." });
+      setMsg({ type: "error", text: "Ocurrió un error inesperado." });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6 p-6">
       {msg.text && (
         <div
           className={`rounded-xl border px-4 py-3 text-sm ${
@@ -165,15 +165,15 @@ export default function ProfileEditor({ profile, allServices = [] }) {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="bg-white rounded-2xl border border-slate-200 p-6">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6">
           <h3 className="text-lg font-semibold text-slate-800">Foto</h3>
-          <p className="text-sm text-slate-500 mt-1">Recomendado 500x500 px.</p>
+          <p className="mt-1 text-sm text-slate-500">Recomendado: 500 x 500 px.</p>
 
           <div className="mt-4 flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center">
+            <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-50">
               {previewUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={previewUrl} alt="Avatar" className="w-full h-full object-cover" />
+                <img src={previewUrl} alt="Avatar" className="h-full w-full object-cover" />
               ) : (
                 <span className="font-bold text-slate-600">
                   {(profile.user?.name || "P").charAt(0)}
@@ -181,19 +181,19 @@ export default function ProfileEditor({ profile, allServices = [] }) {
               )}
             </div>
 
-            <label className="inline-flex items-center gap-2 cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
               Cambiar foto
               <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
             </label>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-6">
-          <h3 className="text-lg font-semibold text-slate-800">Informacion publica</h3>
+        <div className="rounded-2xl border border-slate-200 bg-white p-6">
+          <h3 className="text-lg font-semibold text-slate-800">Información pública</h3>
 
-          <div className="mt-4 grid md:grid-cols-2 gap-4">
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
             <div>
-              <label className="text-sm font-semibold text-slate-700">Nombre y Apellido</label>
+              <label className="text-sm font-semibold text-slate-700">Nombre y apellido</label>
               <input
                 name="name"
                 value={form.name}
@@ -203,7 +203,7 @@ export default function ProfileEditor({ profile, allServices = [] }) {
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-slate-700">Telefono</label>
+              <label className="text-sm font-semibold text-slate-700">Teléfono</label>
               <input
                 name="phone"
                 value={form.phone}
@@ -213,7 +213,7 @@ export default function ProfileEditor({ profile, allServices = [] }) {
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-slate-700">Especialidad (Titulo)</label>
+              <label className="text-sm font-semibold text-slate-700">Especialidad (Título)</label>
               <input
                 name="specialty"
                 value={form.specialty}
@@ -223,7 +223,7 @@ export default function ProfileEditor({ profile, allServices = [] }) {
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-slate-700">Matricula / Licencia</label>
+              <label className="text-sm font-semibold text-slate-700">Matrícula / Licencia</label>
               <input
                 name="licenseNumber"
                 value={form.licenseNumber}
@@ -233,7 +233,7 @@ export default function ProfileEditor({ profile, allServices = [] }) {
             </div>
 
             <div className="md:col-span-2">
-              <label className="text-sm font-semibold text-slate-700">Biografia</label>
+              <label className="text-sm font-semibold text-slate-700">Biografía</label>
               <textarea
                 name="bio"
                 value={form.bio}
@@ -245,10 +245,10 @@ export default function ProfileEditor({ profile, allServices = [] }) {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-6">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6">
           <h3 className="text-lg font-semibold text-slate-800">Mis servicios</h3>
-          <p className="text-sm text-slate-500 mt-1">
-            Si seleccionas un servicio nuevo, quedara <span className="font-semibold">En revision</span> hasta aprobacion del administrador.
+          <p className="mt-1 text-sm text-slate-500">
+            Si seleccionas un servicio nuevo, quedará <span className="font-semibold">en revisión</span> hasta aprobación del administrador.
           </p>
 
           {allServices.length === 0 ? (
@@ -256,7 +256,7 @@ export default function ProfileEditor({ profile, allServices = [] }) {
               No hay servicios disponibles. Contacta al administrador.
             </div>
           ) : (
-            <div className="mt-4 grid md:grid-cols-2 gap-3">
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
               {allServices.map((service) => {
                 const isSelected = selectedServices.includes(service.id);
                 const assignment = assignmentsByServiceId.get(service.id);
@@ -267,7 +267,7 @@ export default function ProfileEditor({ profile, allServices = [] }) {
                     type="button"
                     key={service.id}
                     onClick={() => handleServiceToggle(service.id)}
-                    className={`text-left border rounded-xl p-4 transition-all ${
+                    className={`rounded-xl border p-4 text-left transition-all ${
                       isSelected
                         ? "border-blue-600 bg-blue-50 ring-1 ring-blue-600"
                         : "border-slate-200 hover:border-blue-400 hover:bg-slate-50"
@@ -280,12 +280,12 @@ export default function ProfileEditor({ profile, allServices = [] }) {
                           {badgeFor(status)}
                         </div>
 
-                        <div className="text-sm text-slate-500 mt-1">
-                          {service.description || "Sin descripcion"}
+                        <div className="mt-1 text-sm text-slate-500">
+                          {service.description || "Sin descripción"}
                         </div>
                       </div>
 
-                      <div className="text-xs text-slate-600 whitespace-nowrap">
+                      <div className="whitespace-nowrap text-xs text-slate-600">
                         {service.durationMin} min · Referencia sugerida: {formatCRC(service.price)}
                       </div>
                     </div>
@@ -293,7 +293,7 @@ export default function ProfileEditor({ profile, allServices = [] }) {
                     {isSelected && (
                       <div className="mt-3">
                         <label className="text-xs font-semibold text-slate-700">
-                          Costo propuesto por sesion (CRC)
+                          Costo propuesto por sesión (CRC)
                         </label>
                         <input
                           onClick={(event) => event.stopPropagation()}
@@ -307,7 +307,7 @@ export default function ProfileEditor({ profile, allServices = [] }) {
                           className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1 text-sm"
                         />
                         <p className="mt-1 text-[11px] text-slate-500">
-                          Este valor define tu tarifa solicitada. El monto real cobrado al paciente y usado para pago y factura sera el aprobado por administracion.
+                          Este valor define tu tarifa solicitada. El monto real cobrado al paciente y usado para pago y factura será el aprobado por administración.
                         </p>
                       </div>
                     )}
@@ -324,7 +324,7 @@ export default function ProfileEditor({ profile, allServices = [] }) {
 
                     {status === "REJECTED" && !isSelected && (
                       <div className="mt-3 text-xs text-rose-700">
-                        Este servicio fue rechazado. Si lo seleccionas y guardas, se enviara una nueva solicitud.
+                        Este servicio fue rechazado. Si lo seleccionas y guardas, se enviará una nueva solicitud.
                       </div>
                     )}
                   </button>
@@ -338,7 +338,7 @@ export default function ProfileEditor({ profile, allServices = [] }) {
           <button
             type="submit"
             disabled={loading}
-            className="rounded-xl bg-blue-600 text-white px-5 py-2.5 font-semibold shadow-sm hover:bg-blue-700 disabled:opacity-60"
+            className="rounded-xl bg-blue-600 px-5 py-2.5 font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
           >
             {loading ? "Guardando..." : "Guardar cambios"}
           </button>

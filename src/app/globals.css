@@ -155,6 +155,37 @@
     background-color: rgb(var(--accent-800) / 1) !important;
   }
 
+  [class*="hover:bg-slate-"]:hover,
+  [class*="hover:bg-gray-"]:hover,
+  [class*="hover:bg-zinc-"]:hover,
+  [class*="hover:bg-stone-"]:hover {
+    background-color: rgb(var(--neutral-100) / 1) !important;
+  }
+
+  [class*="hover:text-blue-"]:hover,
+  [class*="hover:text-indigo-"]:hover,
+  [class*="hover:text-cyan-"]:hover,
+  [class*="hover:text-sky-"]:hover,
+  [class*="hover:text-teal-"]:hover,
+  [class*="hover:text-purple-"]:hover {
+    color: rgb(var(--brand-800) / 1) !important;
+  }
+
+  [class*="hover:text-red-"]:hover,
+  [class*="hover:text-rose-"]:hover,
+  [class*="hover:text-pink-"]:hover,
+  [class*="hover:text-orange-"]:hover,
+  [class*="hover:text-amber-"]:hover,
+  [class*="hover:text-yellow-"]:hover {
+    color: rgb(var(--accent-900) / 1) !important;
+  }
+
+  [class*="hover:text-slate-"]:hover,
+  [class*="hover:text-gray-"]:hover,
+  [class*="hover:text-zinc-"]:hover {
+    color: rgb(var(--neutral-950) / 1) !important;
+  }
+
   [class*="focus:ring-blue-"],
   [class*="focus:ring-indigo-"],
   [class*="focus:ring-cyan-"],

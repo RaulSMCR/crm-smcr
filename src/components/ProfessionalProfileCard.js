@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 
 export default function ProfessionalProfileCard({ professional }) {
   return (
@@ -13,11 +12,10 @@ export default function ProfessionalProfileCard({ professional }) {
           aria-label={`Ver perfil de ${professional.user.name}`}
         >
           {professional.user.image ? (
-            <Image
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
               src={professional.user.image}
               alt={professional.user.name}
-              width={96}
-              height={96}
               className="h-full w-full object-cover"
             />
           ) : (
@@ -42,7 +40,7 @@ export default function ProfessionalProfileCard({ professional }) {
 
         {professional.licenseNumber && (
           <p className="mb-3 text-xs text-gray-600">
-            <span className="font-semibold">Matricula profesional:</span>{" "}
+            <span className="font-semibold">Matrícula profesional:</span>{" "}
             {professional.licenseNumber}
           </p>
         )}
@@ -78,7 +76,7 @@ export default function ProfessionalProfileCard({ professional }) {
               href={`/blog?autor=${professional.slug}`}
               className="inline-block w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50"
             >
-              Ver articulos publicados
+              Ver artículos publicados
             </Link>
           </div>
         </div>

@@ -70,7 +70,7 @@ export default function ServiceCreateForm() {
         </label>
 
         <label className="text-sm text-slate-700">
-          <span className="mb-1 block font-medium">Duracion (minutos) *</span>
+          <span className="mb-1 block font-medium">Duración (minutos) *</span>
           <input
             name="durationMin"
             type="number"
@@ -110,7 +110,7 @@ export default function ServiceCreateForm() {
       </div>
 
       <label className="block text-sm text-slate-700">
-        <span className="mb-1 block font-medium">Descripcion</span>
+        <span className="mb-1 block font-medium">Descripción</span>
         <textarea
           name="description"
           placeholder="Describe brevemente el servicio (opcional)"

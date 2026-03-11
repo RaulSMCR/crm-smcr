@@ -48,7 +48,7 @@ export async function createService(formData) {
 
     if (!title) return { error: "El titulo es obligatorio." };
     if (!Number.isFinite(price) || price < 0) return { error: "Precio invalido." };
-    if (!Number.isFinite(durationMin) || durationMin <= 0) return { error: "Duracion invalida." };
+    if (!Number.isFinite(durationMin) || durationMin <= 0) return { error: "Duración inválida." };
     if (!Number.isFinite(displayOrder) || displayOrder < 0) {
       return { error: "Orden de presentacion invalido." };
     }
@@ -101,7 +101,7 @@ export async function updateServiceDetails(serviceId, formData) {
     if (!serviceId) return { error: "ID requerido." };
     if (!title) return { error: "El titulo es obligatorio." };
     if (!Number.isFinite(price) || price < 0) return { error: "Precio invalido." };
-    if (!Number.isFinite(durationMin) || durationMin <= 0) return { error: "Duracion invalida." };
+    if (!Number.isFinite(durationMin) || durationMin <= 0) return { error: "Duración inválida." };
     if (!Number.isFinite(displayOrder) || displayOrder < 0) {
       return { error: "Orden de presentacion invalido." };
     }
@@ -279,7 +279,7 @@ export async function bulkReviewServiceAssignments(serviceId, assignmentUpdates 
     return { success: true };
   } catch (error) {
     console.error("bulkReviewServiceAssignments error:", error);
-    return { error: "No se pudo procesar la revision masiva." };
+    return { error: "No se pudo procesar la revisión masiva." };
   }
 }
 

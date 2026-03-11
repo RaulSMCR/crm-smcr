@@ -1,35 +1,39 @@
-// src/app/contacto/page.js
 import ContactForm from "@/components/ContactForm";
 
 export default function ContactoPage() {
   return (
-    <div className="bg-neutral-250 py-12">
+    <div className="bg-appbg py-12">
       <div className="container mx-auto px-6">
-        <div className="text-center max-w-3xl mx-auto">
-          <h1 className="text-4xl font-bold text-brand-600 mb-4">Contáctanos</h1>
-          <p className="text-lg text-brand-600 mb-10">
-            Estamos aquí para ayudarte. Escríbenos un correo, un mensaje o utiliza el formulario a continuación.
+        <div className="mx-auto max-w-3xl text-center">
+          <h1 className="mb-4 text-4xl font-bold text-brand-900">Contáctanos</h1>
+          <p className="mb-10 text-lg text-neutral-800">
+            Estamos aquí para ayudarle. Escríbanos un correo, un mensaje o utilice el
+            formulario a continuación.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start">
-          {/* Contact Information Column */}
-          <div className="space-y-6">
+        <div className="grid grid-cols-1 items-start gap-12 md:grid-cols-2">
+          <div className="space-y-6 rounded-2xl border border-neutral-300 bg-neutral-50 p-8 shadow-card">
             <div>
-              <h3 className="text-xl font-semibold text-brand-600">Email</h3>
-              <a href="mailto:contacto@saludmentalcostarica.com" className="text-brand-primary hover:underline">
+              <h3 className="text-xl font-semibold text-brand-900">Correo</h3>
+              <a
+                href="mailto:contacto@saludmentalcostarica.com"
+                className="font-medium text-brand-800 hover:text-brand-900"
+              >
                 contacto@saludmentalcostarica.com
               </a>
             </div>
             <div>
-              <h3 className="text-xl font-semibold text-brand-600">WhatsApp / Teléfono</h3>
-              <a href="tel:+50671291909" className="text-brand-primary hover:underline">
-                7129-1909
+              <h3 className="text-xl font-semibold text-brand-900">WhatsApp / Teléfono</h3>
+              <a
+                href="tel:+50671291909"
+                className="font-medium text-brand-800 hover:text-brand-900"
+              >
+                +506 71291909
               </a>
             </div>
           </div>
 
-          {/* Contact Form Column */}
           <div>
             <ContactForm />
           </div>

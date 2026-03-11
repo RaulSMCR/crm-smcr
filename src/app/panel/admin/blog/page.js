@@ -28,7 +28,7 @@ export default async function AdminBlogPage({ searchParams }) {
     <div className="p-8 max-w-6xl mx-auto space-y-6">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold text-slate-800">Gestión Editorial</h1>
-        <p className="text-slate-500">Revise y apruebe los articulos de los profesionales para cuidar la calidad de la informacion.</p>
+        <p className="text-slate-500">Revise y apruebe los artículos de los profesionales para cuidar la calidad de la información.</p>
 
         {authorId && (
           <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl p-4">

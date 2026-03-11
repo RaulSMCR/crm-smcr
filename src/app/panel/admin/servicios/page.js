@@ -85,7 +85,7 @@ export default async function AdminServiciosPage() {
                 <th className="px-4 py-3 font-semibold">Orden</th>
                 <th className="px-4 py-3 font-semibold">Titulo</th>
                 <th className="px-4 py-3 font-semibold">Estado</th>
-                <th className="px-4 py-3 font-semibold">Duracion</th>
+                <th className="px-4 py-3 font-semibold">Duración</th>
                 <th className="px-4 py-3 font-semibold">Precio</th>
                 <th className="px-4 py-3 font-semibold">Asignaciones</th>
                 <th className="px-4 py-3 font-semibold">Citas</th>

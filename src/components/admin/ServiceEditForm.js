@@ -74,7 +74,7 @@ export default function ServiceEditForm({ service }) {
           </label>
 
           <label className="text-sm text-slate-700">
-            <span className="mb-1 block font-medium">Duracion (min)</span>
+            <span className="mb-1 block font-medium">Duración (min)</span>
             <input
               name="durationMin"
               type="number"
@@ -113,7 +113,7 @@ export default function ServiceEditForm({ service }) {
         </div>
 
         <label className="block text-sm text-slate-700">
-          <span className="mb-1 block font-medium">Descripcion</span>
+          <span className="mb-1 block font-medium">Descripción</span>
           <textarea
             name="description"
             defaultValue={service.description || ""}

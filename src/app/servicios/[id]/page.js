@@ -126,7 +126,7 @@ export default async function ServiceDetailPage({ params }) {
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-6">
-        <h2 className="text-xl font-bold text-slate-900">Descripcion</h2>
+        <h2 className="text-xl font-bold text-slate-900">Descripción</h2>
         <p className="mt-3 text-justify text-slate-700">
           {service.description || "No hay descripcion disponible para este servicio."}
         </p>
