@@ -1,15 +1,26 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { isPrismaConnectionError } from "@/lib/prisma-safe";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }) {
   const id = String(params?.id || "");
-  const service = await prisma.service.findUnique({
-    where: { id },
-    select: { title: true, description: true },
-  });
+  let service = null;
+
+  try {
+    service = await prisma.service.findUnique({
+      where: { id },
+      select: { title: true, description: true },
+    });
+  } catch (error) {
+    if (!isPrismaConnectionError(error)) throw error;
+    return {
+      title: "Servicio temporalmente no disponible",
+      description: "No pudimos acceder a la informacion del servicio en este momento.",
+    };
+  }
 
   if (!service) return { title: "Servicio no encontrado" };
 
@@ -21,45 +32,70 @@ export async function generateMetadata({ params }) {
 
 export default async function ServiceDetailPage({ params }) {
   const id = String(params?.id || "");
-  const service = await prisma.service.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      title: true,
-      description: true,
-      bannerImage: true,
-      bannerFocusX: true,
-      bannerFocusY: true,
-      bannerScale: true,
-      bannerArtworkTitle: true,
-      bannerArtworkAuthor: true,
-      bannerArtworkNote: true,
-      durationMin: true,
-      professionalAssignments: {
-        where: {
-          status: "APPROVED",
-          approvedSessionPrice: { not: null },
-          professional: {
-            is: {
-              isApproved: true,
-              user: { is: { isActive: true } },
+  let service = null;
+  let dbUnavailable = false;
+
+  try {
+    service = await prisma.service.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        bannerImage: true,
+        bannerFocusX: true,
+        bannerFocusY: true,
+        bannerScale: true,
+        bannerArtworkTitle: true,
+        bannerArtworkAuthor: true,
+        bannerArtworkNote: true,
+        durationMin: true,
+        professionalAssignments: {
+          where: {
+            status: "APPROVED",
+            approvedSessionPrice: { not: null },
+            professional: {
+              is: {
+                isApproved: true,
+                user: { is: { isActive: true } },
+              },
             },
           },
-        },
-        select: {
-          approvedSessionPrice: true,
-          professional: {
-            select: {
-              id: true,
-              specialty: true,
-              bio: true,
-              user: { select: { name: true, image: true } },
+          select: {
+            approvedSessionPrice: true,
+            professional: {
+              select: {
+                id: true,
+                specialty: true,
+                bio: true,
+                user: { select: { name: true, image: true } },
+              },
             },
           },
         },
       },
-    },
-  });
+    });
+  } catch (error) {
+    if (!isPrismaConnectionError(error)) throw error;
+    dbUnavailable = true;
+    console.error(`No se pudo cargar /servicios/${id} por falla de conexion a la base:`, error);
+  }
+
+  if (dbUnavailable) {
+    return (
+      <div className="mx-auto max-w-4xl space-y-6 p-6 md:p-10">
+        <Link href="/servicios" className="text-sm text-slate-600 hover:underline">
+          Volver a Servicios
+        </Link>
+        <div className="rounded-2xl border border-accent-300 bg-accent-50 p-6">
+          <h1 className="text-2xl font-bold text-brand-950">Servicio temporalmente no disponible</h1>
+          <p className="mt-2 text-neutral-900">
+            No pudimos conectarnos a la base de datos para cargar este servicio. Intenta nuevamente en unos minutos.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (!service) notFound();
 
@@ -99,26 +135,26 @@ export default async function ServiceDetailPage({ params }) {
           ) : (
             <div className="h-full w-full bg-gradient-to-br from-slate-200 via-slate-100 to-white" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-900/30 to-transparent" />
+          <div className="image-overlay-strong absolute inset-0" />
           {service.bannerArtworkTitle || service.bannerArtworkAuthor || service.bannerArtworkNote ? (
-            <div className="absolute right-4 top-4 max-w-md rounded-2xl border border-white/10 bg-brand-950/90 p-5 text-white opacity-0 shadow-xl backdrop-blur-md transition-opacity duration-300 group-hover:opacity-100">
-              <div className="mb-2 inline-flex rounded-full bg-accent-600 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white">
+            <div className="absolute right-4 top-4 max-w-md rounded-2xl border border-white/10 bg-brand-950/92 p-5 text-white opacity-0 shadow-xl backdrop-blur-md transition-opacity duration-300 group-hover:opacity-100">
+              <div className="mb-2 inline-flex rounded-full bg-accent-600 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-neutral-50">
                 Obra destacada
               </div>
               {service.bannerArtworkTitle ? (
-                <div className="text-sm font-semibold text-white">{service.bannerArtworkTitle}</div>
+                <div className="text-sm font-semibold text-neutral-50">{service.bannerArtworkTitle}</div>
               ) : null}
               {service.bannerArtworkAuthor ? (
-                <div className="text-xs text-white/75">{service.bannerArtworkAuthor}</div>
+                <div className="text-xs text-neutral-100/90">{service.bannerArtworkAuthor}</div>
               ) : null}
               {service.bannerArtworkNote ? (
-                <p className="mt-2 text-xs leading-relaxed text-white/80">{service.bannerArtworkNote}</p>
+                <p className="mt-2 text-xs leading-relaxed text-neutral-100/90">{service.bannerArtworkNote}</p>
               ) : null}
             </div>
           ) : null}
           <div className="absolute inset-x-0 bottom-0 p-6 md:p-8">
-            <h1 className="text-3xl font-bold text-white md:text-4xl">{service.title}</h1>
-            <div className="mt-3 text-sm text-slate-100">
+            <h1 className="contrast-on-image text-3xl font-bold md:text-4xl">{service.title}</h1>
+            <div className="contrast-on-image-muted mt-3 text-sm">
               {service.durationMin} min · {priceLabel}
             </div>
           </div>
@@ -143,7 +179,7 @@ export default async function ServiceDetailPage({ params }) {
               <div key={professional.id} className="rounded-xl border border-slate-200 p-4">
                 <Link
                   href={`/agendar/${professional.id}?serviceId=${service.id}`}
-                  className="inline-flex items-center gap-3 rounded-lg p-1 transition hover:bg-blue-50"
+                  className="inline-flex items-center gap-3 rounded-lg p-1 transition hover:bg-brand-50"
                 >
                   {professional.user?.image ? (
                     <img

@@ -94,16 +94,16 @@ export default async function AgendarPage({ params, searchParams }) {
             )}
           </div>
 
-          <div className="rounded-xl border border-blue-100 bg-blue-50 p-5">
-            <h4 className="mb-2 flex items-center gap-2 font-semibold text-accent-600">
+          <div className="rounded-xl border border-brand-200 bg-brand-50 p-5">
+            <h4 className="mb-2 flex items-center gap-2 font-semibold text-brand-900">
               Reserva segura
             </h4>
-            <ul className="space-y-2 text-sm text-accent-600">
+            <ul className="space-y-2 text-sm text-neutral-900">
               <li>Confirmacion inmediata</li>
               <li>Recordatorios por email</li>
               <li>
                 Cancelacion sin costo hasta 24 horas antes de la cita
-                <p className="mt-1 text-xs text-white">
+                <p className="mt-1 text-xs text-brand-900">
                   Si cancelas dentro de las 24 horas previas, se puede cobrar un 50% del valor real de la consulta aprobado para este profesional.
                 </p>
               </li>

@@ -5,6 +5,9 @@
 
 :root {
   --app-bg: 246 239 223;
+  --on-brand: 245 246 242;
+  --on-accent: 255 245 242;
+  --on-image: 255 251 245;
 
   --brand-50: 233 244 244;
   --brand-100: 210 234 235;
@@ -263,6 +266,21 @@
     @apply text-xs text-neutral-500;
   }
 
+  .contrast-on-image {
+    color: rgb(var(--on-image) / 1);
+    text-shadow: 0 2px 18px rgb(12 34 35 / 0.65);
+  }
+
+  .contrast-on-image-muted {
+    color: rgb(var(--on-image) / 0.92);
+    text-shadow: 0 2px 16px rgb(12 34 35 / 0.55);
+  }
+
+  .image-overlay-strong {
+    background:
+      linear-gradient(180deg, rgb(12 34 35 / 0.2) 0%, rgb(12 34 35 / 0.48) 46%, rgb(12 34 35 / 0.94) 100%);
+  }
+
   button[class*="bg-white"],
   button[class*="bg-slate-"],
   button[class*="bg-gray-"],
@@ -283,16 +301,25 @@
   input[type="reset"][class*="bg-accent-"],
   a[class*="bg-brand-"],
   a[class*="bg-accent-"] {
-    color: white !important;
+    color: rgb(var(--on-brand) / 1) !important;
   }
 
-  /* Legibilidad estricta: nunca texto brand sobre fondo brand */
-  button[class*="bg-brand-"][class*="text-brand-"],
-  input[type="submit"][class*="bg-brand-"][class*="text-brand-"],
-  input[type="button"][class*="bg-brand-"][class*="text-brand-"],
-  input[type="reset"][class*="bg-brand-"][class*="text-brand-"],
-  a[class*="bg-brand-"][class*="text-brand-"] {
-    color: rgb(var(--neutral-50) / 1) !important;
+  /* Legibilidad estricta: nunca blanco sobre neutros claros */
+  [class*="bg-white"][class*="text-white"],
+  [class*="bg-slate-"][class*="text-white"],
+  [class*="bg-gray-"][class*="text-white"],
+  [class*="bg-zinc-"][class*="text-white"],
+  [class*="bg-stone-"][class*="text-white"],
+  [class*="bg-neutral-"][class*="text-white"] {
+    color: rgb(var(--brand-950) / 1) !important;
+  }
+
+  /* Legibilidad estricta: nunca texto brand/accent sobre fondos brand/accent */
+  [class*="bg-brand-"][class*="text-brand-"],
+  [class*="bg-brand-"][class*="text-accent-"],
+  [class*="bg-accent-"][class*="text-brand-"],
+  [class*="bg-accent-"][class*="text-accent-"] {
+    color: rgb(var(--on-brand) / 1) !important;
   }
 
   button[class*="bg-white"]:hover,
@@ -310,7 +337,7 @@
   input[type="button"][class*="bg-brand-"]:hover,
   input[type="reset"][class*="bg-brand-"]:hover,
   a[class*="bg-brand-"]:hover {
-    color: rgb(var(--accent-100) / 1) !important;
+    color: rgb(var(--on-brand) / 1) !important;
   }
 
   button[class*="bg-brand-"][class*="hover:text-brand-"]:hover,
@@ -318,7 +345,7 @@
   input[type="button"][class*="bg-brand-"][class*="hover:text-brand-"]:hover,
   input[type="reset"][class*="bg-brand-"][class*="hover:text-brand-"]:hover,
   a[class*="bg-brand-"][class*="hover:text-brand-"]:hover {
-    color: rgb(var(--accent-100) / 1) !important;
+    color: rgb(var(--on-brand) / 1) !important;
   }
 
   .emergency-alert,

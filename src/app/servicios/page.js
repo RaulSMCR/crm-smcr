@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { isPrismaConnectionError } from "@/lib/prisma-safe";
 
 export const metadata = {
   title: "Servicios | Salud Mental Costa Rica",
@@ -9,46 +10,55 @@ export const metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function ServiciosPage() {
-  const services = await prisma.service.findMany({
-    where: { isActive: true },
-    orderBy: [{ displayOrder: "asc" }, { title: "asc" }],
-    select: {
-      id: true,
-      title: true,
-      description: true,
-      bannerImage: true,
-      bannerFocusX: true,
-      bannerFocusY: true,
-      bannerScale: true,
-      bannerArtworkTitle: true,
-      bannerArtworkAuthor: true,
-      bannerArtworkNote: true,
-      durationMin: true,
-      professionalAssignments: {
-        where: {
-          status: "APPROVED",
-          approvedSessionPrice: { not: null },
-          professional: {
-            is: {
-              isApproved: true,
-              user: { is: { isActive: true } },
+  let services = [];
+  let dbUnavailable = false;
+
+  try {
+    services = await prisma.service.findMany({
+      where: { isActive: true },
+      orderBy: [{ displayOrder: "asc" }, { title: "asc" }],
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        bannerImage: true,
+        bannerFocusX: true,
+        bannerFocusY: true,
+        bannerScale: true,
+        bannerArtworkTitle: true,
+        bannerArtworkAuthor: true,
+        bannerArtworkNote: true,
+        durationMin: true,
+        professionalAssignments: {
+          where: {
+            status: "APPROVED",
+            approvedSessionPrice: { not: null },
+            professional: {
+              is: {
+                isApproved: true,
+                user: { is: { isActive: true } },
+              },
             },
           },
-        },
-        take: 5,
-        select: {
-          approvedSessionPrice: true,
-          professional: {
-            select: {
-              id: true,
-              specialty: true,
-              user: { select: { name: true, image: true } },
+          take: 5,
+          select: {
+            approvedSessionPrice: true,
+            professional: {
+              select: {
+                id: true,
+                specialty: true,
+                user: { select: { name: true, image: true } },
+              },
             },
           },
         },
       },
-    },
-  });
+    });
+  } catch (error) {
+    if (!isPrismaConnectionError(error)) throw error;
+    dbUnavailable = true;
+    console.error("No se pudo cargar /servicios por falla de conexion a la base:", error);
+  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 p-6 md:p-10">
@@ -56,6 +66,15 @@ export default async function ServiciosPage() {
         <h1 className="text-3xl font-bold text-slate-900">Nuestros Servicios</h1>
         <p className="mt-2 text-slate-600">Encuentra el apoyo profesional que necesitas hoy.</p>
       </div>
+
+      {dbUnavailable ? (
+        <div className="rounded-2xl border border-accent-300 bg-accent-50 p-6">
+          <h2 className="text-xl font-bold text-brand-950">Servicios temporalmente no disponibles</h2>
+          <p className="mt-2 text-neutral-900">
+            No pudimos conectarnos a la base de datos en este momento. Intenta nuevamente en unos minutos.
+          </p>
+        </div>
+      ) : null}
 
       <div className="grid gap-6 md:grid-cols-2">
         {services.map((service) => {
@@ -94,27 +113,27 @@ export default async function ServiciosPage() {
                 )}
 
                 {service.bannerArtworkTitle || service.bannerArtworkAuthor || service.bannerArtworkNote ? (
-                  <div className="absolute left-4 top-4 max-w-sm rounded-2xl border border-white/10 bg-brand-950/90 p-4 text-white opacity-0 shadow-xl backdrop-blur-md transition-opacity duration-300 group-hover:opacity-100">
-                    <div className="mb-2 inline-flex rounded-full bg-accent-600 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white">
+                  <div className="absolute left-4 top-4 max-w-sm rounded-2xl border border-white/10 bg-brand-950/92 p-4 text-white opacity-0 shadow-xl backdrop-blur-md transition-opacity duration-300 group-hover:opacity-100">
+                    <div className="mb-2 inline-flex rounded-full bg-accent-600 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-neutral-50">
                       Obra destacada
                     </div>
                     {service.bannerArtworkTitle ? (
-                      <div className="text-sm font-semibold text-white">{service.bannerArtworkTitle}</div>
+                      <div className="text-sm font-semibold text-neutral-50">{service.bannerArtworkTitle}</div>
                     ) : null}
                     {service.bannerArtworkAuthor ? (
-                      <div className="text-xs text-white/75">{service.bannerArtworkAuthor}</div>
+                      <div className="text-xs text-neutral-100/90">{service.bannerArtworkAuthor}</div>
                     ) : null}
                     {service.bannerArtworkNote ? (
-                      <p className="mt-2 line-clamp-3 max-w-xl text-xs leading-relaxed text-white/80">
+                      <p className="mt-2 line-clamp-3 max-w-xl text-xs leading-relaxed text-neutral-100/90">
                         {service.bannerArtworkNote}
                       </p>
                     ) : null}
                   </div>
                 ) : null}
 
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/80 via-slate-900/35 to-transparent p-6">
-                  <h2 className="text-xl font-bold text-white">{service.title}</h2>
-                  <div className="mt-2 text-sm text-slate-100">
+                <div className="image-overlay-strong absolute inset-x-0 bottom-0 p-6">
+                  <h2 className="contrast-on-image text-xl font-bold">{service.title}</h2>
+                  <div className="contrast-on-image-muted mt-2 text-sm">
                     {priceLabel} · {service.durationMin} min
                   </div>
                 </div>
@@ -143,7 +162,7 @@ export default async function ServiciosPage() {
                       <Link
                         key={professional.id}
                         href={`/agendar/${professional.id}?serviceId=${service.id}`}
-                        className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 transition hover:border-blue-300 hover:bg-blue-50"
+                        className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 transition hover:border-brand-300 hover:bg-brand-50"
                       >
                         {professional.user?.image ? (
                           <img
@@ -166,6 +185,12 @@ export default async function ServiciosPage() {
           );
         })}
       </div>
+
+      {!dbUnavailable && services.length === 0 ? (
+        <div className="rounded-2xl border border-brand-200 bg-brand-50 p-6">
+          <p className="text-neutral-900">Todavia no hay servicios publicados.</p>
+        </div>
+      ) : null}
     </div>
   );
 }

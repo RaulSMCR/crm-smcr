@@ -68,29 +68,30 @@ export default async function BlogPostPage({ params }) {
       <PostMarketingTracker slug={slug} />
 
       {/* Hero / Cabecera */}
-      <header className="relative w-full h-[400px] bg-gray-900 flex items-center justify-center overflow-hidden">
+      <header className="relative flex h-[400px] w-full items-center justify-center overflow-hidden bg-gray-900">
         {post.coverImage ? (
           <Image
             src={post.coverImage}
             alt={post.title}
             fill
-            className="object-cover opacity-60"
+            className="object-cover"
             priority
           />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-r from-blue-900 to-gray-900 opacity-90" />
         )}
+        <div className="image-overlay-strong absolute inset-0" />
 
         <div className="relative z-10 max-w-4xl mx-auto px-4 text-center">
           <div className="mb-4">
-            <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-bold uppercase tracking-wider">
+            <span className="contrast-on-image rounded-full bg-blue-600 px-3 py-1 text-sm font-bold uppercase tracking-wider">
               Blog
             </span>
           </div>
-          <h1 className="text-3xl md:text-5xl font-extrabold text-white leading-tight mb-4">
+          <h1 className="contrast-on-image mb-4 text-3xl font-extrabold leading-tight md:text-5xl">
             {post.title}
           </h1>
-          <p className="text-gray-300 text-lg">
+          <p className="contrast-on-image-muted text-lg">
             {formatDate(post.createdAt)}
           </p>
         </div>

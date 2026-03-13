@@ -41,18 +41,18 @@ export default function CategorySection({ categories, title }) {
                 )}
 
                 {category.artworkTitle || category.artworkAuthor || category.artworkNote ? (
-                  <div className="absolute inset-x-3 bottom-3 rounded-2xl border border-white/10 bg-brand-950/92 p-4 text-white opacity-0 shadow-xl backdrop-blur-md transition-opacity duration-300 group-hover:opacity-100">
-                    <div className="mb-2 inline-flex rounded-full bg-accent-700 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white">
+                  <div className="absolute inset-x-3 bottom-3 rounded-2xl border border-white/10 bg-brand-950/94 p-4 text-white opacity-0 shadow-xl backdrop-blur-md transition-opacity duration-300 group-hover:opacity-100">
+                    <div className="mb-2 inline-flex rounded-full bg-accent-700 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-neutral-50">
                       Obra destacada
                     </div>
                     {category.artworkTitle ? (
-                      <div className="text-sm font-semibold text-white">{category.artworkTitle}</div>
+                      <div className="text-sm font-semibold text-neutral-50">{category.artworkTitle}</div>
                     ) : null}
                     {category.artworkAuthor ? (
-                      <div className="text-xs text-white/80">{category.artworkAuthor}</div>
+                      <div className="text-xs text-neutral-100/90">{category.artworkAuthor}</div>
                     ) : null}
                     {category.artworkNote ? (
-                      <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-white/85">
+                      <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-neutral-100/90">
                         {category.artworkNote}
                       </p>
                     ) : null}
