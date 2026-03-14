@@ -1,7 +1,8 @@
 "use client";
 
-import { Fragment, useState, useTransition } from "react";
+import { Fragment, useCallback, useState, useTransition } from "react";
 import { adminUpdateAppointmentStatus, adminRescheduleAppointment } from "@/actions/admin-appointments-actions";
+import Toast from "@/components/ui/Toast";
 
 const STATUS_OPTIONS = ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW", "CANCELLED_BY_USER", "CANCELLED_BY_PRO"];
 
@@ -66,6 +67,8 @@ function getLatestInvoice(row) {
 export default function AdminAppointmentsManager({ appointments = [] }) {
   const [rows, setRows] = useState(appointments);
   const [isPending, startTransition] = useTransition();
+  const [toast, setToast] = useState(null);
+  const dismissToast = useCallback(() => setToast(null), []);
 
   const [pendingCancel, setPendingCancel] = useState(null);
   const [cancelReason, setCancelReason] = useState("");
@@ -87,7 +90,7 @@ export default function AdminAppointmentsManager({ appointments = [] }) {
     startTransition(async () => {
       const result = await adminUpdateAppointmentStatus(appointmentId, nextStatus, reason);
       if (!result?.success) {
-        alert(result?.error || "No se pudo actualizar la cita.");
+        setToast({ message: result?.error || "No se pudo actualizar la cita.", type: "error" });
         return;
       }
 
@@ -105,6 +108,7 @@ export default function AdminAppointmentsManager({ appointments = [] }) {
         )
       );
 
+      setToast({ message: `Estado actualizado: ${STATUS_LABELS[nextStatus] || nextStatus}.`, type: "success" });
       setPendingCancel(null);
       setCancelReason("");
     });
@@ -126,7 +130,7 @@ export default function AdminAppointmentsManager({ appointments = [] }) {
     startTransition(async () => {
       const result = await adminRescheduleAppointment(pendingReschedule.id, rescheduleDateTime);
       if (!result?.success) {
-        alert(result?.error || "No se pudo reagendar la cita.");
+        setToast({ message: result?.error || "No se pudo reagendar la cita.", type: "error" });
         return;
       }
 
@@ -146,6 +150,7 @@ export default function AdminAppointmentsManager({ appointments = [] }) {
             : row
         )
       );
+      setToast({ message: "Cita reagendada correctamente.", type: "success" });
       setPendingReschedule(null);
       setRescheduleDateTime("");
     });
@@ -364,6 +369,7 @@ export default function AdminAppointmentsManager({ appointments = [] }) {
           )}
         </tbody>
       </table>
+      <Toast message={toast?.message} type={toast?.type} onDismiss={dismissToast} />
     </div>
   );
 }

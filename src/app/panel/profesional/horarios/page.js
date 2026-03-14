@@ -30,7 +30,10 @@ export default async function HorariosPage() {
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-slate-800">Configuración de Horarios</h1>
+        <Link href="/panel/profesional" className="text-sm text-slate-500 hover:text-slate-700 hover:underline">
+          ← Volver al panel
+        </Link>
+        <h1 className="mt-1 text-3xl font-bold text-slate-800">Configuración de Horarios</h1>
         <p className="text-slate-500 mt-2">
           Defina sus dias y horas de atencion. Estos horarios se usan para mostrar su disponibilidad en zona horaria de Costa Rica ({DEFAULT_TZ}).
         </p>

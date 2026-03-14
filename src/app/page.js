@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import Link from "next/link";
 import HeroSection from "@/components/HeroSection";
 import CategorySection from "@/components/CategorySection";
 import MissionVideo from "@/components/MissionVideo";
@@ -69,6 +70,16 @@ export default async function HomePage() {
       <HeroSection />
       <MissionVideo />
       <CategorySection categories={categoriesToShow} title="Nuestros Servicios" />
+      <div className="bg-appbg px-4 pb-16">
+        <div className="container mx-auto flex justify-center">
+          <Link
+            href="/servicios"
+            className="inline-flex items-center justify-center rounded-xl bg-brand-700 px-6 py-3 text-sm font-semibold text-white shadow-card hover:bg-brand-800"
+          >
+            Otros servicios
+          </Link>
+        </div>
+      </div>
       <ProfessionalCtaSection />
     </div>
   );

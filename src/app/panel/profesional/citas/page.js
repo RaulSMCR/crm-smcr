@@ -1,6 +1,7 @@
 ﻿import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
+import Link from "next/link";
 import ProfessionalAppointmentsPanel from "@/components/ProfessionalAppointmentsPanel";
 
 export const dynamic = "force-dynamic";
@@ -87,7 +88,12 @@ export default async function ProfesionalCitasPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-8">
-      <h1 className="text-3xl font-bold text-slate-800">Citas</h1>
+      <div>
+        <Link href="/panel/profesional" className="text-sm text-slate-500 hover:text-slate-700 hover:underline">
+          ← Volver al panel
+        </Link>
+        <h1 className="mt-1 text-3xl font-bold text-slate-800">Citas</h1>
+      </div>
       <p className="text-slate-500">
         Gestione las citas: crear, reagendar, aceptar, completar o marcar ausente, cuidando la continuidad del paciente.
       </p>

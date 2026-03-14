@@ -213,7 +213,7 @@ export default function ProfessionalAppointmentsPanel({
         <p className="text-xs text-gray-500">{appointment.user.email}</p>
         <p className="mt-2 text-sm text-gray-800">{appointment.service?.title}</p>
         <span className="text-xs font-bold text-green-600">
-          ${Number(appointment.service?.price || 0)}
+          ₡{Number(appointment.service?.price || 0).toLocaleString("es-CR")}
         </span>
       </div>
 

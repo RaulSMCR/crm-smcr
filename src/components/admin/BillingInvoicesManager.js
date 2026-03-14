@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useCallback, useState, useTransition } from "react";
+import Toast from "@/components/ui/Toast";
 
 function toMoney(value) {
   return new Intl.NumberFormat("es-CR", {
@@ -38,7 +39,8 @@ export default function BillingInvoicesManager({
 }) {
   const [rows, setRows] = useState(invoices);
   const [showCreate, setShowCreate] = useState(false);
-  const [message, setMessage] = useState("");
+  const [toast, setToast] = useState(null);
+  const dismissToast = useCallback(() => setToast(null), []);
   const [isPending, startTransition] = useTransition();
 
   const [draft, setDraft] = useState({
@@ -69,7 +71,7 @@ export default function BillingInvoicesManager({
   }
 
   function handleCreateDraft() {
-    setMessage("");
+    setToast(null);
     startTransition(async () => {
       try {
         const amount = Number(draft.amount || 0);
@@ -93,15 +95,15 @@ export default function BillingInvoicesManager({
 
         setRows((current) => [payload, ...current]);
         setShowCreate(false);
-        setMessage("Factura borrador creada.");
+        setToast({ message: "Factura borrador creada.", type: "success" });
       } catch (error) {
-        setMessage(error.message);
+        setToast({ message: error.message, type: "error" });
       }
     });
   }
 
   function handleValidate(id) {
-    setMessage("");
+    setToast(null);
     startTransition(async () => {
       try {
         const payload = await callApi(`/api/invoices/${id}/validate`, "POST");
@@ -110,9 +112,9 @@ export default function BillingInvoicesManager({
           status: payload.status,
           balance: payload.balance,
         });
-        setMessage("Factura validada.");
+        setToast({ message: "Factura validada correctamente.", type: "success" });
       } catch (error) {
-        setMessage(error.message);
+        setToast({ message: error.message, type: "error" });
       }
     });
   }
@@ -121,7 +123,7 @@ export default function BillingInvoicesManager({
     const amountStr = window.prompt("Monto a registrar (CRC):", String(currentBalance || 0));
     if (!amountStr) return;
 
-    setMessage("");
+    setToast(null);
     startTransition(async () => {
       try {
         const payload = await callApi(`/api/invoices/${id}/pay`, "POST", {
@@ -132,9 +134,9 @@ export default function BillingInvoicesManager({
           amountPaid: payload.amountPaid,
           balance: payload.balance,
         });
-        setMessage("Pago registrado.");
+        setToast({ message: "Pago registrado correctamente.", type: "success" });
       } catch (error) {
-        setMessage(error.message);
+        setToast({ message: error.message, type: "error" });
       }
     });
   }
@@ -142,14 +144,14 @@ export default function BillingInvoicesManager({
   function handleCancel(id) {
     if (!window.confirm("¿Cancelar esta factura?")) return;
 
-    setMessage("");
+    setToast(null);
     startTransition(async () => {
       try {
         const payload = await callApi(`/api/invoices/${id}/cancel`, "POST");
         updateRowInvoice(id, { status: payload.status });
-        setMessage("Factura cancelada.");
+        setToast({ message: "Factura cancelada.", type: "success" });
       } catch (error) {
-        setMessage(error.message);
+        setToast({ message: error.message, type: "error" });
       }
     });
   }
@@ -158,20 +160,20 @@ export default function BillingInvoicesManager({
     const notes = window.prompt("Motivo de rectificativa:", "Rectificación administrativa");
     if (!notes) return;
 
-    setMessage("");
+    setToast(null);
     startTransition(async () => {
       try {
         await callApi(`/api/invoices/${id}/credit-note`, "POST", { notes });
-        setMessage("Nota de crédito emitida.");
+        setToast({ message: "Nota de crédito emitida.", type: "success" });
         window.location.reload();
       } catch (error) {
-        setMessage(error.message);
+        setToast({ message: error.message, type: "error" });
       }
     });
   }
 
   function handleSubmitFE(id) {
-    setMessage("");
+    setToast(null);
     startTransition(async () => {
       try {
         const payload = await callApi(`/api/invoices/${id}/submit-fe`, "POST");
@@ -182,20 +184,20 @@ export default function BillingInvoicesManager({
           feErrorMessage: payload.feErrorMessage,
         });
         if (payload.feStatus === "ACCEPTED") {
-          setMessage(`FE aceptada ✓ — Clave: ${payload.feClave}`);
+          setToast({ message: `FE aceptada — Clave: ${payload.feClave}`, type: "success" });
         } else if (payload.feStatus === "REJECTED") {
-          setMessage(`FE rechazada: ${payload.feErrorMessage || "Sin detalle"}`);
+          setToast({ message: `FE rechazada: ${payload.feErrorMessage || "Sin detalle"}`, type: "error" });
         } else {
-          setMessage("Comprobante enviado. Estado: procesando.");
+          setToast({ message: "Comprobante enviado. Estado: procesando.", type: "success" });
         }
       } catch (error) {
-        setMessage(error.message);
+        setToast({ message: error.message, type: "error" });
       }
     });
   }
 
   function handleRefreshFEStatus(id) {
-    setMessage("");
+    setToast(null);
     startTransition(async () => {
       try {
         const payload = await callApi(`/api/invoices/${id}/fe-status`, "GET");
@@ -205,9 +207,9 @@ export default function BillingInvoicesManager({
           feClave: payload.feClave,
           feErrorMessage: payload.feErrorMessage,
         });
-        setMessage(`Estado FE: ${payload.feStatus}${payload.feErrorMessage ? ` — ${payload.feErrorMessage}` : ""}`);
+        setToast({ message: `Estado FE: ${payload.feStatus}${payload.feErrorMessage ? ` — ${payload.feErrorMessage}` : ""}`, type: payload.feStatus === "REJECTED" ? "error" : "success" });
       } catch (error) {
-        setMessage(error.message);
+        setToast({ message: error.message, type: "error" });
       }
     });
   }
@@ -221,7 +223,6 @@ export default function BillingInvoicesManager({
         >
           {showCreate ? "Cerrar creación" : "Nueva factura borrador"}
         </button>
-        {message && <p className="text-sm text-slate-700">{message}</p>}
       </div>
 
       {showCreate && (
@@ -415,6 +416,7 @@ export default function BillingInvoicesManager({
           </tbody>
         </table>
       </div>
+      <Toast message={toast?.message} type={toast?.type} onDismiss={dismissToast} />
     </div>
   );
 }
