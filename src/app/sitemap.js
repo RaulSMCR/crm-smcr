@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://smcr.cr';
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://saludmentalcostarica.com';
 
 const STATIC_PAGES = [
   { url: '/',                      priority: 1.0, changeFrequency: 'weekly'  },
