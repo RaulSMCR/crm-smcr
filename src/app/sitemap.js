@@ -1,4 +1,4 @@
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://smcr.cr';
 
@@ -26,20 +26,26 @@ export default async function sitemap() {
     priority,
   }));
 
-  const [services, professionals, posts] = await Promise.all([
-    prisma.service.findMany({
-      where: { isActive: true },
-      select: { id: true, updatedAt: true },
-    }),
-    prisma.professionalProfile.findMany({
-      where: { isApproved: true },
-      select: { id: true, updatedAt: true },
-    }),
-    prisma.post.findMany({
-      where: { status: 'PUBLISHED' },
-      select: { slug: true, updatedAt: true },
-    }),
-  ]);
+  let services = [], professionals = [], posts = [];
+
+  try {
+    [services, professionals, posts] = await Promise.all([
+      prisma.service.findMany({
+        where: { isActive: true },
+        select: { id: true, updatedAt: true },
+      }),
+      prisma.professionalProfile.findMany({
+        where: { isApproved: true },
+        select: { id: true, updatedAt: true },
+      }),
+      prisma.post.findMany({
+        where: { status: 'PUBLISHED' },
+        select: { slug: true, updatedAt: true },
+      }),
+    ]);
+  } catch {
+    // Si la DB no está disponible en build time, retornamos solo las páginas estáticas
+  }
 
   const serviceEntries = services.map(({ id, updatedAt }) => ({
     url: `${BASE_URL}/servicios/${id}`,
