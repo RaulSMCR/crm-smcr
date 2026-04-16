@@ -3,6 +3,19 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { prisma } from '@/lib/prisma';
 
+export const metadata = {
+  title: 'Blog de salud mental y bienestar',
+  description:
+    'Artículos sobre psicología, bienestar, nutrición y salud mental escritos por profesionales verificados en Costa Rica.',
+  alternates: { canonical: 'https://saludmentalcostarica.com/blog' },
+  openGraph: {
+    title: 'Blog de salud mental y bienestar | Salud Mental Costa Rica',
+    description:
+      'Artículos sobre psicología, bienestar, nutrición y salud mental escritos por profesionales verificados.',
+    url: 'https://saludmentalcostarica.com/blog',
+  },
+};
+
 const formatDate = (date) => {
   return new Intl.DateTimeFormat('es-ES', {
     day: '2-digit',

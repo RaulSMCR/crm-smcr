@@ -5,6 +5,8 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { registerUser } from "@/actions/auth-actions";
 import Link from "next/link";
+import { trackEvent } from "@/lib/analytics";
+import { trackLead } from "@/lib/meta-pixel";
 
 function isEmailFormatValid(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim().toLowerCase());
@@ -102,6 +104,8 @@ export default function RegistroUsuarioPage() {
         setErrorMsg(res.warning);
         setLoading(false);
       } else {
+        trackEvent('sign_up', { method: 'email' });
+        trackLead();
         router.push("/ingresar?registered=true");
       }
     } catch (err) {

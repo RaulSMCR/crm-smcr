@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import PostMarketingTracker from '@/components/blog/PostMarketingTracker';
+import JsonLd from '@/components/JsonLd';
 
 // Helper para fecha
 const formatDate = (date) => {
@@ -14,18 +15,37 @@ const formatDate = (date) => {
   }).format(date);
 };
 
-// Generar Metadatos SEO
 export async function generateMetadata({ params }) {
+  const canonical = `https://saludmentalcostarica.com/blog/${params.slug}`;
   const post = await prisma.post.findUnique({
     where: { slug: params.slug },
-    select: { title: true, excerpt: true }
+    select: { title: true, excerpt: true, coverImage: true },
   });
 
   if (!post) return { title: 'Artículo no encontrado' };
 
+  const description = (post.excerpt || post.title).substring(0, 160);
+  const ogImage = post.coverImage
+    ? [{ url: post.coverImage, width: 1200, height: 630, alt: post.title }]
+    : [{ url: '/og-image.png', width: 1200, height: 630, alt: post.title }];
+
   return {
-    title: `${post.title} | Blog Salud Mental`,
-    description: post.excerpt || post.title,
+    title: post.title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title: `${post.title} | Salud Mental Costa Rica`,
+      description,
+      url: canonical,
+      type: 'article',
+      images: ogImage,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: post.title,
+      description,
+      images: ogImage.map((i) => i.url),
+    },
   };
 }
 
@@ -62,10 +82,36 @@ export default async function BlogPostPage({ params }) {
   // Helper para acortar el acceso a datos profundos en el JSX
   const authorUser = post.author.user;
 
+  const articleSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: post.title,
+    description: post.excerpt || undefined,
+    image: post.coverImage || 'https://saludmentalcostarica.com/og-image.png',
+    datePublished: post.createdAt.toISOString(),
+    dateModified: post.updatedAt.toISOString(),
+    url: `https://saludmentalcostarica.com/blog/${slug}`,
+    author: {
+      '@type': 'Person',
+      name: authorUser.name,
+      image: authorUser.image || undefined,
+      jobTitle: post.author.specialty || undefined,
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Salud Mental Costa Rica',
+      logo: {
+        '@type': 'ImageObject',
+        url: 'https://saludmentalcostarica.com/logo.svg',
+      },
+    },
+  };
+
   return (
     <article className="min-h-screen bg-white">
+      <JsonLd data={articleSchema} />
       {/* Tracker Marketing (Nivel 3) */}
-      <PostMarketingTracker slug={slug} />
+      <PostMarketingTracker slug={slug} title={post.title} />
 
       {/* Hero / Cabecera */}
       <header className="relative flex h-[400px] w-full items-center justify-center overflow-hidden bg-gray-900">

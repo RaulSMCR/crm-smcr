@@ -1,10 +1,66 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { isPrismaConnectionError } from "@/lib/prisma-safe";
+import JsonLd from "@/components/JsonLd";
+
+const FAQ_SCHEMA = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: [
+    {
+      '@type': 'Question',
+      name: '¿Cómo funciona la consulta virtual?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Una vez agendada tu cita, recibirás un enlace de videollamada por correo electrónico. La sesión se realiza a través de Google Meet, sin necesidad de instalar nada. Solo necesitás conexión a internet y un dispositivo con cámara.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: '¿Los profesionales están verificados?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Sí. Todos los profesionales en Salud Mental Costa Rica pasan por un proceso de validación que incluye revisión de credenciales académicas, número de matrícula profesional y entrevista con nuestro equipo antes de ser aprobados para atender en la plataforma.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: '¿Cuánto cuesta una consulta?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'El costo varía según el profesional y el tipo de servicio. Podés ver el precio de cada consulta directamente en el perfil del profesional antes de agendar. Los precios están en colones costarricenses (CRC).',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: '¿Puedo agendar desde el extranjero?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Sí. Nuestra plataforma acepta pagos internacionales y las consultas son 100% virtuales, por lo que podés agendar desde cualquier país. Las sesiones se coordinan según la zona horaria de Costa Rica (UTC-6).',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: '¿Qué disciplinas están disponibles?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Contamos con profesionales en psicología clínica, coaching de vida y ejecutivo, nutrición y dietética, entrenamiento físico y deporte, y otras disciplinas de bienestar integral. La oferta crece a medida que incorporamos nuevos especialistas verificados.',
+      },
+    },
+  ],
+};
 
 export const metadata = {
-  title: "Servicios | Salud Mental Costa Rica",
-  description: "Explora nuestros servicios de terapia, coaching y asesoria.",
+  title: 'Servicios de bienestar y salud mental',
+  description:
+    'Explorá nuestra oferta de servicios: psicología clínica, coaching, nutrición, deporte y más. Profesionales verificados en Costa Rica.',
+  alternates: { canonical: 'https://saludmentalcostarica.com/servicios' },
+  openGraph: {
+    title: 'Servicios de bienestar y salud mental | Salud Mental Costa Rica',
+    description:
+      'Explorá nuestra oferta de servicios: psicología clínica, coaching, nutrición, deporte y más.',
+    url: 'https://saludmentalcostarica.com/servicios',
+  },
 };
 
 export const dynamic = "force-dynamic";
@@ -62,6 +118,7 @@ export default async function ServiciosPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 p-6 md:p-10">
+      <JsonLd data={FAQ_SCHEMA} />
       <div>
         <h1 className="text-3xl font-bold text-slate-900">Nuestros Servicios</h1>
         <p className="mt-2 text-slate-600">Encuentra el apoyo profesional que necesitas hoy.</p>

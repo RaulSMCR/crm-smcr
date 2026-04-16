@@ -3,8 +3,16 @@ import { prisma } from '@/lib/prisma';
 import ProfessionalProfileCard from '@/components/ProfessionalProfileCard';
 
 export const metadata = {
-  title: 'Nosotros | Equipo Profesional',
-  description: 'Conoce a nuestros especialistas en salud mental.',
+  title: 'Nuestro equipo de profesionales',
+  description:
+    'Conocé al equipo de psicólogos, coaches, nutricionistas y especialistas en bienestar que forman parte de Salud Mental Costa Rica.',
+  alternates: { canonical: 'https://saludmentalcostarica.com/nosotros' },
+  openGraph: {
+    title: 'Nuestro equipo de profesionales | Salud Mental Costa Rica',
+    description:
+      'Conocé al equipo de psicólogos, coaches y especialistas en bienestar de Salud Mental Costa Rica.',
+    url: 'https://saludmentalcostarica.com/nosotros',
+  },
 };
 
 export const dynamic = 'force-dynamic';

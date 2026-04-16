@@ -1,5 +1,17 @@
 import ContactForm from "@/components/ContactForm";
 
+export const metadata = {
+  title: 'Contacto',
+  description:
+    'Ponete en contacto con el equipo de Salud Mental Costa Rica. Estamos disponibles para consultas, dudas y coordinar tu primera sesión.',
+  alternates: { canonical: 'https://saludmentalcostarica.com/contacto' },
+  openGraph: {
+    title: 'Contacto | Salud Mental Costa Rica',
+    description: 'Escribinos para coordinar tu primera sesión o resolver tus dudas.',
+    url: 'https://saludmentalcostarica.com/contacto',
+  },
+};
+
 export default function ContactoPage() {
   return (
     <div className="bg-appbg py-12">

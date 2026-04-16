@@ -1,6 +1,44 @@
 import { prisma } from '@/lib/prisma';
 import { notFound } from 'next/navigation';
 import BookingInterface from '@/components/booking/BookingInterface';
+import JsonLd from '@/components/JsonLd';
+import ViewTracker from '@/components/tracking/ViewTracker';
+
+export async function generateMetadata({ params }) {
+  const canonical = `https://saludmentalcostarica.com/agendar/${params.id}`;
+  const professional = await prisma.professionalProfile.findUnique({
+    where: { id: params.id },
+    select: {
+      specialty: true,
+      bio: true,
+      avatarUrl: true,
+      user: { select: { name: true } },
+    },
+  });
+
+  if (!professional) return { title: 'Profesional no encontrado' };
+
+  const name = professional.user?.name || 'Profesional';
+  const description = (
+    professional.bio ||
+    `Agendá una consulta con ${name}, especialista en ${professional.specialty}.`
+  ).substring(0, 160);
+  const ogImage = professional.avatarUrl
+    ? [{ url: professional.avatarUrl, width: 800, height: 800, alt: name }]
+    : [{ url: '/og-image.png', width: 1200, height: 630, alt: name }];
+
+  return {
+    title: `Agendá con ${name} — ${professional.specialty}`,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title: `Agendá con ${name} | Salud Mental Costa Rica`,
+      description,
+      url: canonical,
+      images: ogImage,
+    },
+  };
+}
 
 export default async function AgendarPage({ params, searchParams }) {
   const { id } = params;
@@ -67,8 +105,41 @@ export default async function AgendarPage({ params, searchParams }) {
 
   const activeService = selectedService || services[0];
 
+  const personSchema = {
+    '@context': 'https://schema.org',
+    '@type': ['Person', 'MedicalBusiness'],
+    name: professional.user.name,
+    description: professional.bio || undefined,
+    image: professional.avatarUrl || professional.user.image || undefined,
+    url: `https://saludmentalcostarica.com/agendar/${professional.id}`,
+    jobTitle: professional.specialty,
+    ...(professional.licenseNumber && { identifier: professional.licenseNumber }),
+    hasOfferCatalog: {
+      '@type': 'OfferCatalog',
+      name: 'Servicios disponibles',
+      itemListElement: services.map((s) => ({
+        '@type': 'Offer',
+        itemOffered: {
+          '@type': 'Service',
+          name: s.title,
+        },
+        priceCurrency: 'CRC',
+        price: s.displayPrice,
+      })),
+    },
+  };
+
+  const professionalName = professional.user.name;
+
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-12">
+      <JsonLd data={personSchema} />
+      <ViewTracker
+        eventName="view_professional"
+        eventParams={{ professional_name: professionalName }}
+        contentName={professionalName}
+        contentCategory="profesional"
+      />
       <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-12">
         <div className="space-y-6 md:col-span-5 lg:col-span-4">
           <div className="rounded-2xl border border-gray-200 bg-white p-6 text-center shadow-sm">
@@ -117,6 +188,7 @@ export default async function AgendarPage({ params, searchParams }) {
             servicePrice={Number(activeService.displayPrice)}
             serviceTitle={activeService.title}
             serviceId={activeService.id}
+            professionalName={professionalName}
           />
         </div>
       </div>

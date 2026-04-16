@@ -2,6 +2,8 @@
 
 import { useCallback, useState } from "react";
 import Toast from "@/components/ui/Toast";
+import { trackEvent } from "@/lib/analytics";
+import { trackContact } from "@/lib/meta-pixel";
 
 export default function ContactForm() {
   const [formData, setFormData] = useState({
@@ -20,7 +22,8 @@ export default function ContactForm() {
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    console.log("Form submitted:", formData);
+    trackEvent('contact_form', {});
+    trackContact();
     setFormData({ name: "", email: "", message: "" });
     setToast({
       message: "Despejaremos su consulta tan pronto sea posible. Gracias por contactarnos",

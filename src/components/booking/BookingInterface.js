@@ -8,8 +8,10 @@ import { getAvailableSlots, requestAppointment } from "@/actions/booking-actions
 import { RECURRENCE_RULES } from "@/lib/appointment-recurrence";
 import RecurrenceFields from "@/components/appointments/RecurrenceFields";
 import Toast from "@/components/ui/Toast";
+import { trackEvent } from "@/lib/analytics";
+import { trackSchedule } from "@/lib/meta-pixel";
 
-export default function BookingInterface({ professionalId, servicePrice, serviceTitle, serviceId }) {
+export default function BookingInterface({ professionalId, servicePrice, serviceTitle, serviceId, professionalName }) {
   const router = useRouter();
   const hasValidPrice = Number.isFinite(Number(servicePrice)) && Number(servicePrice) > 0;
 
@@ -71,6 +73,8 @@ export default function BookingInterface({ professionalId, servicePrice, service
     );
 
     if (result.success) {
+      trackEvent('schedule_appointment', { service: serviceTitle, professional: professionalName });
+      trackSchedule();
       setConflict(null);
       router.push(`/panel/paciente?new_appointment=true&series=${result.createdCount || 1}`);
     } else if (result.errorCode === "UNAUTHENTICATED") {

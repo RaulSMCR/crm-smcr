@@ -2,6 +2,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { trackEvent } from "@/lib/analytics";
+import { trackViewContent } from "@/lib/meta-pixel";
 
 function parseUtm(searchParams) {
   const keys = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"];
@@ -13,7 +15,7 @@ function parseUtm(searchParams) {
   return utm;
 }
 
-export default function PostMarketingTracker({ slug }) {
+export default function PostMarketingTracker({ slug, title }) {
   const eventIdRef = useRef(null);
   const startMsRef = useRef(Date.now());
   const maxScrollRef = useRef(0);
@@ -29,6 +31,9 @@ export default function PostMarketingTracker({ slug }) {
     startMsRef.current = Date.now();
     maxScrollRef.current = 0;
     readMarkedRef.current = false;
+
+    trackEvent('view_article', { article_title: title });
+    trackViewContent(title, 'articulo');
 
     const url = new URL(window.location.href);
     const utm = parseUtm(url.searchParams);

@@ -2,31 +2,45 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { isPrismaConnectionError } from "@/lib/prisma-safe";
+import ViewTracker from "@/components/tracking/ViewTracker";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }) {
   const id = String(params?.id || "");
+  const canonical = `https://saludmentalcostarica.com/servicios/${id}`;
   let service = null;
 
   try {
     service = await prisma.service.findUnique({
       where: { id },
-      select: { title: true, description: true },
+      select: { title: true, description: true, bannerImage: true },
     });
   } catch (error) {
     if (!isPrismaConnectionError(error)) throw error;
     return {
       title: "Servicio temporalmente no disponible",
-      description: "No pudimos acceder a la informacion del servicio en este momento.",
+      description: "No pudimos acceder a la información del servicio en este momento.",
     };
   }
 
   if (!service) return { title: "Servicio no encontrado" };
 
+  const description = (service.description || "").substring(0, 160);
+  const ogImage = service.bannerImage
+    ? [{ url: service.bannerImage, width: 1200, height: 630, alt: service.title }]
+    : [{ url: "/og-image.png", width: 1200, height: 630, alt: service.title }];
+
   return {
-    title: `${service.title} | Salud Mental`,
-    description: (service.description || "").substring(0, 160),
+    title: service.title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title: `${service.title} | Salud Mental Costa Rica`,
+      description,
+      url: canonical,
+      images: ogImage,
+    },
   };
 }
 
@@ -116,6 +130,12 @@ export default async function ServiceDetailPage({ params }) {
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 p-6 md:p-10">
+      <ViewTracker
+        eventName="view_service"
+        eventParams={{ service_name: service.title }}
+        contentName={service.title}
+        contentCategory="servicio"
+      />
       <Link href="/servicios" className="text-sm text-slate-600 hover:underline">
         ← Volver a Servicios
       </Link>
