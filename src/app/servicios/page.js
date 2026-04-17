@@ -162,8 +162,8 @@ export default async function ServiciosPage() {
                     }}
                   />
                 ) : (
-                  <div className="flex h-full items-end bg-gradient-to-br from-slate-200 via-slate-100 to-white p-6">
-                    <span className="rounded-full bg-white/85 px-3 py-1 text-xs font-semibold text-slate-700">
+                  <div className="flex h-full items-start bg-gradient-to-br from-brand-800 to-brand-950 p-6">
+                    <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white/80">
                       Servicio destacado
                     </span>
                   </div>
