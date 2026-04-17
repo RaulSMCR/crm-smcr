@@ -15,7 +15,7 @@ const EASE = [0.4, 0, 0.2, 1];
 
 const PANELS = {
   patient: {
-    image: "/images/registro-paciente.webp",
+    image: "/images/registro-paciente.jpg",
     fallbackImage: "/images/paciente-hero.webp",
     href: "/registro/usuario",
     headline: "Quiero encontrar un profesional",
@@ -25,7 +25,7 @@ const PANELS = {
     fallbackBg: "#0c2223",
   },
   professional: {
-    image: "/images/registro-profesional.webp",
+    image: "/images/registro-profesional.jpg",
     fallbackImage: "/images/profesional-hero.webp",
     href: "/registro/profesional",
     headline: "Soy profesional de la salud",

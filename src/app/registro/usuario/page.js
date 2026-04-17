@@ -37,7 +37,7 @@ function HeroPanel() {
         className="absolute inset-0 bg-cover bg-center"
         style={{
           backgroundImage:
-            "url('/images/registro-paciente.webp'), url('/images/paciente-hero.webp')",
+            "url('/images/registro-paciente.jpg'), url('/images/paciente-hero.webp')",
         }}
       />
       <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/85 via-neutral-950/40 to-neutral-950/10" />
