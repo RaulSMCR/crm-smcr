@@ -1,4 +1,3 @@
-// src/app/registro/usuario/page.js
 "use client";
 
 import { useState, useMemo } from "react";
@@ -7,11 +6,70 @@ import { registerUser } from "@/actions/auth-actions";
 import Link from "next/link";
 import { trackEvent } from "@/lib/analytics";
 import { trackLead } from "@/lib/meta-pixel";
+import { Playfair_Display } from "next/font/google";
+
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+  display: "swap",
+});
 
 function isEmailFormatValid(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim().toLowerCase());
 }
 
+function StatusBadge({ valid, label }) {
+  return (
+    <span className={`inline-flex items-center rounded px-2 py-1 text-xs font-medium transition-colors ${
+      valid ? "bg-brand-900/60 text-brand-200" : "bg-white/10 text-neutral-400"
+    }`}>
+      <span className={`mr-1.5 h-1.5 w-1.5 rounded-full ${valid ? "bg-brand-400" : "bg-neutral-500"}`} />
+      {label}
+    </span>
+  );
+}
+
+// ─── Panel izquierdo (hero fijo) ──────────────────────────────────────────────
+function HeroPanel() {
+  return (
+    <div className="relative min-h-[35vh] w-full flex-shrink-0 md:sticky md:top-0 md:h-screen md:w-[38%]">
+      <div
+        className="absolute inset-0 bg-cover bg-center"
+        style={{
+          backgroundImage:
+            "url('/images/registro-paciente.webp'), url('/images/paciente-hero.webp')",
+        }}
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/85 via-neutral-950/40 to-neutral-950/10" />
+
+      <div className="absolute inset-0 flex flex-col justify-between p-8 md:p-10">
+        <Link
+          href="/registro"
+          className="flex w-fit items-center gap-2 text-sm text-neutral-300 transition-colors hover:text-white"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+            <path fillRule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z" clipRule="evenodd" />
+          </svg>
+          Elegir tipo de cuenta
+        </Link>
+
+        <div>
+          <p className={`${playfair.className} mb-3 text-base italic text-neutral-300 md:text-lg`}>
+            Tu bienestar comienza con un paso
+          </p>
+          <h2 className={`${playfair.className} text-2xl font-bold text-white md:text-3xl`}>
+            Registro de paciente
+          </h2>
+          <p className="mt-2 text-sm text-neutral-400">
+            Accede a una red de profesionales validados en salud mental.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Página principal ─────────────────────────────────────────────────────────
 export default function RegistroUsuarioPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -20,27 +78,18 @@ export default function RegistroUsuarioPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Estados del formulario
   const [form, setForm] = useState({
-    name: "",
-    email: "",
-    identification: "",
-    birthDate: "",
-    phone: "",
-    password: "",
-    confirmPassword: "",
-    gender: "",
-    interests: "",
+    name: "", email: "", identification: "", birthDate: "",
+    phone: "", password: "", confirmPassword: "", gender: "", interests: "",
   });
 
-  // --- VALIDACIONES DE CONTRASEÑA ---
   const passwordChecks = useMemo(() => {
     const pwd = form.password || "";
     return {
-      length: pwd.length >= 8,
-      number: /\d/.test(pwd),
+      length:  pwd.length >= 8,
+      number:  /\d/.test(pwd),
       special: /[!@#$%^&*(),.?":{}|<>]/.test(pwd),
-      match: pwd && pwd === form.confirmPassword,
+      match:   pwd && pwd === form.confirmPassword,
     };
   }, [form.password, form.confirmPassword]);
 
@@ -57,183 +106,98 @@ export default function RegistroUsuarioPage() {
     setErrorMsg("");
     setTouched(true);
 
-    if (!String(form.name || "").trim()) {
-      setErrorMsg("Falta el nombre completo para crear la cuenta.");
-      return;
-    }
-
-    if (!String(form.email || "").trim()) {
-      setErrorMsg("Falta el correo electrónico para proteger y validar el acceso.");
-      return;
-    }
-
-    if (!isEmailFormatValid(form.email)) {
-      setErrorMsg("El correo electrónico no tiene un formato válido.");
-      return;
-    }
-
-    if (!String(form.phone || "").trim()) {
-      setErrorMsg("Falta el teléfono de contacto para coordinar la atención de forma segura.");
-      return;
-    }
-
-    if (!String(form.identification || "").trim()) {
-      setErrorMsg("Falta la identificación para completar el registro seguro.");
-      return;
-    }
-
-    if (!isPasswordValid) {
-      setErrorMsg("No fue posible completar la seguridad de la cuenta. Revise los requisitos de contraseña.");
-      return;
-    }
+    if (!String(form.name || "").trim())           { setErrorMsg("Falta el nombre completo."); return; }
+    if (!String(form.email || "").trim())          { setErrorMsg("Falta el correo electrónico."); return; }
+    if (!isEmailFormatValid(form.email))           { setErrorMsg("El correo no tiene un formato válido."); return; }
+    if (!String(form.phone || "").trim())          { setErrorMsg("Falta el teléfono de contacto."); return; }
+    if (!String(form.identification || "").trim()) { setErrorMsg("Falta la identificación."); return; }
+    if (!isPasswordValid)                          { setErrorMsg("Revise los requisitos de contraseña."); return; }
 
     setLoading(true);
-
     try {
       const formData = new FormData();
-      Object.entries(form).forEach(([key, value]) => {
-        formData.append(key, value);
-      });
-
+      Object.entries(form).forEach(([k, v]) => formData.append(k, v));
       const res = await registerUser(formData);
-
-      if (res?.error) {
-        setErrorMsg(res.error);
-        setLoading(false);
-      } else if (res?.warning) {
-        setErrorMsg(res.warning);
+      if (res?.error || res?.warning) {
+        setErrorMsg(res.error || res.warning);
         setLoading(false);
       } else {
-        trackEvent('sign_up', { method: 'email' });
+        trackEvent("sign_up", { method: "email" });
         trackLead();
         router.push("/ingresar?registered=true");
       }
-    } catch (err) {
-      console.error(err);
-      setErrorMsg("Error de conexión con el servidor. Por favor, intente nuevamente para continuar con seguridad.");
+    } catch {
+      setErrorMsg("Error de conexión. Por favor, intente nuevamente.");
       setLoading(false);
     }
   }
 
-  return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-2xl w-full space-y-8">
-        {/* ENCABEZADO */}
-        <div className="text-center">
-          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-            Registro de paciente
-          </h2>
-          <p className="mt-2 text-sm text-slate-600">
-            Este registro permite avanzar con seguridad en la coordinación de citas y resguardar la continuidad del cuidado de cada paciente.</p>
-        </div>
+  const inputClass =
+    "w-full rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm text-neutral-900 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400 transition-all placeholder-neutral-400";
 
-        {/* TARJETA PRINCIPAL */}
-        <div className="bg-white py-8 px-6 shadow-xl shadow-slate-200/50 rounded-2xl border border-slate-100 sm:px-10">
+  const labelClass = "mb-1 block text-xs font-semibold uppercase tracking-widest text-neutral-500";
+
+  return (
+    <div className="flex min-h-screen flex-col md:flex-row">
+      <HeroPanel />
+
+      {/* Formulario */}
+      <div className="flex-1 bg-appbg px-6 py-12 md:px-12 md:py-14">
+        <div className="mx-auto max-w-xl">
+          <h1 className="mb-1 text-2xl font-bold text-neutral-950">Crea tu cuenta</h1>
+          <p className="mb-8 text-sm text-neutral-600">
+            Completa los datos para acceder a la red de profesionales SMCR.
+          </p>
+
           {errorMsg && (
-            <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-md">
-              <div className="flex">
-                <div className="flex-shrink-0">⚠️</div>
-                <div className="ml-3">
-                  <p className="text-sm text-red-700 font-medium">{errorMsg}</p>
-                </div>
-              </div>
+            <div className="mb-6 rounded-xl border border-accent-300 bg-accent-50 p-4 text-sm text-accent-800">
+              {errorMsg}
             </div>
           )}
 
           <form className="space-y-6" onSubmit={onSubmit}>
-            {/* SECCIÓN 1: DATOS BÁSICOS */}
-            <div>
-              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">
-                Información Personal
-              </h3>
-              <div className="grid grid-cols-1 gap-y-6 gap-x-6 sm:grid-cols-2">
+            {/* Información personal */}
+            <section className="space-y-4">
+              <h2 className="border-b border-neutral-200 pb-2 text-xs font-bold uppercase tracking-widest text-neutral-400">
+                Información personal
+              </h2>
+
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div className="sm:col-span-2">
-                  <label htmlFor="name" className="block text-sm font-medium text-slate-700">
-                    Nombre Completo
-                  </label>
-                  <input
-                    id="name"
-                    name="name"
-                    type="text"
-                    required
-                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5 px-3"
-                    value={form.name}
-                    onChange={handleChange}
-                  />
+                  <label className={labelClass}>Nombre completo</label>
+                  <input name="name" type="text" required className={inputClass}
+                    value={form.name} onChange={handleChange} />
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label htmlFor="email" className="block text-sm font-medium text-slate-700">
-                    Correo Electrónico
-                  </label>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    required
-                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5 px-3"
-                    value={form.email}
-                    onChange={handleChange}
-                  />
+                  <label className={labelClass}>Correo electrónico</label>
+                  <input name="email" type="email" required className={inputClass}
+                    placeholder="correo@dominio.com" value={form.email} onChange={handleChange} />
                 </div>
 
-                {/* ✅ TELÉFONO OBLIGATORIO */}
                 <div className="sm:col-span-2">
-                  <label htmlFor="phone" className="block text-sm font-medium text-slate-700">
-                    Teléfono (obligatorio)
-                  </label>
-                  <input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    required
-                    inputMode="tel"
-                    placeholder="+506 8888 8888"
-                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5 px-3"
-                    value={form.phone}
-                    onChange={handleChange}
-                  />
+                  <label className={labelClass}>Teléfono</label>
+                  <input name="phone" type="tel" required inputMode="tel"
+                    placeholder="+506 8888 8888" className={inputClass}
+                    value={form.phone} onChange={handleChange} />
                 </div>
 
                 <div>
-                  <label htmlFor="identification" className="block text-sm font-medium text-slate-700">
-                    DNI / Cédula
-                  </label>
-                  <input
-                    name="identification"
-                    type="text"
-                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5 px-3"
-                    value={form.identification}
-                    onChange={handleChange}
-                  />
+                  <label className={labelClass}>DNI / Cédula</label>
+                  <input name="identification" type="text" className={inputClass}
+                    value={form.identification} onChange={handleChange} />
                 </div>
 
                 <div>
-                  <label htmlFor="birthDate" className="block text-sm font-medium text-slate-700">
-                    Fecha de Nacimiento
-                  </label>
-                  <input
-                    id="birthDate"
-                    name="birthDate"
-                    type="date"
+                  <label className={labelClass}>Fecha de nacimiento</label>
+                  <input name="birthDate" type="date"
                     max={new Date().toISOString().split("T")[0]}
-                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5 px-3"
-                    value={form.birthDate}
-                    onChange={handleChange}
-                  />
+                    className={inputClass} value={form.birthDate} onChange={handleChange} />
                 </div>
 
                 <div>
-                  <label htmlFor="gender" className="block text-sm font-medium text-slate-700">
-                    Género
-                  </label>
-                  <select
-                    id="gender"
-                    name="gender"
-                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5 px-3"
-                    value={form.gender}
-                    onChange={handleChange}
-                  >
+                  <label className={labelClass}>Género</label>
+                  <select name="gender" className={inputClass} value={form.gender} onChange={handleChange}>
                     <option value="">Prefiero no indicar</option>
                     <option value="femenino">Femenino</option>
                     <option value="masculino">Masculino</option>
@@ -243,126 +207,72 @@ export default function RegistroUsuarioPage() {
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label htmlFor="interests" className="block text-sm font-medium text-slate-700">
-                    Intereses terapéuticos
-                  </label>
-                  <textarea
-                    id="interests"
-                    name="interests"
-                    rows={3}
-                    placeholder="Ej: manejo de ansiedad, terapia de pareja, autoestima..."
-                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5 px-3"
-                    value={form.interests}
-                    onChange={handleChange}
-                  />
+                  <label className={labelClass}>Intereses terapéuticos</label>
+                  <textarea name="interests" rows={3}
+                    placeholder="Ej: manejo de ansiedad, terapia de pareja, autoestima…"
+                    className={inputClass} value={form.interests} onChange={handleChange} />
                 </div>
               </div>
-            </div>
+            </section>
 
-            {/* SECCIÓN 2: SEGURIDAD */}
-            <div className="pt-2">
-              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">
+            {/* Seguridad */}
+            <section className="space-y-4">
+              <h2 className="border-b border-neutral-200 pb-2 text-xs font-bold uppercase tracking-widest text-neutral-400">
                 Seguridad
-              </h3>
-              <div className="grid grid-cols-1 gap-y-6 gap-x-6 sm:grid-cols-2">
-                <div className="relative">
-                  <label className="block text-sm font-medium text-slate-700">Contraseña</label>
-                  <div className="relative mt-1">
-                    <input
-                      name="password"
-                      type={showPassword ? "text" : "password"}
-                      required
-                      className="block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5 px-3 pr-16"
-                      value={form.password}
-                      onChange={handleChange}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
-                    >
-                      <span className="text-xs font-semibold">{showPassword ? "OCULTAR" : "VER"}</span>
+              </h2>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className={labelClass}>Contraseña</label>
+                  <div className="relative">
+                    <input name="password" type={showPassword ? "text" : "password"} required
+                      className={`${inputClass} pr-16`} value={form.password} onChange={handleChange} />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-3 flex items-center text-xs font-bold text-neutral-400 hover:text-neutral-700">
+                      {showPassword ? "OCULTAR" : "VER"}
                     </button>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700">Confirmar</label>
-                  <div className="relative mt-1">
-                    <input
-                      name="confirmPassword"
-                      type={showConfirmPassword ? "text" : "password"}
-                      required
-                      className={`block w-full rounded-lg shadow-sm focus:ring-indigo-500 sm:text-sm py-2.5 px-3 pr-16 transition-colors ${
-                        touched && !passwordChecks.match
-                          ? "border-red-300 focus:border-red-500 bg-red-50"
-                          : "border-slate-300 focus:border-indigo-500"
-                      }`}
-                      value={form.confirmPassword}
-                      onChange={handleChange}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
-                    >
-                      <span className="text-xs font-semibold">{showConfirmPassword ? "OCULTAR" : "VER"}</span>
+                  <label className={labelClass}>Confirmar</label>
+                  <div className="relative">
+                    <input name="confirmPassword" type={showConfirmPassword ? "text" : "password"} required
+                      className={`${inputClass} pr-16 ${touched && !passwordChecks.match ? "border-accent-400 bg-accent-50" : ""}`}
+                      value={form.confirmPassword} onChange={handleChange} />
+                    <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute inset-y-0 right-3 flex items-center text-xs font-bold text-neutral-400 hover:text-neutral-700">
+                      {showConfirmPassword ? "OCULTAR" : "VER"}
                     </button>
                   </div>
                 </div>
               </div>
 
-              {/* Checklist de Seguridad - Diseño Horizontal Compacto */}
-              <div className="mt-4 bg-slate-50 rounded-lg p-3 border border-slate-200">
-                <p className="text-xs text-slate-500 mb-2 font-medium">Requisitos de contraseña para proteger la información del paciente y avanzar con acceso seguro:</p>
-                <div className="flex flex-wrap gap-2">
-                  <StatusBadge valid={passwordChecks.length} label="8+ caracteres" />
-                  <StatusBadge valid={passwordChecks.number} label="Número" />
-                  <StatusBadge valid={passwordChecks.special} label="Símbolo" />
-                  <StatusBadge valid={passwordChecks.match} label="Coinciden" />
-                </div>
+              <div className="flex flex-wrap gap-2">
+                <StatusBadge valid={passwordChecks.length}  label="8+ caracteres" />
+                <StatusBadge valid={passwordChecks.number}  label="Número" />
+                <StatusBadge valid={passwordChecks.special} label="Símbolo" />
+                <StatusBadge valid={passwordChecks.match}   label="Coinciden" />
               </div>
-            </div>
+            </section>
 
-            <div className="pt-4">
-              <button
-                type="submit"
-                disabled={loading || !isPasswordValid}
-                className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white transition-all
-                  ${
-                    loading || !isPasswordValid
-                      ? "bg-slate-400 cursor-not-allowed"
-                      : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200 hover:shadow-indigo-300"
-                  }`}
-              >
-                {loading ? "Procesando registro..." : "Crear cuenta segura y avanzar"}
-              </button>
-            </div>
+            <button
+              type="submit"
+              disabled={loading || !isPasswordValid}
+              className="w-full rounded-xl bg-brand-600 px-6 py-3.5 font-bold text-white transition-colors hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {loading ? "Procesando…" : "Crear cuenta y avanzar"}
+            </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-sm text-slate-600">
-              Si ya dispone de una cuenta,{" "}
-              <Link href="/ingresar" className="font-medium text-indigo-600 hover:text-indigo-500">
-                ingrese aquí</Link>
-            </p>
-          </div>
+          <p className="mt-6 text-center text-sm text-neutral-500">
+            ¿Ya tienes cuenta?{" "}
+            <Link href="/ingresar" className="font-medium text-brand-700 hover:text-brand-900">
+              Ingresar
+            </Link>
+          </p>
         </div>
       </div>
     </div>
-  );
-}
-
-// Subcomponente Estético
-function StatusBadge({ valid, label }) {
-  return (
-    <span
-      className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium transition-colors ${
-        valid ? "bg-green-100 text-green-700" : "bg-slate-200 text-slate-500"
-      }`}
-    >
-      <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${valid ? "bg-green-500" : "bg-slate-400"}`}></span>
-      {label}
-    </span>
   );
 }

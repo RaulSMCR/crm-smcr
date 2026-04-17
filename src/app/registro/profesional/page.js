@@ -1,56 +1,101 @@
-// src/app/registro/profesional/page.js
 "use client";
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { registerProfessional } from "@/actions/auth-actions";
 import Link from "next/link";
+import { Playfair_Display } from "next/font/google";
+
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+  display: "swap",
+});
 
 function isEmailFormatValid(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim().toLowerCase());
 }
 
+function Badge({ valid, label }) {
+  return (
+    <span className={`inline-flex items-center rounded px-2 py-1 text-xs font-medium transition-colors ${
+      valid ? "bg-brand-900/60 text-brand-200" : "bg-white/10 text-neutral-400"
+    }`}>
+      <span className={`mr-1.5 h-1.5 w-1.5 rounded-full ${valid ? "bg-brand-400" : "bg-neutral-500"}`} />
+      {label}
+    </span>
+  );
+}
 
+// ─── Panel izquierdo (hero fijo) ──────────────────────────────────────────────
+function HeroPanel() {
+  return (
+    <div className="relative min-h-[35vh] w-full flex-shrink-0 md:sticky md:top-0 md:h-screen md:w-[38%]">
+      <div
+        className="absolute inset-0 bg-cover bg-center"
+        style={{
+          backgroundImage:
+            "url('/images/registro-profesional.webp'), url('/images/profesional-hero.webp')",
+        }}
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/85 via-neutral-950/45 to-neutral-950/10" />
+
+      <div className="absolute inset-0 flex flex-col justify-between p-8 md:p-10">
+        <Link
+          href="/registro"
+          className="flex w-fit items-center gap-2 text-sm text-neutral-300 transition-colors hover:text-white"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+            <path fillRule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z" clipRule="evenodd" />
+          </svg>
+          Elegir tipo de cuenta
+        </Link>
+
+        <div>
+          <p className={`${playfair.className} mb-3 text-base italic text-neutral-300 md:text-lg`}>
+            Amplía tu alcance y tu impacto
+          </p>
+          <h2 className={`${playfair.className} text-2xl font-bold text-white md:text-3xl`}>
+            Registro profesional
+          </h2>
+          <p className="mt-2 text-sm text-neutral-400">
+            Postula tu perfil a la red de salud mental de Costa Rica.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Página principal ─────────────────────────────────────────────────────────
 export default function RegistroProfesionalPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading]     = useState(false);
   const [loadingText, setLoadingText] = useState("");
-  const [errorMsg, setErrorMsg] = useState("");
-  const [success, setSuccess] = useState(false);
+  const [errorMsg, setErrorMsg]   = useState("");
+  const [success, setSuccess]     = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
 
-  // Estados del formulario
   const [form, setForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    password: "",
-    confirmPassword: "",
-    specialty: "",
-    licenseNumber: "",
-    bio: "",
-    coverLetter: "",
-    introVideoUrl: "",
+    name: "", email: "", phone: "", password: "", confirmPassword: "",
+    specialty: "", licenseNumber: "", bio: "", coverLetter: "", introVideoUrl: "",
   });
-
-  const [file, setFile] = useState(null);
+  const [file, setFile]               = useState(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [touched, setTouched] = useState(false);
+  const [touched, setTouched]         = useState(false);
 
-  // --- VALIDACIONES ---
   const passwordChecks = useMemo(() => {
     const pwd = form.password || "";
     return {
-      length: pwd.length >= 8,
-      number: /\d/.test(pwd),
+      length:  pwd.length >= 8,
+      number:  /\d/.test(pwd),
       special: /[!@#$%^&*(),.?":{}|<>]/.test(pwd),
-      match: pwd && pwd === form.confirmPassword && pwd !== ""
+      match:   pwd && pwd === form.confirmPassword && pwd !== "",
     };
   }, [form.password, form.confirmPassword]);
 
   const isPasswordValid = Object.values(passwordChecks).every(Boolean);
 
-  // --- MANEJADORES ---
   function handleChange(e) {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -59,126 +104,89 @@ export default function RegistroProfesionalPage() {
 
   function handleFileChange(e) {
     const selected = e.target.files[0];
-    if (selected) {
-      if (selected.type !== "application/pdf") {
-        setErrorMsg("Solo se permite CV en formato PDF.");
-        e.target.value = null;
-        return;
-      }
-      if (selected.size > 5 * 1024 * 1024) {
-        setErrorMsg("El archivo supera el tamaño permitido. Máximo 5 MB.");
-        e.target.value = null;
-        return;
-      }
-      setFile(selected);
-      setErrorMsg("");
+    if (!selected) return;
+    if (selected.type !== "application/pdf") {
+      setErrorMsg("Solo se permite CV en formato PDF.");
+      e.target.value = null;
+      return;
     }
+    if (selected.size > 5 * 1024 * 1024) {
+      setErrorMsg("El archivo supera el tamaño máximo de 5 MB.");
+      e.target.value = null;
+      return;
+    }
+    setFile(selected);
+    setErrorMsg("");
   }
-  // --- ENVÍO ---
+
   async function onSubmit(e) {
     e.preventDefault();
     setErrorMsg("");
     setTouched(true);
 
-    if (!String(form.name || "").trim()) {
-      setErrorMsg("Falta el nombre completo para continuar con la postulación.");
-      return;
-    }
-
-    if (!String(form.email || "").trim()) {
-      setErrorMsg("Falta el correo electrónico para proteger y validar el acceso.");
-      return;
-    }
-
-    if (!isEmailFormatValid(form.email)) {
-      setErrorMsg("El correo electrónico no tiene un formato válido.");
-      return;
-    }
-
-    if (!String(form.phone || "").trim()) {
-      setErrorMsg("Falta el teléfono de contacto para coordinar el proceso de forma segura.");
-      return;
-    }
-
-    if (!String(form.specialty || "").trim()) {
-      setErrorMsg("Falta indicar la especialidad profesional.");
-      return;
-    }
-
-    if (!String(form.licenseNumber || "").trim()) {
-      setErrorMsg("Falta el número de licencia o matrícula profesional.");
-      return;
-    }
-
-    if (!isPasswordValid) {
-      setErrorMsg("No fue posible completar la seguridad de la cuenta. Revise los requisitos de contraseña.");
-      return;
-    }
-
-    if (!file) {
-      setErrorMsg("Falta adjuntar el CV en PDF para validar credenciales profesionales.");
-      return;
-    }
+    if (!String(form.name || "").trim())        { setErrorMsg("Falta el nombre completo."); return; }
+    if (!String(form.email || "").trim())       { setErrorMsg("Falta el correo electrónico."); return; }
+    if (!isEmailFormatValid(form.email))        { setErrorMsg("El correo no tiene un formato válido."); return; }
+    if (!String(form.phone || "").trim())       { setErrorMsg("Falta el teléfono de contacto."); return; }
+    if (!String(form.specialty || "").trim())   { setErrorMsg("Falta indicar la especialidad."); return; }
+    if (!String(form.licenseNumber || "").trim()) { setErrorMsg("Falta el número de licencia."); return; }
+    if (!isPasswordValid)                       { setErrorMsg("Revise los requisitos de contraseña."); return; }
+    if (!file)                                  { setErrorMsg("Falta adjuntar el CV en PDF."); return; }
 
     setLoading(true);
-
     try {
-      setLoadingText("Subiendo documentación...");
-      const cvFile = file;
-
+      setLoadingText("Subiendo documentación…");
       const uploadData = new FormData();
-      uploadData.append("file", cvFile);
+      uploadData.append("file", file);
       uploadData.append("userId", crypto.randomUUID());
 
-      const res = await fetch("/api/upload/cv", {
-        method: "POST",
-        body: uploadData,
-      });
-
+      const res = await fetch("/api/upload/cv", { method: "POST", body: uploadData });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || "No fue posible subir el CV.");
       const cvUrl = result.url;
 
-      setLoadingText("Creando perfil...");
-
+      setLoadingText("Creando perfil…");
       const formData = new FormData();
-      Object.entries(form).forEach(([key, value]) => {
-        formData.append(key, value);
-      });
+      Object.entries(form).forEach(([k, v]) => formData.append(k, v));
       formData.append("cvUrl", cvUrl);
 
       const registerRes = await registerProfessional(formData);
-
       if (registerRes?.error) {
         setErrorMsg(registerRes.error);
         setLoading(false);
       } else {
         setSuccessMsg(
-          registerRes?.warning ||
-            registerRes?.message ||
-            "Se recibió el perfil profesional y el CV. El proceso de revisión avanza para resguardar la calidad de atención. Se envió un correo de confirmación. Revise su bandeja de entrada para continuar."
+          registerRes?.warning || registerRes?.message ||
+          "Se recibió el perfil y el CV. El proceso de revisión avanza para resguardar la calidad de atención. Revise su correo para continuar."
         );
         setSuccess(true);
         setTimeout(() => router.push("/ingresar?registered=professional"), 4000);
       }
-
     } catch (err) {
-      console.error(err);
       setErrorMsg(err.message || "Ocurrió un error inesperado.");
       setLoading(false);
     }
   }
-  // --- VISTA DE ÉXITO ---
+
+  const inputClass =
+    "w-full rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm text-neutral-900 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400 transition-all placeholder-neutral-400";
+
+  const labelClass = "mb-1 block text-xs font-semibold uppercase tracking-widest text-neutral-500";
+
+  // ── Vista de éxito ────────────────────────────────────────────────────────
   if (success) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-lg border border-green-100 text-center animate-fade-in">
-          <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-6">
-            <span className="text-3xl">🎉</span>
+      <div className="flex min-h-screen items-center justify-center bg-appbg px-4">
+        <div className="w-full max-w-md rounded-2xl border border-brand-200 bg-white p-10 text-center shadow-card">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-brand-100 text-3xl">
+            🎉
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Solicitud recibida con éxito</h2>
-          <p className="text-slate-600 mb-6 text-sm">{successMsg}</p>
-          <Link href="/ingresar" className="block w-full py-3 px-4 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition font-medium">
+          <h2 className={`${playfair.className} mb-2 text-2xl font-bold text-neutral-950`}>
+            Solicitud recibida
+          </h2>
+          <p className="mb-6 text-sm text-neutral-600">{successMsg}</p>
+          <Link href="/ingresar"
+            className="block w-full rounded-xl bg-brand-600 py-3 font-bold text-white transition-colors hover:bg-brand-500">
             Ir al ingreso
           </Link>
         </div>
@@ -187,255 +195,176 @@ export default function RegistroProfesionalPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-5xl mx-auto">
+    <div className="flex min-h-screen flex-col md:flex-row">
+      <HeroPanel />
 
-        {/* ENCABEZADO */}
-        <div className="text-center mb-10">
-          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Registro profesional seguro</h2>
-          <p className="mt-2 text-sm text-slate-600">Este registro permite avanzar en el proceso de validación profesional y proteger la atención de cada paciente.</p>
-        </div>
-
-        <div className="bg-white shadow-xl shadow-slate-200/60 rounded-2xl border border-slate-100 overflow-hidden">
+      {/* Formulario */}
+      <div className="flex-1 bg-appbg px-6 py-12 md:px-12 md:py-14">
+        <div className="mx-auto max-w-2xl">
+          <h1 className="mb-1 text-2xl font-bold text-neutral-950">Completa tu postulación</h1>
+          <p className="mb-8 text-sm text-neutral-600">
+            Revisamos cada perfil para garantizar la calidad de atención en SMCR.
+          </p>
 
           {errorMsg && (
-            <div className="bg-red-50 border-l-4 border-red-500 p-4 m-6 mb-0 rounded-r-md">
-              <div className="flex">
-                <span className="text-red-500 mr-3 text-xl">⚠️</span>
-                <p className="text-sm text-red-700 font-medium self-center">{errorMsg}</p>
-              </div>
+            <div className="mb-6 rounded-xl border border-accent-300 bg-accent-50 p-4 text-sm text-accent-800">
+              {errorMsg}
             </div>
           )}
 
-          <form onSubmit={onSubmit} className="p-6 sm:p-10">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+          <form onSubmit={onSubmit} className="space-y-8">
+            <div className="grid gap-8 lg:grid-cols-2">
 
-              {/* COLUMNA IZQUIERDA: DATOS DE CUENTA */}
-              <div className="space-y-6">
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2 mb-4">
-                  Credenciales de Acceso
-                </h3>
+              {/* Columna izquierda: credenciales */}
+              <section className="space-y-4">
+                <h2 className="border-b border-neutral-200 pb-2 text-xs font-bold uppercase tracking-widest text-neutral-400">
+                  Credenciales de acceso
+                </h2>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Nombre Completo</label>
-                  <input
-                    name="name" type="text" required placeholder="Ej: Lic. Juan Pérez"
-                    className="w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5 px-3"
-                    value={form.name} onChange={handleChange}
-                  />
+                  <label className={labelClass}>Nombre completo</label>
+                  <input name="name" type="text" required placeholder="Lic. Nombre Apellido"
+                    className={inputClass} value={form.name} onChange={handleChange} />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Correo Electrónico</label>
-                  <input
-                    name="email" type="email" required placeholder="profesional@ejemplo.com"
-                    className="w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5 px-3"
-                    value={form.email} onChange={handleChange}
-                  />
+                  <label className={labelClass}>Correo electrónico</label>
+                  <input name="email" type="email" required placeholder="profesional@ejemplo.com"
+                    className={inputClass} value={form.email} onChange={handleChange} />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Teléfono Móvil</label>
-                  <input
-                    name="phone"
-                    type="tel"
-                    required
-                    inputMode="tel"
-                    autoComplete="tel"
-                    placeholder="+506 8888 8888"
-                    className="w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5 px-3"
-                    value={form.phone}
-                    onChange={handleChange}
-                  />
+                  <label className={labelClass}>Teléfono móvil</label>
+                  <input name="phone" type="tel" required inputMode="tel" autoComplete="tel"
+                    placeholder="+506 8888 8888" className={inputClass}
+                    value={form.phone} onChange={handleChange} />
                 </div>
 
-                {/* Password Fields */}
-                <div className="pt-2">
-                    <div className="relative mb-4">
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Contraseña</label>
-                        <div className="relative">
-                            <input
-                                name="password"
-                                type={showPassword ? "text" : "password"}
-                                required
-                                className="w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5 px-3 pr-10"
-                                value={form.password} onChange={handleChange}
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setShowPassword(!showPassword)}
-                                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-blue-600"
-                            >
-                                <span className="text-xs font-bold">{showPassword ? "OCULTAR" : "VER"}</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="mb-4">
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Confirmar Contraseña</label>
-                        <input
-                            name="confirmPassword"
-                            type="password"
-                            required
-                            className={`w-full rounded-lg shadow-sm py-2.5 px-3 transition-colors ${
-                                touched && !passwordChecks.match
-                                ? 'border-red-300 bg-red-50 focus:border-red-500'
-                                : 'border-slate-300 focus:border-blue-500'
-                            }`}
-                            value={form.confirmPassword} onChange={handleChange}
-                        />
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                        <Badge valid={passwordChecks.length} label="8+ Caracteres" />
-                        <Badge valid={passwordChecks.number} label="Número" />
-                        <Badge valid={passwordChecks.special} label="Símbolo" />
-                        <Badge valid={passwordChecks.match} label="Coinciden" />
-                    </div>
-                </div>
-              </div>
-
-              {/* COLUMNA DERECHA: PERFIL PROFESIONAL */}
-              <div className="space-y-6">
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2 mb-4">
-                  Datos Profesionales
-                </h3>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Especialidad</label>
-                        <input
-                            name="specialty"
-                            type="text"
-                            required
-                            placeholder="Ej: Psicología Clínica"
-                            className="w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5 px-3"
-                            value={form.specialty}
-                            onChange={handleChange}
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Nº Licencia / Matrícula</label>
-                        <input
-                            name="licenseNumber" type="text" required
-                            className="w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5 px-3"
-                            value={form.licenseNumber} onChange={handleChange}
-                        />
-                    </div>
+                {/* Contraseñas */}
+                <div>
+                  <label className={labelClass}>Contraseña</label>
+                  <div className="relative">
+                    <input name="password" type={showPassword ? "text" : "password"} required
+                      className={`${inputClass} pr-16`} value={form.password} onChange={handleChange} />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-3 flex items-center text-xs font-bold text-neutral-400 hover:text-neutral-700">
+                      {showPassword ? "OCULTAR" : "VER"}
+                    </button>
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Biografía Pública</label>
-                  <textarea
-                    name="bio"
-                    rows="3"
-                    className="w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5 px-3"
-                    placeholder="Describa su enfoque y experiencia profesional..."
-                    value={form.bio}
-                    onChange={handleChange}
-                  />
+                  <label className={labelClass}>Confirmar contraseña</label>
+                  <input name="confirmPassword" type="password" required
+                    className={`${inputClass} ${touched && !passwordChecks.match ? "border-accent-400 bg-accent-50" : ""}`}
+                    value={form.confirmPassword} onChange={handleChange} />
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Badge valid={passwordChecks.length}  label="8+ caracteres" />
+                  <Badge valid={passwordChecks.number}  label="Número" />
+                  <Badge valid={passwordChecks.special} label="Símbolo" />
+                  <Badge valid={passwordChecks.match}   label="Coinciden" />
+                </div>
+              </section>
+
+              {/* Columna derecha: perfil profesional */}
+              <section className="space-y-4">
+                <h2 className="border-b border-neutral-200 pb-2 text-xs font-bold uppercase tracking-widest text-neutral-400">
+                  Datos profesionales
+                </h2>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className={labelClass}>Especialidad</label>
+                    <input name="specialty" type="text" required placeholder="Ej: Psicología Clínica"
+                      className={inputClass} value={form.specialty} onChange={handleChange} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Nº Licencia / Matrícula</label>
+                    <input name="licenseNumber" type="text" required
+                      className={inputClass} value={form.licenseNumber} onChange={handleChange} />
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Carta de presentación (opcional)</label>
-                  <textarea
-                    name="coverLetter"
-                    rows="3"
-                    className="w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5 px-3"
-                    placeholder="Comparta por que desea formar parte de la red profesional."
-                    value={form.coverLetter}
-                    onChange={handleChange}
-                  />
+                  <label className={labelClass}>Biografía pública</label>
+                  <textarea name="bio" rows={3}
+                    placeholder="Describa su enfoque y experiencia…"
+                    className={inputClass} value={form.bio} onChange={handleChange} />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Video de introducción (URL, opcional)</label>
-                  <input
-                    name="introVideoUrl"
-                    type="url"
-                    placeholder="https://..."
-                    className="w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5 px-3"
-                    value={form.introVideoUrl}
-                    onChange={handleChange}
-                  />
+                  <label className={labelClass}>Carta de presentación (opcional)</label>
+                  <textarea name="coverLetter" rows={3}
+                    placeholder="¿Por qué desea formar parte de la red?"
+                    className={inputClass} value={form.coverLetter} onChange={handleChange} />
                 </div>
 
-                {/* SECCIÓN UPLOAD */}
-                <div className={`transition-all duration-200 border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center
-                    ${file ? 'border-green-300 bg-green-50' : 'border-blue-200 bg-blue-50 hover:bg-blue-100 cursor-pointer'}`}>
-
-                    <label className="w-full h-full flex flex-col items-center cursor-pointer">
-                        {file ? (
-                            <>
-                                <div className="h-12 w-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-2xl mb-2 shadow-sm">📄</div>
-                                <p className="text-sm font-bold text-green-800 break-all px-4">{file.name}</p>
-                                <p className="text-xs text-green-600 mt-1">{(file.size / 1024 / 1024).toFixed(2)} MB - Listo para subir</p>
-                                <span className="mt-3 text-xs text-green-700 underline cursor-pointer hover:text-green-900">Cambiar archivo</span>
-                            </>
-                        ) : (
-                            <>
-                                <div className="h-12 w-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-2xl mb-2 shadow-sm">cloud_upload</div>
-                                <p className="text-sm font-bold text-blue-900">Adjunte su Currículum Vitae (CV)</p>
-                                <p className="text-xs text-blue-600 mt-1">Seleccione un archivo PDF desde su dispositivo. Tamaño máximo: 5 MB.</p>
-                            </>
-                        )}
-                        <input type="file" className="hidden" accept=".pdf" onChange={handleFileChange} />
-                    </label>
+                <div>
+                  <label className={labelClass}>Video de introducción (URL, opcional)</label>
+                  <input name="introVideoUrl" type="url" placeholder="https://…"
+                    className={inputClass} value={form.introVideoUrl} onChange={handleChange} />
                 </div>
-                <p className="text-[10px] text-slate-400 text-center">
-                   * Este documento es obligatorio para validar credenciales profesionales. Solo se acepta PDF y se usa de forma confidencial para el proceso de revisión.
-                </p>
 
-              </div>
+                {/* Upload CV */}
+                <div>
+                  <label className={labelClass}>Currículum Vitae (PDF, máx. 5 MB)</label>
+                  <label className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
+                    file
+                      ? "border-brand-300 bg-brand-50"
+                      : "border-neutral-300 bg-white hover:border-brand-400 hover:bg-brand-50"
+                  }`}>
+                    {file ? (
+                      <>
+                        <span className="mb-1 text-2xl">📄</span>
+                        <p className="break-all text-sm font-bold text-brand-800">{file.name}</p>
+                        <p className="mt-0.5 text-xs text-brand-600">
+                          {(file.size / 1024 / 1024).toFixed(2)} MB · Listo para subir
+                        </p>
+                        <span className="mt-2 text-xs text-brand-700 underline">Cambiar archivo</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="mb-1 text-2xl text-neutral-400">↑</span>
+                        <p className="text-sm font-semibold text-neutral-700">Adjunte su CV</p>
+                        <p className="mt-0.5 text-xs text-neutral-400">Solo PDF · Máx. 5 MB</p>
+                      </>
+                    )}
+                    <input type="file" className="hidden" accept=".pdf" onChange={handleFileChange} />
+                  </label>
+                </div>
+              </section>
             </div>
 
-            {/* FOOTER ACCIONES */}
-            <div className="mt-10 pt-6 border-t border-slate-100 flex flex-col items-center">
+            {/* Submit */}
+            <div className="border-t border-neutral-200 pt-6">
               <button
                 type="submit"
                 disabled={loading || !isPasswordValid || !file}
-                className={`w-full sm:w-1/2 flex justify-center py-3.5 px-4 border border-transparent rounded-lg shadow-md text-sm font-bold text-white transition-all
-                  ${loading || !isPasswordValid || !file
-                    ? 'bg-slate-300 cursor-not-allowed text-slate-500 shadow-none'
-                    : 'bg-blue-900 hover:bg-blue-800 hover:shadow-lg hover:-translate-y-0.5'}`}
+                className="w-full rounded-xl bg-brand-600 px-6 py-3.5 font-bold text-white transition-colors hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50 sm:w-1/2"
               >
                 {loading ? (
-                    <span className="flex items-center gap-2">
-                        <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        {loadingText}
-                    </span>
-                ) : "Completar registro y continuar"}
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    {loadingText}
+                  </span>
+                ) : "Completar registro"}
               </button>
 
-              <div className="mt-6 text-center">
-                <p className="text-sm text-slate-500">
-                    Si ya dispone de una cuenta, <Link href="/ingresar" className="font-semibold text-blue-900 hover:underline">ingrese</Link>
-                </p>
-              </div>
+              <p className="mt-6 text-center text-sm text-neutral-500">
+                ¿Ya tienes cuenta?{" "}
+                <Link href="/ingresar" className="font-medium text-brand-700 hover:text-brand-900">
+                  Ingresar
+                </Link>
+              </p>
             </div>
-
           </form>
         </div>
       </div>
     </div>
   );
 }
-
-// Subcomponente de validación visual
-function Badge({ valid, label }) {
-    return (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide transition-colors border ${
-            valid
-            ? 'bg-green-50 text-green-700 border-green-200'
-            : 'bg-slate-100 text-slate-400 border-slate-200'
-        }`}>
-            {valid ? '✓' : '•'} {label}
-        </span>
-    )
-}
-
-
-
