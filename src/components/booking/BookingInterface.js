@@ -102,7 +102,7 @@ export default function BookingInterface({ professionalId, servicePrice, service
           <div className="mt-2 flex items-end justify-between gap-4">
             <div>
               <p className="text-2xl font-bold">{serviceTitle}</p>
-              <p className="text-sm text-white/75">Duración: 60 min</p>
+              <p className="text-sm text-white/90">Duración: 60 min</p>
             </div>
             <div className="text-right">
               <span className="block text-xl font-bold">

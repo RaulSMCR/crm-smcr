@@ -158,10 +158,10 @@ export default async function AgendarPage({ params, searchParams }) {
             </div>
 
             <h1 className="text-2xl font-bold text-gray-900">{professional.user.name}</h1>
-            <p className="font-medium text-blue-600">{professional.specialty || 'Profesional de Salud'}</p>
+            <p className="font-medium text-brand-700">{professional.specialty || 'Profesional de Salud'}</p>
 
             {professional.bio && (
-              <p className="mt-4 text-sm leading-relaxed text-gray-500">{professional.bio}</p>
+              <p className="mt-4 text-sm leading-relaxed text-gray-700">{professional.bio}</p>
             )}
           </div>
 
