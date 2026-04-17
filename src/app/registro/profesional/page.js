@@ -199,7 +199,7 @@ export default function RegistroProfesionalPage() {
       <HeroPanel />
 
       {/* Formulario */}
-      <div className="flex-1 bg-appbg px-6 py-12 md:px-12 md:py-14">
+      <div className="flex-1 bg-surface px-6 py-12 md:px-12 md:py-14">
         <div className="mx-auto max-w-2xl">
           <h1 className="mb-1 text-2xl font-bold text-neutral-950">Completa tu postulación</h1>
           <p className="mb-8 text-sm text-neutral-600">

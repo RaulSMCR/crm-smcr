@@ -10,7 +10,7 @@ export default function CategorySection({ categories, title }) {
   }
 
   return (
-    <section className="bg-appbg py-16">
+    <section className="bg-surface py-16">
       <div className="container mx-auto px-4">
         <h2 className="mb-12 text-center text-3xl font-bold text-brand-900">
           {title || "Nuestros servicios"}

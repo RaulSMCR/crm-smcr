@@ -50,6 +50,27 @@
   --ratio-accent: 10;
 }
 
+/* ── Gradient surface utilities ─────────────────────────────────────────────
+   Use .bg-surface  for light page/section backgrounds.
+   Use .bg-surface-dark for dark hero/panel fallback backgrounds.
+   Both use !important to override the flat-color global overrides below.    */
+.bg-surface {
+  background: linear-gradient(
+    145deg,
+    rgb(var(--neutral-50))  0%,
+    rgb(var(--app-bg))      45%,
+    rgb(var(--neutral-100)) 100%
+  ) !important;
+}
+
+.bg-surface-dark {
+  background: linear-gradient(
+    145deg,
+    rgb(var(--neutral-950)) 0%,
+    rgb(var(--neutral-900)) 100%
+  ) !important;
+}
+
 @layer utilities {
   [class*="bg-blue-"],
   [class*="bg-indigo-"],

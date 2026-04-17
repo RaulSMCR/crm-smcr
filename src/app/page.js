@@ -70,7 +70,7 @@ export default async function HomePage() {
       <HeroSection />
       <MissionVideo />
       <CategorySection categories={categoriesToShow} title="Nuestros Servicios" />
-      <div className="bg-appbg px-4 pb-16">
+      <div className="bg-surface px-4 pb-16">
         <div className="container mx-auto flex justify-center">
           <Link
             href="/servicios"

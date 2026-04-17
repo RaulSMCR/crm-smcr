@@ -206,7 +206,7 @@ export default async function AdminAccountingPage({ searchParams }) {
   const invoicesPending = invoices.reduce((acc, i) => acc + Number(i.balance), 0);
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
+    <div className="min-h-screen bg-surface p-6">
       <div className="mx-auto max-w-7xl space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>

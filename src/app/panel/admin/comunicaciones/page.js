@@ -29,7 +29,7 @@ export default async function AdminComunicacionesPage() {
   if (!session || session.role !== "ADMIN") redirect("/ingresar");
 
   return (
-    <div className="min-h-screen bg-appbg p-6">
+    <div className="min-h-screen bg-surface p-6">
       <div className="mx-auto max-w-7xl space-y-8">
         <div>
           <Link href="/panel/admin" className="text-sm text-neutral-500 hover:text-neutral-700">

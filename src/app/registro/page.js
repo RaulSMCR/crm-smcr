@@ -22,7 +22,6 @@ const PANELS = {
     subline: "Creo mi cuenta como paciente",
     narrative: "Tu bienestar comienza con un paso",
     cta: "Crear cuenta",
-    fallbackBg: "#0c2223",
   },
   professional: {
     image: "/images/registro-profesional.jpg",
@@ -32,7 +31,6 @@ const PANELS = {
     subline: "Postulo mi perfil a la red",
     narrative: "Amplía tu alcance y tu impacto",
     cta: "Postularme",
-    fallbackBg: "#1a1b1c",
   },
 };
 
@@ -61,8 +59,8 @@ export default function RegistroPage() {
             key={panelKey}
             layout
             transition={{ layout: { duration: 0.55, ease: EASE } }}
-            className="relative min-h-[45vh] cursor-pointer overflow-hidden md:min-h-0"
-            style={{ ...getPanelFlex(panelKey), backgroundColor: config.fallbackBg }}
+            className="relative min-h-[45vh] cursor-pointer overflow-hidden bg-surface-dark md:min-h-0"
+            style={{ ...getPanelFlex(panelKey) }}
             onHoverStart={() => setHovered(panelKey)}
             onHoverEnd={() => setHovered(null)}
             onClick={() => router.push(config.href)}

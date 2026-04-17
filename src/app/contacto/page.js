@@ -14,7 +14,7 @@ export const metadata = {
 
 export default function ContactoPage() {
   return (
-    <div className="bg-appbg py-12">
+    <div className="bg-surface py-12">
       <div className="container mx-auto px-6">
         <div className="mx-auto max-w-3xl text-center">
           <h1 className="mb-4 text-4xl font-bold text-brand-900">Contáctanos</h1>

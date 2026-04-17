@@ -77,7 +77,7 @@ export default async function AdminDashboard() {
   ]);
 
   return (
-    <div className="min-h-screen bg-appbg p-6">
+    <div className="min-h-screen bg-surface p-6">
       <div className="mx-auto max-w-7xl space-y-8">
         <div className="flex items-center justify-between">
           <div>

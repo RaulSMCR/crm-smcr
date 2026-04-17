@@ -108,7 +108,7 @@ export default async function BlogPostPage({ params }) {
   };
 
   return (
-    <article className="min-h-screen bg-white">
+    <article className="min-h-screen bg-surface">
       <JsonLd data={articleSchema} />
       {/* Tracker Marketing (Nivel 3) */}
       <PostMarketingTracker slug={slug} title={post.title} />

@@ -29,7 +29,6 @@ const PANELS = {
     cta: "Ingresar",
     registerHref: "/registro/usuario",
     registerLabel: "Crear cuenta de paciente",
-    fallbackBg: "#0c2223",
   },
   professional: {
     image: "/images/profesional-hero.webp",
@@ -40,7 +39,6 @@ const PANELS = {
     cta: "Ingresar",
     registerHref: "/registro/profesional",
     registerLabel: "Postularme como profesional",
-    fallbackBg: "#1a1b1c",
   },
 };
 
@@ -229,11 +227,11 @@ export default function LoginClient() {
             layout
             transition={{ layout: { duration: 0.55, ease: EASE } }}
             className={[
-              "relative overflow-hidden",
+              "relative overflow-hidden bg-surface-dark",
               phase === "choose" ? "cursor-pointer" : "",
               "min-h-[45vh] md:min-h-0",
             ].join(" ")}
-            style={{ ...getPanelFlex(panelKey), backgroundColor: config.fallbackBg }}
+            style={{ ...getPanelFlex(panelKey) }}
             onHoverStart={() => phase === "choose" && setHovered(panelKey)}
             onHoverEnd={() => phase === "choose" && setHovered(null)}
             onClick={() => phase === "choose" && handleSelect(panelKey)}

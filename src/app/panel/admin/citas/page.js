@@ -97,7 +97,7 @@ export default async function AdminCitasPage({ searchParams }) {
   ).sort((a, b) => a.name.localeCompare(b.name, "es"));
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
+    <div className="min-h-screen bg-surface p-6">
       <div className="mx-auto max-w-7xl space-y-8">
         <div className="flex items-center gap-4">
           <Link href="/panel/admin" className="text-sm text-slate-400 transition hover:text-slate-600">

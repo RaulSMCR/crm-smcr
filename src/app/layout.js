@@ -111,7 +111,7 @@ export default function RootLayout({ children }) {
       {/* 1. flex flex-col: Permite organizar header-main-footer verticalmente.
          2. min-h-screen: Asegura que el cuerpo ocupe al menos toda la altura de la ventana.
       */}
-      <body className="min-h-screen flex flex-col bg-slate-50 text-neutral-900 antialiased">
+      <body className="min-h-screen flex flex-col bg-surface text-neutral-900 antialiased">
         <JsonLd data={ORGANIZATION_SCHEMA} />
         <Header />
         
