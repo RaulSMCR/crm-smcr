@@ -50,6 +50,18 @@
   --ratio-accent: 10;
 }
 
+/* ── Service card image zoom on hover ───────────────────────────────────────
+   --img-scale is set inline per card from bannerScale (default 1).
+   On group-hover the image scales up by ×1.06 relative to its base scale.  */
+.service-img {
+  transform: scale(var(--img-scale, 1));
+  transition: transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}
+.group:hover .service-img {
+  transform: scale(calc(var(--img-scale, 1) * 1.06));
+}
+
 /* ── Gradient surface utilities ─────────────────────────────────────────────
    Use .bg-surface  for light page/section backgrounds.
    Use .bg-surface-dark for dark hero/panel fallback backgrounds.

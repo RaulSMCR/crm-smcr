@@ -150,15 +150,15 @@ export default async function ServiciosPage() {
 
           return (
             <div key={service.id} className="group flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
-              <div className="relative h-56 bg-slate-200">
+              <div className="relative h-56 overflow-hidden bg-gradient-to-br from-brand-800 to-brand-950">
                 {service.bannerImage ? (
                   <img
                     src={service.bannerImage}
                     alt={service.title}
-                    className="h-full w-full object-cover transition-transform duration-500"
+                    className="service-img h-full w-full object-cover"
                     style={{
+                      "--img-scale": (service.bannerScale ?? 100) / 100,
                       objectPosition: `${service.bannerFocusX ?? 50}% ${service.bannerFocusY ?? 50}%`,
-                      transform: `scale(${(service.bannerScale ?? 100) / 100})`,
                     }}
                   />
                 ) : (
