@@ -43,11 +43,11 @@ export async function approveUser(userId) {
       await resend.emails.send({
         from: "Salud Mental Costa Rica <no-reply@saludmentalcostarica.com>",
         to: user.email,
-        subject: "Perfil aprobado con exito",
+        subject: "Perfil aprobado con éxito",
         html: `
           <div style="font-family: sans-serif; text-align: center;">
             <h2>Felicidades, ${user.name}!</h2>
-            <p>El perfil profesional ha sido aprobado con exito.</p>
+            <p>El perfil profesional ha sido aprobado con éxito.</p>
             <a href="${BASE_URL}/ingresar" style="background: #2563EB; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
               Ir al Panel
             </a>

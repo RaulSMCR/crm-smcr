@@ -90,7 +90,7 @@ export default async function PacientePanelPage({ searchParams }) {
 
       {created ? (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-          Cita creada con exito. El proceso de atencion continua.
+          Cita creada con éxito. El proceso de atención continúa.
         </div>
       ) : null}
 
