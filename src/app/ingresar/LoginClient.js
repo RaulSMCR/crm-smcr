@@ -21,7 +21,7 @@ function safeNextPath(nextValue) {
 
 const PANELS = {
   patient: {
-    image: "/images/paciente-hero.jpg",
+    image: "/images/paciente-hero.webp",
     headline: "Soy paciente",
     subline: "Accedo a mi espacio de bienestar",
     narrativeNew: "Aquí comienza tu viaje",
@@ -32,7 +32,7 @@ const PANELS = {
     fallbackBg: "#0c2223",
   },
   professional: {
-    image: "/images/profesional-hero.jpg",
+    image: "/images/profesional-hero.webp",
     headline: "Soy profesional",
     subline: "Accedo al panel de mi práctica",
     narrativeNew: "Elegiste bien tu camino",
