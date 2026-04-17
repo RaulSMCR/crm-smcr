@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import { login } from "@/actions/auth-actions";
 import Link from "next/link";
@@ -28,8 +29,7 @@ const PANELS = {
     cta: "Ingresar",
     registerHref: "/registro/usuario",
     registerLabel: "Crear cuenta de paciente",
-    overlayClass: "from-neutral-950/80 via-neutral-950/30 to-neutral-950/10",
-    fallbackBg: "bg-brand-950",
+    fallbackBg: "#0c2223",
   },
   professional: {
     image: "/images/profesional-hero.jpg",
@@ -40,20 +40,29 @@ const PANELS = {
     cta: "Ingresar",
     registerHref: "/registro/profesional",
     registerLabel: "Postularme como profesional",
-    overlayClass: "from-neutral-950/80 via-neutral-950/40 to-neutral-950/10",
-    fallbackBg: "bg-neutral-900",
+    fallbackBg: "#1a1b1c",
   },
 };
 
-// ─── Sub-component: Form inside the panel ────────────────────────────────────
+// ─── Easing personalizado ─────────────────────────────────────────────────────
+const EASE = [0.4, 0, 0.2, 1];
+
+// ─── Variantes compartidas ────────────────────────────────────────────────────
+const fadeUp = {
+  initial: { opacity: 0, y: 16 },
+  animate: { opacity: 1, y: 0 },
+  exit:    { opacity: 0, y: 8 },
+};
+
+// ─── Sub-componente: formulario dentro del panel ──────────────────────────────
 function PanelForm({ panelKey, onBack, registered }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [error, setError] = useState("");
+  const [error, setError]   = useState("");
   const [loading, setLoading] = useState(false);
 
   const isProfessionalRegistered = registered === "professional";
-  const isGenericRegistered = registered === "true" || registered === "user";
+  const isGenericRegistered      = registered === "true" || registered === "user";
   const config = PANELS[panelKey];
 
   const handleSubmit = async (e) => {
@@ -66,9 +75,9 @@ function PanelForm({ panelKey, onBack, registered }) {
     if (res?.success) {
       const next = safeNextPath(searchParams.get("next"));
       if (next) { router.push(next); return; }
-      if (res.role === "ADMIN") router.push("/panel/admin");
+      if (res.role === "ADMIN")         router.push("/panel/admin");
       else if (res.role === "PROFESSIONAL") router.push("/panel/profesional");
-      else router.push("/panel/paciente");
+      else                              router.push("/panel/paciente");
       return;
     }
     setError("No se logró iniciar sesión. Por favor, intente nuevamente.");
@@ -76,56 +85,67 @@ function PanelForm({ panelKey, onBack, registered }) {
   };
 
   return (
-    <div className="w-full max-w-sm animate-fadein">
-      {/* Back */}
-      <button
+    <motion.div
+      className="w-full max-w-sm"
+      {...fadeUp}
+      transition={{ duration: 0.45, delay: 0.2, ease: EASE }}
+    >
+      {/* Volver */}
+      <motion.button
         onClick={onBack}
+        whileHover={{ x: -3 }}
+        transition={{ type: "spring", stiffness: 400, damping: 25 }}
         className="mb-7 flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors"
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0">
           <path fillRule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z" clipRule="evenodd" />
         </svg>
         Volver
-      </button>
+      </motion.button>
 
-      {/* Headline */}
+      {/* Titular */}
       <h2 className={`${playfair.className} text-3xl font-bold text-white mb-1`}>
         {config.headline}
       </h2>
       <p className="text-sm text-neutral-300 mb-7">{config.subline}</p>
 
-      {/* Notices */}
-      {isProfessionalRegistered && (
-        <div className="mb-5 rounded-xl border border-brand-400/30 bg-brand-950/60 p-4 text-sm text-brand-100 backdrop-blur-sm">
-          <p className="font-bold mb-1">Postulación enviada con éxito</p>
-          <ol className="list-decimal list-inside space-y-0.5 text-brand-200">
-            <li>Verifique su correo (incluida la carpeta de spam).</li>
-            <li>El coordinador agendará una entrevista por WhatsApp.</li>
-          </ol>
-        </div>
-      )}
-      {!isProfessionalRegistered && isGenericRegistered && (
-        <div className="mb-5 rounded-xl border border-brand-400/30 bg-brand-950/60 p-4 text-sm text-brand-100 backdrop-blur-sm">
-          Cuenta creada con éxito. Revise su correo para verificarla y habilitar el acceso.
-        </div>
-      )}
-      {error && (
-        <div className="mb-5 rounded-xl border border-accent-400/30 bg-accent-950/60 p-4 text-sm text-accent-100 backdrop-blur-sm">
-          {error}
-        </div>
-      )}
+      {/* Avisos */}
+      <AnimatePresence>
+        {isProfessionalRegistered && (
+          <motion.div {...fadeUp} transition={{ duration: 0.3 }}
+            className="mb-5 rounded-xl border border-brand-400/30 bg-brand-950/60 p-4 text-sm text-brand-100 backdrop-blur-sm"
+          >
+            <p className="font-bold mb-1">Postulación enviada con éxito</p>
+            <ol className="list-decimal list-inside space-y-0.5 text-brand-200">
+              <li>Verifique su correo (incluida la carpeta de spam).</li>
+              <li>El coordinador agendará una entrevista por WhatsApp.</li>
+            </ol>
+          </motion.div>
+        )}
+        {!isProfessionalRegistered && isGenericRegistered && (
+          <motion.div {...fadeUp} transition={{ duration: 0.3 }}
+            className="mb-5 rounded-xl border border-brand-400/30 bg-brand-950/60 p-4 text-sm text-brand-100 backdrop-blur-sm"
+          >
+            Cuenta creada con éxito. Revise su correo para verificarla.
+          </motion.div>
+        )}
+        {error && (
+          <motion.div key="error" {...fadeUp} transition={{ duration: 0.25 }}
+            className="mb-5 rounded-xl border border-accent-400/30 bg-accent-950/60 p-4 text-sm text-accent-100 backdrop-blur-sm"
+          >
+            {error}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Inputs */}
+      {/* Formulario */}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="mb-1.5 block text-xs font-semibold uppercase tracking-widest text-neutral-300">
             Correo electrónico
           </label>
           <input
-            name="email"
-            type="email"
-            required
-            autoComplete="email"
+            name="email" type="email" required autoComplete="email"
             placeholder="correo@dominio.com"
             className="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-white placeholder-neutral-500 backdrop-blur-sm outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-300 transition-all"
           />
@@ -135,10 +155,7 @@ function PanelForm({ panelKey, onBack, registered }) {
             Contraseña
           </label>
           <input
-            name="password"
-            type="password"
-            required
-            autoComplete="current-password"
+            name="password" type="password" required autoComplete="current-password"
             placeholder="••••••••"
             className="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-white placeholder-neutral-500 backdrop-blur-sm outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-300 transition-all"
           />
@@ -149,191 +166,168 @@ function PanelForm({ panelKey, onBack, registered }) {
           </div>
         </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="mt-1 w-full rounded-xl bg-brand-600 px-6 py-3.5 font-bold text-white transition-colors hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
+        <motion.button
+          type="submit" disabled={loading}
+          whileHover={!loading ? { scale: 1.02 } : {}}
+          whileTap={!loading ? { scale: 0.98 } : {}}
+          transition={{ type: "spring", stiffness: 400, damping: 20 }}
+          className="mt-1 w-full rounded-xl bg-brand-600 px-6 py-3.5 font-bold text-white hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
         >
           {loading ? "Validando…" : config.cta}
-        </button>
+        </motion.button>
       </form>
 
       <div className="mt-6 border-t border-white/10 pt-5 text-center text-sm text-neutral-400">
         ¿Sin cuenta?{" "}
-        <Link href={config.registerHref} className="font-medium text-brand-300 transition-colors hover:text-brand-200">
+        <Link href={config.registerHref} className="font-medium text-brand-300 hover:text-brand-200 transition-colors">
           {config.registerLabel}
         </Link>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ─── Componente principal ─────────────────────────────────────────────────────
 export default function LoginClient() {
   const searchParams = useSearchParams();
-  const [phase, setPhase] = useState("choose"); // 'choose' | 'form'
-  const [activeSide, setActiveSide] = useState(null); // 'patient' | 'professional'
-  const [hovered, setHovered] = useState(null);
+  const [phase, setPhase]           = useState("choose"); // 'choose' | 'form'
+  const [activeSide, setActiveSide] = useState(null);
+  const [hovered, setHovered]       = useState(null);
 
-  const registered = searchParams.get("registered");
-  const isReturn = !!registered;
+  const registered  = searchParams.get("registered");
+  const isReturn    = !!registered;
 
-  const handleSelect = (side) => {
-    setActiveSide(side);
-    setPhase("form");
-  };
+  const handleSelect = (side) => { setActiveSide(side); setPhase("form"); };
+  const handleBack   = () => { setPhase("choose"); setActiveSide(null); setHovered(null); };
 
-  const handleBack = () => {
-    setPhase("choose");
-    setActiveSide(null);
-    setHovered(null);
-  };
-
-  // Inline styles for smooth flex-basis transitions on desktop
-  const getPanelStyle = (panelKey) => {
+  // Flex CSS por panel según fase/hover
+  const getPanelFlex = (panelKey) => {
     if (phase === "form") {
-      return {
-        flexBasis: panelKey === activeSide ? "100%" : "0%",
-        flexGrow: panelKey === activeSide ? 1 : 0,
-        flexShrink: panelKey === activeSide ? 0 : 1,
-      };
+      return panelKey === activeSide
+        ? { flex: "1 1 100%" }
+        : { flex: "0 0 0%", minWidth: 0, overflow: "hidden" };
     }
-    // choose phase: hover expands
-    if (hovered === panelKey) return { flexGrow: 1.3, flexBasis: "50%", flexShrink: 0.7 };
-    if (hovered !== null)      return { flexGrow: 0.7, flexBasis: "50%", flexShrink: 1.3 };
-    return { flexGrow: 1, flexBasis: "50%", flexShrink: 1 };
-  };
-
-  // Mobile heights
-  const getMobileHeightClass = (panelKey) => {
-    if (phase === "form") {
-      return panelKey === activeSide ? "h-screen md:h-auto" : "h-0 md:h-auto";
-    }
-    return "min-h-[50vh] md:min-h-0";
+    if (hovered === panelKey) return { flex: "1.3 1 50%" };
+    if (hovered !== null)     return { flex: "0.7 1 50%" };
+    return { flex: "1 1 50%" };
   };
 
   return (
-    <>
-      {/* Global animation keyframes */}
-      <style>{`
-        @keyframes fadein {
-          from { opacity: 0; transform: translateY(12px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fadein { animation: fadein 0.45s ease-out both; }
-      `}</style>
+    <div
+      className="flex w-full flex-col md:flex-row overflow-hidden"
+      style={{ minHeight: "calc(100dvh - 4rem)" }}
+    >
+      {(["patient", "professional"]).map((panelKey) => {
+        const config   = PANELS[panelKey];
+        const isActive = activeSide === panelKey;
+        const isHov    = hovered === panelKey;
+        const isDimmed = phase === "choose" && hovered !== null && !isHov;
 
-      <div
-        className="flex w-full flex-col md:flex-row overflow-hidden"
-        style={{ minHeight: "calc(100dvh - 4rem)" }}
-      >
-        {(["patient", "professional"]).map((panelKey) => {
-          const config = PANELS[panelKey];
-          const isHovered = hovered === panelKey;
-          const isActive = activeSide === panelKey;
-          const isDimmed = hovered !== null && hovered !== panelKey && phase === "choose";
-          const isHidden = phase === "form" && activeSide !== panelKey;
+        return (
+          <motion.div
+            key={panelKey}
+            layout
+            transition={{ layout: { duration: 0.55, ease: EASE } }}
+            className={[
+              "relative overflow-hidden",
+              phase === "choose" ? "cursor-pointer" : "",
+              "min-h-[45vh] md:min-h-0",
+            ].join(" ")}
+            style={{ ...getPanelFlex(panelKey), backgroundColor: config.fallbackBg }}
+            onHoverStart={() => phase === "choose" && setHovered(panelKey)}
+            onHoverEnd={() => phase === "choose" && setHovered(null)}
+            onClick={() => phase === "choose" && handleSelect(panelKey)}
+          >
+            {/* Hero image con zoom sutil */}
+            <motion.div
+              className="absolute inset-0 bg-cover bg-center"
+              style={{ backgroundImage: `url('${config.image}')` }}
+              animate={{ scale: isHov ? 1.06 : 1 }}
+              transition={{ duration: 0.65, ease: "easeOut" }}
+            />
 
-          return (
-            <div
-              key={panelKey}
-              className={[
-                "relative overflow-hidden",
-                "transition-all duration-500 ease-in-out",
-                getMobileHeightClass(panelKey),
-                config.fallbackBg,
-                phase === "choose" ? "cursor-pointer" : "",
-              ].join(" ")}
-              style={getPanelStyle(panelKey)}
-              onMouseEnter={() => phase === "choose" && setHovered(panelKey)}
-              onMouseLeave={() => phase === "choose" && setHovered(null)}
-              onClick={() => phase === "choose" && handleSelect(panelKey)}
-              aria-hidden={isHidden}
-            >
-              {/* Hero image */}
-              <div
-                className="absolute inset-0 bg-cover bg-center transition-transform duration-700 ease-in-out"
-                style={{
-                  backgroundImage: `url('${config.image}')`,
-                  transform: isHovered ? "scale(1.04)" : "scale(1)",
-                }}
-              />
+            {/* Overlay gradiente sepia/oscuro */}
+            <motion.div
+              className="absolute inset-0 bg-gradient-to-t from-neutral-950/85 via-neutral-950/35 to-neutral-950/10"
+              animate={{ opacity: isDimmed ? 0.85 : 1 }}
+              transition={{ duration: 0.3 }}
+            />
 
-              {/* Sepia/dark overlay */}
-              <div
-                className={[
-                  "absolute inset-0 bg-gradient-to-t transition-opacity duration-500",
-                  config.overlayClass,
-                  isDimmed ? "opacity-90" : "opacity-100",
-                ].join(" ")}
-              />
-
-              {/* ── CHOOSE PHASE content ── */}
+            {/* ── Contenido fase elegir ── */}
+            <AnimatePresence>
               {phase === "choose" && (
-                <div
-                  className={[
-                    "absolute inset-0 flex flex-col items-center justify-end pb-14 px-10 text-center",
-                    "transition-opacity duration-400",
-                    isDimmed ? "opacity-50" : "opacity-100",
-                  ].join(" ")}
+                <motion.div
+                  key="choose"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: isDimmed ? 0.5 : 1 }}
+                  exit={{ opacity: 0, transition: { duration: 0.2 } }}
+                  className="absolute inset-0 flex flex-col items-center justify-end pb-14 px-10 text-center"
                 >
-                  {/* Narrative — fades in on hover */}
-                  <p
-                    className={[
-                      playfair.className,
-                      "italic text-neutral-200 text-base md:text-lg mb-3 leading-snug max-w-xs",
-                      "transition-all duration-400",
-                      isHovered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3",
-                    ].join(" ")}
-                  >
-                    {isReturn ? config.narrativeReturn : config.narrativeNew}
-                  </p>
+                  {/* Narrativa — aparece solo en hover */}
+                  <AnimatePresence>
+                    {isHov && (
+                      <motion.p
+                        key="narrative"
+                        initial={{ opacity: 0, y: 14 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 8, transition: { duration: 0.18 } }}
+                        transition={{ duration: 0.28, ease: EASE }}
+                        className={`${playfair.className} mb-3 max-w-[22ch] text-base italic leading-snug text-neutral-200 md:text-lg`}
+                      >
+                        {isReturn ? config.narrativeReturn : config.narrativeNew}
+                      </motion.p>
+                    )}
+                  </AnimatePresence>
 
-                  <h2
-                    className={[
-                      playfair.className,
-                      "text-white font-bold text-2xl md:text-3xl tracking-wide transition-all duration-300",
-                      isHovered ? "scale-105" : "scale-100",
-                    ].join(" ")}
+                  <motion.h2
+                    animate={{ scale: isHov ? 1.04 : 1 }}
+                    transition={{ duration: 0.35, ease: EASE }}
+                    className={`${playfair.className} text-2xl font-bold text-white md:text-3xl`}
                   >
                     {config.headline}
-                  </h2>
+                  </motion.h2>
 
-                  <p className="mt-2 text-sm text-neutral-300 max-w-[18ch]">
+                  <p className="mt-2 max-w-[18ch] text-sm text-neutral-300">
                     {config.subline}
                   </p>
 
                   {/* Pill CTA */}
-                  <div
-                    className={[
-                      "mt-7 px-6 py-2.5 rounded-full text-sm font-semibold text-white",
-                      "border border-white/30 backdrop-blur-sm",
-                      "transition-all duration-300",
-                      isHovered
-                        ? "bg-brand-600 border-brand-400"
-                        : "bg-white/10",
-                    ].join(" ")}
+                  <motion.div
+                    animate={{
+                      backgroundColor: isHov ? "rgba(43,112,115,0.75)" : "rgba(255,255,255,0.1)",
+                      borderColor:     isHov ? "rgba(84,160,163,0.7)"  : "rgba(255,255,255,0.3)",
+                    }}
+                    transition={{ duration: 0.3 }}
+                    className="mt-7 rounded-full border px-6 py-2.5 text-sm font-semibold text-white backdrop-blur-sm"
                   >
                     {config.cta}
-                  </div>
+                  </motion.div>
 
-                  {/* Divider hint on desktop */}
+                  {/* Separador visual entre paneles (solo desktop) */}
                   {panelKey === "patient" && (
-                    <div className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 h-16 w-px bg-white/20" />
+                    <div className="absolute right-0 top-1/2 hidden h-16 w-px -translate-y-1/2 bg-white/20 md:block" />
                   )}
-                </div>
+                </motion.div>
               )}
+            </AnimatePresence>
 
-              {/* ── FORM PHASE content ── */}
+            {/* ── Contenido fase formulario ── */}
+            <AnimatePresence>
               {phase === "form" && isActive && (
-                <div className="absolute inset-0 flex items-center justify-center px-6 py-10 md:px-12">
+                <motion.div
+                  key="form"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0, transition: { duration: 0.2 } }}
+                  className="absolute inset-0 flex items-center justify-center px-6 py-10 md:px-12"
+                >
                   <PanelForm panelKey={panelKey} onBack={handleBack} registered={registered} />
-                </div>
+                </motion.div>
               )}
-            </div>
-          );
-        })}
-      </div>
-    </>
+            </AnimatePresence>
+          </motion.div>
+        );
+      })}
+    </div>
   );
 }
