@@ -188,7 +188,7 @@ export default async function ServiciosPage() {
                   </div>
                 ) : null}
 
-                <div className="image-overlay-strong absolute inset-x-0 bottom-0 p-6">
+                <div className="image-overlay-strong absolute inset-x-0 bottom-0 p-6 transition-opacity duration-300 group-hover:opacity-0">
                   <h2 className="contrast-on-image text-xl font-bold">{service.title}</h2>
                   <div className="contrast-on-image-muted mt-2 text-sm">
                     {priceLabel} · {service.durationMin} min

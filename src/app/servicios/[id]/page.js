@@ -172,7 +172,7 @@ export default async function ServiceDetailPage({ params }) {
               ) : null}
             </div>
           ) : null}
-          <div className="absolute inset-x-0 bottom-0 p-6 md:p-8">
+          <div className="absolute inset-x-0 bottom-0 p-6 transition-opacity duration-300 group-hover:opacity-0 md:p-8">
             <h1 className="contrast-on-image text-3xl font-bold md:text-4xl">{service.title}</h1>
             <div className="contrast-on-image-muted mt-3 text-sm">
               {service.durationMin} min · {priceLabel}
