@@ -84,9 +84,23 @@ export default async function AdminDashboard() {
             <h1 className="text-3xl font-bold text-brand-900">Panel de administración</h1>
             <p className="text-sm text-neutral-700">Torre de control del sistema.</p>
           </div>
-          <span className="rounded-full border border-brand-300 bg-brand-100 px-3 py-1 text-xs font-bold text-brand-950">
-            Modo administrador
-          </span>
+          <div className="flex items-center gap-3">
+            <a
+              href="https://am1.myprofessionalmail.com/appsuite/#!!&app=io.ox/mail&folder=default0/INBOX"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 rounded-full border border-neutral-300 bg-neutral-50 px-3 py-1 text-xs font-semibold text-neutral-800 shadow-sm transition-colors hover:border-brand-400 hover:bg-brand-50 hover:text-brand-900"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+                <path d="M3 4a2 2 0 0 0-2 2v1.161l8.441 4.221a1.25 1.25 0 0 0 1.118 0L19 7.162V6a2 2 0 0 0-2-2H3Z" />
+                <path d="m19 8.839-7.77 3.885a2.75 2.75 0 0 1-2.46 0L1 8.839V14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.839Z" />
+              </svg>
+              contacto@saludmentalcostarica.com
+            </a>
+            <span className="rounded-full border border-brand-300 bg-brand-100 px-3 py-1 text-xs font-bold text-brand-950">
+              Modo administrador
+            </span>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
