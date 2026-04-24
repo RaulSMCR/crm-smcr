@@ -39,12 +39,12 @@ enum PaymentTransactionType {
 }
 
 enum PaymentTransactionStatus {
-  PENDING
-  PROCESSING
-  APPROVED
-  REJECTED
-  REFUNDED
-  EXPIRED
+  PENDING     // Registro creado, enlace aún no enviado
+  LINK_SENT   // Enlace de pago ONVO enviado al paciente por email
+  APPROVED    // Pago confirmado por ONVO (vía webhook)
+  REJECTED    // Pago rechazado o fallido
+  REFUNDED    // Reembolso aplicado manualmente
+  EXPIRED     // Reservado para compatibilidad futura
 }
 
 enum ServiceAssignmentStatus {
@@ -155,7 +155,7 @@ model ProfessionalProfile {
   avatarUrl          String?
   calendarUrl        String?
   googleRefreshToken String? @db.Text
-  paymentLinkBase    String?
+  onvoPaymentLinkId  String? // ID del enlace de pago ONVO (ej. live_P35LcuWqpsttLAhsJj0Q2urFSzs)
 
   isApproved Boolean @default(false)
 
@@ -450,18 +450,17 @@ model PaymentTransaction {
   patientId      String
 
   type     PaymentTransactionType
-  amount   Decimal                  @db.Decimal(10, 2)
-  currency String                   @default("CRC")
+  amount   Decimal                @db.Decimal(10, 2)
+  currency String                 @default("CRC")
 
-  p2pRequestId  Int?    @unique
-  p2pReference  String? @unique
-  p2pProcessUrl String? @db.Text
+  // Campos ONVO Pay
+  onvoPaymentLinkId String? // ID del enlace de pago ONVO del profesional (ej. live_xxx)
+  onvoEventId       String? @unique // ID del evento webhook de ONVO (idempotencia)
 
-  status           PaymentTransactionStatus @default(PENDING)
-  p2pStatusCode    String?
-  p2pStatusMessage String?                  @db.Text
-  p2pPaymentDate   DateTime?
-  webhookPayload   Json?
+  status        PaymentTransactionStatus @default(PENDING)
+  statusMessage String?                  @db.Text
+  paidAt        DateTime?
+  webhookPayload Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -473,7 +472,7 @@ model PaymentTransaction {
   @@index([appointmentId])
   @@index([professionalId])
   @@index([patientId])
-  @@index([p2pRequestId])
+  @@index([onvoPaymentLinkId])
   @@index([status, createdAt])
 }
 

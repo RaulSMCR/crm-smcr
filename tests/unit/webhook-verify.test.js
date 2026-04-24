@@ -1,80 +1,43 @@
 // tests/unit/webhook-verify.test.js
+// Tests para la verificación de firma HMAC-SHA256 del webhook de ONVO Pay.
 import { describe, it, expect } from "vitest";
 import crypto from "node:crypto";
-import { verifyWebhookSignature } from "../../src/lib/placetopay/webhook.js";
+import { verifyOnvoWebhook } from "../../src/lib/onvo/webhook.js";
 
-const SECRET = "test_secret_key";
+const SECRET = "test_webhook_secret";
 
-function makeSignature(requestId, status, date) {
-  return crypto
-    .createHash("sha1")
-    .update(`${requestId}${status}${date}${SECRET}`)
-    .digest("hex");
+function makeSignature(body) {
+  return "v1=" + crypto.createHmac("sha256", SECRET).update(body).digest("hex");
 }
 
-describe("verifyWebhookSignature()", () => {
-  const requestId = 12345;
-  const status    = "APPROVED";
-  const date      = "2026-03-06T10:00:00-06:00";
-  const signature = makeSignature(requestId, status, date);
+describe("verifyOnvoWebhook()", () => {
+  const body = JSON.stringify({ id: "evt_123", type: "payment.completed", data: { status: "approved" } });
+  const validSig = makeSignature(body);
 
   it("retorna true con firma válida", () => {
-    expect(
-      verifyWebhookSignature({ requestId, status, date, signature, secretKey: SECRET })
-    ).toBe(true);
+    expect(verifyOnvoWebhook(body, validSig, SECRET)).toBe(true);
+  });
+
+  it("retorna true con prefijo v1= en la firma", () => {
+    expect(verifyOnvoWebhook(body, validSig, SECRET)).toBe(true);
+  });
+
+  it("retorna false si el body fue alterado", () => {
+    const alteredBody = body + " ";
+    expect(verifyOnvoWebhook(alteredBody, validSig, SECRET)).toBe(false);
+  });
+
+  it("retorna false con secreto incorrecto", () => {
+    expect(verifyOnvoWebhook(body, validSig, "wrong_secret")).toBe(false);
   });
 
   it("retorna false si la firma fue alterada", () => {
-    expect(
-      verifyWebhookSignature({
-        requestId,
-        status,
-        date,
-        signature: signature + "tampered",
-        secretKey: SECRET,
-      })
-    ).toBe(false);
+    expect(verifyOnvoWebhook(body, validSig + "tampered", SECRET)).toBe(false);
   });
 
-  it("retorna false con secretKey distinto", () => {
-    expect(
-      verifyWebhookSignature({
-        requestId,
-        status,
-        date,
-        signature,
-        secretKey: "wrong_secret",
-      })
-    ).toBe(false);
-  });
-
-  it("retorna false si status es distinto", () => {
-    expect(
-      verifyWebhookSignature({
-        requestId,
-        status: "REJECTED",
-        date,
-        signature,
-        secretKey: SECRET,
-      })
-    ).toBe(false);
-  });
-
-  it("retorna false si requestId es distinto", () => {
-    expect(
-      verifyWebhookSignature({
-        requestId: 99999,
-        status,
-        date,
-        signature,
-        secretKey: SECRET,
-      })
-    ).toBe(false);
-  });
-
-  it("retorna false si faltan campos", () => {
-    expect(verifyWebhookSignature({ requestId, status, date, secretKey: SECRET })).toBe(false);
-    expect(verifyWebhookSignature({ requestId, status, signature, secretKey: SECRET })).toBe(false);
-    expect(verifyWebhookSignature({})).toBe(false);
+  it("retorna false si faltan parámetros", () => {
+    expect(verifyOnvoWebhook(body, "", SECRET)).toBe(false);
+    expect(verifyOnvoWebhook("", validSig, SECRET)).toBe(false);
+    expect(verifyOnvoWebhook(body, validSig, "")).toBe(false);
   });
 });

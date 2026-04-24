@@ -12,7 +12,7 @@ const TYPE_LABELS = {
 
 const STATUS_CONFIG = {
   APPROVED: { label: "Aprobado", style: "bg-emerald-100 text-emerald-700" },
-  PROCESSING: { label: "En proceso", style: "bg-amber-100 text-amber-700" },
+  LINK_SENT: { label: "Enlace enviado", style: "bg-blue-100 text-blue-700" },
   PENDING: { label: "Pendiente", style: "bg-amber-100 text-amber-700" },
   REJECTED: { label: "Rechazado", style: "bg-red-100 text-red-700" },
   EXPIRED: { label: "Expirado", style: "bg-gray-100 text-gray-600" },
@@ -104,7 +104,7 @@ export default function ProfessionalBillingModule({
   const totalPending = useMemo(
     () =>
       filtered
-        .filter((t) => t.status === "PENDING" || t.status === "PROCESSING")
+        .filter((t) => t.status === "PENDING" || t.status === "LINK_SENT")
         .reduce((s, t) => s + t.amount, 0),
     [filtered]
   );

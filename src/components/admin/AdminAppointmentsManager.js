@@ -227,9 +227,9 @@ export default function AdminAppointmentsManager({ appointments = [] }) {
                   <td className="max-w-[210px] px-4 py-3 text-xs text-slate-700">
                     {approvedPayment ? (
                       <div>
-                        <div className="font-semibold">{approvedPayment.p2pReference || "Sin referencia"}</div>
+                        <div className="font-semibold">{approvedPayment.onvoEventId || "Sin referencia"}</div>
                         <div className="text-slate-500">
-                          {approvedPayment.p2pPaymentDate ? new Date(approvedPayment.p2pPaymentDate).toLocaleString("es-CR") : "Fecha no disponible"}
+                          {approvedPayment.paidAt ? new Date(approvedPayment.paidAt).toLocaleString("es-CR") : "Fecha no disponible"}
                         </div>
                       </div>
                     ) : (

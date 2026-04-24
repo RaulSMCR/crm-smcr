@@ -11,7 +11,6 @@ import {
   cancelAppointmentByPatient,
   confirmCurrentAppointmentByPatient,
 } from "@/actions/patient-booking-actions";
-import { initiateBalancePayment } from "@/actions/payment-actions";
 
 const CANCELLED_STATUSES = new Set(["CANCELLED_BY_USER", "CANCELLED_BY_PRO"]);
 
@@ -84,7 +83,6 @@ export default function UserAppointmentsPanel({
   const [toast, setToast] = useState(null);
   const dismissToast = useCallback(() => setToast(null), []);
   const [isApplyingAction, startActionTransition] = useTransition();
-  const [payingAptId, setPayingAptId] = useState(null);
   const router = useRouter();
   const handledIntentRef = useRef(false);
 
@@ -128,27 +126,6 @@ export default function UserAppointmentsPanel({
     }
   }, [initialAction, initialActionAppointmentId, initialAppointments, router]);
 
-  async function handlePay(appointment) {
-    const existingUrl = appointment.paymentTransactions?.[0]?.p2pProcessUrl;
-    if (existingUrl) {
-      window.location.href = existingUrl;
-      return;
-    }
-
-    setPayingAptId(appointment.id);
-    const result = await initiateBalancePayment(appointment.id);
-    setPayingAptId(null);
-
-    if (result?.success && result.processUrl) {
-      window.location.href = result.processUrl;
-      return;
-    }
-
-    setToast({
-      message: result?.error || "No fue posible iniciar el pago en este intento. Intente nuevamente para continuar.",
-      type: "error",
-    });
-  }
 
   async function handleCancel(appointmentId, reason) {
     const result = await cancelAppointmentByPatient(appointmentId, reason);
@@ -212,8 +189,6 @@ export default function UserAppointmentsPanel({
   }, [appointments]);
 
   const renderAppointment = (appointment) => {
-    const payLabel = payingAptId === appointment.id ? "Procesando..." : "Pagar";
-
     return (
       <div
         key={appointment.id}
@@ -300,13 +275,35 @@ export default function UserAppointmentsPanel({
           ) : null}
 
           {appointment.status === "COMPLETED" && appointment.paymentStatus !== "PAID" ? (
-            <button
-              onClick={() => handlePay(appointment)}
-              disabled={payingAptId === appointment.id}
-              className="mt-2 w-full rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
-            >
-              {payLabel}
-            </button>
+            (() => {
+              const tx = appointment.paymentTransactions?.[0];
+              const onvoLinkId = tx?.onvoPaymentLinkId;
+              const payUrl = onvoLinkId
+                ? `https://checkout.onvopay.com/pay/${onvoLinkId}`
+                : null;
+              return (
+                <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  {payUrl ? (
+                    <>
+                      <p className="font-semibold">Pago pendiente</p>
+                      <p className="mt-1 text-xs text-amber-700">
+                        Se le envió un enlace de pago al correo. También puede pagar directamente:
+                      </p>
+                      <a
+                        href={payUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 inline-block w-full rounded-lg bg-emerald-600 px-3 py-2 text-center text-sm font-semibold text-white hover:bg-emerald-700"
+                      >
+                        Pagar ahora
+                      </a>
+                    </>
+                  ) : (
+                    <p>Pago pendiente — revise su correo electrónico para el enlace de pago.</p>
+                  )}
+                </div>
+              );
+            })()
           ) : null}
 
           {(appointment.status === "PENDING" || appointment.status === "CONFIRMED") &&

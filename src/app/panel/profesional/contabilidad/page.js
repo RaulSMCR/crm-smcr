@@ -85,7 +85,7 @@ export default async function ProfesionalContabilidadPage({ searchParams }) {
     currency: t.currency,
     status: t.status,
     createdAt: t.createdAt.toISOString(),
-    p2pPaymentDate: t.p2pPaymentDate?.toISOString() || null,
+    paidAt: t.paidAt?.toISOString() || null,
     patientName: t.appointment?.patient?.name || "—",
     serviceTitle: t.appointment?.service?.title || "Consulta",
     appointmentDate: t.appointment?.date?.toISOString() || null,

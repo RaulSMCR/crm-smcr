@@ -8,7 +8,7 @@ import {
   sendRecurringConflictResolutionEmail,
   syncGoogleCalendarEvent,
 } from "@/lib/appointments";
-import { createBalancePaymentAuto } from "@/actions/payment-actions";
+import { sendPaymentLinkOnCompletion } from "@/actions/payment-actions";
 import { scheduleReminder } from "@/lib/qstash";
 import { buildSlots } from "@/lib/appointment-slots";
 import {
@@ -679,15 +679,10 @@ export async function updateAppointmentStatus(appointmentId, newStatus) {
       },
     });
 
-    // Si la cita se completa, generar link de pago primero para incluirlo en el email
-    let paymentInfo = null;
-    if (status === "COMPLETED") {
-      paymentInfo = await createBalancePaymentAuto(id);
-    }
-
     await Promise.allSettled([
       syncGoogleCalendarEvent(updatedAppointment),
-      sendAppointmentNotifications(updatedAppointment, `La cita cambió de estado a ${status}.`, paymentInfo),
+      sendAppointmentNotifications(updatedAppointment, `La cita cambió de estado a ${status}.`),
+      status === "COMPLETED" ? sendPaymentLinkOnCompletion(id) : Promise.resolve(),
     ]);
 
     revalidateAgendaPaths();

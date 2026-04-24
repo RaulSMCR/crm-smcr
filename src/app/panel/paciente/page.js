@@ -50,10 +50,10 @@ export default async function PacientePanelPage({ searchParams }) {
           select: { title: true },
         },
         paymentTransactions: {
-          where: { status: { in: ["PENDING", "PROCESSING"] } },
+          where: { status: { in: ["PENDING", "LINK_SENT"] } },
           orderBy: { createdAt: "desc" },
           take: 1,
-          select: { p2pProcessUrl: true, amount: true, type: true },
+          select: { onvoPaymentLinkId: true, amount: true, type: true },
         },
       },
     }),

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { sendAppointmentNotifications, syncGoogleCalendarEvent } from "@/lib/appointments";
-import { createBalancePaymentAuto } from "@/actions/payment-actions";
+import { sendPaymentLinkOnCompletion } from "@/actions/payment-actions";
 
 const ADMIN_ALLOWED_STATUSES = new Set([
   "PENDING",
@@ -40,9 +40,9 @@ export async function getAdminAppointments({ status } = {}) {
           amount: true,
           currency: true,
           status: true,
-          p2pReference: true,
-          p2pRequestId: true,
-          p2pPaymentDate: true,
+          onvoPaymentLinkId: true,
+          onvoEventId: true,
+          paidAt: true,
           createdAt: true,
         },
         orderBy: { createdAt: "desc" },
@@ -103,15 +103,10 @@ export async function adminUpdateAppointmentStatus(appointmentId, nextStatus, ca
     },
   });
 
-  // Si la cita se completa, generar link de pago primero para incluirlo en el email
-  let paymentInfo = null;
-  if (status === "COMPLETED") {
-    paymentInfo = await createBalancePaymentAuto(id);
-  }
-
   await Promise.allSettled([
     syncGoogleCalendarEvent(appointment),
-    sendAppointmentNotifications(appointment, `El administrador actualizó el estado a ${status}.`, paymentInfo),
+    sendAppointmentNotifications(appointment, `El administrador actualizó el estado a ${status}.`),
+    status === "COMPLETED" ? sendPaymentLinkOnCompletion(id) : Promise.resolve(),
   ]);
 
   revalidatePath("/panel/admin/citas");

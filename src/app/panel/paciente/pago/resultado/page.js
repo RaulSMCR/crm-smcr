@@ -16,7 +16,8 @@ export default async function PagoResultadoPage({ searchParams }) {
   let transaction = null;
   if (ref) {
     transaction = await prisma.paymentTransaction.findFirst({
-      where: { p2pReference: ref },
+      where: { appointmentId: ref },
+      orderBy: { createdAt: "desc" },
       include: {
         appointment: {
           select: {
@@ -32,7 +33,7 @@ export default async function PagoResultadoPage({ searchParams }) {
   const status = transaction?.status;
 
   const isApproved = status === "APPROVED";
-  const isPending = !status || status === "PENDING" || status === "PROCESSING";
+  const isPending = !status || status === "PENDING" || status === "LINK_SENT";
   const isRejected = status === "REJECTED";
 
   return (

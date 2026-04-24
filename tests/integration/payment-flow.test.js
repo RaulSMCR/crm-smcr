@@ -1,27 +1,35 @@
 // tests/integration/payment-flow.test.js
 //
-// Tests de integración para el flujo webhook → DB.
+// Tests de integración para el flujo webhook de ONVO Pay → DB.
 // Usa mocks de Prisma para no necesitar DB real.
 //
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import crypto from "node:crypto";
+import { verifyOnvoWebhook } from "../../src/lib/onvo/webhook.js";
+import { buildPaymentLinkUrl } from "../../src/lib/onvo/client.js";
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
-// Mock de prisma
 vi.mock("../../src/lib/prisma.js", () => ({
   prisma: {
     paymentTransaction: {
-      findUnique: vi.fn(),
+      findFirst: vi.fn(),
       update: vi.fn(),
     },
     appointment: {
       update: vi.fn(),
     },
+    $transaction: vi.fn((fn) =>
+      fn({
+        invoice: { create: vi.fn().mockResolvedValue({ id: "inv_1" }), update: vi.fn() },
+        invoiceSequence: {
+          upsert: vi.fn().mockResolvedValue({ currentNumber: 1, padding: 4, prefix: "" }),
+        },
+      })
+    ),
   },
 }));
 
-// Mock de resend para no enviar emails reales
 vi.mock("../../src/lib/resend.js", () => ({
   resend: {
     emails: {
@@ -30,210 +38,58 @@ vi.mock("../../src/lib/resend.js", () => ({
   },
 }));
 
-vi.stubEnv("PLACETOPAY_SECRET_KEY", "test_secret_key");
-vi.stubEnv("EMAIL_FROM", "test@example.com");
-vi.stubEnv("RESEND_API_KEY", "re_test_key");
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
-const { prisma } = await import("../../src/lib/prisma.js");
+const WEBHOOK_SECRET = "test_onvo_webhook_secret";
 
-// Helper para construir firma válida
-function makeSignature(requestId, status, date) {
-  return crypto
-    .createHash("sha1")
-    .update(`${requestId}${status}${date}${"test_secret_key"}`)
-    .digest("hex");
+function makeOnvoSignature(body) {
+  return "v1=" + crypto.createHmac("sha256", WEBHOOK_SECRET).update(body).digest("hex");
 }
 
-// Helper para construir un Request simulado
-function makeWebhookRequest(payload) {
-  return {
-    json: async () => payload,
-    headers: {
-      get: (key) => {
-        if (key === "x-forwarded-for") return "1.2.3.4";
-        if (key === "user-agent") return "PlacetoPay/1.0";
-        return null;
-      },
-    },
-  };
-}
+// ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe("Webhook /api/payment/webhook — flujo de integración", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+describe("verifyOnvoWebhook", () => {
+  const payload = JSON.stringify({
+    id: "evt_test_001",
+    type: "payment.completed",
+    data: { payment_link_id: "live_testlink123", status: "approved", amount: 45500 },
   });
 
-  it("APPROVED depósito: actualiza transacción → APPROVED y cita → PARTIALLY_PAID", async () => {
-    const requestId = 9001;
-    const status    = "APPROVED";
-    const date      = "2026-03-06T10:00:00-06:00";
-    const signature = makeSignature(requestId, status, date);
-
-    const mockTransaction = {
-      id: "tx-1",
-      type: "DEPOSIT_50",
-      appointmentId: "appt-1",
-      status: "PROCESSING",
-      patient:      { name: "Juan", email: "juan@test.com" },
-      professional: { user: { name: "Dr. García", email: "garcia@test.com" } },
-      amount: 25000,
-      currency: "CRC",
-      appointment: { id: "appt-1", isFirstWithProfessional: true, paymentStatus: "UNPAID" },
-    };
-
-    prisma.paymentTransaction.findUnique.mockResolvedValueOnce(mockTransaction);
-    prisma.paymentTransaction.update.mockResolvedValueOnce({ ...mockTransaction, status: "APPROVED" });
-    prisma.appointment.update.mockResolvedValueOnce({ id: "appt-1", paymentStatus: "PARTIALLY_PAID" });
-
-    // Importar el handler dinámicamente para que tome los mocks
-    const { POST } = await import("../../src/app/api/payment/webhook/route.js");
-    const req = makeWebhookRequest({
-      requestId,
-      status: { status, reason: "00", message: "Aprobada", date },
-      signature,
-    });
-
-    const response = await POST(req);
-    const body = await response.json();
-
-    expect(body.ok).toBe(true);
-    expect(prisma.paymentTransaction.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "tx-1" },
-        data: expect.objectContaining({ status: "APPROVED" }),
-      })
-    );
-    expect(prisma.appointment.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "appt-1" },
-        data: expect.objectContaining({ paymentStatus: "PARTIALLY_PAID" }),
-      })
-    );
+  it("verifica correctamente una firma ONVO válida", () => {
+    const sig = makeOnvoSignature(payload);
+    expect(verifyOnvoWebhook(payload, sig, WEBHOOK_SECRET)).toBe(true);
   });
 
-  it("APPROVED balance/full: actualiza cita → PAID", async () => {
-    const requestId = 9002;
-    const status    = "APPROVED";
-    const date      = "2026-03-06T11:00:00-06:00";
-    const signature = makeSignature(requestId, status, date);
-
-    const mockTransaction = {
-      id: "tx-2",
-      type: "FULL_100",
-      appointmentId: "appt-2",
-      status: "PROCESSING",
-      patient:      { name: "María", email: "maria@test.com" },
-      professional: { user: { name: "Dra. López", email: "lopez@test.com" } },
-      amount: 50000,
-      currency: "CRC",
-      appointment: { id: "appt-2", isFirstWithProfessional: false, paymentStatus: "UNPAID" },
-    };
-
-    prisma.paymentTransaction.findUnique.mockResolvedValueOnce(mockTransaction);
-    prisma.paymentTransaction.update.mockResolvedValueOnce({ ...mockTransaction, status: "APPROVED" });
-    prisma.appointment.update.mockResolvedValueOnce({ id: "appt-2", paymentStatus: "PAID" });
-
-    const { POST } = await import("../../src/app/api/payment/webhook/route.js");
-    const req = makeWebhookRequest({
-      requestId,
-      status: { status, reason: "00", message: "Aprobada", date },
-      signature,
-    });
-
-    const response = await POST(req);
-    expect((await response.json()).ok).toBe(true);
-    expect(prisma.appointment.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ paymentStatus: "PAID" }),
-      })
-    );
+  it("rechaza firma inválida", () => {
+    expect(verifyOnvoWebhook(payload, "v1=invalidsig", WEBHOOK_SECRET)).toBe(false);
   });
 
-  it("Firma inválida: descarta notificación sin tocar DB", async () => {
-    const { POST } = await import("../../src/app/api/payment/webhook/route.js");
-    const req = makeWebhookRequest({
-      requestId: 9003,
-      status: { status: "APPROVED", reason: "00", message: "Aprobada", date: "2026-03-06T12:00:00-06:00" },
-      signature: "invalid_signature_xyz",
-    });
-
-    const response = await POST(req);
-    const body = await response.json();
-
-    expect(body.ok).toBe(false);
-    expect(prisma.paymentTransaction.findUnique).not.toHaveBeenCalled();
-    expect(prisma.paymentTransaction.update).not.toHaveBeenCalled();
+  it("rechaza body alterado", () => {
+    const sig = makeOnvoSignature(payload);
+    expect(verifyOnvoWebhook(payload + " ", sig, WEBHOOK_SECRET)).toBe(false);
   });
 
-  it("Idempotencia: transacción ya APPROVED no se reprocesa", async () => {
-    const requestId = 9004;
-    const status    = "APPROVED";
-    const date      = "2026-03-06T13:00:00-06:00";
-    const signature = makeSignature(requestId, status, date);
-
-    // Simular transacción ya aprobada
-    prisma.paymentTransaction.findUnique.mockResolvedValueOnce({
-      id: "tx-4",
-      type: "DEPOSIT_50",
-      appointmentId: "appt-4",
-      status: "APPROVED", // ← ya procesada
-      patient: { name: "Pedro", email: "pedro@test.com" },
-      professional: { user: { name: "Dr. Soto" } },
-      amount: 15000,
-      currency: "CRC",
-      appointment: { paymentStatus: "PARTIALLY_PAID" },
-    });
-
-    const { POST } = await import("../../src/app/api/payment/webhook/route.js");
-    const req = makeWebhookRequest({
-      requestId,
-      status: { status, reason: "00", message: "Aprobada", date },
-      signature,
-    });
-
-    await POST(req);
-
-    // No debe actualizar nada
-    expect(prisma.paymentTransaction.update).not.toHaveBeenCalled();
-    expect(prisma.appointment.update).not.toHaveBeenCalled();
+  it("rechaza secreto incorrecto", () => {
+    const sig = makeOnvoSignature(payload);
+    expect(verifyOnvoWebhook(payload, sig, "wrong_secret")).toBe(false);
   });
 
-  it("REJECTED: actualiza transacción → REJECTED, no cambia paymentStatus de cita", async () => {
-    const requestId = 9005;
-    const status    = "REJECTED";
-    const date      = "2026-03-06T14:00:00-06:00";
-    const signature = makeSignature(requestId, status, date);
+  it("retorna false si faltan parámetros", () => {
+    const sig = makeOnvoSignature(payload);
+    expect(verifyOnvoWebhook("", sig, WEBHOOK_SECRET)).toBe(false);
+    expect(verifyOnvoWebhook(payload, "", WEBHOOK_SECRET)).toBe(false);
+    expect(verifyOnvoWebhook(payload, sig, "")).toBe(false);
+  });
+});
 
-    const mockTransaction = {
-      id: "tx-5",
-      type: "DEPOSIT_50",
-      appointmentId: "appt-5",
-      status: "PROCESSING",
-      patient:      { name: "Ana", email: "ana@test.com" },
-      professional: { user: { name: "Dr. Mora" } },
-      amount: 20000,
-      currency: "CRC",
-      appointment: { id: "appt-5", isFirstWithProfessional: true, paymentStatus: "UNPAID" },
-    };
+describe("buildPaymentLinkUrl", () => {
+  it("construye la URL desde el ID de enlace ONVO", () => {
+    const url = buildPaymentLinkUrl("live_P35LcuWqpsttLAhsJj0Q2urFSzs");
+    expect(url).toBe("https://checkout.onvopay.com/pay/live_P35LcuWqpsttLAhsJj0Q2urFSzs");
+  });
 
-    prisma.paymentTransaction.findUnique.mockResolvedValueOnce(mockTransaction);
-    prisma.paymentTransaction.update.mockResolvedValueOnce({ ...mockTransaction, status: "REJECTED" });
-
-    const { POST } = await import("../../src/app/api/payment/webhook/route.js");
-    const req = makeWebhookRequest({
-      requestId,
-      status: { status, reason: "05", message: "Rechazada", date },
-      signature,
-    });
-
-    await POST(req);
-
-    expect(prisma.paymentTransaction.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ status: "REJECTED" }),
-      })
-    );
-    // No debe actualizar paymentStatus de la cita
-    expect(prisma.appointment.update).not.toHaveBeenCalled();
+  it("lanza error si no se provee linkId", () => {
+    expect(() => buildPaymentLinkUrl("")).toThrow();
+    expect(() => buildPaymentLinkUrl(null)).toThrow();
   });
 });
