@@ -56,8 +56,9 @@ const fadeUp = {
 function PanelForm({ panelKey, onBack, registered }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [error, setError]   = useState("");
+  const [error, setError]     = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPwd, setShowPwd] = useState(false);
 
   const isProfessionalRegistered = registered === "professional";
   const isGenericRegistered      = registered === "true" || registered === "user";
@@ -152,11 +153,33 @@ function PanelForm({ panelKey, onBack, registered }) {
           <label className="mb-1.5 block text-xs font-semibold uppercase tracking-widest text-neutral-300">
             Contraseña
           </label>
-          <input
-            name="password" type="password" required autoComplete="current-password"
-            placeholder="••••••••"
-            className="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-white placeholder-neutral-500 backdrop-blur-sm outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-300 transition-all"
-          />
+          <div className="relative">
+            <input
+              name="password" type={showPwd ? "text" : "password"} required autoComplete="current-password"
+              placeholder="••••••••"
+              className="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3 pr-12 text-white placeholder-neutral-500 backdrop-blur-sm outline-none focus:border-brand-300 focus:ring-1 focus:ring-brand-300 transition-all"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPwd((v) => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white transition-colors"
+              tabIndex={-1}
+              aria-label={showPwd ? "Ocultar contraseña" : "Mostrar contraseña"}
+            >
+              {showPwd ? (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                  <line x1="1" y1="1" x2="23" y2="23"/>
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              )}
+            </button>
+          </div>
           <div className="mt-2 text-right">
             <Link href="/recuperar" className="text-xs text-neutral-400 underline underline-offset-2 hover:text-neutral-200 transition-colors">
               ¿Olvidó su contraseña?
