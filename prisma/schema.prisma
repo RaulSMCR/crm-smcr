@@ -155,7 +155,6 @@ model ProfessionalProfile {
   avatarUrl          String?
   calendarUrl        String?
   googleRefreshToken String? @db.Text
-  onvoPaymentLinkId  String? // ID del enlace de pago ONVO (ej. live_P35LcuWqpsttLAhsJj0Q2urFSzs)
 
   isApproved Boolean @default(false)
 
@@ -358,6 +357,7 @@ model ServiceAssignment {
   proposedSessionPrice Decimal?                @db.Decimal(10, 2)
   approvedSessionPrice Decimal?                @db.Decimal(10, 2)
   adminReviewNote      String?                 @db.Text
+  onvoPaymentLinkId    String?
 
   // ✅ usados por admin/profile-actions
   requestedAt DateTime  @default(now())
@@ -374,6 +374,7 @@ model ServiceAssignment {
   @@index([professionalId])
   @@index([status])
   @@index([requestedAt])
+  @@index([onvoPaymentLinkId])
 }
 
 model Availability {

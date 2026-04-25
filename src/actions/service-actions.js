@@ -253,6 +253,32 @@ export async function reviewServiceAssignment(serviceId, professionalId, payload
   }
 }
 
+export async function updateAssignmentOnvoLink(professionalId, serviceId, onvoPaymentLinkId) {
+  try {
+    const session = await getSession();
+    requireAdmin(session);
+
+    const pid = String(professionalId || "").trim();
+    const sid = String(serviceId || "").trim();
+    if (!pid || !sid) return { error: "Datos inválidos." };
+
+    const linkId = String(onvoPaymentLinkId || "").trim() || null;
+
+    await prisma.serviceAssignment.update({
+      where: { professionalId_serviceId: { professionalId: pid, serviceId: sid } },
+      data: { onvoPaymentLinkId: linkId },
+    });
+
+    revalidatePath(`/panel/admin/servicios/${sid}`);
+    revalidatePath("/panel/admin/personal");
+
+    return { success: true };
+  } catch (error) {
+    console.error("updateAssignmentOnvoLink error:", error);
+    return { error: "No se pudo actualizar el enlace ONVO." };
+  }
+}
+
 export async function bulkReviewServiceAssignments(serviceId, assignmentUpdates = []) {
   try {
     const session = await getSession();

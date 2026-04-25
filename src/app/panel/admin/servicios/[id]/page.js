@@ -40,6 +40,7 @@ export default async function AdminServicioDetallePage({ params }) {
           proposedSessionPrice: true,
           approvedSessionPrice: true,
           adminReviewNote: true,
+          onvoPaymentLinkId: true,
           professional: {
             select: {
               id: true,

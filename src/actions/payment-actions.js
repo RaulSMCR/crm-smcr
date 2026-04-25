@@ -46,12 +46,7 @@ export async function cobrarCita(appointmentId) {
       include: {
         service: { select: { title: true } },
         patient: { select: { name: true, email: true } },
-        professional: {
-          select: {
-            onvoPaymentLinkId: true,
-            user: { select: { name: true } },
-          },
-        },
+        professional: { select: { user: { select: { name: true } } } },
       },
     });
 
@@ -63,7 +58,19 @@ export async function cobrarCita(appointmentId) {
       return { success: false, error: "Esta cita ya está pagada." };
     }
 
-    const onvoLinkId = appointment.professional?.onvoPaymentLinkId;
+    const assignment = appointment.serviceId
+      ? await prisma.serviceAssignment.findUnique({
+          where: {
+            professionalId_serviceId: {
+              professionalId: appointment.professionalId,
+              serviceId: appointment.serviceId,
+            },
+          },
+          select: { onvoPaymentLinkId: true },
+        })
+      : null;
+
+    const onvoLinkId = assignment?.onvoPaymentLinkId;
     if (!onvoLinkId) {
       return {
         success: false,
@@ -164,12 +171,7 @@ export async function sendPaymentLinkOnCompletion(appointmentId) {
       include: {
         service: { select: { title: true } },
         patient: { select: { name: true, email: true } },
-        professional: {
-          select: {
-            onvoPaymentLinkId: true,
-            user: { select: { name: true } },
-          },
-        },
+        professional: { select: { user: { select: { name: true } } } },
       },
     });
 
@@ -182,9 +184,21 @@ export async function sendPaymentLinkOnCompletion(appointmentId) {
       return null;
     }
 
-    const onvoLinkId = appointment.professional?.onvoPaymentLinkId;
+    const assignment = appointment.serviceId
+      ? await prisma.serviceAssignment.findUnique({
+          where: {
+            professionalId_serviceId: {
+              professionalId: appointment.professionalId,
+              serviceId: appointment.serviceId,
+            },
+          },
+          select: { onvoPaymentLinkId: true },
+        })
+      : null;
+
+    const onvoLinkId = assignment?.onvoPaymentLinkId;
     if (!onvoLinkId) {
-      console.warn(`[payment] sendPaymentLinkOnCompletion: profesional sin onvoPaymentLinkId en cita ${id}.`);
+      console.warn(`[payment] sendPaymentLinkOnCompletion: sin onvoPaymentLinkId en asignación para cita ${id}.`);
       return null;
     }
 

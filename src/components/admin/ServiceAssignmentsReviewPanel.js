@@ -2,7 +2,11 @@
 
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { bulkReviewServiceAssignments, reviewServiceAssignment } from "@/actions/service-actions";
+import {
+  bulkReviewServiceAssignments,
+  reviewServiceAssignment,
+  updateAssignmentOnvoLink,
+} from "@/actions/service-actions";
 import Toast from "@/components/ui/Toast";
 
 function statusBadge(status) {
@@ -15,6 +19,7 @@ export default function ServiceAssignmentsReviewPanel({ serviceId, assignments }
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [toast, setToast] = useState(null);
+
   const [edits, setEdits] = useState(() => {
     const base = {};
     for (const a of assignments) {
@@ -26,6 +31,16 @@ export default function ServiceAssignmentsReviewPanel({ serviceId, assignments }
     return base;
   });
 
+  const [onvoLinks, setOnvoLinks] = useState(() => {
+    const base = {};
+    for (const a of assignments) {
+      base[a.professional.id] = a.onvoPaymentLinkId ?? "";
+    }
+    return base;
+  });
+
+  const [savingOnvo, setSavingOnvo] = useState({});
+
   const dismissToast = useCallback(() => setToast(null), []);
 
   const pendingAssignments = useMemo(
@@ -36,17 +51,13 @@ export default function ServiceAssignmentsReviewPanel({ serviceId, assignments }
   const setField = (professionalId, field, value) => {
     setEdits((prev) => ({
       ...prev,
-      [professionalId]: {
-        ...(prev[professionalId] || {}),
-        [field]: value,
-      },
+      [professionalId]: { ...(prev[professionalId] || {}), [field]: value },
     }));
   };
 
   const handleReview = (professionalId, decision) => {
     setToast(null);
     const payload = edits[professionalId] || {};
-
     startTransition(async () => {
       const res = await reviewServiceAssignment(serviceId, professionalId, { ...payload, decision });
       if (res?.success) {
@@ -61,22 +72,17 @@ export default function ServiceAssignmentsReviewPanel({ serviceId, assignments }
   const handleBulk = (decision) => {
     if (pendingAssignments.length === 0) return;
     setToast(null);
-
     const updates = pendingAssignments.map((a) => ({
       professionalId: a.professional.id,
       decision,
       approvedSessionPrice: edits[a.professional.id]?.approvedSessionPrice,
       adminReviewNote: edits[a.professional.id]?.adminReviewNote,
     }));
-
     startTransition(async () => {
       const res = await bulkReviewServiceAssignments(serviceId, updates);
       if (res?.success) {
         setToast({
-          message:
-            decision === "APPROVED"
-              ? "Se aprobaron las solicitudes pendientes."
-              : "Se rechazaron las solicitudes pendientes.",
+          message: decision === "APPROVED" ? "Se aprobaron las solicitudes pendientes." : "Se rechazaron las solicitudes pendientes.",
           type: "success",
         });
         router.refresh();
@@ -84,6 +90,18 @@ export default function ServiceAssignmentsReviewPanel({ serviceId, assignments }
         setToast({ message: res?.error || "No se pudo ejecutar la revisión masiva.", type: "error" });
       }
     });
+  };
+
+  const handleSaveOnvo = async (professionalId) => {
+    setToast(null);
+    setSavingOnvo((prev) => ({ ...prev, [professionalId]: true }));
+    const res = await updateAssignmentOnvoLink(professionalId, serviceId, onvoLinks[professionalId]);
+    setSavingOnvo((prev) => ({ ...prev, [professionalId]: false }));
+    if (res?.success) {
+      setToast({ message: "Enlace ONVO actualizado.", type: "success" });
+    } else {
+      setToast({ message: res?.error || "No se pudo guardar el enlace ONVO.", type: "error" });
+    }
   };
 
   return (
@@ -113,26 +131,31 @@ export default function ServiceAssignmentsReviewPanel({ serviceId, assignments }
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-slate-200">
+        <div className="overflow-x-auto rounded-xl border border-slate-200">
           <table className="w-full text-left">
             <thead className="bg-slate-50">
               <tr className="text-sm text-slate-700">
                 <th className="px-4 py-3">Profesional</th>
-                <th className="px-4 py-3">Estado solicitud</th>
+                <th className="px-4 py-3">Estado</th>
                 <th className="px-4 py-3">Monto propuesto</th>
                 <th className="px-4 py-3">Monto aprobado</th>
                 <th className="px-4 py-3">Nota admin</th>
+                <th className="px-4 py-3">Enlace ONVO</th>
                 <th className="px-4 py-3">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {assignments.map((a) => {
                 const edit = edits[a.professional.id] || {};
+                const onvoVal = onvoLinks[a.professional.id] ?? "";
+                const hasOnvo = !!onvoVal.trim();
+                const isSaving = savingOnvo[a.professional.id];
+
                 return (
                   <tr key={a.professional.id} className="border-t border-slate-200 text-sm align-top">
                     <td className="px-4 py-3">
                       <div className="font-semibold text-slate-900">{a.professional.user?.name}</div>
-                      <div className="text-xs text-slate-600">{a.professional.specialty}</div>
+                      <div className="text-xs text-slate-500">{a.professional.specialty}</div>
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${statusBadge(a.status)}`}>
@@ -155,8 +178,32 @@ export default function ServiceAssignmentsReviewPanel({ serviceId, assignments }
                         value={edit.adminReviewNote}
                         onChange={(e) => setField(a.professional.id, "adminReviewNote", e.target.value)}
                         placeholder="Comentario"
-                        className="w-full min-w-[180px] rounded-lg border border-slate-300 px-2 py-1"
+                        className="w-full min-w-[160px] rounded-lg border border-slate-300 px-2 py-1"
                       />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2 min-w-[220px]">
+                        <span
+                          title={hasOnvo ? "Enlace configurado" : "Sin enlace"}
+                          className={`h-2 w-2 shrink-0 rounded-full ${hasOnvo ? "bg-emerald-500" : "bg-slate-300"}`}
+                        />
+                        <input
+                          value={onvoVal}
+                          onChange={(e) =>
+                            setOnvoLinks((prev) => ({ ...prev, [a.professional.id]: e.target.value }))
+                          }
+                          placeholder="live_xxxxxxxxxxxxxxxx"
+                          className="w-full rounded-lg border border-slate-300 px-2 py-1 font-mono text-xs"
+                        />
+                        <button
+                          type="button"
+                          disabled={isSaving}
+                          onClick={() => handleSaveOnvo(a.professional.id)}
+                          className="shrink-0 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                        >
+                          {isSaving ? "…" : "Guardar"}
+                        </button>
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-2">
