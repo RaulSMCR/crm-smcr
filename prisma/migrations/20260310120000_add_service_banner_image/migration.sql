@@ -1,2 +1,2 @@
 ALTER TABLE "Service"
-ADD COLUMN "bannerImage" TEXT;
+  ADD COLUMN IF NOT EXISTS "bannerImage" TEXT;

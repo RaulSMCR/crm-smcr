@@ -1,6 +1,6 @@
 ALTER TABLE "Service"
-ADD COLUMN "bannerFocusX" INTEGER NOT NULL DEFAULT 50,
-ADD COLUMN "bannerFocusY" INTEGER NOT NULL DEFAULT 50,
-ADD COLUMN "bannerArtworkTitle" TEXT,
-ADD COLUMN "bannerArtworkAuthor" TEXT,
-ADD COLUMN "bannerArtworkNote" TEXT;
+  ADD COLUMN IF NOT EXISTS "bannerFocusX"       INTEGER NOT NULL DEFAULT 50,
+  ADD COLUMN IF NOT EXISTS "bannerFocusY"       INTEGER NOT NULL DEFAULT 50,
+  ADD COLUMN IF NOT EXISTS "bannerArtworkTitle"  TEXT,
+  ADD COLUMN IF NOT EXISTS "bannerArtworkAuthor" TEXT,
+  ADD COLUMN IF NOT EXISTS "bannerArtworkNote"   TEXT;

@@ -1,5 +1,5 @@
 -- AlterTable
-ALTER TABLE "User" ADD COLUMN     "identification" VARCHAR(32);
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "identification" VARCHAR(32);
 
 -- CreateIndex
-CREATE INDEX "User_identification_idx" ON "User"("identification");
+CREATE INDEX IF NOT EXISTS "User_identification_idx" ON "User"("identification");

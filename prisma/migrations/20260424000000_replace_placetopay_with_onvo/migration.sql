@@ -1,7 +1,5 @@
 -- Migration: 20260424000000_replace_placetopay_with_onvo
 -- Reemplaza la integración de PlacetoPay (Evertec BCR) por ONVO Costa Rica.
--- Los enlaces de pago de ONVO son productos preconfigurados con monto fijo
--- que el administrador asocia a cada profesional.
 
 -- ─── 1. Agregar nuevo valor al enum PaymentTransactionStatus ────────────────
 ALTER TYPE "PaymentTransactionStatus" ADD VALUE IF NOT EXISTS 'LINK_SENT';
@@ -32,12 +30,17 @@ ALTER TABLE "PaymentTransaction"
   DROP COLUMN IF EXISTS "p2pPaymentDate";
 
 -- ─── 6. Renombrar paymentLinkBase → onvoPaymentLinkId en ProfessionalProfile ─
-ALTER TABLE "ProfessionalProfile"
-  RENAME COLUMN "paymentLinkBase" TO "onvoPaymentLinkId";
+-- Solo si la columna vieja existe (idempotente)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'ProfessionalProfile' AND column_name = 'paymentLinkBase'
+  ) THEN
+    ALTER TABLE "ProfessionalProfile" RENAME COLUMN "paymentLinkBase" TO "onvoPaymentLinkId";
+  END IF;
+END; $$;
 
 -- ─── 7. Migrar transacciones PROCESSING → LINK_SENT ─────────────────────────
--- Las transacciones que estaban en PROCESSING en PlacetoPay se marcan como
--- LINK_SENT para que el estado sea coherente con el nuevo flujo de ONVO.
-UPDATE "PaymentTransaction"
-  SET "status" = 'LINK_SENT'
-  WHERE "status" = 'PROCESSING';
+-- NOTA: este UPDATE se ejecuta en una migración separada porque PostgreSQL
+-- no permite usar un nuevo valor de enum en la misma transacción donde se agrega.

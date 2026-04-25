@@ -1,4 +1,5 @@
 -- AlterTable
-ALTER TABLE "User" ADD COLUMN     "birthDate" TIMESTAMP(3),
-ADD COLUMN     "gender" VARCHAR(16),
-ADD COLUMN     "interests" TEXT;
+ALTER TABLE "User"
+  ADD COLUMN IF NOT EXISTS "birthDate" TIMESTAMP(3),
+  ADD COLUMN IF NOT EXISTS "gender"    VARCHAR(16),
+  ADD COLUMN IF NOT EXISTS "interests" TEXT;

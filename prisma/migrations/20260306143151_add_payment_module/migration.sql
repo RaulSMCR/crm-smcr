@@ -1,17 +1,23 @@
--- CreateEnum
-CREATE TYPE "PaymentTransactionType" AS ENUM ('DEPOSIT_50', 'BALANCE_50', 'FULL_100');
+-- CreateEnum (idempotente)
+DO $$ BEGIN
+  CREATE TYPE "PaymentTransactionType" AS ENUM ('DEPOSIT_50', 'BALANCE_50', 'FULL_100');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END; $$;
 
--- CreateEnum
-CREATE TYPE "PaymentTransactionStatus" AS ENUM ('PENDING', 'PROCESSING', 'APPROVED', 'REJECTED', 'REFUNDED', 'EXPIRED');
+DO $$ BEGIN
+  CREATE TYPE "PaymentTransactionStatus" AS ENUM ('PENDING', 'PROCESSING', 'APPROVED', 'REJECTED', 'REFUNDED', 'EXPIRED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END; $$;
 
 -- AlterEnum
-ALTER TYPE "PaymentStatus" ADD VALUE 'PARTIALLY_PAID';
+ALTER TYPE "PaymentStatus" ADD VALUE IF NOT EXISTS 'PARTIALLY_PAID';
 
 -- AlterTable
-ALTER TABLE "Appointment" ADD COLUMN     "isFirstWithProfessional" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Appointment"
+  ADD COLUMN IF NOT EXISTS "isFirstWithProfessional" BOOLEAN NOT NULL DEFAULT false;
 
 -- CreateTable
-CREATE TABLE "PaymentTransaction" (
+CREATE TABLE IF NOT EXISTS "PaymentTransaction" (
     "id" TEXT NOT NULL,
     "appointmentId" TEXT NOT NULL,
     "professionalId" TEXT NOT NULL,
@@ -34,31 +40,32 @@ CREATE TABLE "PaymentTransaction" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "PaymentTransaction_p2pRequestId_key" ON "PaymentTransaction"("p2pRequestId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "PaymentTransaction_p2pReference_key" ON "PaymentTransaction"("p2pReference");
-
--- CreateIndex
-CREATE INDEX "PaymentTransaction_appointmentId_idx" ON "PaymentTransaction"("appointmentId");
-
--- CreateIndex
-CREATE INDEX "PaymentTransaction_professionalId_idx" ON "PaymentTransaction"("professionalId");
-
--- CreateIndex
-CREATE INDEX "PaymentTransaction_patientId_idx" ON "PaymentTransaction"("patientId");
-
--- CreateIndex
-CREATE INDEX "PaymentTransaction_p2pRequestId_idx" ON "PaymentTransaction"("p2pRequestId");
-
--- CreateIndex
-CREATE INDEX "PaymentTransaction_status_createdAt_idx" ON "PaymentTransaction"("status", "createdAt");
+CREATE UNIQUE INDEX IF NOT EXISTS "PaymentTransaction_p2pRequestId_key" ON "PaymentTransaction"("p2pRequestId");
+CREATE UNIQUE INDEX IF NOT EXISTS "PaymentTransaction_p2pReference_key"  ON "PaymentTransaction"("p2pReference");
+CREATE INDEX IF NOT EXISTS "PaymentTransaction_appointmentId_idx"         ON "PaymentTransaction"("appointmentId");
+CREATE INDEX IF NOT EXISTS "PaymentTransaction_professionalId_idx"        ON "PaymentTransaction"("professionalId");
+CREATE INDEX IF NOT EXISTS "PaymentTransaction_patientId_idx"             ON "PaymentTransaction"("patientId");
+CREATE INDEX IF NOT EXISTS "PaymentTransaction_p2pRequestId_idx"          ON "PaymentTransaction"("p2pRequestId");
+CREATE INDEX IF NOT EXISTS "PaymentTransaction_status_createdAt_idx"      ON "PaymentTransaction"("status", "createdAt");
 
 -- AddForeignKey
-ALTER TABLE "PaymentTransaction" ADD CONSTRAINT "PaymentTransaction_appointmentId_fkey" FOREIGN KEY ("appointmentId") REFERENCES "Appointment"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "PaymentTransaction"
+    ADD CONSTRAINT "PaymentTransaction_appointmentId_fkey"
+    FOREIGN KEY ("appointmentId") REFERENCES "Appointment"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END; $$;
 
--- AddForeignKey
-ALTER TABLE "PaymentTransaction" ADD CONSTRAINT "PaymentTransaction_professionalId_fkey" FOREIGN KEY ("professionalId") REFERENCES "ProfessionalProfile"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "PaymentTransaction"
+    ADD CONSTRAINT "PaymentTransaction_professionalId_fkey"
+    FOREIGN KEY ("professionalId") REFERENCES "ProfessionalProfile"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END; $$;
 
--- AddForeignKey
-ALTER TABLE "PaymentTransaction" ADD CONSTRAINT "PaymentTransaction_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "PaymentTransaction"
+    ADD CONSTRAINT "PaymentTransaction_patientId_fkey"
+    FOREIGN KEY ("patientId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END; $$;

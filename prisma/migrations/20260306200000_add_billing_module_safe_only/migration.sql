@@ -1,47 +1,38 @@
 -- SAFE-ONLY MIGRATION
 -- Objetivo: agregar módulo de facturación sin afectar datos actuales de agenda/pagos.
--- Este script NO incluye DROP TABLE, DROP COLUMN, TRUNCATE ni ALTER destructivo.
 
 -- ---------------------------------------------------------------------------
--- 1) ENUMS NUEVOS (aislados)
+-- 1) ENUMS NUEVOS (idempotentes)
 -- ---------------------------------------------------------------------------
-CREATE TYPE "InvoiceType" AS ENUM (
-  'CUSTOMER_INVOICE',
-  'SUPPLIER_INVOICE',
-  'CUSTOMER_CREDIT_NOTE',
-  'SUPPLIER_CREDIT_NOTE'
-);
+DO $$ BEGIN
+  CREATE TYPE "InvoiceType" AS ENUM ('CUSTOMER_INVOICE','SUPPLIER_INVOICE','CUSTOMER_CREDIT_NOTE','SUPPLIER_CREDIT_NOTE');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END; $$;
 
-CREATE TYPE "InvoiceStatus" AS ENUM (
-  'DRAFT',
-  'OPEN',
-  'PAID',
-  'CANCELLED'
-);
+DO $$ BEGIN
+  CREATE TYPE "InvoiceStatus" AS ENUM ('DRAFT','OPEN','PAID','CANCELLED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END; $$;
 
-CREATE TYPE "FEStatus" AS ENUM (
-  'PENDING',
-  'ACCEPTED',
-  'REJECTED'
-);
+DO $$ BEGIN
+  CREATE TYPE "FEStatus" AS ENUM ('PENDING','ACCEPTED','REJECTED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END; $$;
 
-CREATE TYPE "DocumentType" AS ENUM (
-  'FACTURA_ELECTRONICA',
-  'NOTA_CREDITO',
-  'NOTA_DEBITO',
-  'TIQUETE_ELECTRONICO'
-);
+DO $$ BEGIN
+  CREATE TYPE "DocumentType" AS ENUM ('FACTURA_ELECTRONICA','NOTA_CREDITO','NOTA_DEBITO','TIQUETE_ELECTRONICO');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END; $$;
 
-CREATE TYPE "TaxScope" AS ENUM (
-  'SALES',
-  'PURCHASES',
-  'BOTH'
-);
+DO $$ BEGIN
+  CREATE TYPE "TaxScope" AS ENUM ('SALES','PURCHASES','BOTH');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END; $$;
 
 -- ---------------------------------------------------------------------------
 -- 2) TABLAS NUEVAS
 -- ---------------------------------------------------------------------------
-CREATE TABLE "Tax" (
+CREATE TABLE IF NOT EXISTS "Tax" (
   "id" TEXT NOT NULL,
   "name" TEXT NOT NULL,
   "rate" DECIMAL(5,2) NOT NULL,
@@ -52,7 +43,7 @@ CREATE TABLE "Tax" (
   CONSTRAINT "Tax_pkey" PRIMARY KEY ("id")
 );
 
-CREATE TABLE "Product" (
+CREATE TABLE IF NOT EXISTS "Product" (
   "id" TEXT NOT NULL,
   "name" TEXT NOT NULL,
   "description" TEXT,
@@ -76,7 +67,7 @@ CREATE TABLE "Product" (
   CONSTRAINT "Product_pkey" PRIMARY KEY ("id")
 );
 
-CREATE TABLE "InvoiceSequence" (
+CREATE TABLE IF NOT EXISTS "InvoiceSequence" (
   "id" TEXT NOT NULL,
   "sequenceType" "InvoiceType" NOT NULL,
   "prefix" TEXT,
@@ -88,7 +79,7 @@ CREATE TABLE "InvoiceSequence" (
   CONSTRAINT "InvoiceSequence_pkey" PRIMARY KEY ("id")
 );
 
-CREATE TABLE "Invoice" (
+CREATE TABLE IF NOT EXISTS "Invoice" (
   "id" TEXT NOT NULL,
   "invoiceNumber" TEXT NOT NULL,
   "invoiceType" "InvoiceType" NOT NULL,
@@ -123,7 +114,7 @@ CREATE TABLE "Invoice" (
   CONSTRAINT "Invoice_pkey" PRIMARY KEY ("id")
 );
 
-CREATE TABLE "InvoiceLine" (
+CREATE TABLE IF NOT EXISTS "InvoiceLine" (
   "id" TEXT NOT NULL,
   "invoiceId" TEXT NOT NULL,
   "productId" TEXT,
@@ -150,62 +141,71 @@ CREATE TABLE "InvoiceLine" (
 -- ---------------------------------------------------------------------------
 -- 3) ÍNDICES
 -- ---------------------------------------------------------------------------
-CREATE UNIQUE INDEX "InvoiceSequence_sequenceType_key" ON "InvoiceSequence"("sequenceType");
-CREATE UNIQUE INDEX "Invoice_invoiceType_invoiceNumber_key" ON "Invoice"("invoiceType", "invoiceNumber");
-CREATE INDEX "Invoice_invoiceType_status_idx" ON "Invoice"("invoiceType", "status");
-CREATE INDEX "Invoice_contactId_idx" ON "Invoice"("contactId");
-CREATE INDEX "Invoice_invoiceDate_idx" ON "Invoice"("invoiceDate");
-CREATE INDEX "InvoiceLine_invoiceId_sortOrder_idx" ON "InvoiceLine"("invoiceId", "sortOrder");
-CREATE INDEX "Tax_scope_isActive_idx" ON "Tax"("scope", "isActive");
-CREATE INDEX "Product_isActive_canBeSold_canBePurchased_idx" ON "Product"("isActive", "canBeSold", "canBePurchased");
+CREATE UNIQUE INDEX IF NOT EXISTS "InvoiceSequence_sequenceType_key"              ON "InvoiceSequence"("sequenceType");
+CREATE UNIQUE INDEX IF NOT EXISTS "Invoice_invoiceType_invoiceNumber_key"          ON "Invoice"("invoiceType", "invoiceNumber");
+CREATE INDEX        IF NOT EXISTS "Invoice_invoiceType_status_idx"                 ON "Invoice"("invoiceType", "status");
+CREATE INDEX        IF NOT EXISTS "Invoice_contactId_idx"                          ON "Invoice"("contactId");
+CREATE INDEX        IF NOT EXISTS "Invoice_invoiceDate_idx"                        ON "Invoice"("invoiceDate");
+CREATE INDEX        IF NOT EXISTS "InvoiceLine_invoiceId_sortOrder_idx"            ON "InvoiceLine"("invoiceId", "sortOrder");
+CREATE INDEX        IF NOT EXISTS "Tax_scope_isActive_idx"                         ON "Tax"("scope", "isActive");
+CREATE INDEX        IF NOT EXISTS "Product_isActive_canBeSold_canBePurchased_idx"  ON "Product"("isActive", "canBeSold", "canBePurchased");
 
 -- ---------------------------------------------------------------------------
--- 4) FOREIGN KEYS (solo hacia tablas existentes/nuevas)
+-- 4) FOREIGN KEYS
 -- ---------------------------------------------------------------------------
-ALTER TABLE "Product"
-  ADD CONSTRAINT "Product_saleTaxId_fkey"
-  FOREIGN KEY ("saleTaxId") REFERENCES "Tax"("id")
-  ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "Product" ADD CONSTRAINT "Product_saleTaxId_fkey"
+    FOREIGN KEY ("saleTaxId") REFERENCES "Tax"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END; $$;
 
-ALTER TABLE "Product"
-  ADD CONSTRAINT "Product_purchaseTaxId_fkey"
-  FOREIGN KEY ("purchaseTaxId") REFERENCES "Tax"("id")
-  ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "Product" ADD CONSTRAINT "Product_purchaseTaxId_fkey"
+    FOREIGN KEY ("purchaseTaxId") REFERENCES "Tax"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END; $$;
 
-ALTER TABLE "Invoice"
-  ADD CONSTRAINT "Invoice_contactId_fkey"
-  FOREIGN KEY ("contactId") REFERENCES "User"("id")
-  ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "Invoice" ADD CONSTRAINT "Invoice_contactId_fkey"
+    FOREIGN KEY ("contactId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END; $$;
 
-ALTER TABLE "Invoice"
-  ADD CONSTRAINT "Invoice_createdBy_fkey"
-  FOREIGN KEY ("createdBy") REFERENCES "User"("id")
-  ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "Invoice" ADD CONSTRAINT "Invoice_createdBy_fkey"
+    FOREIGN KEY ("createdBy") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END; $$;
 
-ALTER TABLE "Invoice"
-  ADD CONSTRAINT "Invoice_originInvoiceId_fkey"
-  FOREIGN KEY ("originInvoiceId") REFERENCES "Invoice"("id")
-  ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "Invoice" ADD CONSTRAINT "Invoice_originInvoiceId_fkey"
+    FOREIGN KEY ("originInvoiceId") REFERENCES "Invoice"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END; $$;
 
-ALTER TABLE "InvoiceLine"
-  ADD CONSTRAINT "InvoiceLine_invoiceId_fkey"
-  FOREIGN KEY ("invoiceId") REFERENCES "Invoice"("id")
-  ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "InvoiceLine" ADD CONSTRAINT "InvoiceLine_invoiceId_fkey"
+    FOREIGN KEY ("invoiceId") REFERENCES "Invoice"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END; $$;
 
-ALTER TABLE "InvoiceLine"
-  ADD CONSTRAINT "InvoiceLine_productId_fkey"
-  FOREIGN KEY ("productId") REFERENCES "Product"("id")
-  ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "InvoiceLine" ADD CONSTRAINT "InvoiceLine_productId_fkey"
+    FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END; $$;
 
-ALTER TABLE "InvoiceLine"
-  ADD CONSTRAINT "InvoiceLine_serviceId_fkey"
-  FOREIGN KEY ("serviceId") REFERENCES "Service"("id")
-  ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "InvoiceLine" ADD CONSTRAINT "InvoiceLine_serviceId_fkey"
+    FOREIGN KEY ("serviceId") REFERENCES "Service"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END; $$;
 
-ALTER TABLE "InvoiceLine"
-  ADD CONSTRAINT "InvoiceLine_taxId_fkey"
-  FOREIGN KEY ("taxId") REFERENCES "Tax"("id")
-  ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "InvoiceLine" ADD CONSTRAINT "InvoiceLine_taxId_fkey"
+    FOREIGN KEY ("taxId") REFERENCES "Tax"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END; $$;
 
 -- ---------------------------------------------------------------------------
 -- 5) SEED MÍNIMO (idempotente)
