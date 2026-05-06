@@ -13,8 +13,14 @@ const EXTENSION_BY_TYPE = {
   "image/gif": "gif",
 };
 
-async function getApprovedProfessionalId(session) {
-  if (!session || session.role !== "PROFESSIONAL") return null;
+async function getUploaderKey(session) {
+  if (!session) return null;
+
+  if (session.role === "ADMIN") {
+    return `admin/${String(session.sub || session.userId || "unknown")}`;
+  }
+
+  if (session.role !== "PROFESSIONAL") return null;
 
   const profile = await prisma.professionalProfile.findUnique({
     where: { userId: String(session.sub || session.userId || "") },
@@ -28,8 +34,8 @@ async function getApprovedProfessionalId(session) {
 export async function POST(request) {
   try {
     const session = await getSession();
-    const professionalId = await getApprovedProfessionalId(session);
-    if (!professionalId) {
+    const uploaderKey = await getUploaderKey(session);
+    if (!uploaderKey) {
       return NextResponse.json({ error: "No autorizado." }, { status: 401 });
     }
 
@@ -49,7 +55,7 @@ export async function POST(request) {
     }
 
     const ext = EXTENSION_BY_TYPE[file.type] || file.name.split(".").pop()?.toLowerCase() || "jpg";
-    const path = `${professionalId}/${crypto.randomUUID()}.${ext}`;
+    const path = `${uploaderKey}/${crypto.randomUUID()}.${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
 
     const supabaseAdmin = getSupabaseAdmin();

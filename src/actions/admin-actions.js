@@ -7,6 +7,14 @@ import { getSession } from "@/lib/auth";
 
 const BASE_URL = process.env.NEXT_PUBLIC_URL || "https://saludmentalcostarica.com";
 
+function slugify(text) {
+  return String(text)
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
 function requireAdmin(session) {
   if (!session || session.role !== "ADMIN") {
     throw new Error("No autorizado: se requiere rol ADMIN.");
@@ -99,15 +107,75 @@ export async function updatePostStatus(postId, newStatus) {
     const session = await getSession();
     requireAdmin(session);
 
-    await prisma.post.update({
+    const post = await prisma.post.update({
       where: { id: String(postId) },
       data: { status: String(newStatus) },
+      select: { slug: true },
     });
 
     revalidatePath("/panel/admin/blog");
+    revalidatePath(`/panel/admin/blog/${postId}`);
+    revalidatePath("/blog");
+    revalidatePath(`/blog/${post.slug}`);
     return { success: true };
   } catch (error) {
     console.error("Error actualizando post:", error);
     return { error: "Error actualizando post" };
+  }
+}
+
+export async function updateAdminPost(postInput) {
+  try {
+    const session = await getSession();
+    requireAdmin(session);
+
+    const id = String(postInput?.id || "");
+    const title = String(postInput?.title || "").trim();
+    const content = String(postInput?.content || "").trim();
+    const slug = slugify(postInput?.slug || title);
+    const excerpt = String(postInput?.excerpt || "").trim() || null;
+    const coverImage = String(postInput?.coverImage || "").trim() || null;
+    const coverImageTitle = String(postInput?.coverImageTitle || "").trim() || null;
+    const coverImageAuthor = String(postInput?.coverImageAuthor || "").trim() || null;
+    const coverImageNote = String(postInput?.coverImageNote || "").trim() || null;
+
+    if (!id) return { error: "ID de articulo requerido." };
+    if (title.length < 4) return { error: "El titulo debe tener al menos 4 caracteres." };
+    if (content.length < 20) return { error: "El contenido debe tener al menos 20 caracteres." };
+    if (!slug) return { error: "El slug no puede quedar vacio." };
+
+    const existingSlug = await prisma.post.findUnique({
+      where: { slug },
+      select: { id: true },
+    });
+
+    if (existingSlug && existingSlug.id !== id) {
+      return { error: "Ya existe otro articulo con ese slug." };
+    }
+
+    const post = await prisma.post.update({
+      where: { id },
+      data: {
+        title,
+        slug,
+        content,
+        excerpt,
+        coverImage,
+        coverImageTitle,
+        coverImageAuthor,
+        coverImageNote,
+      },
+      select: { slug: true },
+    });
+
+    revalidatePath("/panel/admin/blog");
+    revalidatePath(`/panel/admin/blog/${id}`);
+    revalidatePath("/blog");
+    revalidatePath(`/blog/${post.slug}`);
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error editando post admin:", error);
+    return { error: "No se pudo guardar el articulo." };
   }
 }

@@ -62,6 +62,7 @@ export default async function AdminDashboard() {
     servicesCount,
     professionalsCount,
     activeAppointmentsCount,
+    openInvoicesCount,
     pendingUsers,
   ] = await Promise.all([
     prisma.user.count({ where: wherePendingProsUsers }),
@@ -69,6 +70,7 @@ export default async function AdminDashboard() {
     prisma.service.count({ where: { isActive: true } }),
     prisma.user.count({ where: whereApprovedProsUsers }),
     prisma.appointment.count({ where: { status: { in: ["PENDING", "CONFIRMED"] } } }),
+    prisma.invoice.count({ where: { status: { in: ["DRAFT", "OPEN"] } } }),
     prisma.user.findMany({
       where: wherePendingProsUsers,
       include: { professionalProfile: true },
@@ -90,6 +92,13 @@ export default async function AdminDashboard() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <DashboardCard
+            href="/panel/admin/tareas"
+            title="Inventario diario"
+            description="Rutina operativa de contenido, finanzas, publicidad, SEO y mantenimiento."
+            count={postsPendingCount + activeAppointmentsCount + openInvoicesCount + pendingCount}
+            tone="accent"
+          />
           <DashboardCard
             href="/panel/admin/servicios"
             title="Servicios"

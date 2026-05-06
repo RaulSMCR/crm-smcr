@@ -86,6 +86,13 @@ export default async function AdminBlogPage({ searchParams }) {
                     </span>
                   </td>
                   <td className="p-4">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Link
+                        href={`/panel/admin/blog/${post.id}`}
+                        className="text-sm font-semibold text-blue-700 hover:underline"
+                      >
+                        Leer / editar
+                      </Link>
                     <form
                       action={async () => {
                         "use server";
@@ -99,6 +106,7 @@ export default async function AdminBlogPage({ searchParams }) {
                         {isPublished ? "Despublicar" : "Aprobar"}
                       </button>
                     </form>
+                    </div>
                   </td>
                 </tr>
               );
