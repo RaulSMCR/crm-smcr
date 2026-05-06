@@ -484,6 +484,9 @@ model Post {
   content    String     @db.Text
   excerpt    String?    @db.Text
   coverImage String?
+  coverImageTitle String?
+  coverImageAuthor String?
+  coverImageNote String? @db.Text
   status     PostStatus @default(DRAFT)
 
   authorId String

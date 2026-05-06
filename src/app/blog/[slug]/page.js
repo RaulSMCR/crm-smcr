@@ -19,14 +19,14 @@ export async function generateMetadata({ params }) {
   const canonical = `https://saludmentalcostarica.com/blog/${params.slug}`;
   const post = await prisma.post.findUnique({
     where: { slug: params.slug },
-    select: { title: true, excerpt: true, coverImage: true },
+    select: { title: true, excerpt: true, coverImage: true, coverImageTitle: true },
   });
 
   if (!post) return { title: 'Artículo no encontrado' };
 
   const description = (post.excerpt || post.title).substring(0, 160);
   const ogImage = post.coverImage
-    ? [{ url: post.coverImage, width: 1200, height: 630, alt: post.title }]
+    ? [{ url: post.coverImage, width: 1200, height: 630, alt: post.coverImageTitle || post.title }]
     : [{ url: '/og-image.png', width: 1200, height: 630, alt: post.title }];
 
   return {
@@ -81,6 +81,7 @@ export default async function BlogPostPage({ params }) {
 
   // Helper para acortar el acceso a datos profundos en el JSX
   const authorUser = post.author.user;
+  const coverCreditParts = [post.coverImageTitle, post.coverImageAuthor].filter(Boolean);
 
   const articleSchema = {
     '@context': 'https://schema.org',
@@ -118,7 +119,7 @@ export default async function BlogPostPage({ params }) {
         {post.coverImage ? (
           <Image
             src={post.coverImage}
-            alt={post.title}
+            alt={post.coverImageTitle || post.title}
             fill
             className="object-cover"
             priority
@@ -145,6 +146,16 @@ export default async function BlogPostPage({ params }) {
 
       {/* Contenido Principal */}
       <div className="max-w-3xl mx-auto px-4 py-12">
+        {(coverCreditParts.length > 0 || post.coverImageNote) && (
+          <div className="-mt-6 mb-8 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+            {coverCreditParts.length > 0 ? (
+              <p>
+                <span className="font-semibold text-slate-800">{coverCreditParts.join(" - ")}</span>
+              </p>
+            ) : null}
+            {post.coverImageNote ? <p className="mt-1">{post.coverImageNote}</p> : null}
+          </div>
+        )}
 
         {/* Tarjeta del Autor */}
         <div className="flex items-center gap-4 p-6 bg-gray-50 rounded-xl border border-gray-100 mb-10">

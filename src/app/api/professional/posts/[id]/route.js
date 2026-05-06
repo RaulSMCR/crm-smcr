@@ -27,6 +27,9 @@ export async function PATCH(request, { params }) {
     const title = String(body?.title || "").trim();
     const content = String(body?.content || "").trim();
     const coverImage = String(body?.coverImage || "").trim() || null;
+    const coverImageTitle = String(body?.coverImageTitle || "").trim() || null;
+    const coverImageAuthor = String(body?.coverImageAuthor || "").trim() || null;
+    const coverImageNote = String(body?.coverImageNote || "").trim() || null;
 
     if (!title || !content) {
       return NextResponse.json({ message: "Título y contenido son requeridos" }, { status: 400 });
@@ -41,7 +44,7 @@ export async function PATCH(request, { params }) {
 
     const updated = await prisma.post.update({
       where: { id },
-      data: { title, content, coverImage, status: "DRAFT" },
+      data: { title, content, coverImage, coverImageTitle, coverImageAuthor, coverImageNote, status: "DRAFT" },
       select: { id: true, title: true, status: true, updatedAt: true },
     });
 

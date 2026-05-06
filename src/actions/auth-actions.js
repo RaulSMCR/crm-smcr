@@ -9,7 +9,7 @@ import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 import { sendVerificationEmail } from "@/lib/mail";
 import { signToken, getSession as getLibSession } from "@/lib/auth";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
@@ -53,11 +53,6 @@ function getPasswordIssues(password, confirmPassword) {
   if (String(password || "") !== String(confirmPassword || "")) issues.push("La confirmación no coincide.");
   return issues;
 }
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
 
 export async function getSession() {
   return await getLibSession();
@@ -240,6 +235,7 @@ export async function registerProfessional(formData) {
           const parts = srcPath.split(".");
           const ext = parts.length > 1 ? parts.pop() : "pdf";
           const destPath = `${createdUser.id}/cv.${ext}`;
+          const supabaseAdmin = getSupabaseAdmin();
 
           const { error: moveError } = await supabaseAdmin.storage.from("CVS").move(srcPath, destPath);
 

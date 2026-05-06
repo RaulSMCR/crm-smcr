@@ -54,6 +54,9 @@ export async function POST(request) {
     const categoryId = body?.categoryId ? String(body.categoryId) : null;
     const metaTitle = String(body?.metaTitle || "").trim() || null;
     const metaDesc = String(body?.metaDesc || "").trim() || null;
+    const coverImageTitle = String(body?.coverImageTitle || "").trim() || null;
+    const coverImageAuthor = String(body?.coverImageAuthor || "").trim() || null;
+    const coverImageNote = String(body?.coverImageNote || "").trim() || null;
 
     if (!title || !content) {
       return NextResponse.json({ message: "Título y contenido son requeridos" }, { status: 400 });
@@ -80,6 +83,9 @@ export async function POST(request) {
         content,
         excerpt,
         coverImage,
+        coverImageTitle,
+        coverImageAuthor,
+        coverImageNote,
         status: "DRAFT",
         ...(readingTime ? { readingTime } : {}),
         ...(metaTitle ? { metaTitle } : {}),
