@@ -41,6 +41,9 @@ export default async function BlogPage({ searchParams }) {
       slug: true,
       title: true,
       coverImage: true,
+      coverImageFocusX: true,
+      coverImageFocusY: true,
+      coverImageScale: true,
       excerpt: true,
       createdAt: true,
       author: {
@@ -98,6 +101,10 @@ export default async function BlogPage({ searchParams }) {
                     alt={`Portada: ${p.title}`}
                     fill
                     className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    style={{
+                      objectPosition: `${p.coverImageFocusX ?? 50}% ${p.coverImageFocusY ?? 50}%`,
+                      transform: `scale(${(p.coverImageScale ?? 100) / 100})`,
+                    }}
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   />
                 ) : (

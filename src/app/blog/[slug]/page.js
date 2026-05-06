@@ -122,6 +122,10 @@ export default async function BlogPostPage({ params }) {
             alt={post.coverImageTitle || post.title}
             fill
             className="object-cover"
+            style={{
+              objectPosition: `${post.coverImageFocusX ?? 50}% ${post.coverImageFocusY ?? 50}%`,
+              transform: `scale(${(post.coverImageScale ?? 100) / 100})`,
+            }}
             priority
           />
         ) : (

@@ -15,6 +15,12 @@ function slugify(text) {
     .replace(/(^-|-$)/g, "");
 }
 
+function clampInt(value, min, max, fallback) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(number)));
+}
+
 function requireAdmin(session) {
   if (!session || session.role !== "ADMIN") {
     throw new Error("No autorizado: se requiere rol ADMIN.");
@@ -138,6 +144,9 @@ export async function updateAdminPost(postInput) {
     const coverImageTitle = String(postInput?.coverImageTitle || "").trim() || null;
     const coverImageAuthor = String(postInput?.coverImageAuthor || "").trim() || null;
     const coverImageNote = String(postInput?.coverImageNote || "").trim() || null;
+    const coverImageFocusX = clampInt(postInput?.coverImageFocusX, 0, 100, 50);
+    const coverImageFocusY = clampInt(postInput?.coverImageFocusY, 0, 100, 50);
+    const coverImageScale = clampInt(postInput?.coverImageScale, 100, 180, 100);
 
     if (!id) return { error: "ID de articulo requerido." };
     if (title.length < 4) return { error: "El titulo debe tener al menos 4 caracteres." };
@@ -164,6 +173,9 @@ export async function updateAdminPost(postInput) {
         coverImageTitle,
         coverImageAuthor,
         coverImageNote,
+        coverImageFocusX,
+        coverImageFocusY,
+        coverImageScale,
       },
       select: { slug: true },
     });

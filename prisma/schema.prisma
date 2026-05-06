@@ -487,6 +487,9 @@ model Post {
   coverImageTitle String?
   coverImageAuthor String?
   coverImageNote String? @db.Text
+  coverImageFocusX Int @default(50)
+  coverImageFocusY Int @default(50)
+  coverImageScale Int @default(100)
   status     PostStatus @default(DRAFT)
 
   authorId String

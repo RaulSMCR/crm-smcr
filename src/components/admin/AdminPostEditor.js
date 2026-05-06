@@ -7,8 +7,89 @@ import { updateAdminPost, updatePostStatus } from "@/actions/admin-actions";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
 function statusLabel(status) {
   return status === "PUBLISHED" ? "Publicado" : status === "ARCHIVED" ? "Archivado" : "Borrador";
+}
+
+function CoverPreview({ imageUrl, focusX, focusY, scale, title, subtitle, heightClass, onPickPosition }) {
+  const containerRef = useRef(null);
+  const draggingRef = useRef(false);
+
+  function updateFromPointer(clientX, clientY) {
+    if (!containerRef.current || !onPickPosition) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+
+    const nextX = clamp(((clientX - rect.left) / rect.width) * 100, 0, 100);
+    const nextY = clamp(((clientY - rect.top) / rect.height) * 100, 0, 100);
+    onPickPosition(Math.round(nextX), Math.round(nextY));
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm font-semibold text-slate-800">{title}</div>
+        <div className="text-xs text-slate-500">{subtitle}</div>
+      </div>
+      <div
+        ref={containerRef}
+        className={`relative overflow-hidden rounded-lg border border-slate-200 bg-slate-100 ${
+          onPickPosition ? "cursor-grab active:cursor-grabbing" : ""
+        } ${heightClass}`}
+        onMouseDown={(event) => {
+          draggingRef.current = true;
+          updateFromPointer(event.clientX, event.clientY);
+        }}
+        onMouseMove={(event) => {
+          if (!draggingRef.current) return;
+          updateFromPointer(event.clientX, event.clientY);
+        }}
+        onMouseUp={() => {
+          draggingRef.current = false;
+        }}
+        onMouseLeave={() => {
+          draggingRef.current = false;
+        }}
+        onTouchStart={(event) => {
+          const touch = event.touches[0];
+          if (touch) updateFromPointer(touch.clientX, touch.clientY);
+        }}
+        onTouchMove={(event) => {
+          const touch = event.touches[0];
+          if (touch) updateFromPointer(touch.clientX, touch.clientY);
+        }}
+      >
+        {imageUrl ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={imageUrl}
+              alt=""
+              draggable="false"
+              className="h-full w-full select-none object-cover"
+              style={{
+                objectPosition: `${focusX}% ${focusY}%`,
+                transform: `scale(${scale / 100})`,
+                transformOrigin: "center",
+              }}
+            />
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/45 via-transparent to-transparent" />
+            <div className="pointer-events-none absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-white/35" />
+            <div className="pointer-events-none absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-white/35" />
+            <div className="pointer-events-none absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/80 bg-white/20" />
+          </>
+        ) : (
+          <div className="flex h-full w-full items-center justify-center px-4 text-center text-sm font-semibold text-slate-500">
+            Sin imagen de portada
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function AdminPostEditor({ post }) {
@@ -30,6 +111,9 @@ export default function AdminPostEditor({ post }) {
     coverImageTitle: post.coverImageTitle || "",
     coverImageAuthor: post.coverImageAuthor || "",
     coverImageNote: post.coverImageNote || "",
+    coverImageFocusX: post.coverImageFocusX ?? 50,
+    coverImageFocusY: post.coverImageFocusY ?? 50,
+    coverImageScale: post.coverImageScale ?? 100,
   });
 
   const busy = isPending || uploading;
@@ -97,6 +181,9 @@ export default function AdminPostEditor({ post }) {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data?.error || "No fue posible subir la imagen.");
       updateField("coverImage", data.url);
+      updateField("coverImageFocusX", 50);
+      updateField("coverImageFocusY", 50);
+      updateField("coverImageScale", 100);
     } catch (uploadError) {
       updateField("coverImage", post.coverImage || "");
       setError(uploadError.message || "No fue posible subir la imagen.");
@@ -247,6 +334,87 @@ export default function AdminPostEditor({ post }) {
           />
 
           <div className="mt-4 space-y-3">
+            <div className="space-y-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <CoverPreview
+                imageUrl={form.coverImage}
+                focusX={form.coverImageFocusX}
+                focusY={form.coverImageFocusY}
+                scale={form.coverImageScale}
+                title="Vista publica desktop"
+                subtitle="Hero del articulo"
+                heightClass="aspect-[16/7] w-full"
+                onPickPosition={(nextX, nextY) => {
+                  updateField("coverImageFocusX", nextX);
+                  updateField("coverImageFocusY", nextY);
+                }}
+              />
+
+              <div className="grid gap-4 md:grid-cols-[140px_minmax(0,1fr)]">
+                <CoverPreview
+                  imageUrl={form.coverImage}
+                  focusX={form.coverImageFocusX}
+                  focusY={form.coverImageFocusY}
+                  scale={form.coverImageScale}
+                  title="Mobile"
+                  subtitle="Recorte vertical"
+                  heightClass="aspect-[4/5] w-full"
+                  onPickPosition={(nextX, nextY) => {
+                    updateField("coverImageFocusX", nextX);
+                    updateField("coverImageFocusY", nextY);
+                  }}
+                />
+                <div className="space-y-3">
+                  <label className="block text-sm text-slate-700">
+                    <span className="mb-1 block font-semibold">Zoom</span>
+                    <input
+                      type="range"
+                      min="100"
+                      max="180"
+                      value={form.coverImageScale}
+                      onChange={(event) => updateField("coverImageScale", Number(event.target.value))}
+                      className="w-full"
+                    />
+                    <span className="text-xs text-slate-500">{form.coverImageScale}%</span>
+                  </label>
+                  <label className="block text-sm text-slate-700">
+                    <span className="mb-1 block font-semibold">Posicion horizontal</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={form.coverImageFocusX}
+                      onChange={(event) => updateField("coverImageFocusX", Number(event.target.value))}
+                      className="w-full"
+                    />
+                    <span className="text-xs text-slate-500">X: {form.coverImageFocusX}%</span>
+                  </label>
+                  <label className="block text-sm text-slate-700">
+                    <span className="mb-1 block font-semibold">Posicion vertical</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={form.coverImageFocusY}
+                      onChange={(event) => updateField("coverImageFocusY", Number(event.target.value))}
+                      className="w-full"
+                    />
+                    <span className="text-xs text-slate-500">Y: {form.coverImageFocusY}%</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateField("coverImageFocusX", 50);
+                      updateField("coverImageFocusY", 50);
+                      updateField("coverImageScale", 100);
+                    }}
+                    className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    Recentrar
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <input
               value={form.coverImageTitle}
               onChange={(event) => updateField("coverImageTitle", event.target.value)}
