@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
 const FALLBACK_ARTICLE_IMAGE =
@@ -195,6 +195,14 @@ function ProfessionalSlide({ item, meta }) {
               Agendar cita
             </Link>
           ) : null}
+          {professional?.slug ? (
+            <Link
+              href={`/blog?autor=${professional.slug}`}
+              className="inline-flex items-center justify-center rounded-lg border border-neutral-300 bg-white px-5 py-2.5 text-sm font-semibold text-neutral-900 transition hover:bg-neutral-100"
+            >
+              Ver artículos
+            </Link>
+          ) : null}
         </div>
       </div>
     </article>
@@ -213,6 +221,7 @@ export default function HomeFeatureCarousel({ items = [] }) {
   );
 
   const [index, setIndex] = useState(0);
+  const isHoveredRef = useRef(false);
 
   useEffect(() => {
     setIndex(0);
@@ -221,7 +230,9 @@ export default function HomeFeatureCarousel({ items = [] }) {
   useEffect(() => {
     if (slides.length <= 1) return undefined;
     const intervalId = window.setInterval(() => {
-      setIndex((current) => (current + 1) % slides.length);
+      if (!isHoveredRef.current) {
+        setIndex((current) => (current + 1) % slides.length);
+      }
     }, 6500);
     return () => window.clearInterval(intervalId);
   }, [slides.length]);
@@ -232,7 +243,11 @@ export default function HomeFeatureCarousel({ items = [] }) {
   const meta = KIND_META[active.kind];
 
   return (
-    <section className="bg-surface px-4 pb-14 pt-2">
+    <section
+      className="bg-surface px-4 pb-14 pt-2"
+      onMouseEnter={() => { isHoveredRef.current = true; }}
+      onMouseLeave={() => { isHoveredRef.current = false; }}
+    >
       <div className="mx-auto max-w-7xl">
         <div className="mb-5 flex flex-col justify-between gap-3 md:flex-row md:items-end">
           <div>
@@ -264,11 +279,13 @@ export default function HomeFeatureCarousel({ items = [] }) {
           ) : null}
         </div>
 
-        {active.kind.startsWith("ARTICLE") ? (
-          <ArticleSlide item={active} meta={meta} />
-        ) : (
-          <ProfessionalSlide item={active} meta={meta} />
-        )}
+        <div key={active.id} className="carousel-slide">
+          {active.kind.startsWith("ARTICLE") ? (
+            <ArticleSlide item={active} meta={meta} />
+          ) : (
+            <ProfessionalSlide item={active} meta={meta} />
+          )}
+        </div>
 
         {slides.length > 1 ? (
           <div className="mt-5 flex flex-wrap justify-center gap-2" aria-label="Piezas del carrusel">
