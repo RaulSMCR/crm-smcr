@@ -62,6 +62,7 @@ export default async function AdminDashboard() {
     servicesCount,
     professionalsCount,
     profileReviewsPendingCount,
+    homeCarouselActiveCount,
     activeAppointmentsCount,
     openInvoicesCount,
     pendingUsers,
@@ -73,6 +74,7 @@ export default async function AdminDashboard() {
     prisma.professionalProfile.count({
       where: { profileReviewStatus: "PENDING", profileReviewDraft: { not: null } },
     }),
+    prisma.homeCarouselItem.count({ where: { isActive: true } }),
     prisma.appointment.count({ where: { status: { in: ["PENDING", "CONFIRMED"] } } }),
     prisma.invoice.count({ where: { status: { in: ["DRAFT", "OPEN"] } } }),
     prisma.user.findMany({
@@ -137,7 +139,8 @@ export default async function AdminDashboard() {
           <DashboardCard
             href="/panel/admin/marketing"
             title="Marketing"
-            description="Campañas y manuales de mercadeo."
+            description="Carrusel principal y piezas destacadas."
+            count={homeCarouselActiveCount}
             tone="accent"
           />
           <DashboardCard

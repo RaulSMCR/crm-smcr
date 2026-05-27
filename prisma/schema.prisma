@@ -174,8 +174,9 @@ model ProfessionalProfile {
   availability Availability[]
   posts        Post[]
 
-  appointments Appointment[] @relation("ProAppointments")
-  invoices     Invoice[]     @relation("InvoiceProfessional")
+  appointments      Appointment[]      @relation("ProAppointments")
+  invoices          Invoice[]          @relation("InvoiceProfessional")
+  homeCarouselItems HomeCarouselItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -504,10 +505,33 @@ model Post {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  viewEvents PostViewEvent[]
+  viewEvents        PostViewEvent[]
+  homeCarouselItems HomeCarouselItem[]
 
   @@index([status])
   @@index([authorId])
+}
+
+model HomeCarouselItem {
+  id String @id @default(cuid())
+
+  kind         String
+  label        String?
+  isActive     Boolean @default(true)
+  displayOrder Int     @default(0)
+
+  postId String?
+  post   Post?   @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  professionalId String?
+  professional   ProfessionalProfile? @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([kind, isActive, displayOrder])
+  @@index([postId])
+  @@index([professionalId])
 }
 
 model PostViewEvent {
