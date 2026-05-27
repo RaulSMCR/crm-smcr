@@ -102,6 +102,7 @@ export default async function ServiciosPage() {
             professional: {
               select: {
                 id: true,
+                slug: true,
                 specialty: true,
                 user: { select: { name: true, image: true } },
               },
@@ -218,7 +219,7 @@ export default async function ServiciosPage() {
                     {professionals.map((professional) => (
                       <Link
                         key={professional.id}
-                        href={`/agendar/${professional.id}?serviceId=${service.id}`}
+                        href={professional.slug ? `/profesionales/${professional.slug}?serviceId=${service.id}` : `/agendar/${professional.id}?serviceId=${service.id}`}
                         className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 transition hover:border-brand-300 hover:bg-brand-50"
                       >
                         {professional.user?.image ? (

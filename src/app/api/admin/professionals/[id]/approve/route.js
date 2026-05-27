@@ -25,6 +25,7 @@ export async function POST(_request, { params }) {
       data: { isApproved: true },
       select: {
         id: true,
+        slug: true,
         isApproved: true,
         user: { select: { id: true, name: true, email: true } },
       },
@@ -39,6 +40,7 @@ export async function POST(_request, { params }) {
     revalidatePath("/panel/admin/personal");
     revalidatePath("/admin/professionals");
     revalidatePath("/servicios");
+    if (updated.slug) revalidatePath(`/profesionales/${updated.slug}`);
 
     return NextResponse.json({
       id: updated.id,

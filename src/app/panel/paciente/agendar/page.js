@@ -31,6 +31,7 @@ export default async function PacienteAgendarPage({ searchParams }) {
       where: { id: professionalId },
       select: {
         id: true,
+        slug: true,
         specialty: true,
         isApproved: true,
         user: { select: { name: true, image: true, isActive: true } },
@@ -102,6 +103,7 @@ export default async function PacienteAgendarPage({ searchParams }) {
         professionalId={professional.id}
         professionalName={professional.user?.name || "Profesional"}
         professionalImage={professional.user?.image || null}
+        professionalSlug={professional.slug || null}
         durationMin={service.durationMin}
         availability={availability}
         booked={booked}

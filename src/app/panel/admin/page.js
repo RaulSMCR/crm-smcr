@@ -61,6 +61,7 @@ export default async function AdminDashboard() {
     postsPendingCount,
     servicesCount,
     professionalsCount,
+    profileReviewsPendingCount,
     activeAppointmentsCount,
     openInvoicesCount,
     pendingUsers,
@@ -69,6 +70,9 @@ export default async function AdminDashboard() {
     prisma.post.count({ where: { status: "DRAFT" } }),
     prisma.service.count({ where: { isActive: true } }),
     prisma.user.count({ where: whereApprovedProsUsers }),
+    prisma.professionalProfile.count({
+      where: { profileReviewStatus: "PENDING", profileReviewDraft: { not: null } },
+    }),
     prisma.appointment.count({ where: { status: { in: ["PENDING", "CONFIRMED"] } } }),
     prisma.invoice.count({ where: { status: { in: ["DRAFT", "OPEN"] } } }),
     prisma.user.findMany({
@@ -116,7 +120,7 @@ export default async function AdminDashboard() {
             href="/panel/admin/personal"
             title="Personal"
             description="Directorio de profesionales y vínculos."
-            count={professionalsCount}
+            count={professionalsCount + profileReviewsPendingCount}
           />
           <DashboardCard
             href="/panel/admin/contabilidad"

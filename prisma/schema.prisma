@@ -39,12 +39,12 @@ enum PaymentTransactionType {
 }
 
 enum PaymentTransactionStatus {
-  PENDING     // Registro creado, enlace aún no enviado
-  LINK_SENT   // Enlace de pago ONVO enviado al paciente por email
-  APPROVED    // Pago confirmado por ONVO (vía webhook)
-  REJECTED    // Pago rechazado o fallido
-  REFUNDED    // Reembolso aplicado manualmente
-  EXPIRED     // Reservado para compatibilidad futura
+  PENDING // Registro creado, enlace aún no enviado
+  LINK_SENT // Enlace de pago ONVO enviado al paciente por email
+  APPROVED // Pago confirmado por ONVO (vía webhook)
+  REJECTED // Pago rechazado o fallido
+  REFUNDED // Reembolso aplicado manualmente
+  EXPIRED // Reservado para compatibilidad futura
 }
 
 enum ServiceAssignmentStatus {
@@ -124,11 +124,11 @@ model User {
 
   professionalProfile ProfessionalProfile?
 
-  appointments Appointment[] @relation("PatientAppointments")
-  invoiceContacts Invoice[] @relation("InvoiceContact")
-  invoicesCreated Invoice[] @relation("InvoiceCreator")
+  appointments    Appointment[] @relation("PatientAppointments")
+  invoiceContacts Invoice[]     @relation("InvoiceContact")
+  invoicesCreated Invoice[]     @relation("InvoiceCreator")
 
-  postViewEvents PostViewEvent[]
+  postViewEvents      PostViewEvent[]
   paymentTransactions PaymentTransaction[]
 
   createdAt DateTime @default(now())
@@ -144,13 +144,19 @@ model ProfessionalProfile {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  slug          String  @unique
-  specialty     String
-  licenseNumber String?
-  bio           String? @db.Text
-  coverLetter   String? @db.Text
-  cvUrl         String?
-  introVideoUrl String?
+  slug                     String    @unique
+  specialty                String
+  licenseNumber            String?
+  bio                      String?   @db.Text
+  profileReview            String?   @db.Text
+  profileReviewDraft       String?   @db.Text
+  profileReviewStatus      String    @default("EMPTY")
+  profileReviewSubmittedAt DateTime?
+  profileReviewReviewedAt  DateTime?
+  profileReviewAdminNote   String?   @db.Text
+  coverLetter              String?   @db.Text
+  cvUrl                    String?
+  introVideoUrl            String?
 
   avatarUrl          String?
   calendarUrl        String?
@@ -162,7 +168,7 @@ model ProfessionalProfile {
   commission Int      @default(10)
 
   // ✅ Lo que tu código espera
-  serviceAssignments ServiceAssignment[]
+  serviceAssignments  ServiceAssignment[]
   paymentTransactions PaymentTransaction[]
 
   availability Availability[]
@@ -176,21 +182,21 @@ model ProfessionalProfile {
 }
 
 model Service {
-  id          String  @id @default(cuid())
-  title       String
-  description String? @db.Text
-  bannerImage String?
-  bannerFocusX Int     @default(50)
-  bannerFocusY Int     @default(50)
-  bannerScale Int      @default(100)
-  bannerArtworkTitle String?
+  id                  String  @id @default(cuid())
+  title               String
+  description         String? @db.Text
+  bannerImage         String?
+  bannerFocusX        Int     @default(50)
+  bannerFocusY        Int     @default(50)
+  bannerScale         Int     @default(100)
+  bannerArtworkTitle  String?
   bannerArtworkAuthor String?
-  bannerArtworkNote String? @db.Text
+  bannerArtworkNote   String? @db.Text
 
-  price       Decimal @db.Decimal(10, 2)
-  durationMin Int
-  displayOrder Int    @default(0)
-  isActive    Boolean @default(true)
+  price        Decimal @db.Decimal(10, 2)
+  durationMin  Int
+  displayOrder Int     @default(0)
+  isActive     Boolean @default(true)
 
   // ✅ Lo que tu código espera
   professionalAssignments ServiceAssignment[]
@@ -244,8 +250,8 @@ model Product {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  saleTax     Tax?          @relation("ProductSaleTax", fields: [saleTaxId], references: [id], onDelete: SetNull)
-  purchaseTax Tax?          @relation("ProductPurchaseTax", fields: [purchaseTaxId], references: [id], onDelete: SetNull)
+  saleTax      Tax?          @relation("ProductSaleTax", fields: [saleTaxId], references: [id], onDelete: SetNull)
+  purchaseTax  Tax?          @relation("ProductPurchaseTax", fields: [purchaseTaxId], references: [id], onDelete: SetNull)
   invoiceLines InvoiceLine[]
 }
 
@@ -261,54 +267,54 @@ model InvoiceSequence {
 }
 
 model Invoice {
-  id                       String       @id @default(cuid())
-  invoiceNumber            String
-  invoiceType              InvoiceType
-  feNumber                 String?
-  feClave                  String?
-  feStatus                 FEStatus     @default(PENDING)
-  feErrorMessage           String?
-  documentType             DocumentType @default(FACTURA_ELECTRONICA)
+  id             String       @id @default(cuid())
+  invoiceNumber  String
+  invoiceType    InvoiceType
+  feNumber       String?
+  feClave        String?
+  feStatus       FEStatus     @default(PENDING)
+  feErrorMessage String?
+  documentType   DocumentType @default(FACTURA_ELECTRONICA)
 
-  contactId                String
-  appointmentId            String?
-  professionalId           String?
-  contactName              String?
-  contactIdNumber          String?
+  contactId       String
+  appointmentId   String?
+  professionalId  String?
+  contactName     String?
+  contactIdNumber String?
 
-  invoiceDate              DateTime
-  dueDate                  DateTime
-  paymentDate              DateTime?
+  invoiceDate DateTime
+  dueDate     DateTime
+  paymentDate DateTime?
 
-  economicActivity         String?
-  paymentMethod            String?      @default("transfer")
-  currency                 String       @default("CRC")
+  economicActivity String?
+  paymentMethod    String? @default("transfer")
+  currency         String  @default("CRC")
 
   supplierReference        String?
   supplierEconomicActivity String?
 
-  subtotal                 Decimal      @default(0) @db.Decimal(15, 2)
-  taxAmount                Decimal      @default(0) @db.Decimal(15, 2)
-  discountAmount           Decimal      @default(0) @db.Decimal(15, 2)
-  total                    Decimal      @default(0) @db.Decimal(15, 2)
-  amountPaid               Decimal      @default(0) @db.Decimal(15, 2)
-  balance                  Decimal      @default(0) @db.Decimal(15, 2)
+  subtotal       Decimal @default(0) @db.Decimal(15, 2)
+  taxAmount      Decimal @default(0) @db.Decimal(15, 2)
+  discountAmount Decimal @default(0) @db.Decimal(15, 2)
+  total          Decimal @default(0) @db.Decimal(15, 2)
+  amountPaid     Decimal @default(0) @db.Decimal(15, 2)
+  balance        Decimal @default(0) @db.Decimal(15, 2)
 
-  status                   InvoiceStatus @default(DRAFT)
+  status InvoiceStatus @default(DRAFT)
 
-  originInvoiceId          String?
-  originDocument           String?
-  notes                    String?       @db.Text
-  createdBy                String?
-  createdAt                DateTime      @default(now())
-  updatedAt                DateTime      @updatedAt
+  originInvoiceId String?
+  originDocument  String?
+  notes           String?  @db.Text
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  contact      User      @relation("InvoiceContact", fields: [contactId], references: [id], onDelete: Restrict)
-  appointment  Appointment? @relation("AppointmentInvoices", fields: [appointmentId], references: [id], onDelete: SetNull)
-  professional ProfessionalProfile? @relation("InvoiceProfessional", fields: [professionalId], references: [id], onDelete: SetNull)
-  creator      User?     @relation("InvoiceCreator", fields: [createdBy], references: [id], onDelete: SetNull)
-  originInvoice Invoice? @relation("InvoiceOrigin", fields: [originInvoiceId], references: [id], onDelete: SetNull)
-  creditNotes   Invoice[] @relation("InvoiceOrigin")
+  contact       User                 @relation("InvoiceContact", fields: [contactId], references: [id], onDelete: Restrict)
+  appointment   Appointment?         @relation("AppointmentInvoices", fields: [appointmentId], references: [id], onDelete: SetNull)
+  professional  ProfessionalProfile? @relation("InvoiceProfessional", fields: [professionalId], references: [id], onDelete: SetNull)
+  creator       User?                @relation("InvoiceCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  originInvoice Invoice?             @relation("InvoiceOrigin", fields: [originInvoiceId], references: [id], onDelete: SetNull)
+  creditNotes   Invoice[]            @relation("InvoiceOrigin")
   lines         InvoiceLine[]
 
   @@unique([invoiceType, invoiceNumber])
@@ -397,8 +403,8 @@ model Availability {
 model Appointment {
   id String @id @default(cuid())
 
-  date    DateTime  @db.Timestamptz(6)
-  endDate DateTime  @db.Timestamptz(6)
+  date    DateTime          @db.Timestamptz(6)
+  endDate DateTime          @db.Timestamptz(6)
   status  AppointmentStatus @default(PENDING)
 
   pricePaid     Decimal?      @db.Decimal(10, 2)
@@ -417,20 +423,20 @@ model Appointment {
   serviceId String?
   service   Service? @relation(fields: [serviceId], references: [id], onDelete: Restrict)
 
-  cancelReason String?
-  canceledBy   String?   // 'PATIENT' | 'PROFESSIONAL' | 'ADMIN'
-  canceledAt   DateTime?
+  cancelReason      String?
+  canceledBy        String? // 'PATIENT' | 'PROFESSIONAL' | 'ADMIN'
+  canceledAt        DateTime?
   lastRescheduledBy String?
   lastRescheduledAt DateTime?
-  rescheduleCount   Int      @default(0)
+  rescheduleCount   Int       @default(0)
 
   parentAppointmentId String?
   parentAppointment   Appointment?  @relation("FollowUps", fields: [parentAppointmentId], references: [id], onDelete: SetNull)
   followUps           Appointment[] @relation("FollowUps")
 
-  isFirstWithProfessional Boolean @default(false)
+  isFirstWithProfessional Boolean              @default(false)
   paymentTransactions     PaymentTransaction[]
-  invoices                Invoice[] @relation("AppointmentInvoices")
+  invoices                Invoice[]            @relation("AppointmentInvoices")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -458,9 +464,9 @@ model PaymentTransaction {
   onvoPaymentLinkId String? // ID del enlace de pago ONVO del profesional (ej. live_xxx)
   onvoEventId       String? @unique // ID del evento webhook de ONVO (idempotencia)
 
-  status        PaymentTransactionStatus @default(PENDING)
-  statusMessage String?                  @db.Text
-  paidAt        DateTime?
+  status         PaymentTransactionStatus @default(PENDING)
+  statusMessage  String?                  @db.Text
+  paidAt         DateTime?
   webhookPayload Json?
 
   createdAt DateTime @default(now())
@@ -478,19 +484,19 @@ model PaymentTransaction {
 }
 
 model Post {
-  id         String     @id @default(cuid())
-  title      String
-  slug       String     @unique
-  content    String     @db.Text
-  excerpt    String?    @db.Text
-  coverImage String?
-  coverImageTitle String?
+  id               String     @id @default(cuid())
+  title            String
+  slug             String     @unique
+  content          String     @db.Text
+  excerpt          String?    @db.Text
+  coverImage       String?
+  coverImageTitle  String?
   coverImageAuthor String?
-  coverImageNote String? @db.Text
-  coverImageFocusX Int @default(50)
-  coverImageFocusY Int @default(50)
-  coverImageScale Int @default(100)
-  status     PostStatus @default(DRAFT)
+  coverImageNote   String?    @db.Text
+  coverImageFocusX Int        @default(50)
+  coverImageFocusY Int        @default(50)
+  coverImageScale  Int        @default(100)
+  status           PostStatus @default(DRAFT)
 
   authorId String
   author   ProfessionalProfile @relation(fields: [authorId], references: [id], onDelete: Cascade)

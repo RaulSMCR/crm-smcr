@@ -80,8 +80,10 @@ export default async function ServiceDetailPage({ params }) {
             professional: {
               select: {
                 id: true,
+                slug: true,
                 specialty: true,
                 bio: true,
+                profileReview: true,
                 user: { select: { name: true, image: true } },
               },
             },
@@ -198,7 +200,7 @@ export default async function ServiceDetailPage({ params }) {
             {professionals.map((professional) => (
               <div key={professional.id} className="rounded-xl border border-slate-200 p-4">
                 <Link
-                  href={`/agendar/${professional.id}?serviceId=${service.id}`}
+                  href={professional.slug ? `/profesionales/${professional.slug}?serviceId=${service.id}` : `/agendar/${professional.id}?serviceId=${service.id}`}
                   className="inline-flex items-center gap-3 rounded-lg p-1 transition hover:bg-brand-50"
                 >
                   {professional.user?.image ? (
@@ -220,8 +222,10 @@ export default async function ServiceDetailPage({ params }) {
                   </div>
                 </Link>
 
-                {professional.bio ? (
-                  <p className="mt-3 text-justify text-sm text-slate-700">{professional.bio}</p>
+                {professional.profileReview ? (
+                  <p className="mt-3 text-justify text-sm text-slate-700">
+                    {professional.profileReview}
+                  </p>
                 ) : null}
                 <p className="mt-2 text-sm font-semibold text-emerald-700">
                   Valor de la cita: CRC {Number(professional.approvedSessionPrice).toLocaleString("es-CR")}

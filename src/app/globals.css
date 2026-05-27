@@ -347,12 +347,34 @@
     color: rgb(var(--brand-950) / 1) !important;
   }
 
-  /* Legibilidad estricta: nunca texto brand/accent sobre fondos brand/accent */
-  [class*="bg-brand-"][class*="text-brand-"],
-  [class*="bg-brand-"][class*="text-accent-"],
-  [class*="bg-accent-"][class*="text-brand-"],
-  [class*="bg-accent-"][class*="text-accent-"] {
-    color: rgb(var(--on-brand) / 1) !important;
+  /* Legibilidad estricta: fondos brand/accent claros siempre usan texto oscuro. */
+  [class~="bg-brand-50"][class*="text-brand-"],
+  [class~="bg-brand-100"][class*="text-brand-"],
+  [class~="bg-brand-200"][class*="text-brand-"],
+  [class~="bg-brand-300"][class*="text-brand-"],
+  [class~="bg-brand-400"][class*="text-brand-"],
+  [class~="bg-brand-50"][class*="text-accent-"],
+  [class~="bg-brand-100"][class*="text-accent-"],
+  [class~="bg-brand-200"][class*="text-accent-"],
+  [class~="bg-brand-300"][class*="text-accent-"],
+  [class~="bg-brand-400"][class*="text-accent-"],
+  [class~="bg-accent-50"][class*="text-brand-"],
+  [class~="bg-accent-100"][class*="text-brand-"],
+  [class~="bg-accent-200"][class*="text-brand-"],
+  [class~="bg-accent-300"][class*="text-brand-"],
+  [class~="bg-accent-400"][class*="text-brand-"],
+  [class~="bg-accent-500"][class*="text-brand-"],
+  [class~="bg-accent-600"][class*="text-brand-"],
+  [class~="bg-accent-700"][class*="text-brand-"],
+  [class~="bg-accent-50"][class*="text-accent-"],
+  [class~="bg-accent-100"][class*="text-accent-"],
+  [class~="bg-accent-200"][class*="text-accent-"],
+  [class~="bg-accent-300"][class*="text-accent-"],
+  [class~="bg-accent-400"][class*="text-accent-"],
+  [class~="bg-accent-500"][class*="text-accent-"],
+  [class~="bg-accent-600"][class*="text-accent-"],
+  [class~="bg-accent-700"][class*="text-accent-"] {
+    color: rgb(var(--neutral-950) / 1) !important;
   }
 
   button[class*="bg-white"]:hover,

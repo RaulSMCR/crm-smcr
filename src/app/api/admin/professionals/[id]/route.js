@@ -6,12 +6,6 @@ import { getSession } from "@/lib/auth";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-function asStringArray(x) {
-  if (!x) return null;
-  if (!Array.isArray(x)) return null;
-  return x.map(String).filter(Boolean);
-}
-
 export async function GET(_request, { params }) {
   try {
     const session = await getSession();
@@ -31,6 +25,12 @@ export async function GET(_request, { params }) {
         specialty: true,
         licenseNumber: true,
         bio: true,
+        profileReview: true,
+        profileReviewDraft: true,
+        profileReviewStatus: true,
+        profileReviewSubmittedAt: true,
+        profileReviewReviewedAt: true,
+        profileReviewAdminNote: true,
         cvUrl: true,
         introVideoUrl: true,
         avatarUrl: true,
@@ -39,7 +39,10 @@ export async function GET(_request, { params }) {
         isApproved: true,
         createdAt: true,
         updatedAt: true,
-        services: { select: { id: true, title: true } },
+        serviceAssignments: {
+          where: { status: "APPROVED" },
+          select: { service: { select: { id: true, title: true } } },
+        },
         user: { select: { name: true, email: true, phone: true, emailVerified: true } },
       },
     });
@@ -53,6 +56,12 @@ export async function GET(_request, { params }) {
       email: prof.user?.email || "",
       phone: prof.user?.phone || "",
       bio: prof.bio || null,
+      profileReview: prof.profileReview || null,
+      profileReviewDraft: prof.profileReviewDraft || null,
+      profileReviewStatus: prof.profileReviewStatus || "EMPTY",
+      profileReviewSubmittedAt: prof.profileReviewSubmittedAt || null,
+      profileReviewReviewedAt: prof.profileReviewReviewedAt || null,
+      profileReviewAdminNote: prof.profileReviewAdminNote || null,
       avatarUrl: prof.avatarUrl || null,
       resumeUrl: prof.cvUrl || null,
       introVideoUrl: prof.introVideoUrl || null,
@@ -65,7 +74,7 @@ export async function GET(_request, { params }) {
       isApproved: !!prof.isApproved,
       createdAt: prof.createdAt,
       updatedAt: prof.updatedAt,
-      services: prof.services || [],
+      services: (prof.serviceAssignments || []).map((assignment) => assignment.service).filter(Boolean),
       categories: [], // legacy (tu UI espera categories)
     };
 
@@ -91,13 +100,9 @@ export async function PATCH(request, { params }) {
     const { isApproved } = body;
 
     // Compat: el UI viejo manda categoryIds; acá lo aceptamos como alias de serviceIds si corresponde
-    const serviceIds = asStringArray(body.serviceIds) || asStringArray(body.categoryIds);
-
     const data = {};
     if (typeof isApproved === "boolean") data.isApproved = isApproved;
-    if (serviceIds) {
-      data.services = { set: serviceIds.map((id) => ({ id })) };
-    }
+    // Las asignaciones de servicios se gestionan desde /panel/admin/servicios para preservar tarifas aprobadas.
 
     const updated = await prisma.professionalProfile.update({
       where: { id: String(professionalId) },
@@ -107,6 +112,12 @@ export async function PATCH(request, { params }) {
         specialty: true,
         licenseNumber: true,
         bio: true,
+        profileReview: true,
+        profileReviewDraft: true,
+        profileReviewStatus: true,
+        profileReviewSubmittedAt: true,
+        profileReviewReviewedAt: true,
+        profileReviewAdminNote: true,
         cvUrl: true,
         introVideoUrl: true,
         avatarUrl: true,
@@ -115,7 +126,10 @@ export async function PATCH(request, { params }) {
         isApproved: true,
         createdAt: true,
         updatedAt: true,
-        services: { select: { id: true, title: true } },
+        serviceAssignments: {
+          where: { status: "APPROVED" },
+          select: { service: { select: { id: true, title: true } } },
+        },
         user: { select: { name: true, email: true, phone: true, emailVerified: true } },
       },
     });
@@ -128,6 +142,12 @@ export async function PATCH(request, { params }) {
         email: updated.user?.email || "",
         phone: updated.user?.phone || "",
         bio: updated.bio || null,
+        profileReview: updated.profileReview || null,
+        profileReviewDraft: updated.profileReviewDraft || null,
+        profileReviewStatus: updated.profileReviewStatus || "EMPTY",
+        profileReviewSubmittedAt: updated.profileReviewSubmittedAt || null,
+        profileReviewReviewedAt: updated.profileReviewReviewedAt || null,
+        profileReviewAdminNote: updated.profileReviewAdminNote || null,
         avatarUrl: updated.avatarUrl || null,
         resumeUrl: updated.cvUrl || null,
         introVideoUrl: updated.introVideoUrl || null,
@@ -140,7 +160,7 @@ export async function PATCH(request, { params }) {
         isApproved: !!updated.isApproved,
         createdAt: updated.createdAt,
         updatedAt: updated.updatedAt,
-        services: updated.services || [],
+        services: (updated.serviceAssignments || []).map((assignment) => assignment.service).filter(Boolean),
         categories: [],
       },
       { status: 200 }

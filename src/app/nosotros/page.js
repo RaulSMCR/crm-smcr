@@ -20,6 +20,10 @@ export const dynamic = 'force-dynamic';
 export default async function NosotrosPage() {
   // 1. CORRECCIÓN: Usamos 'professionalProfile' en lugar de 'professional'
   const professionals = await prisma.professionalProfile.findMany({
+    where: {
+      isApproved: true,
+      user: { is: { isActive: true } },
+    },
     orderBy: {
       createdAt: 'asc',
     },
@@ -27,6 +31,7 @@ export default async function NosotrosPage() {
       id: true,
       specialty: true,
       bio: true,
+      profileReview: true,
       slug: true,
       licenseNumber: true,
       // 2. CORRECCIÓN: Obtenemos nombre y foto desde la relación con User

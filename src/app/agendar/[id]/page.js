@@ -11,6 +11,7 @@ export async function generateMetadata({ params }) {
     select: {
       specialty: true,
       bio: true,
+      profileReview: true,
       avatarUrl: true,
       user: { select: { name: true } },
     },
@@ -20,7 +21,7 @@ export async function generateMetadata({ params }) {
 
   const name = professional.user?.name || 'Profesional';
   const description = (
-    professional.bio ||
+    professional.profileReview ||
     `Agendá una consulta con ${name}, especialista en ${professional.specialty}.`
   ).substring(0, 160);
   const ogImage = professional.avatarUrl
@@ -109,7 +110,7 @@ export default async function AgendarPage({ params, searchParams }) {
     '@context': 'https://schema.org',
     '@type': ['Person', 'MedicalBusiness'],
     name: professional.user.name,
-    description: professional.bio || undefined,
+    description: professional.profileReview || undefined,
     image: professional.avatarUrl || professional.user.image || undefined,
     url: `https://saludmentalcostarica.com/agendar/${professional.id}`,
     jobTitle: professional.specialty,
@@ -145,11 +146,21 @@ export default async function AgendarPage({ params, searchParams }) {
           <div className="rounded-2xl border border-gray-200 bg-white p-6 text-center shadow-sm">
             <div className="mx-auto mb-4 h-32 w-32 overflow-hidden rounded-full border-4 border-white bg-gray-200 shadow-md">
               {professional.user.image ? (
-                <img
-                  src={professional.user.image}
-                  alt={professional.user.name}
-                  className="h-full w-full object-cover"
-                />
+                professional.slug ? (
+                  <a href={`/profesionales/${professional.slug}`} aria-label={`Ver perfil de ${professional.user.name}`}>
+                    <img
+                      src={professional.user.image}
+                      alt={professional.user.name}
+                      className="h-full w-full object-cover"
+                    />
+                  </a>
+                ) : (
+                  <img
+                    src={professional.user.image}
+                    alt={professional.user.name}
+                    className="h-full w-full object-cover"
+                  />
+                )
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-4xl font-bold text-gray-400">
                   {professional.user.name.charAt(0)}
@@ -160,9 +171,20 @@ export default async function AgendarPage({ params, searchParams }) {
             <h1 className="text-2xl font-bold text-gray-900">{professional.user.name}</h1>
             <p className="font-medium text-brand-700">{professional.specialty || 'Profesional de Salud'}</p>
 
-            {professional.bio && (
-              <p className="mt-4 text-sm leading-relaxed text-gray-700">{professional.bio}</p>
-            )}
+            {professional.profileReview ? (
+              <p className="mt-4 text-sm leading-relaxed text-gray-700">
+                {professional.profileReview}
+              </p>
+            ) : null}
+
+            {professional.slug ? (
+              <a
+                href={`/profesionales/${professional.slug}`}
+                className="mt-4 inline-flex text-sm font-semibold text-brand-800 hover:text-brand-900 hover:underline"
+              >
+                Ver perfil completo
+              </a>
+            ) : null}
           </div>
 
           <div className="rounded-xl border border-brand-200 bg-brand-50 p-5">

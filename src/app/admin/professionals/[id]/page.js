@@ -43,6 +43,7 @@ export default function AdminProfessionalDetailPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [saving, setSaving] = useState(false);
+  const [reviewAction, setReviewAction] = useState("");
 
   // 1. Cargar Datos Iniciales
   async function loadData() {
@@ -112,6 +113,25 @@ export default function AdminProfessionalDetailPage() {
     }
   }
 
+  async function handleProfileReview(action) {
+    if (action === "reject" && !confirm("¿Solicitar ajustes antes de publicar esta reseña?")) return;
+    setReviewAction(action);
+    try {
+      const res = await fetch(`/api/admin/professionals/${id}/profile-review/${action}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || "No se pudo actualizar la reseña.");
+      await loadData();
+      alert(action === "approve" ? "Reseña aprobada y publicada." : "Reseña marcada para ajustes.");
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setReviewAction("");
+    }
+  }
+
   return (
     <section className="mx-auto max-w-4xl p-6 space-y-6">
       {/* --- Header --- */}
@@ -166,6 +186,35 @@ export default function AdminProfessionalDetailPage() {
                   <div className="h-20 w-20 rounded-full bg-gray-100 flex items-center justify-center text-gray-400">Sin foto</div>
                 )}
                 <div className="space-y-2 flex-1">
+                   <Row label="Reseña pública">
+                    <div className="space-y-2">
+                      <Badge ok={prof.profileReviewStatus === "APPROVED"} text={prof.profileReviewStatus || "EMPTY"} />
+                      <p className="whitespace-pre-line">{prof.profileReviewDraft || prof.profileReview || "Sin reseña cargada."}</p>
+                      {prof.profileReviewAdminNote && (
+                        <p className="text-xs font-semibold text-rose-700">{prof.profileReviewAdminNote}</p>
+                      )}
+                      {prof.profileReviewStatus === "PENDING" && prof.profileReviewDraft && (
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleProfileReview("approve")}
+                            disabled={!!reviewAction}
+                            className="rounded bg-green-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-green-700 disabled:opacity-60"
+                          >
+                            {reviewAction === "approve" ? "Aprobando..." : "Aprobar reseña"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleProfileReview("reject")}
+                            disabled={!!reviewAction}
+                            className="rounded bg-rose-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-rose-800 disabled:opacity-60"
+                          >
+                            {reviewAction === "reject" ? "Marcando..." : "Pedir ajustes"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                   </Row>
                    <Row label="Bio">{prof.bio || "—"}</Row>
                    <Row label="Teléfono">{prof.phone || "—"}</Row>
                    <Row label="Zona Horaria">{prof.timeZone || "—"}</Row>

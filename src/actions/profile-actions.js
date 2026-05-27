@@ -27,7 +27,7 @@ function isPhoneValid(v) {
 /**
  * UPDATE PERFIL (Profesional)
  * - User: name, phone, image
- * - ProfessionalProfile: specialty, licenseNumber, bio
+ * - ProfessionalProfile: specialty, licenseNumber, bio, profileReviewDraft
  * - ServiceAssignment:
  *    - si selecciona un servicio NUEVO => create PENDING
  *    - si estaba REJECTED y lo re-selecciona => pasa a PENDING
@@ -44,6 +44,7 @@ export async function updateProfile(formData) {
     const specialty = toStr(formData.get("specialty")).trim();
     const licenseNumber = toStr(formData.get("licenseNumber")).trim() || null;
     const bio = toStr(formData.get("bio")).trim() || null;
+    const profileReviewDraft = toStr(formData.get("profileReviewDraft")).trim() || null;
     const imageUrl = toStr(formData.get("imageUrl")).trim() || null;
 
     if (!name) return { success: false, error: "El nombre es obligatorio." };
@@ -67,11 +68,32 @@ export async function updateProfile(formData) {
     );
 
     // Validar que existan y estén activos (evita ids basura)
-    const validServices = await prisma.service.findMany({
-      where: { id: { in: requestedServiceIds }, isActive: true },
-      select: { id: true },
-    });
+    const [existingProfile, validServices] = await Promise.all([
+      prisma.professionalProfile.findUnique({
+        where: { id: professionalProfileId },
+        select: {
+          slug: true,
+          profileReview: true,
+          profileReviewDraft: true,
+          profileReviewStatus: true,
+        },
+      }),
+      prisma.service.findMany({
+        where: { id: { in: requestedServiceIds }, isActive: true },
+        select: { id: true },
+      }),
+    ]);
+
+    if (!existingProfile) return { success: false, error: "Perfil profesional no encontrado." };
+
     const selectedIds = new Set(validServices.map((s) => s.id));
+    const previousReviewDraft =
+      existingProfile.profileReviewDraft ?? existingProfile.profileReview ?? null;
+    const reviewChanged = profileReviewDraft !== previousReviewDraft;
+    const resubmittingRejected =
+      existingProfile.profileReviewStatus === "REJECTED" && Boolean(profileReviewDraft);
+    const shouldSubmitReview =
+      formData.has("profileReviewDraft") && (reviewChanged || resubmittingRejected);
 
     // Leer asignaciones actuales
     const currentAssignments = await prisma.serviceAssignment.findMany({
@@ -90,6 +112,15 @@ export async function updateProfile(formData) {
           specialty,
           licenseNumber,
           bio,
+          ...(shouldSubmitReview
+            ? {
+                profileReviewDraft,
+                profileReviewStatus: "PENDING",
+                profileReviewSubmittedAt: new Date(),
+                profileReviewReviewedAt: null,
+                profileReviewAdminNote: null,
+              }
+            : {}),
           user: {
             update: {
               name,
@@ -214,12 +245,16 @@ export async function updateProfile(formData) {
 
     revalidatePath("/panel/profesional/perfil");
     revalidatePath("/panel/profesional");
+    revalidatePath("/panel/admin");
+    revalidatePath("/panel/admin/personal");
     revalidatePath("/servicios");
 
     // Si tenés la página pública del profesional por slug:
-    if (session?.slug) revalidatePath(`/profesionales/${session.slug}`);
+    if (existingProfile.slug || session?.slug) {
+      revalidatePath(`/profesionales/${existingProfile.slug || session.slug}`);
+    }
 
-    return { success: true };
+    return { success: true, profileReviewPending: shouldSubmitReview };
   } catch (error) {
     console.error("Error updating profile:", error);
     const msg = String(error?.message ?? "");

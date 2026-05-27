@@ -18,6 +18,12 @@ export default async function AdminPersonalPage() {
       id: true,
       slug: true,
       specialty: true,
+      profileReview: true,
+      profileReviewDraft: true,
+      profileReviewStatus: true,
+      profileReviewSubmittedAt: true,
+      profileReviewReviewedAt: true,
+      profileReviewAdminNote: true,
       isApproved: true,
       createdAt: true,
       user: {
@@ -26,6 +32,7 @@ export default async function AdminPersonalPage() {
           name: true,
           email: true,
           phone: true,
+          image: true,
           isActive: true,
         },
       },
@@ -41,12 +48,21 @@ export default async function AdminPersonalPage() {
     },
   });
 
+  const pendingProfileReviews = professionals.filter(
+    (p) => p.profileReviewStatus === "PENDING" && p.profileReviewDraft
+  ).length;
+
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8">
       <div className="flex items-start justify-between gap-6">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Personal (Profesionales)</h1>
-          <p className="text-slate-600 mt-2">Vista administrativa de profesionales y servicios vinculados (M2M).</p>
+          <p className="text-slate-600 mt-2">
+            Vista administrativa de profesionales, servicios vinculados y reseñas públicas.
+          </p>
+          <div className="mt-3 inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900">
+            Reseñas pendientes: {pendingProfileReviews}
+          </div>
         </div>
 
         <Link
@@ -60,6 +76,24 @@ export default async function AdminPersonalPage() {
       <div className="space-y-4">
         {professionals.map((p) => {
           const approvedServices = p.serviceAssignments.filter((assignment) => assignment.status === "APPROVED");
+          const profileReviewStatus = p.profileReviewStatus || (p.profileReview ? "APPROVED" : "EMPTY");
+          const profileReviewLabel =
+            profileReviewStatus === "PENDING"
+              ? "Reseña pendiente"
+              : profileReviewStatus === "APPROVED"
+                ? "Reseña aprobada"
+                : profileReviewStatus === "REJECTED"
+                  ? "Reseña con ajustes"
+                  : "Sin reseña";
+          const profileReviewBadgeClass =
+            profileReviewStatus === "PENDING"
+              ? "bg-amber-50 text-amber-800 border-amber-200"
+              : profileReviewStatus === "APPROVED"
+                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                : profileReviewStatus === "REJECTED"
+                  ? "bg-rose-50 text-rose-800 border-rose-200"
+                  : "bg-slate-50 text-slate-800 border-slate-200";
+          const reviewPreview = p.profileReviewDraft || p.profileReview || "";
 
           return (
             <div key={p.id} className="bg-white rounded-2xl border border-slate-200 p-6">
@@ -94,6 +128,19 @@ export default async function AdminPersonalPage() {
                     <span className="text-xs text-slate-500">
                       Servicios aprobados: <b>{approvedServices.length}</b>
                     </span>
+
+                    <span className={`inline-flex items-center rounded-full border px-2 py-1 text-xs font-semibold ${profileReviewBadgeClass}`}>
+                      {profileReviewLabel}
+                    </span>
+
+                    {p.slug ? (
+                      <Link
+                        href={`/profesionales/${p.slug}`}
+                        className="text-xs font-semibold text-brand-800 hover:text-brand-900 hover:underline"
+                      >
+                        Ver perfil público
+                      </Link>
+                    ) : null}
 
                     {!p.isApproved && (
                       <div className="ml-2 flex gap-2">
@@ -154,6 +201,51 @@ export default async function AdminPersonalPage() {
                     ))}
                   </div>
                 )}
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-slate-900">Reseña pública</div>
+                    <p className="mt-1 text-xs text-slate-600">
+                      El texto aprobado aparece en la página pública del profesional.
+                    </p>
+                  </div>
+                  <span className={`inline-flex items-center rounded-full border px-2 py-1 text-xs font-semibold ${profileReviewBadgeClass}`}>
+                    {profileReviewLabel}
+                  </span>
+                </div>
+
+                {reviewPreview ? (
+                  <p className="mt-3 line-clamp-4 whitespace-pre-line text-sm text-slate-700">
+                    {reviewPreview}
+                  </p>
+                ) : (
+                  <p className="mt-3 text-sm text-slate-600">El profesional todavía no cargó una reseña pública.</p>
+                )}
+
+                {p.profileReviewAdminNote ? (
+                  <p className="mt-2 text-xs font-semibold text-rose-800">Nota: {p.profileReviewAdminNote}</p>
+                ) : null}
+
+                {profileReviewStatus === "PENDING" && p.profileReviewDraft ? (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <AdminApproveButton
+                      endpoint={`/api/admin/professionals/${p.id}/profile-review/approve`}
+                      label="Aprobar reseña"
+                      pendingLabel="Aprobando..."
+                      successMessage="Reseña aprobada y publicada."
+                    />
+                    <AdminApproveButton
+                      endpoint={`/api/admin/professionals/${p.id}/profile-review/reject`}
+                      label="Pedir ajustes"
+                      pendingLabel="Marcando..."
+                      buttonClassName="bg-rose-700 hover:bg-rose-800"
+                      confirmMessage="¿Solicitar ajustes antes de publicar esta reseña?"
+                      successMessage="La reseña quedó marcada para ajustes."
+                    />
+                  </div>
+                ) : null}
               </div>
             </div>
           );

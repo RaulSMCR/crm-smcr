@@ -13,6 +13,7 @@ export default function ProfessionalCalendarBooking({
   professionalId,
   professionalName,
   professionalImage,
+  professionalSlug,
   durationMin,
   availability,
   booked,
@@ -56,7 +57,7 @@ export default function ProfessionalCalendarBooking({
       <div className="rounded-2xl border border-slate-200 bg-white p-6 lg:col-span-2">
         <div className="flex items-center gap-3">
           <Link
-            href={`/agendar/${professionalId}${serviceId ? `?serviceId=${serviceId}` : ""}`}
+            href={professionalSlug ? `/profesionales/${professionalSlug}${serviceId ? `?serviceId=${serviceId}` : ""}` : `/agendar/${professionalId}${serviceId ? `?serviceId=${serviceId}` : ""}`}
             className="flex items-center gap-3 rounded-lg p-1 transition hover:bg-blue-50"
           >
             <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-50">

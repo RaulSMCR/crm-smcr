@@ -150,7 +150,7 @@ export default function RegistroUsuarioPage() {
           </p>
 
           {errorMsg && (
-            <div className="mb-6 rounded-xl border border-accent-300 bg-accent-50 p-4 text-sm text-accent-800">
+            <div className="mb-6 rounded-xl border border-accent-400 bg-accent-100 p-4 text-sm font-medium text-accent-950">
               {errorMsg}
             </div>
           )}
