@@ -1,23 +1,20 @@
-// src/components/MissionVideo.js
 export default function MissionVideo() {
-  // Reemplaza este enlace con el enlace "embed" de tu video de YouTube
-  const videoUrl = "https://www.youtube.com/embed/dQw4w9WgXcQ"; 
+  const videoUrl = "https://www.youtube.com/embed/v_X_PfXVLYg";
 
   return (
-    <section className="neutral-300 py-16"> {/* Menos espaciado vertical */}
+    <section className="neutral-300 py-16">
       <div className="container mx-auto px-6 text-center">
-        <h2 className="text-3xl font-bold text-brand-600 mb-8">
-          Guía para el usuario.
+        <h2 className="mb-8 text-3xl font-bold text-brand-600">
+          Guia para el usuario
         </h2>
-        {/* max-w-2xl hace el video más pequeño */}
-        <div className="aspect-video max-w-2xl mx-auto rounded-lg shadow-xl overflow-hidden">
-          <iframe 
-            src={videoUrl} 
-            title="Misión de Salud Mental Costa Rica" 
-            frameBorder="0" 
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+        <div className="mx-auto aspect-video max-w-2xl overflow-hidden rounded-lg shadow-xl">
+          <iframe
+            src={videoUrl}
+            title="Guia para el usuario de Salud Mental Costa Rica"
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
-            className="w-full h-full"
+            className="h-full w-full"
           ></iframe>
         </div>
       </div>
