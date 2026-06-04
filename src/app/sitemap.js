@@ -7,7 +7,7 @@ const STATIC_PAGES = [
   { url: '/servicios',             priority: 0.9, changeFrequency: 'weekly'  },
   { url: '/blog',                  priority: 0.8, changeFrequency: 'daily'   },
   { url: '/nosotros',              priority: 0.6, changeFrequency: 'monthly' },
-  { url: '/contacto',              priority: 0.6, changeFrequency: 'monthly' },
+  { url: '/faq',                   priority: 0.7, changeFrequency: 'monthly' },
   { url: '/ingresar',              priority: 0.6, changeFrequency: 'monthly' },
   { url: '/registro',              priority: 0.6, changeFrequency: 'monthly' },
   { url: '/registro/profesional',  priority: 0.6, changeFrequency: 'monthly' },

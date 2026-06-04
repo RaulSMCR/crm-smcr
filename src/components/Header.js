@@ -58,8 +58,8 @@ export default async function Header() {
           <Link href="/blog" className="hover:text-blue-600 transition-colors">
             Blog
           </Link>
-          <Link href="/contacto" className="hover:text-blue-600 transition-colors">
-            Contacto
+          <Link href="/faq" className="hover:text-blue-600 transition-colors">
+            FAQs
           </Link>
         </nav>
 
