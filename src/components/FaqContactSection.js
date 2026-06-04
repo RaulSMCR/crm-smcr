@@ -9,6 +9,11 @@ const SUBJECT_OPTIONS = [
   { value: 'institucional', label: 'Asunto institucional / Profesionales' },
 ];
 
+// La variable NEXT_PUBLIC_* se inyecta en el bundle al arrancar el servidor.
+// Si está vacía el widget no se muestra y el envío no requiere token.
+const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '';
+const CAPTCHA_ENABLED = SITE_KEY.length > 0;
+
 export default function FaqContactSection() {
   const [isOpen,       setIsOpen]       = useState(false);
   const [status,       setStatus]       = useState('idle'); // 'idle' | 'submitting' | 'success' | 'error'
@@ -16,10 +21,13 @@ export default function FaqContactSection() {
   const [captchaToken, setCaptchaToken] = useState('');
   const turnstileRef = useRef(null);
 
+  // El botón solo se bloquea por falta de token cuando el captcha está activo
+  const submitBlocked = status === 'submitting' || (CAPTCHA_ENABLED && !captchaToken);
+
   async function handleSubmit(e) {
     e.preventDefault();
 
-    if (!captchaToken) {
+    if (CAPTCHA_ENABLED && !captchaToken) {
       setErrorMsg('Completá la verificación de seguridad antes de enviar.');
       setStatus('error');
       return;
@@ -34,7 +42,7 @@ export default function FaqContactSection() {
       email:        fd.get('email'),
       asunto:       fd.get('asunto'),
       mensaje:      fd.get('mensaje'),
-      captchaToken,
+      captchaToken: captchaToken || '',
     };
 
     try {
@@ -50,7 +58,6 @@ export default function FaqContactSection() {
       } else {
         setErrorMsg(data.error || 'Ocurrió un error al enviar el mensaje.');
         setStatus('error');
-        // Resetear el widget para que el usuario pueda volver a intentarlo
         turnstileRef.current?.reset();
         setCaptchaToken('');
       }
@@ -211,18 +218,12 @@ export default function FaqContactSection() {
                   />
                 </div>
 
-                {/* ── Cloudflare Turnstile ─────────────────────────────────────
-                     El widget solo monta cuando el panel está abierto (isOpen).
-                     onSuccess  → guarda el token para incluirlo en el payload.
-                     onExpire   → borra el token (el usuario debe revalidar).
-                     onError    → borra el token (ej. sin conexión a Cloudflare).
-                     ref        → permite llamar a .reset() tras un error de envío.
-                ─────────────────────────────────────────────────────────────── */}
-                {isOpen && (
+                {/* Turnstile — solo se monta si SITE_KEY está configurada */}
+                {CAPTCHA_ENABLED && isOpen && (
                   <div>
                     <Turnstile
                       ref={turnstileRef}
-                      siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || ''}
+                      siteKey={SITE_KEY}
                       onSuccess={setCaptchaToken}
                       onExpire={() => setCaptchaToken('')}
                       onError={() => setCaptchaToken('')}
@@ -245,7 +246,7 @@ export default function FaqContactSection() {
                 <div className="flex justify-end pt-1">
                   <button
                     type="submit"
-                    disabled={status === 'submitting' || !captchaToken}
+                    disabled={submitBlocked}
                     className="btn-primary px-6 py-2.5 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {status === 'submitting' ? 'Enviando…' : 'Enviar consulta'}
