@@ -1,4 +1,5 @@
 import ContactForm from "@/components/ContactForm";
+import { getSession } from "@/lib/auth";
 
 export const metadata = {
   title: 'Contacto',
@@ -12,7 +13,8 @@ export const metadata = {
   },
 };
 
-export default function ContactoPage() {
+export default async function ContactoPage() {
+  const session = await getSession();
   return (
     <div className="bg-surface py-12">
       <div className="container mx-auto px-6">
@@ -35,15 +37,17 @@ export default function ContactoPage() {
                 contacto@saludmentalcostarica.com
               </a>
             </div>
-            <div>
-              <h3 className="text-xl font-semibold text-brand-900">WhatsApp / Teléfono</h3>
-              <a
-                href="tel:+50671291909"
-                className="font-medium text-brand-800 hover:text-brand-900"
-              >
-                +506 71291909
-              </a>
-            </div>
+            {session && (
+              <div>
+                <h3 className="text-xl font-semibold text-brand-900">WhatsApp / Teléfono</h3>
+                <a
+                  href="tel:+50671291909"
+                  className="font-medium text-brand-800 hover:text-brand-900"
+                >
+                  +506 71291909
+                </a>
+              </div>
+            )}
           </div>
 
           <div>

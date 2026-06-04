@@ -24,6 +24,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@marsidev/react-turnstile": "^1.5.2",
     "@prisma/client": "5.22.0",
     "@supabase/supabase-js": "^2.95.3",
     "@upstash/qstash": "^2.9.0",
