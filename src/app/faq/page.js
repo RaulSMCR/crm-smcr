@@ -73,16 +73,16 @@ const faqSections = [
     items: [
       {
         id: "s1",
-        question: "¿Los servicios de la plataforma son gratuitos?",
+        question: "¿Cuál es el costo por los servicios de los profesionales?",
         answer:
-          "No. Los profesionales que integran nuestra plataforma brindan servicios exclusivamente arancelados. Creemos en la justa retribución del trabajo profesional y en el establecimiento de un encuadre serio y ético para cada proceso de salud mental.",
+          "El costo del servicio de cada profesional es asignado por el profesional mismo igualando o superando los valores dictaminados directamente por su colegio profesional. Sin embargo puede seguir aprendiendo en nuestro blog de modo gratuito, está a disposición de todos, usuarios registrados y no registrados, ahí podrás encontrar herramientas y recursos de autoayuda para el cuidado de tu salud mental, además de información sobre psicología, salud mental y bienestar emocional.",
       },
       {
         id: "s2",
         question:
-          "¿Puedo recibir asesoría o realizar consultas orientativas por WhatsApp?",
+          "¿Puedo recibir asesoría o realizar consultas orientativas sin agendar una cita?",
         answer:
-          "No. Por motivos éticos, de confidencialidad y secreto profesional, los especialistas no realizan atención, diagnóstico ni orientación clínica a través de mensajería instantánea o canales de soporte. La interacción profesional se inicia únicamente dentro del espacio formal de la sesión agendada.",
+          "Puedes continuar tu aprendizaje haciendo uso de las herramientas disponibles en nuestro blog. Sin embargo por motivos éticos del ejercicio de la práctica profesional, de confidencialidad y secreto profesional, los especialistas no realizan atención, diagnóstico ni orientación clínica a través de mensajería instantánea o canales de soporte. La interacción profesional se inicia únicamente dentro del espacio formal de la sesión agendada.",
       },
       {
         id: "s3",
@@ -95,7 +95,7 @@ const faqSections = [
         question:
           "¿Alguien me entrevistará o me pedirá mis motivos de consulta antes de la cita?",
         answer:
-          "No. En nuestra plataforma respetamos estrictamente el secreto profesional y el derecho a la confidencialidad desde el primer segundo. Ningún intermediario, asistente o personal administrativo está autorizado a interrogarte, realizar cribados (triage) o solicitarte detalles sobre tu motivo de consulta.\n\nEntendemos que el malestar psicológico y la historia personal son estrictamente privados y solo deben ser abordados directamente con el profesional de la salud matriculado que hayas elegido, dentro del espacio seguro de la sesión. Los procesos automatizados de nuestro portal garantizan que tu información clínica no pase por terceros.",
+          "No. Incluso desaconsejamos de modo enfático hacer uso de cualquier servicio en cualquier plataforma en que una persona sin las credenciales adecuadas del colegio profesional correspondiente al servicio ofertado, personal de recepción o secretaría no debería pedir otra cosa que los datos mínimos para agendar una cita, nobre y teléfono, quizá alguna vez identificación.  Cualquier persona que intente solicitar información más allá de eso debe pertenecer a un colegio profesional afin a servicios relacionados con salud y salud mental. En nuestra plataforma respetamos estrictamente el secreto profesional y el derecho a la confidencialidad desde el primer segundo. Ningún intermediario, asistente o personal administrativo está autorizado a interrogarte, realizar cribados (triage) o solicitarte detalles sobre tu motivo de consulta.\n\nEntendemos que el malestar psicológico y la historia personal son estrictamente privados y solo deben ser abordados directamente con el profesional de la salud matriculado que hayas elegido, dentro del espacio seguro de la sesión. Los procesos automatizados de nuestro portal garantizan que tu información clínica no pase por terceros.",
       },
     ],
   },
