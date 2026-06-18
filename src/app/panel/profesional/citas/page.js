@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import Link from "next/link";
 import ProfessionalAppointmentsPanel from "@/components/ProfessionalAppointmentsPanel";
+import InsuranceClaimsSection from "@/components/profesional/InsuranceClaimsSection";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -15,7 +16,7 @@ export default async function ProfesionalCitasPage() {
   const professionalId = String(session.professionalProfileId || "");
   if (!professionalId) redirect("/panel/profesional/perfil");
 
-  const [appointments, serviceAssignments, availability, futureAppointments, patients] = await Promise.all([
+  const [appointments, serviceAssignments, availability, futureAppointments, patients, pendingSignedClaimsRaw, pendingTemplatePatientsRaw] = await Promise.all([
     prisma.appointment.findMany({
       where: { professionalId },
       orderBy: { date: "asc" },
@@ -65,6 +66,24 @@ export default async function ProfesionalCitasPage() {
       orderBy: { name: "asc" },
       take: 300,
     }),
+    prisma.insuranceClaim.findMany({
+      where: { professionalId, status: "PENDING_SIGNED_FORM" },
+      orderBy: { createdAt: "desc" },
+      include: {
+        patient: { select: { name: true, insuranceName: true, insuranceTemplateUrl: true } },
+        appointment: { select: { date: true } },
+      },
+    }),
+    prisma.user.findMany({
+      where: {
+        hasInsurance: true,
+        useInsuranceForPayment: true,
+        insurancePatientFormUrl: { not: null },
+        insuranceTemplateUrl: null,
+        appointments: { some: { professionalId } },
+      },
+      select: { id: true, name: true, insurancePatientFormUrl: true },
+    }),
   ]);
 
   const initialAppointments = appointments.map((appointment) => ({
@@ -85,6 +104,16 @@ export default async function ProfesionalCitasPage() {
     })),
     patients,
   };
+
+  const pendingSignedClaims = pendingSignedClaimsRaw.map((c) => ({
+    id: c.id,
+    patientName: c.patient.name,
+    insuranceName: c.patient.insuranceName,
+    templateUrl: c.patient.insuranceTemplateUrl,
+    paymentDate: c.paymentDate,
+  }));
+
+  const pendingTemplatePatients = pendingTemplatePatientsRaw;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-8">
@@ -111,6 +140,11 @@ export default async function ProfesionalCitasPage() {
           </p>
         </article>
       </section>
+
+      <InsuranceClaimsSection
+        pendingTemplatePatients={pendingTemplatePatients}
+        pendingSignedClaims={pendingSignedClaims}
+      />
 
       <ProfessionalAppointmentsPanel
         initialAppointments={initialAppointments}

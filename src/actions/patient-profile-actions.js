@@ -4,6 +4,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/actions/auth-actions";
 import { revalidatePath } from "next/cache";
+import { sendInsuranceAdminAlert } from "@/lib/insurance-mail";
 
 const s = (v) => String(v ?? "").trim();
 
@@ -70,6 +71,52 @@ export async function updatePatientProfile(formData) {
   } catch (e) {
     console.error("updatePatientProfile error:", e);
     return { error: "No se pudo guardar la informacion. Por favor, intentelo nuevamente." };
+  }
+}
+
+export async function updateInsuranceInfo(formData) {
+  const session = await getSession();
+  if (!session) return { error: "No autenticado." };
+  if (session.role !== "USER") return { error: "No autorizado." };
+
+  const userId = String(session.userId || session.sub);
+
+  const hasInsurance = formData.get("hasInsurance") === "true";
+  const useInsuranceForPayment = hasInsurance && formData.get("useInsuranceForPayment") === "true";
+  const insuranceName = useInsuranceForPayment
+    ? s(formData.get("insuranceName")) || null
+    : null;
+
+  try {
+    const prev = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { useInsuranceForPayment: true, name: true },
+    });
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { hasInsurance, useInsuranceForPayment, insuranceName },
+    });
+
+    // Alerta al admin solo cuando se activa por primera vez
+    if (useInsuranceForPayment && !prev?.useInsuranceForPayment) {
+      const admins = await prisma.user.findMany({
+        where: { role: "ADMIN" },
+        select: { email: true },
+      });
+      const adminEmails = admins.map((a) => a.email).filter(Boolean);
+      sendInsuranceAdminAlert({
+        adminEmails,
+        patientName: prev?.name || "Paciente",
+        insuranceName: insuranceName || "no especificado",
+      }).catch((e) => console.error("[updateInsuranceInfo] email error:", e));
+    }
+
+    revalidatePath("/panel/paciente");
+    return { success: true };
+  } catch (e) {
+    console.error("updateInsuranceInfo error:", e);
+    return { error: "No se pudo guardar la información de seguro." };
   }
 }
 

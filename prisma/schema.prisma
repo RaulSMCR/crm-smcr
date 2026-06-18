@@ -53,6 +53,12 @@ enum ServiceAssignmentStatus {
   REJECTED
 }
 
+enum InsuranceClaimStatus {
+  AWAITING_TEMPLATE
+  PENDING_SIGNED_FORM
+  COMPLETED
+}
+
 enum PostStatus {
   DRAFT
   PUBLISHED
@@ -122,6 +128,21 @@ model User {
   resetTokenHash  String?
   resetTokenExp   DateTime?
 
+  // Seguro médico
+  hasInsurance           Boolean   @default(false)
+  useInsuranceForPayment Boolean   @default(false)
+  insuranceName          String?   @db.VarChar(128)
+
+  insuranceBlankFormUrl        String?
+  insuranceBlankFormUploadedAt DateTime?
+
+  insurancePatientFormUrl        String?
+  insurancePatientFormUploadedAt DateTime?
+
+  insuranceTemplateUrl        String?
+  insuranceTemplateUploadedAt DateTime?
+  insuranceTemplateProId      String?
+
   professionalProfile ProfessionalProfile?
 
   appointments    Appointment[] @relation("PatientAppointments")
@@ -130,6 +151,7 @@ model User {
 
   postViewEvents      PostViewEvent[]
   paymentTransactions PaymentTransaction[]
+  insuranceClaims     InsuranceClaim[]     @relation("PatientInsuranceClaims")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -177,6 +199,7 @@ model ProfessionalProfile {
   appointments      Appointment[]      @relation("ProAppointments")
   invoices          Invoice[]          @relation("InvoiceProfessional")
   homeCarouselItems HomeCarouselItem[]
+  insuranceClaims   InsuranceClaim[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -438,6 +461,7 @@ model Appointment {
   isFirstWithProfessional Boolean              @default(false)
   paymentTransactions     PaymentTransaction[]
   invoices                Invoice[]            @relation("AppointmentInvoices")
+  insuranceClaim          InsuranceClaim?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -532,6 +556,28 @@ model HomeCarouselItem {
   @@index([kind, isActive, displayOrder])
   @@index([postId])
   @@index([professionalId])
+}
+
+model InsuranceClaim {
+  id             String               @id @default(cuid())
+  patientId      String
+  appointmentId  String               @unique
+  professionalId String
+  paymentDate    DateTime?
+  signedFormUrl  String?
+  signedFormUploadedAt DateTime?
+  emailSentAt    DateTime?
+  status         InsuranceClaimStatus @default(AWAITING_TEMPLATE)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  patient      User                @relation("PatientInsuranceClaims", fields: [patientId], references: [id])
+  appointment  Appointment         @relation(fields: [appointmentId], references: [id])
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id])
+
+  @@index([patientId])
+  @@index([professionalId])
+  @@index([status])
 }
 
 model PostViewEvent {

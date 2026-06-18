@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/actions/auth-actions";
 import PatientProfileEditorCard from "@/components/paciente/PatientProfileEditorCard";
+import InsurancePatientUploader from "@/components/paciente/InsurancePatientUploader";
 import UserAppointmentsPanel from "@/components/UserAppointmentsPanel";
 import Link from "next/link";
 
@@ -33,6 +34,11 @@ export default async function PacientePanelPage({ searchParams }) {
         birthDate: true,
         gender: true,
         interests: true,
+        hasInsurance: true,
+        useInsuranceForPayment: true,
+        insuranceName: true,
+        insuranceBlankFormUrl: true,
+        insurancePatientFormUrl: true,
       },
     }),
     prisma.appointment.findMany({
@@ -103,6 +109,12 @@ export default async function PacientePanelPage({ searchParams }) {
           Citas finalizadas o vencidas que siguen con saldo pendiente.
         </p>
       </div>
+
+      {user.insuranceBlankFormUrl && !user.insurancePatientFormUrl && (
+        <InsurancePatientUploader
+          blankFormUrl={user.insuranceBlankFormUrl}
+        />
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">

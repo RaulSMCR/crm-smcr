@@ -65,6 +65,7 @@ export default async function AdminDashboard() {
     homeCarouselActiveCount,
     activeAppointmentsCount,
     openInvoicesCount,
+    insurancePendingCount,
     pendingUsers,
   ] = await Promise.all([
     prisma.user.count({ where: wherePendingProsUsers }),
@@ -77,6 +78,7 @@ export default async function AdminDashboard() {
     prisma.homeCarouselItem.count({ where: { isActive: true } }),
     prisma.appointment.count({ where: { status: { in: ["PENDING", "CONFIRMED"] } } }),
     prisma.invoice.count({ where: { status: { in: ["DRAFT", "OPEN"] } } }),
+    prisma.insuranceClaim.count({ where: { status: "PENDING_SIGNED_FORM" } }),
     prisma.user.findMany({
       where: wherePendingProsUsers,
       include: { professionalProfile: true },
@@ -147,6 +149,13 @@ export default async function AdminDashboard() {
             href="/panel/admin/comunicaciones"
             title="Comunicaciones"
             description="Accesos directos a correos y canales."
+          />
+          <DashboardCard
+            href="/panel/admin/seguros"
+            title="Seguros médicos"
+            description="Gestión de formularios de reclamo de pacientes con seguro."
+            count={insurancePendingCount || undefined}
+            tone="accent"
           />
         </div>
 

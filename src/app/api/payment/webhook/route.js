@@ -28,6 +28,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyOnvoWebhook } from "@/lib/onvo/webhook";
 import { resend } from "@/lib/resend";
 import { submitInvoiceToFe } from "@/lib/fe/submit";
+import { sendInsuranceProSignAlert } from "@/lib/insurance-mail";
 
 export const dynamic = "force-dynamic";
 
@@ -112,7 +113,17 @@ export async function POST(request) {
             service: { select: { title: true } },
           },
         },
-        patient: { select: { name: true, email: true, identification: true } },
+        patient: {
+          select: {
+            name: true,
+            email: true,
+            identification: true,
+            hasInsurance: true,
+            useInsuranceForPayment: true,
+            insuranceName: true,
+            insuranceTemplateUrl: true,
+          },
+        },
         professional: { select: { user: { select: { name: true, email: true } } } },
       },
     });
@@ -165,6 +176,10 @@ export async function POST(request) {
         console.error("[ONVO webhook] Error en submitInvoiceToFe:", e)
       );
     }
+
+    handleInsuranceClaim(transaction, paidAt).catch((e) =>
+      console.error("[ONVO webhook] Error en handleInsuranceClaim:", e)
+    );
   } else if (newStatus === "REJECTED") {
     await sendPaymentFailedEmail(transaction);
   }
@@ -288,6 +303,48 @@ async function sendPaymentConfirmationEmail(transaction) {
   });
 
   if (error) console.error("[ONVO webhook] Error enviando email confirmación:", error);
+}
+
+// ── Reclamo de seguro ────────────────────────────────────────────────────────
+
+async function handleInsuranceClaim(transaction, paidAt) {
+  const patient = transaction.patient;
+  if (!patient?.hasInsurance || !patient?.useInsuranceForPayment) return;
+
+  const appointmentId = transaction.appointmentId;
+  const professionalId = transaction.professionalId;
+  const templateUrl = patient.insuranceTemplateUrl || null;
+  const claimStatus = templateUrl ? "PENDING_SIGNED_FORM" : "AWAITING_TEMPLATE";
+
+  const claim = await prisma.insuranceClaim.upsert({
+    where: { appointmentId },
+    create: {
+      patientId: transaction.patientId,
+      appointmentId,
+      professionalId,
+      paymentDate: paidAt,
+      status: claimStatus,
+    },
+    update: {
+      paymentDate: paidAt,
+      status: claimStatus,
+    },
+  });
+
+  console.log(`[ONVO webhook] InsuranceClaim ${claim.id} → status: ${claimStatus}`);
+
+  if (claimStatus === "PENDING_SIGNED_FORM") {
+    const proEmail = transaction.professional?.user?.email;
+    if (proEmail) {
+      sendInsuranceProSignAlert({
+        proEmail,
+        patientName: patient.name,
+        insuranceName: patient.insuranceName,
+        paymentDate: paidAt,
+        templateUrl,
+      }).catch((e) => console.error("[ONVO webhook] Error enviando alerta de seguro al profesional:", e));
+    }
+  }
 }
 
 async function sendPaymentFailedEmail(transaction) {
