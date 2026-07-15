@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { splitTaxIncluded } from "../../src/lib/invoice-math.js";
+import { splitTaxIncluded, computeInvoiceLine } from "../../src/lib/invoice-math.js";
 
 describe("splitTaxIncluded", () => {
   it("desglosa 45,500 al 4%", () => {
@@ -14,5 +14,19 @@ describe("splitTaxIncluded", () => {
   it("permite una tasa de referencia de 13%", () => {
     const result = splitTaxIncluded(11300, 13);
     expect(result).toEqual({ baseCents: 10000, taxCents: 1300 });
+  });
+});
+
+describe("computeInvoiceLine", () => {
+  it("calcula descuento e IVA 4%", () => {
+    expect(computeInvoiceLine({ quantity: 2, unitPrice: 10000, discountPercent: 10, taxRate: 4 })).toMatchObject({
+      lineSubtotal: 18000,
+      taxAmount: 720,
+      lineTotal: 18720,
+    });
+  });
+
+  it("calcula IVA 13% sin descuento", () => {
+    expect(computeInvoiceLine({ quantity: 1, unitPrice: 10000, taxRate: 13 }).lineTotal).toBe(11300);
   });
 });

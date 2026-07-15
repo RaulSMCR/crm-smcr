@@ -15,7 +15,14 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov"],
-      include: ["src/lib/placetopay/**", "src/actions/payment-actions.js"],
+      include: [
+        "src/lib/invoice-math.js",
+        "src/lib/fe/config.js",
+        "src/lib/onvo/match-payment.js",
+        "src/lib/appointment-recurrence.js",
+        "src/lib/timezone.js",
+        "src/lib/appointment-slots.js",
+      ],
     },
   },
 });
