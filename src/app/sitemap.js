@@ -36,7 +36,7 @@ export default async function sitemap() {
       }),
       prisma.professionalProfile.findMany({
         where: { isApproved: true },
-        select: { id: true, updatedAt: true },
+        select: { id: true, slug: true, updatedAt: true },
       }),
       prisma.post.findMany({
         where: { status: 'PUBLISHED' },
@@ -54,8 +54,8 @@ export default async function sitemap() {
     priority: 0.9,
   }));
 
-  const professionalEntries = professionals.map(({ id, updatedAt }) => ({
-    url: `${BASE_URL}/agendar/${id}`,
+  const professionalEntries = professionals.filter(({ slug }) => slug).map(({ slug, updatedAt }) => ({
+    url: `${BASE_URL}/profesionales/${slug}`,
     lastModified: updatedAt,
     changeFrequency: 'weekly',
     priority: 0.8,

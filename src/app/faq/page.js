@@ -1,5 +1,6 @@
 import AccordionItem from "@/components/AccordionItem";
 import FaqContactSection from "@/components/FaqContactSection";
+import JsonLd from "@/components/JsonLd";
 
 export const metadata = {
   title: "Preguntas Frecuentes",
@@ -144,8 +145,14 @@ const faqSections = [
 ];
 
 export default function FaqPage() {
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqSections.flatMap((section) => section.items).map((item) => ({ "@type": "Question", name: item.question, acceptedAnswer: { "@type": "Answer", text: item.answer } })),
+  };
   return (
     <>
+      <JsonLd data={faqSchema} />
       {/* Hero */}
       <section className="bg-surface py-16 border-b border-neutral-200">
         <div className="container max-w-3xl text-center">

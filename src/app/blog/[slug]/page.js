@@ -113,6 +113,7 @@ export default async function BlogPostPage({ params }) {
   return (
     <article className="min-h-screen bg-surface">
       <JsonLd data={articleSchema} />
+      <JsonLd data={{ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Blog", item: "https://saludmentalcostarica.com/blog" }, { "@type": "ListItem", position: 2, name: post.title, item: `https://saludmentalcostarica.com/blog/${post.slug}` }] }} />
       {/* Tracker Marketing (Nivel 3) */}
       <PostMarketingTracker slug={slug} title={post.title} />
 

@@ -111,6 +111,7 @@ export default async function ProfessionalPublicProfilePage({ params, searchPara
   return (
     <main className="min-h-screen bg-surface px-6 py-10">
       <JsonLd data={personSchema} />
+      <JsonLd data={{ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Profesionales", item: "https://saludmentalcostarica.com/profesionales" }, { "@type": "ListItem", position: 2, name, item: `https://saludmentalcostarica.com/profesionales/${professional.slug}` }] }} />
       <ViewTracker
         eventName="view_professional_profile"
         eventParams={{ professional_name: name }}

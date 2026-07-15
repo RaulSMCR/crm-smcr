@@ -10,6 +10,7 @@ export async function generateMetadata({ params }) {
     where: { id: params.id },
     select: {
       specialty: true,
+      slug: true,
       bio: true,
       profileReview: true,
       avatarUrl: true,
@@ -31,7 +32,7 @@ export async function generateMetadata({ params }) {
   return {
     title: `Agendá con ${name} — ${professional.specialty}`,
     description,
-    alternates: { canonical },
+    alternates: { canonical: professional.slug ? `https://saludmentalcostarica.com/profesionales/${professional.slug}` : canonical },
     openGraph: {
       title: `Agendá con ${name} | Salud Mental Costa Rica`,
       description,

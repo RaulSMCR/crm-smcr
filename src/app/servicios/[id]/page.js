@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { isPrismaConnectionError } from "@/lib/prisma-safe";
 import ViewTracker from "@/components/tracking/ViewTracker";
+import JsonLd from "@/components/JsonLd";
 
 export const revalidate = 3600;
 
@@ -132,6 +133,8 @@ export default async function ServiceDetailPage({ params }) {
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 p-6 md:p-10">
+      <JsonLd data={{ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Servicios", item: "https://saludmentalcostarica.com/servicios" }, { "@type": "ListItem", position: 2, name: service.title, item: `https://saludmentalcostarica.com/servicios/${service.id}` }] }} />
+      <JsonLd data={{ "@context": "https://schema.org", "@type": "Service", name: service.title, description: service.description || undefined, offers: minApprovedPrice !== null ? { "@type": "Offer", priceCurrency: "CRC", price: minApprovedPrice, availability: "https://schema.org/InStock" } : undefined }} />
       <ViewTracker
         eventName="view_service"
         eventParams={{ service_name: service.title }}

@@ -91,6 +91,7 @@ export default async function AdminMarketingPage() {
           <p className="text-sm text-neutral-700">
             Control de piezas visibles en la pagina principal.
           </p>
+          <Link href="/panel/admin/marketing/adquisicion" className="mt-3 inline-flex rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Ver adquisición</Link>
         </div>
 
         <HomeCarouselManager
