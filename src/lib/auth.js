@@ -1,6 +1,7 @@
 // src/lib/auth.js
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 
 function getSecretKey() {
@@ -69,7 +70,17 @@ export async function verifyAdminViewToken(token) {
   return payload;
 }
 
-export async function getSession() {
+/**
+ * Resuelve la sesión del request actual: verifica el JWT y contrasta
+ * `sessionVersion` e `isActive` contra la base en cada request.
+ *
+ * Envuelta en `cache()` de React: las múltiples llamadas de un mismo request
+ * (layout, página, server actions, componentes de servidor) comparten una sola
+ * consulta. El caché muere con el request, así que la revocación sigue siendo
+ * efectiva en el siguiente — no añadir caché entre requests (TTL, memoria
+ * global, Redis) o se pierde esa garantía.
+ */
+export const getSession = cache(async () => {
   const cookieStore = await cookies();
   const token = cookieStore.get("session")?.value;
   if (!token) return null;
@@ -113,7 +124,7 @@ export async function getSession() {
   } catch {
     return null;
   }
-}
+});
 
 export function setSessionCookie(response, token) {
   response.cookies.set({

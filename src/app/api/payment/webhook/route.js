@@ -152,8 +152,10 @@ export async function POST(request) {
   });
 
   if (matchResult.unmatchedReason) {
+    // `unmatchedDetail` trae el diagnóstico cuando lo hay (p. ej. divisor de monto mal configurado).
+    const unmatchedReason = matchResult.unmatchedDetail || matchResult.unmatchedReason;
     console.warn(
-      `[ONVO webhook] Pago no conciliado (${matchResult.unmatchedReason}) enlace=${onvoLinkId} evento=${eventId}`
+      `[ONVO webhook] Pago no conciliado (${unmatchedReason}) enlace=${onvoLinkId} evento=${eventId}`
     );
     await recordUnmatchedPayment({
       eventId,
@@ -161,12 +163,12 @@ export async function POST(request) {
       amount: eventAmount,
       currency: eventCurrency,
       customerEmail: eventCustomerEmail,
-      reason: matchResult.unmatchedReason,
+      reason: unmatchedReason,
       payload,
     });
     await sendAdminPaymentAlert({
       subject: `⚠ Pago ONVO no conciliado (${matchResult.unmatchedReason})`,
-      reason: matchResult.unmatchedReason,
+      reason: unmatchedReason,
       eventId,
       onvoLinkId,
       amount: eventAmount,
