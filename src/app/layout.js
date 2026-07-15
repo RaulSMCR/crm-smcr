@@ -4,6 +4,8 @@ import Script from 'next/script';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import JsonLd from '@/components/JsonLd';
+import ConsentBanner from '@/components/ConsentBanner';
+import AnalyticsLoader from '@/components/AnalyticsLoader';
 
 const ORGANIZATION_SCHEMA = {
   '@context': 'https://schema.org',
@@ -72,46 +74,33 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="es">
+      {/* Google Consent Mode v2: por defecto TODO denegado, antes de cargar
+          cualquier script de analítica. GA/Pixel se cargan solo tras aceptar
+          (ver AnalyticsLoader) y respetan este estado. */}
       {process.env.NODE_ENV === 'production' && (
         <>
-          {GA_ID && (
-            <>
-              <Script
-                src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
-                strategy="afterInteractive"
-              />
-              <Script id="ga-init" strategy="afterInteractive">
-                {`
-                  window.dataLayer = window.dataLayer || [];
-                  function gtag(){dataLayer.push(arguments);}
-                  gtag('js', new Date());
-                  gtag('config', '${GA_ID}');
-                `}
-              </Script>
-            </>
-          )}
-          {META_PIXEL_ID && (
-            <Script id="meta-pixel-init" strategy="afterInteractive">
-              {`
-                !function(f,b,e,v,n,t,s)
-                {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-                n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-                if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-                n.queue=[];t=b.createElement(e);t.async=!0;
-                t.src=v;s=b.getElementsByTagName(e)[0];
-                s.parentNode.insertBefore(t,s)}(window,document,'script',
-                'https://connect.facebook.net/en_US/fbevents.js');
-                fbq('init', '${META_PIXEL_ID}');
-                fbq('track', 'PageView');
-              `}
-            </Script>
-          )}
+          <Script id="consent-default" strategy="beforeInteractive">
+            {`
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('consent', 'default', {
+                analytics_storage: 'denied',
+                ad_storage: 'denied',
+                ad_user_data: 'denied',
+                ad_personalization: 'denied'
+              });
+              gtag('js', new Date());
+            `}
+          </Script>
         </>
       )}
       {/* 1. flex flex-col: Permite organizar header-main-footer verticalmente.
          2. min-h-screen: Asegura que el cuerpo ocupe al menos toda la altura de la ventana.
       */}
       <body className="min-h-screen flex flex-col bg-surface text-neutral-900 antialiased">
+        {process.env.NODE_ENV === 'production' && (
+          <AnalyticsLoader gaId={GA_ID} metaPixelId={META_PIXEL_ID} />
+        )}
         <JsonLd data={ORGANIZATION_SCHEMA} />
         <Header />
         
@@ -121,8 +110,9 @@ export default function RootLayout({ children }) {
         <main className="flex-grow">
           {children}
         </main>
-        
+
         <Footer />
+        <ConsentBanner />
       </body>
     </html>
   );

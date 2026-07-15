@@ -1,5 +1,9 @@
+import { getConsent } from '@/lib/consent';
+
 function fbq(...args) {
   if (typeof window === 'undefined' || typeof window.fbq !== 'function') return;
+  // Sin consentimiento no se envía nada al Pixel (LEG-01).
+  if (getConsent() !== 'granted') return;
   window.fbq(...args);
 }
 
