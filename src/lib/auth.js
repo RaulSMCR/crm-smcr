@@ -52,6 +52,23 @@ export async function verifyToken(token) {
   return payload;
 }
 
+export async function signAdminViewToken(adminId, role) {
+  return await new SignJWT({ purpose: "admin-view", role })
+    .setProtectedHeader({ alg: "HS256" })
+    .setSubject(String(adminId))
+    .setIssuedAt()
+    .setExpirationTime("1d")
+    .sign(getSecretKey());
+}
+
+export async function verifyAdminViewToken(token) {
+  const { payload } = await jwtVerify(token, getSecretKey());
+  if (payload.purpose !== "admin-view" || !["USER", "PROFESSIONAL"].includes(payload.role)) {
+    return null;
+  }
+  return payload;
+}
+
 export async function getSession() {
   const cookieStore = await cookies();
   const token = cookieStore.get("session")?.value;
@@ -61,9 +78,38 @@ export async function getSession() {
     const session = await verifyToken(token);
     const userId = String(session.sub || session.userId || "");
     if (!userId) return null;
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { sessionVersion: true, isActive: true } });
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        sessionVersion: true,
+        isActive: true,
+        role: true,
+        professionalProfile: { select: { id: true, slug: true, specialty: true, licenseNumber: true, isApproved: true } },
+      },
+    });
     if (!user?.isActive || Number(session.sessionVersion || 0) !== user.sessionVersion) return null;
-    return session;
+
+    const viewToken = cookieStore.get("admin_view")?.value;
+    if (user.role === "ADMIN" && viewToken) {
+      try {
+        const view = await verifyAdminViewToken(viewToken);
+        if (view?.sub === userId) {
+          return {
+            ...session,
+            role: view.role,
+            actualRole: "ADMIN",
+            isPreview: true,
+            professionalProfile: user.professionalProfile || null,
+            professionalProfileId: user.professionalProfile?.id || null,
+            isApproved: view.role === "PROFESSIONAL" ? !!user.professionalProfile?.isApproved : true,
+          };
+        }
+      } catch {
+        // An invalid view cookie is ignored and the real admin session remains active.
+      }
+    }
+
+    return { ...session, actualRole: user.role, isPreview: false, professionalProfile: user.professionalProfile || null };
   } catch {
     return null;
   }

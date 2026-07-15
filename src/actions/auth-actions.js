@@ -455,7 +455,9 @@ export async function verifyEmail(token) {
 
 export async function logout() {
   try {
-    (await cookies()).delete("session");
+    const cookieStore = await cookies();
+    cookieStore.delete("session");
+    cookieStore.delete("admin_view");
   } catch (error) {
     console.error("Error al borrar cookie en logout (no crítico):", error);
   }

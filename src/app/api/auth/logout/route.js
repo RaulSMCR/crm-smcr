@@ -21,6 +21,7 @@ export async function POST() {
 
   // Cookie actual
   clearCookie(res, "session");
+  clearCookie(res, "admin_view");
 
   return res;
 }

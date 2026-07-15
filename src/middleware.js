@@ -87,6 +87,20 @@ async function getPayloadFromCookie(request, encodedKey) {
   }
 }
 
+async function getViewPayload(request, encodedKey, adminId) {
+  const token = request.cookies.get("admin_view")?.value;
+  if (!token) return null;
+
+  try {
+    const { payload } = await jwtVerify(token, encodedKey, { algorithms: ["HS256"] });
+    if (payload.purpose !== "admin-view" || payload.sub !== adminId) return null;
+    if (!["USER", "PROFESSIONAL"].includes(payload.role)) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
 export async function middleware(request) {
   const { pathname, search } = request.nextUrl;
 
@@ -149,7 +163,7 @@ export async function middleware(request) {
     return NextResponse.redirect(url);
   }
 
-  const payload = await getPayloadFromCookie(request, encodedKey);
+  let payload = await getPayloadFromCookie(request, encodedKey);
 
   // 1) Sin sesión
   if (!payload) {
@@ -159,6 +173,11 @@ export async function middleware(request) {
     const url = new URL("/ingresar", request.url);
     url.searchParams.set("next", pathname + (search || ""));
     return NextResponse.redirect(url);
+  }
+
+  if (payload.role === "ADMIN") {
+    const viewPayload = await getViewPayload(request, encodedKey, String(payload.sub || payload.userId || ""));
+    if (viewPayload) payload = { ...payload, role: viewPayload.role, isApproved: true };
   }
 
   // 2) Profesional no aprobado
