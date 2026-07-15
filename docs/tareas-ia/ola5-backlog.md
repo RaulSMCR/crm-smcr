@@ -45,3 +45,8 @@ Extrae sin cambiar comportamiento: `findRecurringConflict` y helpers de fechas d
 
 ## B08 — Validación con zod en endpoints financieros (ARQ-01)
 `zod` es una dependencia dev-friendly sin costo: agrégala. Define schemas para los bodies de `/api/invoices` (POST/PUT), `/api/invoices/[id]/*`, `/api/products`, y las server actions de settlement (T15) y billing (T13). Rechazos con 400 y mensaje de campo específico. No toques rutas no financieras todavía. Criterio: petición con `quantity: "abc"` devuelve 400 descriptivo, no 500 ni NaN persistido.
+
+---
+
+## B09 — Activar Storage privado (SEC-05)
+Los buckets de documentos médicos, CVs y facturas profesionales ya tienen rutas privadas y acceso mediante `/api/files`, pero la activación de privacidad en Supabase queda pendiente por la evaluación de costos. Cuando se confirme el plan/costo, marcar como privados: `insurance-blank-forms`, `insurance-patient-forms`, `insurance-templates`, `insurance-signed-forms`, `CVS` y `professional-invoices`. Mantener públicos `avatars`, `service-banners` y `post-covers`. Ejecutar antes `scripts/migrate-storage-paths.js` para convertir referencias públicas históricas.

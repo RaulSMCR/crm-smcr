@@ -27,6 +27,21 @@ function clampScale(value, fallback = 100) {
   return Math.min(160, Math.max(100, Math.trunc(number)));
 }
 
+function normalizeCabys(value) {
+  const raw = String(value || "").trim();
+  return raw || null;
+}
+
+async function resolveServiceTax(formData) {
+  const cabysCode = normalizeCabys(formData.get("cabysCode"));
+  if (cabysCode && !/^\d{13}$/.test(cabysCode)) return { error: "El código CABYS debe tener exactamente 13 dígitos." };
+  const taxId = String(formData.get("taxId") || "").trim() || null;
+  if (!taxId) return { cabysCode, taxId: null };
+  const tax = await prisma.tax.findFirst({ where: { id: taxId, isActive: true, scope: { in: ["SALES", "BOTH"] } }, select: { id: true } });
+  if (!tax) return { error: "El impuesto seleccionado no está disponible para ventas." };
+  return { cabysCode, taxId: tax.id };
+}
+
 export async function createService(formData) {
   try {
     const session = await getSession();
@@ -45,6 +60,8 @@ export async function createService(formData) {
     const durationMin = toNum(formData.get("durationMin"));
     const displayOrder = toNum(formData.get("displayOrder"));
     const isActive = String(formData.get("isActive") || "true") === "true";
+    const fiscal = await resolveServiceTax(formData);
+    if (fiscal.error) return { error: fiscal.error };
 
     if (!title) return { error: "El titulo es obligatorio." };
     if (!Number.isFinite(price) || price < 0) return { error: "Precio invalido." };
@@ -68,6 +85,8 @@ export async function createService(formData) {
         durationMin: Math.trunc(durationMin),
         displayOrder: Math.trunc(displayOrder),
         isActive,
+        cabysCode: fiscal.cabysCode,
+        taxId: fiscal.taxId,
       },
     });
 
@@ -97,6 +116,8 @@ export async function updateServiceDetails(serviceId, formData) {
     const durationMin = toNum(formData.get("durationMin"));
     const displayOrder = toNum(formData.get("displayOrder"));
     const isActive = String(formData.get("isActive") || "false") === "true";
+    const fiscal = await resolveServiceTax(formData);
+    if (fiscal.error) return { error: fiscal.error };
 
     if (!serviceId) return { error: "ID requerido." };
     if (!title) return { error: "El titulo es obligatorio." };
@@ -122,6 +143,8 @@ export async function updateServiceDetails(serviceId, formData) {
         durationMin: Math.trunc(durationMin),
         displayOrder: Math.trunc(displayOrder),
         isActive,
+        cabysCode: fiscal.cabysCode,
+        taxId: fiscal.taxId,
       },
     });
 

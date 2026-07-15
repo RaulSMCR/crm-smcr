@@ -12,6 +12,12 @@ import { signToken, getSession as getLibSession } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { checkRateLimit, recordAttempt } from "@/lib/rate-limit";
 import { verifyTurnstile } from "@/lib/turnstile";
+import {
+  CV_UPLOAD_BUCKET,
+  getCvStoragePathFromPublicUrl,
+  getExtensionFromPendingCvPath,
+  isPendingCvPath,
+} from "@/lib/cv-upload";
 
 // IP del cliente a partir de las cabeceras (primer valor de x-forwarded-for).
 function getClientIp() {
@@ -198,6 +204,12 @@ export async function registerProfessional(formData) {
   if (!specialty) return { error: "Falta indicar la especialidad profesional." };
   if (!licenseNumber) return { error: "Falta el número de licencia o matrícula profesional." };
   if (!cvUrl) return { error: "Falta adjuntar el CV en PDF para validar credenciales profesionales." };
+  const pendingCvPath = process.env.NEXT_PUBLIC_SUPABASE_URL
+    ? getCvStoragePathFromPublicUrl(cvUrl, process.env.NEXT_PUBLIC_SUPABASE_URL)
+    : null;
+  if (!isPendingCvPath(pendingCvPath)) {
+    return { error: "La carga del CV no es valida. Adjunte el CV nuevamente para continuar." };
+  }
   if (identification && !isIdentificationValid(identification)) return { error: "La identificación ingresada no es válida." };
   if (introVideoUrl) {
     try {
@@ -264,7 +276,7 @@ export async function registerProfessional(formData) {
           profileReviewStatus: bio ? "PENDING" : "EMPTY",
           profileReviewSubmittedAt: bio ? new Date() : null,
           coverLetter,
-          cvUrl,
+          cvUrl: `${CV_UPLOAD_BUCKET}/${pendingCvPath}`,
           introVideoUrl,
           licenseNumber,
           isApproved: false,
@@ -274,29 +286,19 @@ export async function registerProfessional(formData) {
 
     try {
       if (cvUrl && createdUser) {
-        const parsed = new URL(cvUrl);
-        const marker = "/CVS/";
-        const idx = parsed.pathname.indexOf(marker);
-
-        if (idx !== -1) {
-          const srcPath = parsed.pathname.substring(idx + marker.length);
-          const parts = srcPath.split(".");
-          const ext = parts.length > 1 ? parts.pop() : "pdf";
+        if (pendingCvPath) {
+          const ext = getExtensionFromPendingCvPath(pendingCvPath) || "pdf";
           const destPath = `${createdUser.id}/cv.${ext}`;
           const supabaseAdmin = getSupabaseAdmin();
 
-          const { error: moveError } = await supabaseAdmin.storage.from("CVS").move(srcPath, destPath);
+          const { error: moveError } = await supabaseAdmin.storage.from(CV_UPLOAD_BUCKET).move(pendingCvPath, destPath);
 
           if (moveError) {
             console.error("Error moviendo CV en Supabase:", moveError);
           } else {
-            const { data } = supabaseAdmin.storage.from("CVS").getPublicUrl(destPath);
-            if (data?.publicUrl) {
-              await prisma.user.update({ where: { id: createdUser.id }, data: {} }).catch(() => {});
-              await prisma.professionalProfile
-                .update({ where: { userId: createdUser.id }, data: { cvUrl: data.publicUrl } })
-                .catch(() => {});
-            }
+            await prisma.professionalProfile
+              .update({ where: { userId: createdUser.id }, data: { cvUrl: `${CV_UPLOAD_BUCKET}/${destPath}` } })
+              .catch(() => {});
           }
         }
       }

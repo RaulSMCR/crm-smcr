@@ -129,9 +129,9 @@ model User {
   resetTokenExp   DateTime?
 
   // Seguro médico
-  hasInsurance           Boolean   @default(false)
-  useInsuranceForPayment Boolean   @default(false)
-  insuranceName          String?   @db.VarChar(128)
+  hasInsurance           Boolean @default(false)
+  useInsuranceForPayment Boolean @default(false)
+  insuranceName          String? @db.VarChar(128)
 
   insuranceBlankFormUrl        String?
   insuranceBlankFormUploadedAt DateTime?
@@ -225,6 +225,10 @@ model Service {
   // ✅ Lo que tu código espera
   professionalAssignments ServiceAssignment[]
 
+  cabysCode String?
+  taxId     String?
+  tax       Tax?    @relation(fields: [taxId], references: [id], onDelete: SetNull)
+
   appointments Appointment[]
   invoiceLines InvoiceLine[]
 
@@ -247,6 +251,7 @@ model Tax {
 
   productsSale     Product[]     @relation("ProductSaleTax")
   productsPurchase Product[]     @relation("ProductPurchaseTax")
+  services         Service[]
   invoiceLines     InvoiceLine[]
 
   @@index([scope, isActive])
@@ -316,6 +321,12 @@ model Invoice {
 
   supplierReference        String?
   supplierEconomicActivity String?
+  attachmentUrl            String?
+  xmlUrl                   String?
+  supplierFeClave          String?   @db.VarChar(50)
+  supplierIdNumber         String?   @db.VarChar(32)
+  acceptanceStatus         String?
+  acceptanceAt             DateTime?
 
   subtotal       Decimal @default(0) @db.Decimal(15, 2)
   taxAmount      Decimal @default(0) @db.Decimal(15, 2)
@@ -559,17 +570,17 @@ model HomeCarouselItem {
 }
 
 model InsuranceClaim {
-  id             String               @id @default(cuid())
-  patientId      String
-  appointmentId  String               @unique
-  professionalId String
-  paymentDate    DateTime?
-  signedFormUrl  String?
+  id                   String               @id @default(cuid())
+  patientId            String
+  appointmentId        String               @unique
+  professionalId       String
+  paymentDate          DateTime?
+  signedFormUrl        String?
   signedFormUploadedAt DateTime?
-  emailSentAt    DateTime?
-  status         InsuranceClaimStatus @default(AWAITING_TEMPLATE)
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
+  emailSentAt          DateTime?
+  status               InsuranceClaimStatus @default(AWAITING_TEMPLATE)
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
 
   patient      User                @relation("PatientInsuranceClaims", fields: [patientId], references: [id])
   appointment  Appointment         @relation(fields: [appointmentId], references: [id])
@@ -624,4 +635,23 @@ model RateLimitEntry {
   createdAt DateTime @default(now())
 
   @@index([key, createdAt])
+}
+
+// Pagos ONVO que no se pudieron emparejar con una transacción (PAY-01).
+// Se registran para conciliación manual; NO tocan ninguna cita.
+// reason: NO_TRANSACTION | AMOUNT_MISMATCH | EMAIL_MISMATCH | MULTIPLE_CANDIDATES
+model UnmatchedPayment {
+  id            String    @id @default(cuid())
+  onvoEventId   String    @unique
+  onvoLinkId    String?
+  amount        Decimal?  @db.Decimal(10, 2)
+  currency      String?
+  customerEmail String?
+  reason        String
+  payload       Json
+  resolvedAt    DateTime?
+  resolvedTxId  String?
+  createdAt     DateTime  @default(now())
+
+  @@index([createdAt])
 }

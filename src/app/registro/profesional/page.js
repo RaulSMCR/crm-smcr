@@ -142,7 +142,7 @@ export default function RegistroProfesionalPage() {
       setLoadingText("Subiendo documentación…");
       const uploadData = new FormData();
       uploadData.append("file", file);
-      uploadData.append("userId", crypto.randomUUID());
+      uploadData.append("uploadId", crypto.randomUUID());
 
       const res = await fetch("/api/upload/cv", { method: "POST", body: uploadData });
       const result = await res.json();

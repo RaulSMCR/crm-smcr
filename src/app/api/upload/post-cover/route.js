@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { validateFileSignature } from "@/lib/storage";
 
 const BUCKET = "post-covers";
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -57,6 +58,9 @@ export async function POST(request) {
     const ext = EXTENSION_BY_TYPE[file.type] || file.name.split(".").pop()?.toLowerCase() || "jpg";
     const path = `${uploaderKey}/${crypto.randomUUID()}.${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
+    if (!validateFileSignature(buffer, ["image/jpeg", "image/png", "image/webp"])) {
+      return NextResponse.json({ error: "El contenido no coincide con una imagen válida." }, { status: 400 });
+    }
 
     const supabaseAdmin = getSupabaseAdmin();
     const uploadOptions = {

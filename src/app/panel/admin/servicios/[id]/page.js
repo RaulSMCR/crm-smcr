@@ -33,6 +33,8 @@ export default async function AdminServicioDetallePage({ params }) {
       durationMin: true,
       displayOrder: true,
       isActive: true,
+      cabysCode: true,
+      taxId: true,
       professionalAssignments: {
         orderBy: { professional: { user: { name: "asc" } } },
         select: {
@@ -63,6 +65,8 @@ export default async function AdminServicioDetallePage({ params }) {
   });
 
   if (!service) notFound();
+
+  const taxes = await prisma.tax.findMany({ where: { isActive: true, scope: { in: ["SALES", "BOTH"] } }, orderBy: { rate: "asc" }, select: { id: true, label: true, rate: true } });
 
   const priceStr = service.price?.toString?.() ?? String(service.price);
 
@@ -100,7 +104,7 @@ export default async function AdminServicioDetallePage({ params }) {
         <p className="text-sm text-slate-600 mt-1 mb-5">
           Puede editar titulo, descripcion, precio, duracion y estado.
         </p>
-        <ServiceEditForm service={service} />
+        <ServiceEditForm service={service} taxes={taxes.map((tax) => ({ ...tax, rate: tax.rate.toString() }))} />
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 p-6">

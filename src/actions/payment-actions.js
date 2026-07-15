@@ -12,6 +12,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { requireProfessionalProfileId } from "@/lib/auth-guards";
 import { revalidatePath } from "next/cache";
 import { buildPaymentLinkUrl } from "@/lib/onvo/client";
 import { sendPaymentRequestEmail } from "@/lib/appointments";
@@ -51,6 +52,23 @@ export async function cobrarCita(appointmentId) {
     });
 
     if (!appointment) return { success: false, error: "Cita no encontrada." };
+
+    // Pertenencia (SEC-03): un profesional solo puede cobrar SUS citas.
+    // ADMIN mantiene acceso total. Se compara contra el recurso cargado de la BD.
+    if (session.role === "PROFESSIONAL") {
+      let proProfileId = session.professionalProfileId || null;
+      if (!proProfileId) {
+        try {
+          proProfileId = await requireProfessionalProfileId();
+        } catch {
+          proProfileId = null;
+        }
+      }
+      if (!proProfileId || appointment.professionalId !== proProfileId) {
+        return { success: false, error: "No autorizado." };
+      }
+    }
+
     if (appointment.status !== "COMPLETED") {
       return { success: false, error: "Solo se puede cobrar citas completadas." };
     }
@@ -179,6 +197,30 @@ export async function sendPaymentLinkOnCompletion(appointmentId) {
       console.error(`[payment] sendPaymentLinkOnCompletion: cita ${id} no encontrada.`);
       return null;
     }
+
+    // Pertenencia (SEC-03): aunque se invoca internamente al completar la cita,
+    // es un server action exportado y directamente invocable. Un profesional solo
+    // puede dispararlo para SUS citas; ADMIN mantiene acceso total.
+    const session = await getSession();
+    if (!session || (session.role !== "ADMIN" && session.role !== "PROFESSIONAL")) {
+      console.warn(`[payment] sendPaymentLinkOnCompletion: sesión no autorizada para cita ${id}.`);
+      return null;
+    }
+    if (session.role === "PROFESSIONAL") {
+      let proProfileId = session.professionalProfileId || null;
+      if (!proProfileId) {
+        try {
+          proProfileId = await requireProfessionalProfileId();
+        } catch {
+          proProfileId = null;
+        }
+      }
+      if (!proProfileId || appointment.professionalId !== proProfileId) {
+        console.warn(`[payment] sendPaymentLinkOnCompletion: profesional ajeno a cita ${id}.`);
+        return null;
+      }
+    }
+
     if (appointment.paymentStatus === "PAID") {
       console.log(`[payment] sendPaymentLinkOnCompletion: cita ${id} ya está PAID.`);
       return null;

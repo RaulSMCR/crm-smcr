@@ -11,6 +11,7 @@ import {
   normalizeRecurrenceRule,
   RECURRENCE_RULES,
 } from "@/lib/appointment-recurrence";
+import { APPOINTMENT_OVERLAP_MESSAGE, isAppointmentOverlapError } from "@/lib/appointment-errors";
 
 const CANCELLED_STATUSES = ["CANCELLED_BY_USER", "CANCELLED_BY_PRO"];
 
@@ -197,6 +198,7 @@ export async function createAppointmentForPatient({
     };
   } catch (error) {
     console.error("createAppointmentForPatient error:", error);
+    if (isAppointmentOverlapError(error)) return { success: false, error: APPOINTMENT_OVERLAP_MESSAGE };
     return { success: false, error: "Error interno al agendar. Por favor, intente nuevamente." };
   }
 }
@@ -358,7 +360,9 @@ export async function rescheduleAppointmentByPatient(
   const extraStarts = starts.slice(1);
   const extraEnds = ends.slice(1);
 
-    const changedAppointments = await prisma.$transaction(async (tx) => {
+  let changedAppointments;
+  try {
+    changedAppointments = await prisma.$transaction(async (tx) => {
       const updatedAppointment = await tx.appointment.update({
         where: { id },
         data: {
@@ -394,7 +398,12 @@ export async function rescheduleAppointmentByPatient(
     }
 
     return [updatedAppointment, ...createdAppointments];
-  });
+    });
+  } catch (error) {
+    console.error("rescheduleAppointmentByPatient error:", error);
+    if (isAppointmentOverlapError(error)) return { error: APPOINTMENT_OVERLAP_MESSAGE };
+    return { error: "No se pudo reagendar la cita. Por favor, intente nuevamente." };
+  }
 
   const hydratedAppointments = await hydrateAppointments(changedAppointments.map((item) => item.id));
   await notifyAppointments(hydratedAppointments, "La cita fue reagendada por el paciente.");

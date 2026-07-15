@@ -7,7 +7,7 @@ import { updateServiceDetails } from "@/actions/service-actions";
 import ServiceBannerField from "@/components/admin/ServiceBannerField";
 import Toast from "@/components/ui/Toast";
 
-export default function ServiceEditForm({ service }) {
+export default function ServiceEditForm({ service, taxes = [] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [toast, setToast] = useState(null);
@@ -51,6 +51,17 @@ export default function ServiceEditForm({ service }) {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
+          <label className="text-sm text-slate-700">
+            <span className="mb-1 block font-medium">Código CABYS</span>
+            <input name="cabysCode" inputMode="numeric" pattern="[0-9]{13}" maxLength={13} defaultValue={service.cabysCode || ""} className="w-full rounded-lg border border-slate-300 px-3 py-2" />
+          </label>
+          <label className="text-sm text-slate-700">
+            <span className="mb-1 block font-medium">Impuesto de venta</span>
+            <select name="taxId" defaultValue={service.taxId || ""} className="w-full rounded-lg border border-slate-300 px-3 py-2">
+              <option value="">Sin configurar</option>
+              {taxes.map((tax) => <option key={tax.id} value={tax.id}>{tax.label} ({tax.rate}%)</option>)}
+            </select>
+          </label>
           <label className="text-sm text-slate-700">
             <span className="mb-1 block font-medium">Titulo</span>
             <input

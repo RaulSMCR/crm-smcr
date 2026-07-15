@@ -34,7 +34,7 @@ export async function GET(request) {
           }
         : {};
 
-    const [incomeAgg, expenseAgg, incomeProfessional] = await Promise.all([
+    const [incomeAgg, incomeCreditsAgg, expenseAgg, expenseCreditsAgg, incomeProfessional, incomeCreditsProfessional] = await Promise.all([
       // Ingresos: facturas de cliente
       prisma.invoice.aggregate({
         where: {
@@ -46,6 +46,11 @@ export async function GET(request) {
         _count: { _all: true },
       }),
 
+      prisma.invoice.aggregate({
+        where: { invoiceType: "CUSTOMER_CREDIT_NOTE", status: { in: incomeStatuses }, ...dateFilter },
+        _sum: { subtotal: true, taxAmount: true, total: true, amountPaid: true }, _count: { _all: true },
+      }),
+
       // Gastos: facturas de proveedor
       prisma.invoice.aggregate({
         where: {
@@ -55,6 +60,11 @@ export async function GET(request) {
         },
         _sum:   { subtotal: true, taxAmount: true, total: true, amountPaid: true },
         _count: { _all: true },
+      }),
+
+      prisma.invoice.aggregate({
+        where: { invoiceType: "SUPPLIER_CREDIT_NOTE", status: { in: expenseStatuses }, ...dateFilter },
+        _sum: { subtotal: true, taxAmount: true, total: true, amountPaid: true }, _count: { _all: true },
       }),
 
       // Desglose de ingresos por profesional
@@ -69,12 +79,18 @@ export async function GET(request) {
         _sum:   { total: true, amountPaid: true },
         _count: { _all: true },
       }),
+
+      prisma.invoice.groupBy({
+        by: ["professionalId"],
+        where: { invoiceType: "CUSTOMER_CREDIT_NOTE", status: { in: incomeStatuses }, professionalId: { not: null }, ...dateFilter },
+        _sum: { total: true, amountPaid: true }, _count: { _all: true },
+      }),
     ]);
 
     const n = (v) => Number(v || 0);
 
     // Para el desglose por profesional, buscar nombres
-    const professionalIds = incomeProfessional.map((r) => r.professionalId).filter(Boolean);
+    const professionalIds = [...incomeProfessional, ...incomeCreditsProfessional].map((r) => r.professionalId).filter(Boolean);
     const professionals   = professionalIds.length
       ? await prisma.professionalProfile.findMany({
           where: { id: { in: professionalIds } },
@@ -83,8 +99,8 @@ export async function GET(request) {
       : [];
     const profMap = new Map(professionals.map((p) => [p.id, p.user?.name || "Sin nombre"]));
 
-    const income   = n(incomeAgg._sum?.subtotal);  // Base imponible (sin IVA)
-    const expenses = n(expenseAgg._sum?.subtotal);
+    const income   = n(incomeAgg._sum?.subtotal) - n(incomeCreditsAgg._sum?.subtotal);
+    const expenses = n(expenseAgg._sum?.subtotal) - n(expenseCreditsAgg._sum?.subtotal);
     const grossProfit  = income - expenses;
     const netIncome    = grossProfit; // Sin más deducciones por ahora
 
@@ -98,24 +114,29 @@ export async function GET(request) {
       income: {
         invoicesCount: incomeAgg._count?._all || 0,
         subtotal:      income,
-        taxAmount:     n(incomeAgg._sum?.taxAmount),
-        totalWithTax:  n(incomeAgg._sum?.total),
-        collected:     n(incomeAgg._sum?.amountPaid),
-        byProfessional: incomeProfessional.map((row) => ({
+        taxAmount:     n(incomeAgg._sum?.taxAmount) - n(incomeCreditsAgg._sum?.taxAmount),
+        totalWithTax:  n(incomeAgg._sum?.total) - n(incomeCreditsAgg._sum?.total),
+        collected:     n(incomeAgg._sum?.amountPaid) - n(incomeCreditsAgg._sum?.amountPaid),
+        creditNotes: { invoicesCount: incomeCreditsAgg._count?._all || 0, total: n(incomeCreditsAgg._sum?.total) },
+        byProfessional: incomeProfessional.map((row) => {
+          const credit = incomeCreditsProfessional.find((item) => item.professionalId === row.professionalId);
+          return {
           professionalId: row.professionalId,
           professionalName: profMap.get(row.professionalId) || "Sin nombre",
           invoicesCount:  row._count?._all || 0,
-          total:          n(row._sum?.total),
-          collected:      n(row._sum?.amountPaid),
-        })),
+          collected:      n(row._sum?.amountPaid) - n(credit?._sum?.amountPaid),
+          total:          n(row._sum?.total) - n(credit?._sum?.total),
+        };
+        }),
       },
 
       expenses: {
         invoicesCount: expenseAgg._count?._all || 0,
         subtotal:      expenses,
-        taxAmount:     n(expenseAgg._sum?.taxAmount),
-        totalWithTax:  n(expenseAgg._sum?.total),
-        paid:          n(expenseAgg._sum?.amountPaid),
+        taxAmount:     n(expenseAgg._sum?.taxAmount) - n(expenseCreditsAgg._sum?.taxAmount),
+        totalWithTax:  n(expenseAgg._sum?.total) - n(expenseCreditsAgg._sum?.total),
+        paid:          n(expenseAgg._sum?.amountPaid) - n(expenseCreditsAgg._sum?.amountPaid),
+        creditNotes: { invoicesCount: expenseCreditsAgg._count?._all || 0, total: n(expenseCreditsAgg._sum?.total) },
       },
 
       summary: {

@@ -1,9 +1,9 @@
 // src/app/api/upload/professional-invoice/route.js
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { v4 as uuidv4 } from "uuid";
+import { fileApiUrl, uploadPrivate, validateFileSignature } from "@/lib/storage";
 
 export async function POST(request) {
   try {
@@ -33,31 +33,27 @@ export async function POST(request) {
       return NextResponse.json({ error: "No se recibió ningún archivo." }, { status: 400 });
     }
 
-    if (file.type !== "application/pdf") {
-      return NextResponse.json({ error: "Solo se permiten archivos PDF." }, { status: 400 });
+    const isPdf = file.type === "application/pdf";
+    const isXml = ["application/xml", "text/xml"].includes(file.type) || String(file.name || "").toLowerCase().endsWith(".xml");
+    if (!isPdf && !isXml) {
+      return NextResponse.json({ error: "Solo se permiten archivos PDF o XML." }, { status: 400 });
     }
 
     if (file.size > 5 * 1024 * 1024) {
       return NextResponse.json({ error: "El archivo no puede pesar más de 5MB." }, { status: 400 });
     }
 
-    const path = `${professionalId}/${uuidv4()}.pdf`;
+    const extension = isXml ? "xml" : "pdf";
+    const path = `${professionalId}/${uuidv4()}.${extension}`;
     const buffer = Buffer.from(await file.arrayBuffer());
-    const supabaseAdmin = getSupabaseAdmin();
-
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from("professional-invoices")
-      .upload(path, buffer, {
-        upsert: false,
-        contentType: "application/pdf",
-        cacheControl: "3600",
-      });
-
-    if (uploadError) throw uploadError;
-
-    const { data } = supabaseAdmin.storage.from("professional-invoices").getPublicUrl(path);
-
-    return NextResponse.json({ url: data.publicUrl });
+    const validContent = isXml
+      ? buffer.toString("utf8").trimStart().startsWith("<")
+      : validateFileSignature(buffer, ["application/pdf"]);
+    if (!validContent) {
+      return NextResponse.json({ error: "El contenido del archivo no es un PDF válido." }, { status: 400 });
+    }
+    await uploadPrivate("professional-invoices", path, buffer, isXml ? "application/xml" : "application/pdf");
+    return NextResponse.json({ url: fileApiUrl("professional-invoices", path), path: `professional-invoices/${path}` });
   } catch (err) {
     console.error("[upload/professional-invoice] Error:", err);
     return NextResponse.json({ error: err.message || "Error inesperado." }, { status: 500 });

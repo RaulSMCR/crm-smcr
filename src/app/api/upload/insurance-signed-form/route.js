@@ -1,10 +1,10 @@
 // src/app/api/upload/insurance-signed-form/route.js
 // Profesional sube la planilla firmada con fecha para un reclamo específico.
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendSignedClaimToPatient } from "@/lib/insurance-mail";
+import { fileApiUrl, uploadPrivate, validateFileSignature } from "@/lib/storage";
 
 export async function POST(request) {
   try {
@@ -51,22 +51,17 @@ export async function POST(request) {
 
     const path = `${claimId}/signed-form.pdf`;
     const buffer = Buffer.from(await file.arrayBuffer());
-    const supabaseAdmin = getSupabaseAdmin();
-
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from("insurance-signed-forms")
-      .upload(path, buffer, { upsert: true, contentType: "application/pdf", cacheControl: "3600" });
-
-    if (uploadError) throw uploadError;
-
-    const { data } = supabaseAdmin.storage.from("insurance-signed-forms").getPublicUrl(path);
-    const url = data.publicUrl;
+    if (!validateFileSignature(buffer, ["application/pdf"])) {
+      return NextResponse.json({ error: "El contenido del archivo no es un PDF válido." }, { status: 400 });
+    }
+    await uploadPrivate("insurance-signed-forms", path, buffer, "application/pdf");
+    const url = fileApiUrl("insurance-signed-forms", path);
 
     const now = new Date();
     await prisma.insuranceClaim.update({
       where: { id: claimId },
       data: {
-        signedFormUrl: url,
+        signedFormUrl: "insurance-signed-forms/" + path,
         signedFormUploadedAt: now,
         status: "COMPLETED",
         emailSentAt: now,

@@ -62,6 +62,15 @@ async function seedInvoiceSequences() {
   console.log("InvoiceSequences listas (4 tipos).");
 }
 
+async function seedHealthTax() {
+  await prisma.tax.upsert({
+    where: { id: "iva-4-salud" },
+    update: { name: "IVA 4% - Servicios de salud", rate: 4, scope: "BOTH", label: "IVA 4%", isActive: true },
+    create: { id: "iva-4-salud", name: "IVA 4% - Servicios de salud", rate: 4, scope: "BOTH", label: "IVA 4%", isActive: true },
+  });
+  console.log("Tax IVA 4% lista.");
+}
+
 async function main() {
   const primary = await upsertAdmin("ADMIN", {
     email: "admin@saludmentalcostarica.com",
@@ -78,6 +87,7 @@ async function main() {
   });
 
   await seedInvoiceSequences();
+  await seedHealthTax();
 
   console.log("Admin listo:", primary.admin);
   console.log("Credenciales ADMIN:");

@@ -169,7 +169,7 @@ export function generateFeXml(invoice, lines) {
     lineEl.ele("NumeroLinea").txt(String(idx + 1));
 
     // Código CABYS (prioridad: product.cabysCode)
-    const cabys = line.product?.cabysCode || "";
+    const cabys = line.product?.cabysCode || line.service?.cabysCode || line.cabysCode || "";
     if (cabys) {
       const codEl = lineEl.ele("CodigoHacienda");
       codEl.ele("Tipo").txt("04"); // 04=CABYS
@@ -193,7 +193,7 @@ export function generateFeXml(invoice, lines) {
     lineEl.ele("Cantidad").txt(fmt2(qty));
     lineEl.ele("UnidadMedida").txt(uom);
     lineEl.ele("Detalle").txt(
-      (line.product?.name || line.description || `Servicio ${idx + 1}`).substring(0, 200)
+      (line.product?.name || line.service?.title || line.description || `Servicio ${idx + 1}`).substring(0, 200)
     );
     lineEl.ele("PrecioUnitario").txt(fmt2(uprice));
     lineEl.ele("MontoTotal").txt(fmt2(montoTotal));

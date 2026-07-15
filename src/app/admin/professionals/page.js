@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import AdminApproveButton from "@/components/AdminApproveButton";
+import { fileApiUrl } from "@/lib/storage";
 
 export const revalidate = 0;
 
@@ -17,6 +18,11 @@ function formatDateTime(date) {
   } catch {
     return String(date);
   }
+}
+
+function privateFileUrl(value) {
+  const [bucket, ...parts] = String(value || "").split("/");
+  return fileApiUrl(bucket, parts.join("/"));
 }
 
 function Pill({ tone = "neutral", children }) {
@@ -165,7 +171,7 @@ export default async function AdminProfessionalsPage({ searchParams }) {
                           <span className="text-slate-400">Sin foto</span>
                         )}
                         {p.cvUrl ? (
-                          <a className="text-blue-600 hover:underline" href={p.cvUrl} target="_blank" rel="noreferrer">
+                          <a className="text-blue-600 hover:underline" href={privateFileUrl(p.cvUrl)} target="_blank" rel="noreferrer">
                             Ver CV
                           </a>
                         ) : (

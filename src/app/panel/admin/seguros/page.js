@@ -2,6 +2,12 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { fileApiUrl } from "@/lib/storage";
+
+const privateFileUrl = (value) => {
+  const [bucket, ...parts] = String(value || "").split("/");
+  return fileApiUrl(bucket, parts.join("/"));
+};
 import { getSession } from "@/actions/auth-actions";
 import InsurancePatientsManager from "@/components/admin/InsurancePatientsManager";
 
@@ -95,7 +101,7 @@ export default async function AdminSegurosPage() {
                     <div className="flex flex-wrap gap-3 text-xs text-slate-500">
                       {p.insuranceBlankFormUrl && (
                         <a
-                          href={p.insuranceBlankFormUrl}
+                          href={privateFileUrl(p.insuranceBlankFormUrl)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-blue-600 hover:underline"
@@ -105,7 +111,7 @@ export default async function AdminSegurosPage() {
                       )}
                       {p.insurancePatientFormUrl && (
                         <a
-                          href={p.insurancePatientFormUrl}
+                          href={privateFileUrl(p.insurancePatientFormUrl)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-blue-600 hover:underline"
@@ -115,7 +121,7 @@ export default async function AdminSegurosPage() {
                       )}
                       {p.insuranceTemplateUrl && (
                         <a
-                          href={p.insuranceTemplateUrl}
+                          href={privateFileUrl(p.insuranceTemplateUrl)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-blue-600 hover:underline"

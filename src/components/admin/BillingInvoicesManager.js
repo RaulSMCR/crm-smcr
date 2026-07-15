@@ -2,6 +2,7 @@
 
 import { useCallback, useState, useTransition } from "react";
 import Toast from "@/components/ui/Toast";
+import { updateSupplierInvoiceAcceptance } from "@/actions/professional-billing-actions";
 
 function toMoney(value) {
   return new Intl.NumberFormat("es-CR", {
@@ -214,6 +215,17 @@ export default function BillingInvoicesManager({
     });
   }
 
+  function handleAcceptance(id, acceptanceStatus) {
+    startTransition(async () => {
+      const result = await updateSupplierInvoiceAcceptance(id, acceptanceStatus);
+      if (!result.success) setToast({ message: result.error, type: "error" });
+      else {
+        updateRowInvoice(id, { acceptanceStatus, acceptanceAt: new Date().toISOString() });
+        setToast({ message: `Factura marcada como ${acceptanceStatus === "ACCEPTED" ? "aceptada" : "rechazada"}.`, type: "success" });
+      }
+    });
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -314,6 +326,7 @@ export default function BillingInvoicesManager({
               <th className="px-4 py-2 text-right">Total</th>
               <th className="px-4 py-2 text-right">Saldo</th>
               <th className="px-4 py-2 text-left">Estado</th>
+              <th className="px-4 py-2 text-left">Mensaje receptor</th>
               <th className="px-4 py-2 text-left">FE</th>
               <th className="px-4 py-2 text-left">Acciones</th>
             </tr>
@@ -328,6 +341,17 @@ export default function BillingInvoicesManager({
                 <td className="px-4 py-2 text-right">{toMoney(row.total)}</td>
                 <td className="px-4 py-2 text-right">{toMoney(row.balance)}</td>
                 <td className="px-4 py-2">{row.status}</td>
+                <td className="px-4 py-2">
+                  {row.invoiceType === "SUPPLIER_INVOICE" ? (
+                    <div className="space-y-1">
+                      <span className="text-xs font-semibold">{row.acceptanceStatus || "PENDING"}</span>
+                      <div className="flex gap-1">
+                        <button onClick={() => handleAcceptance(row.id, "ACCEPTED")} disabled={isPending} className="rounded bg-emerald-600 px-2 py-1 text-xs text-white">Aceptar</button>
+                        <button onClick={() => handleAcceptance(row.id, "REJECTED")} disabled={isPending} className="rounded bg-red-600 px-2 py-1 text-xs text-white">Rechazar</button>
+                      </div>
+                    </div>
+                  ) : "-"}
+                </td>
                 <td className="px-4 py-2">
                   <div className="space-y-1">
                     <span

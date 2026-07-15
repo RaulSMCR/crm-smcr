@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getSession } from "@/lib/auth";
+import { validateFileSignature } from "@/lib/storage";
 
 export async function POST(request) {
   try {
@@ -36,6 +37,9 @@ export async function POST(request) {
     const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
     const path = `${session.userId}/avatar.${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
+    if (!validateFileSignature(buffer, ["image/jpeg", "image/png", "image/webp"])) {
+      return NextResponse.json({ error: "El contenido no coincide con una imagen válida." }, { status: 400 });
+    }
     const supabaseAdmin = getSupabaseAdmin();
 
     const { error: uploadError } = await supabaseAdmin.storage

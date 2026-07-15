@@ -4,6 +4,12 @@ import { resend } from "@/lib/resend";
 const FROM = process.env.EMAIL_FROM || "Salud Mental Costa Rica <onboarding@resend.dev>";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_URL || "http://localhost:3000";
 
+function fileUrl(value) {
+  const raw = String(value || "");
+  if (raw.startsWith("/") || raw.startsWith("http")) return raw;
+  return `${APP_URL}/api/files?path=${encodeURIComponent(raw)}`;
+}
+
 // ── 1. Admin: paciente marcó seguro ─────────────────────────────────────────
 export async function sendInsuranceAdminAlert({ adminEmails, patientName, insuranceName }) {
   if (!adminEmails?.length || !process.env.RESEND_API_KEY) return;
@@ -135,7 +141,7 @@ export async function sendInsuranceProSignAlert({
 
   const downloadSection = templateUrl
     ? `<p style="margin-top:20px;">
-        <a href="${templateUrl}"
+        <a href="${fileUrl(templateUrl)}"
            style="background:#1d4ed8;color:#fff;padding:10px 20px;text-decoration:none;border-radius:6px;font-weight:bold;margin-right:12px;">
           Descargar plantilla
         </a>

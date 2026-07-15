@@ -13,6 +13,7 @@ import {
   normalizeRecurrenceRule,
   RECURRENCE_RULES,
 } from "@/lib/appointment-recurrence";
+import { APPOINTMENT_OVERLAP_MESSAGE, isAppointmentOverlapError } from "@/lib/appointment-errors";
 
 const CANCELLED_STATUSES = ['CANCELLED_BY_USER', 'CANCELLED_BY_PRO'];
 
@@ -289,6 +290,7 @@ export async function requestAppointment(
 
   } catch (error) {
     console.error("Error creating appointment:", error);
+    if (isAppointmentOverlapError(error)) return { error: APPOINTMENT_OVERLAP_MESSAGE };
     return { error: "Error interno al procesar la solicitud." };
   }
 }

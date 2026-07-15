@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { getSession } from "@/actions/auth-actions";
 import ServiceCreateForm from "@/components/admin/ServiceCreateForm";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,7 @@ export default async function AdminServicioNuevoPage() {
   const session = await getSession();
   if (!session) redirect("/ingresar");
   if (session.role !== "ADMIN") redirect("/panel");
+  const taxes = await prisma.tax.findMany({ where: { isActive: true, scope: { in: ["SALES", "BOTH"] } }, orderBy: { rate: "asc" }, select: { id: true, label: true, rate: true } });
 
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-8">
@@ -31,7 +33,7 @@ export default async function AdminServicioNuevoPage() {
         <p className="text-sm text-slate-600 mt-1 mb-5">
           Título, precio y duración son obligatorios.
         </p>
-        <ServiceCreateForm />
+        <ServiceCreateForm taxes={taxes.map((tax) => ({ ...tax, rate: tax.rate.toString() }))} />
       </div>
     </div>
   );

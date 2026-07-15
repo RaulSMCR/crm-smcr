@@ -4,6 +4,8 @@
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { splitTaxIncluded } from "@/lib/invoice-math";
+import { validateSupplierFeClave } from "@/lib/supplier-invoice";
 
 async function requireApprovedProfessional() {
   const session = await getSession();
@@ -12,7 +14,7 @@ async function requireApprovedProfessional() {
   }
   const profile = await prisma.professionalProfile.findUnique({
     where: { userId: String(session.userId || session.sub) },
-    select: { id: true, userId: true, commission: true, isApproved: true },
+    select: { id: true, userId: true, commission: true, isApproved: true, user: { select: { identification: true } } },
   });
   if (!profile) return { error: "Perfil profesional no encontrado." };
   if (!profile.isApproved) return { error: "El perfil profesional aún no ha sido aprobado." };
@@ -27,6 +29,8 @@ export async function submitProfessionalInvoice({
   referenceNumber,
   amount,
   fileUrl,
+  xmlUrl,
+  supplierFeClave,
   periodStart,
   periodEnd,
 }) {
@@ -38,10 +42,18 @@ export async function submitProfessionalInvoice({
     const ref = String(referenceNumber || "").trim();
     const amt = Number(amount);
     const url = String(fileUrl || "").trim();
+    const xml = String(xmlUrl || "").trim();
+    const clave = String(supplierFeClave || "").trim();
 
     if (!ref) return { success: false, error: "El número de factura es obligatorio." };
     if (!amt || amt <= 0) return { success: false, error: "El monto debe ser mayor a cero." };
     if (!url) return { success: false, error: "Debes subir el PDF de la factura." };
+    if (!xml) return { success: false, error: "Debes subir el XML firmado de la factura." };
+    const claveValidation = validateSupplierFeClave(clave, profile.user?.identification);
+    if (!claveValidation.ok) return { success: false, error: claveValidation.error };
+    const { baseCents, taxCents } = splitTaxIncluded(Math.round(amt * 100), 4);
+    const baseAmount = baseCents / 100;
+    const taxAmount = taxCents / 100;
 
     const pStart = periodStart ? new Date(periodStart) : null;
     const pEnd = periodEnd ? new Date(periodEnd) : null;
@@ -63,11 +75,15 @@ export async function submitProfessionalInvoice({
         contactId: profile.userId,
         professionalId: profile.id,
         supplierReference: ref,
-        notes: url, // URL del PDF
+        attachmentUrl: url,
+        xmlUrl: xml,
+        supplierFeClave: clave,
+        supplierIdNumber: String(profile.user?.identification || "").replace(/\D/g, ""),
+        acceptanceStatus: "PENDING",
         invoiceDate: now,
         dueDate,
-        subtotal: amt,
-        taxAmount: 0,
+        subtotal: baseAmount,
+        taxAmount,
         discountAmount: 0,
         total: amt,
         amountPaid: 0,
@@ -77,11 +93,11 @@ export async function submitProfessionalInvoice({
           create: {
             productName: `Honorarios profesionales - ${periodLabel}`,
             quantity: 1,
-            unitPrice: amt,
+            unitPrice: baseAmount,
             discountPercent: 0,
-            taxRate: 0,
-            taxAmount: 0,
-            lineSubtotal: amt,
+            taxRate: 4,
+            taxAmount,
+            lineSubtotal: baseAmount,
             lineTotal: amt,
             sortOrder: 0,
           },
@@ -97,5 +113,15 @@ export async function submitProfessionalInvoice({
     console.error("[submitProfessionalInvoice] error:", err);
     return { success: false, error: "Error interno al presentar la factura." };
   }
+}
+
+export async function updateSupplierInvoiceAcceptance(invoiceId, acceptanceStatus) {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") return { success: false, error: "No autorizado." };
+  const status = acceptanceStatus === "ACCEPTED" || acceptanceStatus === "REJECTED" ? acceptanceStatus : null;
+  if (!status) return { success: false, error: "Estado de aceptación inválido." };
+  await prisma.invoice.update({ where: { id: String(invoiceId) }, data: { acceptanceStatus: status, acceptanceAt: new Date() } });
+  revalidatePath("/panel/admin/contabilidad");
+  return { success: true };
 }
 

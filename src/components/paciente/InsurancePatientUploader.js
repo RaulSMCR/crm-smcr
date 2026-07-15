@@ -2,6 +2,10 @@
 // src/components/paciente/InsurancePatientUploader.js
 import { useRef, useState, useTransition } from "react";
 
+const fileUrl = (value) => String(value || "").startsWith("/") || String(value || "").startsWith("http")
+  ? value
+  : `/api/files?path=${encodeURIComponent(value)}`;
+
 export default function InsurancePatientUploader({ blankFormUrl }) {
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState(null);
@@ -48,7 +52,7 @@ export default function InsurancePatientUploader({ blankFormUrl }) {
 
       <div className="flex flex-wrap gap-3">
         <a
-          href={blankFormUrl}
+          href={fileUrl(blankFormUrl)}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 rounded-xl bg-amber-700 text-white px-4 py-2 text-sm font-semibold hover:bg-amber-800"

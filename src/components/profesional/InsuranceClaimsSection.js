@@ -2,6 +2,10 @@
 // src/components/profesional/InsuranceClaimsSection.js
 import { useRef, useState, useTransition } from "react";
 
+const fileUrl = (value) => String(value || "").startsWith("/") || String(value || "").startsWith("http")
+  ? value
+  : `/api/files?path=${encodeURIComponent(value)}`;
+
 function TemplateUploader({ patientId, patientName, patientFormUrl, onDone }) {
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState(null);
@@ -43,7 +47,7 @@ function TemplateUploader({ patientId, patientName, patientFormUrl, onDone }) {
         </p>
       </div>
       <a
-        href={patientFormUrl}
+        href={fileUrl(patientFormUrl)}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex text-xs font-semibold text-yellow-800 underline"
@@ -132,7 +136,7 @@ function SignedFormUploader({ claim, onDone }) {
       </p>
       {claim.templateUrl && (
         <a
-          href={claim.templateUrl}
+          href={fileUrl(claim.templateUrl)}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex text-xs font-semibold text-blue-800 underline"

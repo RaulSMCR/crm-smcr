@@ -4,6 +4,10 @@
 import { approveUser, rejectUser } from "@/actions/admin-actions";
 import { useState } from "react";
 
+const fileUrl = (value) => String(value || "").startsWith("/") || String(value || "").startsWith("http")
+  ? value
+  : `/api/files?path=${encodeURIComponent(value)}`;
+
 function safeText(v) {
   return typeof v === "string" ? v.trim() : "";
 }
@@ -199,7 +203,7 @@ export default function PendingProfessionalsList({ users }) {
                     {cvUrl ? (
                       <div className="flex flex-col gap-2">
                         <a
-                          href={cvUrl}
+                          href={fileUrl(cvUrl)}
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex w-fit items-center gap-2 bg-slate-900 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-black transition"

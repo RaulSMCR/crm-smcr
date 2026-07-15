@@ -88,6 +88,8 @@ export default function ProfessionalBillingModule({
   const [refNumber, setRefNumber] = useState("");
   const [invoiceAmount, setInvoiceAmount] = useState("");
   const [pdfFile, setPdfFile] = useState(null);
+  const [xmlFile, setXmlFile] = useState(null);
+  const [supplierFeClave, setSupplierFeClave] = useState("");
   const [uploading, setUploading] = useState(false);
   const [submitMsg, setSubmitMsg] = useState(null);
   const [submitting, startSubmit] = useTransition();
@@ -128,9 +130,14 @@ export default function ProfessionalBillingModule({
       setSubmitMsg({ ok: false, text: "Seleccione el PDF de la factura." });
       return;
     }
+    if (!xmlFile) {
+      setSubmitMsg({ ok: false, text: "Seleccione el XML firmado de la factura." });
+      return;
+    }
 
     setUploading(true);
     let fileUrl = "";
+    let xmlUrl = "";
     try {
       const fd = new FormData();
       fd.append("file", pdfFile);
@@ -141,6 +148,12 @@ export default function ProfessionalBillingModule({
       const data = await res.json();
       if (!res.ok || !data.url) throw new Error(data.error || "Error al subir el archivo.");
       fileUrl = data.url;
+      const xmlFd = new FormData();
+      xmlFd.append("file", xmlFile);
+      const xmlRes = await fetch("/api/upload/professional-invoice", { method: "POST", body: xmlFd });
+      const xmlData = await xmlRes.json();
+      if (!xmlRes.ok || !xmlData.url) throw new Error(xmlData.error || "Error al subir el XML.");
+      xmlUrl = xmlData.url;
     } catch (err) {
       setSubmitMsg({ ok: false, text: err.message });
       setUploading(false);
@@ -156,6 +169,8 @@ export default function ProfessionalBillingModule({
         referenceNumber: refNumber,
         amount: invoiceAmount || totalApproved,
         fileUrl,
+        xmlUrl,
+        supplierFeClave,
         periodStart,
         periodEnd,
       });
@@ -167,6 +182,8 @@ export default function ProfessionalBillingModule({
         setRefNumber("");
         setInvoiceAmount("");
         setPdfFile(null);
+        setXmlFile(null);
+        setSupplierFeClave("");
         router.refresh();
       } else {
         setSubmitMsg({
@@ -317,6 +334,10 @@ export default function ProfessionalBillingModule({
                 className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
               />
             </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-sm font-medium text-slate-700">Clave numérica FE (50 dígitos) *</label>
+              <input type="text" inputMode="numeric" maxLength={50} value={supplierFeClave} onChange={(e) => setSupplierFeClave(e.target.value.replace(/\D/g, ""))} required className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm" />
+            </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
                 Monto a facturar (₡) *
@@ -347,6 +368,10 @@ export default function ProfessionalBillingModule({
               className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-sm file:font-medium hover:file:bg-slate-200"
             />
             <p className="mt-1 text-xs text-slate-400">Solo PDF, maximo 5MB.</p>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">XML firmado de la factura *</label>
+            <input type="file" accept=".xml,application/xml,text/xml" onChange={(e) => setXmlFile(e.target.files?.[0] || null)} required className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm" />
           </div>
 
           {submitMsg ? (

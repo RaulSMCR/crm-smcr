@@ -1,10 +1,10 @@
 // src/app/api/upload/insurance-blank-form/route.js
 // Admin sube el formulario de reclamo en blanco al perfil del paciente.
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendInsurancePatientFormAlert } from "@/lib/insurance-mail";
+import { fileApiUrl, uploadPrivate, validateFileSignature } from "@/lib/storage";
 
 export async function POST(request) {
   try {
@@ -34,20 +34,15 @@ export async function POST(request) {
 
     const path = `${patientId}/blank-form.pdf`;
     const buffer = Buffer.from(await file.arrayBuffer());
-    const supabaseAdmin = getSupabaseAdmin();
-
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from("insurance-blank-forms")
-      .upload(path, buffer, { upsert: true, contentType: "application/pdf", cacheControl: "3600" });
-
-    if (uploadError) throw uploadError;
-
-    const { data } = supabaseAdmin.storage.from("insurance-blank-forms").getPublicUrl(path);
-    const url = data.publicUrl;
+    if (!validateFileSignature(buffer, ["application/pdf"])) {
+      return NextResponse.json({ error: "El contenido del archivo no es un PDF válido." }, { status: 400 });
+    }
+    await uploadPrivate("insurance-blank-forms", path, buffer, "application/pdf");
+    const url = fileApiUrl("insurance-blank-forms", path);
 
     await prisma.user.update({
       where: { id: patientId },
-      data: { insuranceBlankFormUrl: url, insuranceBlankFormUploadedAt: new Date() },
+      data: { insuranceBlankFormUrl: "insurance-blank-forms/" + path, insuranceBlankFormUploadedAt: new Date() },
     });
 
     sendInsurancePatientFormAlert({

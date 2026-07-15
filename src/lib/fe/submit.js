@@ -10,6 +10,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
+import { assertFeConfig } from "@/lib/fe/config.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL = process.env.EMAIL_FROM || "Salud Mental Costa Rica <onboarding@resend.dev>";
@@ -196,6 +197,8 @@ export async function submitInvoiceToFe(invoiceId) {
           lineSubtotal: true,
           lineTotal: true,
           description: true,
+          cabysCode: true,
+          service: { select: { title: true, cabysCode: true } },
           product: { select: { name: true, cabysCode: true, saleUom: true } },
         },
       },
@@ -230,6 +233,7 @@ export async function submitInvoiceToFe(invoiceId) {
   if (FE_REAL_API_URL) {
     // ── Integración real con Hacienda CR ─────────────────────────────────────
     try {
+      assertFeConfig();
       const { submitToHacienda } = await import("@/lib/fe/client.js");
       const result = await submitToHacienda(invoice, invoice.lines);
       feNumber       = result.feNumber;
@@ -239,6 +243,13 @@ export async function submitInvoiceToFe(invoiceId) {
       realAcceptance = feStatus === "ACCEPTED";
     } catch (err) {
       console.error(`[FE] submitInvoiceToFe: error enviando factura ${invoiceId} a Hacienda:`, err);
+      if (String(err?.message || "").startsWith("Configuración FE") || String(err?.message || "").includes("No se permite ambiente fiscal")) {
+        feStatus       = "PENDING";
+        feErrorMessage = err.message;
+        await prisma.invoice.update({ where: { id: invoiceId }, data: { feNumber: null, feClave: null, feStatus, feErrorMessage } });
+        await sendFeConfigAlert(invoice).catch((e) => console.error("[FE] Error alertando configuración:", e));
+        return { feStatus, feNumber: null, feClave: null, feErrorMessage };
+      }
       feStatus       = "REJECTED";
       feNumber       = null;
       feClave        = null;

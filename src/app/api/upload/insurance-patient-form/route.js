@@ -1,10 +1,10 @@
 // src/app/api/upload/insurance-patient-form/route.js
 // Paciente sube el formulario con sus datos completados.
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendInsuranceProTemplateAlert } from "@/lib/insurance-mail";
+import { fileApiUrl, uploadPrivate, validateFileSignature } from "@/lib/storage";
 
 export async function POST(request) {
   try {
@@ -36,20 +36,15 @@ export async function POST(request) {
 
     const path = `${userId}/patient-form.pdf`;
     const buffer = Buffer.from(await file.arrayBuffer());
-    const supabaseAdmin = getSupabaseAdmin();
-
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from("insurance-patient-forms")
-      .upload(path, buffer, { upsert: true, contentType: "application/pdf", cacheControl: "3600" });
-
-    if (uploadError) throw uploadError;
-
-    const { data } = supabaseAdmin.storage.from("insurance-patient-forms").getPublicUrl(path);
-    const url = data.publicUrl;
+    if (!validateFileSignature(buffer, ["application/pdf"])) {
+      return NextResponse.json({ error: "El contenido del archivo no es un PDF válido." }, { status: 400 });
+    }
+    await uploadPrivate("insurance-patient-forms", path, buffer, "application/pdf");
+    const url = fileApiUrl("insurance-patient-forms", path);
 
     await prisma.user.update({
       where: { id: userId },
-      data: { insurancePatientFormUrl: url, insurancePatientFormUploadedAt: new Date() },
+      data: { insurancePatientFormUrl: "insurance-patient-forms/" + path, insurancePatientFormUploadedAt: new Date() },
     });
 
     // Notificar al profesional más reciente del paciente

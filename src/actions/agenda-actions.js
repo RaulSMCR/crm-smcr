@@ -17,6 +17,7 @@ import {
   normalizeRecurrenceRule,
   RECURRENCE_RULES,
 } from "@/lib/appointment-recurrence";
+import { APPOINTMENT_OVERLAP_MESSAGE, isAppointmentOverlapError } from "@/lib/appointment-errors";
 
 const CANCELLED_STATUSES = ["CANCELLED_BY_USER", "CANCELLED_BY_PRO"];
 const ALLOWED_PRO_STATUS = new Set(["CONFIRMED", "COMPLETED", "NO_SHOW", "CANCELLED_BY_PRO"]);
@@ -376,6 +377,7 @@ export async function createAppointmentByProfessional({
     };
   } catch (error) {
     console.error("createAppointmentByProfessional error:", error);
+    if (isAppointmentOverlapError(error)) return { success: false, error: APPOINTMENT_OVERLAP_MESSAGE };
     return { success: false, error: "Error interno al agendar. Por favor, intentelo nuevamente." };
   }
 }
@@ -506,6 +508,7 @@ export async function rescheduleAppointmentByProfessional(
     return { success: true, createdCount: hydratedAppointments.length };
   } catch (error) {
     console.error("rescheduleAppointmentByProfessional error:", error);
+    if (isAppointmentOverlapError(error)) return { success: false, error: APPOINTMENT_OVERLAP_MESSAGE };
     return { success: false, error: "Error interno al reagendar cita." };
   }
 }
