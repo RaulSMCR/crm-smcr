@@ -40,7 +40,7 @@ export async function POST(req, { params }) {
   }
 
   // 2) Cookies
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const existingAnon = cookieStore.get("anon_id")?.value || null;
   const existingSess = cookieStore.get("sess_id")?.value || null;
 

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export async function POST(_req, { params }) {
   const slug = params.slug;
 
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const cookieKey = `pv_${slug}`;
 
   // Dedupe simple: si ya contó en este dispositivo, no incrementar

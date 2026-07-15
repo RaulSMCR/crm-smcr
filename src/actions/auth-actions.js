@@ -20,8 +20,8 @@ import {
 } from "@/lib/cv-upload";
 
 // IP del cliente a partir de las cabeceras (primer valor de x-forwarded-for).
-function getClientIp() {
-  const h = headers();
+async function getClientIp() {
+  const h = await headers();
   return (
     h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     h.get("x-real-ip") ||
@@ -83,7 +83,7 @@ export async function login(formData) {
 
   if (!email || !password) return { error: "Credenciales requeridas." };
 
-  const ip = getClientIp();
+  const ip = await getClientIp();
   const rlKey = `login:${ip}:${email}`;
 
   // Rate limit: 5 intentos FALLIDOS / 15 min. Solo consultamos (no registramos
@@ -154,7 +154,7 @@ export async function login(formData) {
 
     const token = await signToken(sessionData);
 
-    cookies().set("session", token, {
+    (await cookies()).set("session", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
@@ -170,7 +170,7 @@ export async function login(formData) {
 }
 
 export async function registerProfessional(formData) {
-  const ip = getClientIp();
+  const ip = await getClientIp();
   const rl = await checkRateLimit(`register:${ip}`, { max: 5, windowMinutes: 60 });
   if (rl.limited) {
     return { error: "Demasiados intentos. Esperá unos minutos e intentá de nuevo." };
@@ -333,7 +333,7 @@ export async function registerProfessional(formData) {
 }
 
 export async function registerUser(formData) {
-  const ip = getClientIp();
+  const ip = await getClientIp();
   const rl = await checkRateLimit(`register:${ip}`, { max: 5, windowMinutes: 60 });
   if (rl.limited) {
     return { error: "Demasiados intentos. Esperá unos minutos e intentá de nuevo." };
@@ -455,7 +455,7 @@ export async function verifyEmail(token) {
 
 export async function logout() {
   try {
-    cookies().delete("session");
+    (await cookies()).delete("session");
   } catch (error) {
     console.error("Error al borrar cookie en logout (no crítico):", error);
   }
