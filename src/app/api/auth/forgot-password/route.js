@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { randomBytes, createHash } from "crypto";
-import { sendResetPasswordEmail } from "@/lib/mail";
+import { RESET_TOKEN_TTL_HOURS, sendResetPasswordEmail, ttlToDate } from "@/lib/mail";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { verifyTurnstile } from "@/lib/turnstile";
 
@@ -16,7 +16,7 @@ function json(data, status = 200) {
 export async function POST(request) {
   const neutral = {
     ok: true,
-    message: "Si el correo existe, se enviará un enlace para restablecer la contraseña y continuar avanzando con acceso protegido.",
+    message: "Si el correo está registrado, te enviamos un enlace para crear una contraseña nueva. Revisá tu bandeja y la carpeta de spam.",
   };
 
   try {
@@ -63,7 +63,7 @@ export async function POST(request) {
 
     const rawToken = randomBytes(32).toString("hex");
     const tokenHash = createHash("sha256").update(rawToken).digest("hex");
-    const exp = new Date(Date.now() + 1000 * 60 * 60); // 1 hora
+    const exp = ttlToDate(RESET_TOKEN_TTL_HOURS);
 
     await prisma.user.update({
       where: { id: user.id },

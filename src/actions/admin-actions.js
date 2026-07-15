@@ -4,8 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { resend } from "@/lib/resend";
 import { getSession } from "@/lib/auth";
-
-const BASE_URL = process.env.NEXT_PUBLIC_URL || "https://saludmentalcostarica.com";
+import { SITE_URL as BASE_URL } from "@/lib/site-url";
 
 function slugify(text) {
   return String(text)
@@ -123,6 +122,7 @@ export async function updatePostStatus(postId, newStatus) {
     revalidatePath(`/panel/admin/blog/${postId}`);
     revalidatePath("/blog");
     revalidatePath(`/blog/${post.slug}`);
+    revalidatePath("/"); // la home lista los artículos publicados
     return { success: true };
   } catch (error) {
     console.error("Error actualizando post:", error);
@@ -184,6 +184,7 @@ export async function updateAdminPost(postInput) {
     revalidatePath(`/panel/admin/blog/${id}`);
     revalidatePath("/blog");
     revalidatePath(`/blog/${post.slug}`);
+    revalidatePath("/"); // la home lista los artículos publicados
 
     return { success: true };
   } catch (error) {

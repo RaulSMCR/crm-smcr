@@ -12,53 +12,16 @@ import {
   RECURRENCE_RULES,
 } from "@/lib/appointment-recurrence";
 import { APPOINTMENT_OVERLAP_MESSAGE, isAppointmentOverlapError } from "@/lib/appointment-errors";
+import {
+  buildOccurrenceEnds,
+  CANCELLED_APPOINTMENT_STATUSES as CANCELLED_STATUSES,
+  findRecurringConflict,
+  formatConflictDate,
+} from "@/lib/booking-conflicts";
 
-const CANCELLED_STATUSES = ["CANCELLED_BY_USER", "CANCELLED_BY_PRO"];
-
-function buildOccurrenceEnds(starts, durationMin) {
-  return starts.map((start) => new Date(start.getTime() + durationMin * 60000));
-}
-
-function formatConflictDate(date) {
-  return new Intl.DateTimeFormat("es-CR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-}
-
-async function findRecurringConflict({ professionalId, starts, ends, ignoreAppointmentId }) {
-  if (!starts.length) return null;
-
-  const minStart = starts.reduce((min, current) => (current < min ? current : min), starts[0]);
-  const maxEnd = ends.reduce((max, current) => (current > max ? current : max), ends[0]);
-
-  const existingAppointments = await prisma.appointment.findMany({
-    where: {
-      professionalId,
-      ...(ignoreAppointmentId ? { id: { not: ignoreAppointmentId } } : {}),
-      status: { notIn: CANCELLED_STATUSES },
-      date: { lt: maxEnd },
-      endDate: { gt: minStart },
-    },
-    select: { date: true, endDate: true },
-  });
-
-  for (let index = 0; index < starts.length; index += 1) {
-    const start = starts[index];
-    const end = ends[index];
-    const hasConflict = existingAppointments.some(
-      (appointment) => appointment.date < end && appointment.endDate > start
-    );
-
-    if (hasConflict) {
-      return `Hay un conflicto en ${formatConflictDate(start)}. Ajuste la serie e intentelo nuevamente para mantener una coordinacion segura.`;
-    }
-  }
-
-  return null;
+function describeRecurringConflict(conflict) {
+  if (!conflict) return null;
+  return `Ese horario ya está ocupado el ${formatConflictDate(conflict.start)}. Ajustá la serie y probá de nuevo.`;
 }
 
 async function hydrateAppointments(appointmentIds) {
@@ -159,11 +122,9 @@ export async function createAppointmentForPatient({
       return { success: false, error: "Uno de los horarios de la serie ya pasó." };
     }
 
-    const conflictError = await findRecurringConflict({
-      professionalId: pid,
-      starts,
-      ends,
-    });
+    const conflictError = describeRecurringConflict(
+      await findRecurringConflict({ professionalId: pid, starts, ends })
+    );
 
     if (conflictError) return { success: false, error: conflictError };
 
@@ -348,12 +309,14 @@ export async function rescheduleAppointmentByPatient(
   const starts = buildRecurringStarts(newStart, rule, count);
   const ends = buildOccurrenceEnds(starts, durationMin);
 
-  const conflictError = await findRecurringConflict({
-    professionalId: appointment.professionalId,
-    starts,
-    ends,
-    ignoreAppointmentId: id,
-  });
+  const conflictError = describeRecurringConflict(
+    await findRecurringConflict({
+      professionalId: appointment.professionalId,
+      starts,
+      ends,
+      ignoreAppointmentId: id,
+    })
+  );
 
   if (conflictError) return { error: conflictError };
 

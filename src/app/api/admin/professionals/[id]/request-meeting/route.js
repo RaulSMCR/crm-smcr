@@ -33,16 +33,13 @@ export async function POST(_request, { params }) {
         html: `
           <div style="font-family: Arial, sans-serif; line-height:1.5; color:#0f172a; max-width:600px; margin:0 auto;">
             <h2>Avanzamos al siguiente paso</h2>
-            <p>Estimado/a ${profile.user.name || "profesional"}:</p>
+            <p>Hola ${profile.user.name || "profesional"}:</p>
             <p>
-              Gracias por su compromiso profesional. Para continuar avanzando en su proceso,
-              administración solicita agendar una reunión breve de coordinación.
+              Nos gustaría tener una reunión breve con vos para conocerte y coordinar los detalles
+              de tu incorporación.
             </p>
             <p>
-              Este paso nos permite fortalecer la calidad del servicio y seguir cuidando a nuestros pacientes.
-            </p>
-            <p>
-              Por favor, responda este correo para coordinar fecha y hora.
+              Respondé este correo con los días y horas que te sirvan, y lo agendamos.
             </p>
           </div>
         `,

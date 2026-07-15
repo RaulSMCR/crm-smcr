@@ -1,6 +1,5 @@
 import { prisma } from '@/lib/prisma';
-
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://saludmentalcostarica.com';
+import { SITE_URL as BASE_URL } from '@/lib/site-url';
 
 const STATIC_PAGES = [
   { url: '/',                      priority: 1.0, changeFrequency: 'weekly'  },
@@ -8,7 +7,6 @@ const STATIC_PAGES = [
   { url: '/blog',                  priority: 0.8, changeFrequency: 'daily'   },
   { url: '/nosotros',              priority: 0.6, changeFrequency: 'monthly' },
   { url: '/faq',                   priority: 0.7, changeFrequency: 'monthly' },
-  { url: '/ingresar',              priority: 0.6, changeFrequency: 'monthly' },
   { url: '/registro',              priority: 0.6, changeFrequency: 'monthly' },
   { url: '/registro/profesional',  priority: 0.6, changeFrequency: 'monthly' },
   { url: '/terminos',              priority: 0.6, changeFrequency: 'yearly'  },

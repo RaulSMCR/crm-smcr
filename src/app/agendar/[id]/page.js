@@ -3,9 +3,10 @@ import { notFound } from 'next/navigation';
 import BookingInterface from '@/components/booking/BookingInterface';
 import JsonLd from '@/components/JsonLd';
 import ViewTracker from '@/components/tracking/ViewTracker';
+import { siteUrl } from "@/lib/site-url";
 
 export async function generateMetadata({ params }) {
-  const canonical = `https://saludmentalcostarica.com/agendar/${params.id}`;
+  const canonical = siteUrl(`agendar/${params.id}`);
   const professional = await prisma.professionalProfile.findUnique({
     where: { id: params.id },
     select: {
@@ -32,7 +33,7 @@ export async function generateMetadata({ params }) {
   return {
     title: `Agendá con ${name} — ${professional.specialty}`,
     description,
-    alternates: { canonical: professional.slug ? `https://saludmentalcostarica.com/profesionales/${professional.slug}` : canonical },
+    alternates: { canonical: professional.slug ? siteUrl(`profesionales/${professional.slug}`) : canonical },
     openGraph: {
       title: `Agendá con ${name} | Salud Mental Costa Rica`,
       description,
@@ -113,7 +114,7 @@ export default async function AgendarPage({ params, searchParams }) {
     name: professional.user.name,
     description: professional.profileReview || undefined,
     image: professional.avatarUrl || professional.user.image || undefined,
-    url: `https://saludmentalcostarica.com/agendar/${professional.id}`,
+    url: siteUrl(`agendar/${professional.id}`),
     jobTitle: professional.specialty,
     ...(professional.licenseNumber && { identifier: professional.licenseNumber }),
     hasOfferCatalog: {

@@ -2,17 +2,18 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { prisma } from '@/lib/prisma';
+import { siteUrl } from "@/lib/site-url";
 
 export const metadata = {
   title: 'Blog de salud mental y bienestar',
   description:
     'Artículos sobre psicología, bienestar, nutrición y salud mental escritos por profesionales verificados en Costa Rica.',
-  alternates: { canonical: 'https://saludmentalcostarica.com/blog' },
+  alternates: { canonical: siteUrl('blog') },
   openGraph: {
     title: 'Blog de salud mental y bienestar | Salud Mental Costa Rica',
     description:
       'Artículos sobre psicología, bienestar, nutrición y salud mental escritos por profesionales verificados.',
-    url: 'https://saludmentalcostarica.com/blog',
+    url: siteUrl('blog'),
   },
 };
 

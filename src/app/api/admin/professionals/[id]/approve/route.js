@@ -38,7 +38,6 @@ export async function POST(_request, { params }) {
     });
 
     revalidatePath("/panel/admin/personal");
-    revalidatePath("/admin/professionals");
     revalidatePath("/servicios");
     if (updated.slug) revalidatePath(`/profesionales/${updated.slug}`);
 

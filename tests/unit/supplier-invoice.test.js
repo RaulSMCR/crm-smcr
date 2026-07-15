@@ -50,7 +50,7 @@ describe("factura de proveedor", () => {
     process.env.FE_EMISOR_IDENTIFICACION = "310123456";
     try {
       const { buildFeClave } = await import("@/lib/fe/xml");
-      const clave = buildFeClave("01", "00100001010000000001", new Date(2026, 6, 15), "12345678");
+      const clave = buildFeClave("00100001010000000001", new Date(2026, 6, 15), "12345678");
       expect(clave).toHaveLength(50);
       expect(validateSupplierFeClave(clave, "310123456")).toEqual({ ok: true });
     } finally {

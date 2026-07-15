@@ -281,11 +281,9 @@ export async function submitInvoiceToFe(invoiceId) {
   } else {
     // ── Modo mock: FE simulada (desarrollo, sin FE_API_URL configurada) ──────
     const { buildFeNumber, buildFeClave, extractConsecutivo } = await import("@/lib/fe/xml.js");
-    const { TIPO_DOC_MAP } = await import("@/lib/fe/config.js");
-    const tipoDoc    = TIPO_DOC_MAP[invoice.invoiceType] || "01";
     const consecutivo = extractConsecutivo(invoice.invoiceNumber);
     feNumber       = buildFeNumber(invoice.invoiceType, consecutivo);
-    feClave        = buildFeClave(tipoDoc, feNumber, invoice.invoiceDate);
+    feClave        = buildFeClave(feNumber, invoice.invoiceDate);
     feStatus       = "ACCEPTED";
     feErrorMessage = "SIMULADO — sin validez tributaria";
     console.log(`[FE MOCK] Factura ${invoice.invoiceNumber} → feNumber=${feNumber} (SIMULADO, sin validez tributaria)`);

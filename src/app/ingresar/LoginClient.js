@@ -130,7 +130,7 @@ function PanelForm({ panelKey, onBack, registered }) {
           >
             <p className="font-bold mb-1">Postulación enviada con éxito</p>
             <ol className="list-decimal list-inside space-y-0.5 text-brand-200">
-              <li>Verifique su correo (incluida la carpeta de spam).</li>
+              <li>Revisá tu correo, incluida la carpeta de spam.</li>
               <li>El coordinador agendará una entrevista por WhatsApp.</li>
             </ol>
           </motion.div>

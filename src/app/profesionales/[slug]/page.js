@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import JsonLd from "@/components/JsonLd";
 import ViewTracker from "@/components/tracking/ViewTracker";
 import { prisma } from "@/lib/prisma";
+import { siteUrl } from "@/lib/site-url";
 
 export const revalidate = 3600;
 
@@ -71,11 +72,11 @@ export async function generateMetadata({ params }) {
   return {
     title: `${name} | Perfil profesional`,
     description,
-    alternates: { canonical: `https://saludmentalcostarica.com/profesionales/${professional.slug}` },
+    alternates: { canonical: siteUrl(`profesionales/${professional.slug}`) },
     openGraph: {
       title: `${name} | Salud Mental Costa Rica`,
       description,
-      url: `https://saludmentalcostarica.com/profesionales/${professional.slug}`,
+      url: siteUrl(`profesionales/${professional.slug}`),
       images: image,
     },
   };
@@ -103,7 +104,7 @@ export default async function ProfessionalPublicProfilePage({ params, searchPara
     name,
     description: review || undefined,
     image: professional.user?.image || undefined,
-    url: `https://saludmentalcostarica.com/profesionales/${professional.slug}`,
+    url: siteUrl(`profesionales/${professional.slug}`),
     jobTitle: professional.specialty || undefined,
     ...(professional.licenseNumber ? { identifier: professional.licenseNumber } : {}),
   };
@@ -111,7 +112,7 @@ export default async function ProfessionalPublicProfilePage({ params, searchPara
   return (
     <main className="min-h-screen bg-surface px-6 py-10">
       <JsonLd data={personSchema} />
-      <JsonLd data={{ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Profesionales", item: "https://saludmentalcostarica.com/profesionales" }, { "@type": "ListItem", position: 2, name, item: `https://saludmentalcostarica.com/profesionales/${professional.slug}` }] }} />
+      <JsonLd data={{ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Profesionales", item: siteUrl("profesionales") }, { "@type": "ListItem", position: 2, name, item: siteUrl(`profesionales/${professional.slug}`) }] }} />
       <ViewTracker
         eventName="view_professional_profile"
         eventParams={{ professional_name: name }}

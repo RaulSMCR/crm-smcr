@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { requireAdmin } from "@/lib/api-guards";
 import { invoiceBodySchema, validationMessage } from "@/lib/financial-schemas";
 import { computeInvoiceLine, round2, toNumber } from "@/lib/invoice-math";
 
@@ -76,11 +76,8 @@ function mapInvoice(invoice) {
 
 export async function GET(request) {
   try {
-    const session = await getSession();
-    if (!session) return NextResponse.json({ message: "No autorizado." }, { status: 401 });
-    if (session.role !== "ADMIN") {
-      return NextResponse.json({ message: "Acción no permitida." }, { status: 403 });
-    }
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
 
     const { searchParams } = new URL(request.url);
     const type = normalizeInvoiceType(searchParams.get("type"));
@@ -157,11 +154,8 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const session = await getSession();
-    if (!session) return NextResponse.json({ message: "No autorizado." }, { status: 401 });
-    if (session.role !== "ADMIN") {
-      return NextResponse.json({ message: "Acción no permitida." }, { status: 403 });
-    }
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
 
     const body = await request.json().catch(() => ({}));
     const parsed = invoiceBodySchema.safeParse(body);

@@ -52,11 +52,11 @@ export default function ResetPasswordClient() {
   return (
     <main className="min-h-[70vh] flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-2 text-center">Crear nueva contraseña de acceso seguro</h1>
+        <h1 className="text-2xl font-bold mb-2 text-center">Crear una contraseña nueva</h1>
 
         {tokenMissing ? (
           <div className="mb-4 rounded border bg-red-50 border-red-200 text-red-700 px-3 py-2 text-sm">
-            Token faltante. Solicite un enlace nuevo en 
+            El enlace está incompleto. Pedí uno nuevo en
             <Link href="/recuperar" className="underline">
               /recuperar
             </Link>
@@ -86,7 +86,7 @@ export default function ResetPasswordClient() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full border rounded px-3 py-2"
-              placeholder="Mínimo 8 caracteres para acceso protegido"
+              placeholder="Mínimo 8 caracteres"
               autoComplete="new-password"
               disabled={tokenMissing}
             />

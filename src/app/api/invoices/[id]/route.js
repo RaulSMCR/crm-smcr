@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { requireAdmin } from "@/lib/api-guards";
 import { invoiceBodySchema, validationMessage } from "@/lib/financial-schemas";
 import { computeInvoiceLine, round2, toNumber } from "@/lib/invoice-math";
 
@@ -56,14 +56,7 @@ function mapInvoice(invoice) {
   };
 }
 
-async function requireAdmin() {
-  const session = await getSession();
-  if (!session) return { error: NextResponse.json({ message: "No autorizado." }, { status: 401 }) };
-  if (session.role !== "ADMIN") {
-    return { error: NextResponse.json({ message: "Acción no permitida." }, { status: 403 }) };
-  }
-  return { session };
-}
+
 
 export async function GET(_request, { params }) {
   try {

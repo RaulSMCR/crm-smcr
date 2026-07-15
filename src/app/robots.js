@@ -1,11 +1,15 @@
+import { SITE_URL, siteUrl } from '@/lib/site-url';
+
 export default function robots() {
   return {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/api/', '/admin/', '/dashboard/', '/ingresar', '/registro'],
+      // `/registro*` queda indexable a propósito: son las páginas de captación
+      // y el sitemap las publica. `/panel/` es el área privada real.
+      disallow: ['/api/', '/panel/', '/ingresar'],
     },
-    sitemap: 'https://saludmentalcostarica.com/sitemap.xml',
-    host: 'https://saludmentalcostarica.com',
+    sitemap: siteUrl('sitemap.xml'),
+    host: SITE_URL,
   };
 }

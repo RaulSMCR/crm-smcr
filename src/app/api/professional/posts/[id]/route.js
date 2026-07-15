@@ -1,6 +1,17 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+
+/**
+ * El blog y la home son ISR: sin esto, un artículo editado (que vuelve a DRAFT)
+ * o eliminado seguiría publicado hasta que expire la ventana de revalidación.
+ */
+function revalidatePublicPost(slug) {
+  revalidatePath("/blog");
+  if (slug) revalidatePath(`/blog/${slug}`);
+  revalidatePath("/");
+}
 
 async function getProfessionalId(session) {
   if (!session || session.role !== "PROFESSIONAL") return null;
@@ -37,7 +48,7 @@ export async function PATCH(request, { params }) {
 
     const existing = await prisma.post.findFirst({
       where: { id, authorId: professionalId },
-      select: { id: true },
+      select: { id: true, slug: true },
     });
 
     if (!existing) return NextResponse.json({ message: "Artículo no encontrado" }, { status: 404 });
@@ -47,6 +58,8 @@ export async function PATCH(request, { params }) {
       data: { title, content, coverImage, coverImageTitle, coverImageAuthor, coverImageNote, status: "DRAFT" },
       select: { id: true, title: true, status: true, updatedAt: true },
     });
+
+    revalidatePublicPost(existing.slug);
 
     return NextResponse.json(updated);
   } catch (error) {
@@ -66,12 +79,14 @@ export async function DELETE(_request, { params }) {
 
     const existing = await prisma.post.findFirst({
       where: { id, authorId: professionalId },
-      select: { id: true },
+      select: { id: true, slug: true },
     });
 
     if (!existing) return NextResponse.json({ message: "Artículo no encontrado" }, { status: 404 });
 
     await prisma.post.delete({ where: { id } });
+
+    revalidatePublicPost(existing.slug);
 
     return NextResponse.json({ success: true });
   } catch (error) {

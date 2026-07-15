@@ -1,12 +1,6 @@
 // PATH: src/lib/mail.js
 import { Resend } from "resend";
-
-const DOMAIN =
-  process.env.NEXT_PUBLIC_URL ||
-  process.env.NEXT_PUBLIC_APP_URL ||
-  (process.env.NODE_ENV === "development"
-    ? "http://localhost:3000"
-    : "https://saludmentalcostarica.com");
+import { SITE_URL as DOMAIN } from "@/lib/site-url";
 
 const EMAIL_FROM =
   process.env.NOTIFICATIONS_FROM_EMAIL ||
@@ -21,7 +15,25 @@ function getResend() {
   return new Resend(process.env.RESEND_API_KEY);
 }
 
-export async function sendVerificationEmail(email, token) {
+/**
+ * Vigencia de los enlaces, en horas. Viven junto a las plantillas a propósito:
+ * el correo le promete un plazo al usuario, así que quien graba el token en la BD
+ * debe usar la misma constante o el texto miente.
+ */
+export const VERIFY_TOKEN_TTL_HOURS = 24; // al registrarse
+export const VERIFY_RESEND_TTL_HOURS = 1; // al pedir un reenvío
+export const RESET_TOKEN_TTL_HOURS = 1;
+
+/** Fecha de expiración a partir de una de las constantes de arriba. */
+export function ttlToDate(hours) {
+  return new Date(Date.now() + hours * 60 * 60 * 1000);
+}
+
+function hoursLabel(hours) {
+  return hours === 1 ? "1 hora" : `${hours} horas`;
+}
+
+export async function sendVerificationEmail(email, token, expiresInHours = VERIFY_TOKEN_TTL_HOURS) {
   const resend = getResend();
   if (!resend) return;
 
@@ -35,7 +47,7 @@ export async function sendVerificationEmail(email, token) {
       html: `
         <div style="font-family: Arial, Helvetica, sans-serif; line-height:1.5; color:#111">
           <h2>Verificación de cuenta</h2>
-          <p>Gracias por registrarse en <b>Salud Mental CR</b>.</p>
+          <p>Gracias por registrarte en <b>Salud Mental CR</b>.</p>
           <p>Para confirmar tu cuenta, usá el siguiente botón:</p>
           <p style="margin:25px 0">
             <a href="${confirmLink}"
@@ -51,8 +63,8 @@ export async function sendVerificationEmail(email, token) {
             </a>
           </p>
           <p style="font-size:12px;color:#555">
-            Este enlace expirará pronto.
-            Si esta acción no fue solicitada, puede ignorar este mensaje con tranquilidad.
+            El enlace vence en ${hoursLabel(expiresInHours)}; si se te vence, pedí uno nuevo desde la pantalla de ingreso.
+            Si no fuiste vos quien creó la cuenta, podés ignorar este mensaje.
           </p>
         </div>
       `,
@@ -84,7 +96,7 @@ export async function sendResetPasswordEmail(email, token) {
       html: `
         <div style="font-family: Arial, Helvetica, sans-serif; line-height:1.5; color:#111">
           <h2>Restablecimiento de contraseña</h2>
-          <p>Se recibió una solicitud para restablecer la contraseña de su cuenta en <b>Salud Mental CR</b>.</p>
+          <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta en <b>Salud Mental CR</b>.</p>
           <p>Para crear una contraseña nueva, usá el siguiente botón:</p>
           <p style="margin:25px 0">
             <a href="${resetLink}"
@@ -99,8 +111,8 @@ export async function sendResetPasswordEmail(email, token) {
               Crear nueva contraseña y continuar</a>
           </p>
           <p style="font-size:12px;color:#555">
-            Este enlace expirará pronto.
-            Si esta solicitud no fue realizada, puede ignorar este mensaje con tranquilidad.
+            El enlace vence en ${hoursLabel(RESET_TOKEN_TTL_HOURS)}.
+            Si no pediste el cambio, podés ignorar este mensaje: tu contraseña sigue igual.
           </p>
         </div>
       `,

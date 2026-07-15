@@ -6,13 +6,14 @@ import Footer from '@/components/Footer';
 import JsonLd from '@/components/JsonLd';
 import ConsentBanner from '@/components/ConsentBanner';
 import AnalyticsLoader from '@/components/AnalyticsLoader';
+import { SITE_URL, siteUrl } from '@/lib/site-url';
 
 const ORGANIZATION_SCHEMA = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
   name: 'Salud Mental Costa Rica',
-  url: 'https://saludmentalcostarica.com',
-  logo: 'https://saludmentalcostarica.com/logo.svg',
+  url: SITE_URL,
+  logo: siteUrl('logo.svg'),
   description: 'Plataforma interdisciplinaria de bienestar y salud mental en Costa Rica. Psicología, nutrición, deporte y más.',
   contactPoint: {
     '@type': 'ContactPoint',
@@ -32,7 +33,7 @@ const ORGANIZATION_SCHEMA = {
 const GA_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID;
 
-const BASE_URL = 'https://saludmentalcostarica.com';
+const BASE_URL = SITE_URL;
 
 export const metadata = {
   metadataBase: new URL(BASE_URL),

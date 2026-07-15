@@ -57,7 +57,6 @@ export async function POST(_request, { params }) {
     }
 
     revalidatePath("/panel/admin/personal");
-    revalidatePath("/admin/professionals");
     revalidatePath("/servicios");
 
     return NextResponse.json({ ok: true, status: "INACTIVE", message: "Cuenta inactivada correctamente." });

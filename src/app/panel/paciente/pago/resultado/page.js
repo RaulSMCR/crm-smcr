@@ -62,7 +62,7 @@ export default async function PagoResultadoPage({ searchParams }) {
             </div>
             <h1 className="text-2xl font-bold text-slate-900">Pago en proceso</h1>
             <p className="mt-2 text-slate-600">
-              El pago está siendo verificado. Se enviará una notificación cuando sea confirmado.
+              Estamos verificando el pago. Te avisamos por correo apenas se confirme.
             </p>
           </>
         )}
@@ -85,7 +85,7 @@ export default async function PagoResultadoPage({ searchParams }) {
             </div>
             <h1 className="text-2xl font-bold text-slate-900">Pago rechazado</h1>
             <p className="mt-2 text-slate-600">
-              El pago no pudo procesarse. Puede intentarlo nuevamente desde el panel para continuar.
+              No pudimos procesar el pago y no se te cobró nada. Podés intentarlo de nuevo desde tu panel.
             </p>
           </>
         )}

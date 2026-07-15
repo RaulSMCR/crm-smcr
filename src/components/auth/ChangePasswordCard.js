@@ -17,11 +17,11 @@ export default function ChangePasswordCard({ title = "Actualización de contrase
     setMsg({ type: "", text: "" });
 
     if (!pw.currentPassword) {
-      setMsg({ type: "error", text: "Ingrese su contraseña actual para continuar con la actualización segura." });
+      setMsg({ type: "error", text: "Escribí tu contraseña actual para continuar." });
       return;
     }
     if (!pw.newPassword || pw.newPassword.length < 8) {
-      setMsg({ type: "error", text: "La nueva contraseña debe incluir al menos 8 caracteres para proteger su acceso." });
+      setMsg({ type: "error", text: "La nueva contraseña necesita al menos 8 caracteres." });
       return;
     }
     if (pw.newPassword !== pw.confirmPassword) {
@@ -55,7 +55,7 @@ export default function ChangePasswordCard({ title = "Actualización de contrase
   return (
     <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-100">
       <h3 className="text-lg font-bold text-slate-800 mb-2">{title}</h3>
-      <p className="text-slate-500 text-sm mb-6">Para proteger su cuenta y la información clínica, se solicita la contraseña actual antes de continuar.</p>
+      <p className="text-slate-500 text-sm mb-6">Te pedimos la contraseña actual para proteger tu cuenta y tu información clínica.</p>
 
       {msg.text && (
         <div

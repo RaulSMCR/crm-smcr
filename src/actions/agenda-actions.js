@@ -18,27 +18,18 @@ import {
   RECURRENCE_RULES,
 } from "@/lib/appointment-recurrence";
 import { APPOINTMENT_OVERLAP_MESSAGE, isAppointmentOverlapError } from "@/lib/appointment-errors";
+import {
+  buildOccurrenceEnds,
+  CANCELLED_APPOINTMENT_STATUSES as CANCELLED_STATUSES,
+  findRecurringConflict as findOverlappingOccurrence,
+  formatConflictDate,
+} from "@/lib/booking-conflicts";
 
-const CANCELLED_STATUSES = ["CANCELLED_BY_USER", "CANCELLED_BY_PRO"];
 const ALLOWED_PRO_STATUS = new Set(["CONFIRMED", "COMPLETED", "NO_SHOW", "CANCELLED_BY_PRO"]);
 
 function toStr(value) {
   if (value === undefined || value === null) return "";
   return String(value);
-}
-
-function buildOccurrenceEnds(starts, durationMin) {
-  return starts.map((start) => new Date(start.getTime() + durationMin * 60000));
-}
-
-function formatConflictDate(date) {
-  return new Intl.DateTimeFormat("es-CR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
 }
 
 async function requireProfessionalProfileId() {
@@ -55,33 +46,8 @@ async function requireProfessionalProfileId() {
 }
 
 async function findRecurringConflict({ professionalId, starts, ends, ignoreAppointmentId }) {
-  if (!starts.length) return null;
-
-  const minStart = starts.reduce((min, current) => (current < min ? current : min), starts[0]);
-  const maxEnd = ends.reduce((max, current) => (current > max ? current : max), ends[0]);
-
-  const existingAppointments = await prisma.appointment.findMany({
-    where: {
-      professionalId,
-      ...(ignoreAppointmentId ? { id: { not: ignoreAppointmentId } } : {}),
-      status: { notIn: CANCELLED_STATUSES },
-      date: { lt: maxEnd },
-      endDate: { gt: minStart },
-    },
-    select: { date: true, endDate: true },
-  });
-
-  for (let index = 0; index < starts.length; index += 1) {
-    const start = starts[index];
-    const end = ends[index];
-    const hasConflict = existingAppointments.some(
-      (appointment) => appointment.date < end && appointment.endDate > start
-    );
-
-    if (hasConflict) return { conflictStart: start };
-  }
-
-  return null;
+  const conflict = await findOverlappingOccurrence({ professionalId, starts, ends, ignoreAppointmentId });
+  return conflict ? { conflictStart: conflict.start } : null;
 }
 
 function buildGoogleCalendarDayUrl(date) {
@@ -214,7 +180,7 @@ function revalidateAgendaPaths() {
   revalidatePath("/panel/profesional/citas");
   revalidatePath("/panel/profesional");
   revalidatePath("/panel/paciente");
-  revalidatePath("/admin/appointments");
+  revalidatePath("/panel/admin/citas");
 }
 
 export async function getProfessionalRescheduleData(appointmentId) {

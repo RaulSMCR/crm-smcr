@@ -7,7 +7,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
-import { sendVerificationEmail } from "@/lib/mail";
+import { sendVerificationEmail, ttlToDate, VERIFY_TOKEN_TTL_HOURS } from "@/lib/mail";
 import { signToken, getSession as getLibSession } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { checkRateLimit, recordAttempt } from "@/lib/rate-limit";
@@ -261,7 +261,7 @@ export async function registerProfessional(formData) {
           emailVerified: false,
           isActive: true,
           verifyTokenHash,
-          verifyTokenExp: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          verifyTokenExp: ttlToDate(VERIFY_TOKEN_TTL_HOURS),
           acquisitionChannel,
           campaignName: "Captación Profesionales",
         },
@@ -310,7 +310,7 @@ export async function registerProfessional(formData) {
     let verificationEmailSent = false;
     if (process.env.RESEND_API_KEY) {
       try {
-        await sendVerificationEmail(email, verifyToken);
+        await sendVerificationEmail(email, verifyToken, VERIFY_TOKEN_TTL_HOURS);
         verificationEmailSent = true;
       } catch (error) {
         console.error("Error enviando email de verificacion a profesional:", error);
@@ -395,7 +395,7 @@ export async function registerUser(formData) {
         emailVerified: false,
         isActive: true,
         verifyTokenHash,
-        verifyTokenExp: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        verifyTokenExp: ttlToDate(VERIFY_TOKEN_TTL_HOURS),
         acquisitionChannel,
       },
     });
@@ -403,7 +403,7 @@ export async function registerUser(formData) {
     let verificationEmailSent = false;
     if (process.env.RESEND_API_KEY) {
       try {
-        await sendVerificationEmail(email, verifyToken);
+        await sendVerificationEmail(email, verifyToken, VERIFY_TOKEN_TTL_HOURS);
         verificationEmailSent = true;
       } catch (error) {
         console.error("Error enviando email de verificacion a paciente:", error);

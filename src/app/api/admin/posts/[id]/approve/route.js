@@ -1,5 +1,6 @@
 // src/app/api/admin/posts/[id]/approve/route.js
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 
@@ -35,6 +36,11 @@ export async function POST(_request, { params }) {
         updatedAt: true,
       },
     });
+
+    // El blog y la home son ISR: publicar debe reflejarse sin esperar la revalidación.
+    revalidatePath("/blog");
+    if (updated.slug) revalidatePath(`/blog/${updated.slug}`);
+    revalidatePath("/");
 
     return NextResponse.json(updated);
   } catch (e) {

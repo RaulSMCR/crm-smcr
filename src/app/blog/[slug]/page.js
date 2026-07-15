@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import PostMarketingTracker from '@/components/blog/PostMarketingTracker';
 import JsonLd from '@/components/JsonLd';
+import { siteUrl } from "@/lib/site-url";
 
 // Helper para fecha
 const formatDate = (date) => {
@@ -18,7 +19,7 @@ const formatDate = (date) => {
 export const revalidate = 3600;
 
 export async function generateMetadata({ params }) {
-  const canonical = `https://saludmentalcostarica.com/blog/${params.slug}`;
+  const canonical = siteUrl(`blog/${params.slug}`);
   const post = await prisma.post.findUnique({
     where: { slug: params.slug },
     select: { title: true, excerpt: true, coverImage: true, coverImageTitle: true },
@@ -90,10 +91,10 @@ export default async function BlogPostPage({ params }) {
     '@type': 'Article',
     headline: post.title,
     description: post.excerpt || undefined,
-    image: post.coverImage || 'https://saludmentalcostarica.com/og-image.png',
+    image: post.coverImage || siteUrl('og-image.png'),
     datePublished: post.createdAt.toISOString(),
     dateModified: post.updatedAt.toISOString(),
-    url: `https://saludmentalcostarica.com/blog/${slug}`,
+    url: siteUrl(`blog/${slug}`),
     author: {
       '@type': 'Person',
       name: authorUser.name,
@@ -105,7 +106,7 @@ export default async function BlogPostPage({ params }) {
       name: 'Salud Mental Costa Rica',
       logo: {
         '@type': 'ImageObject',
-        url: 'https://saludmentalcostarica.com/logo.svg',
+        url: siteUrl('logo.svg'),
       },
     },
   };
@@ -113,7 +114,7 @@ export default async function BlogPostPage({ params }) {
   return (
     <article className="min-h-screen bg-surface">
       <JsonLd data={articleSchema} />
-      <JsonLd data={{ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Blog", item: "https://saludmentalcostarica.com/blog" }, { "@type": "ListItem", position: 2, name: post.title, item: `https://saludmentalcostarica.com/blog/${post.slug}` }] }} />
+      <JsonLd data={{ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Blog", item: siteUrl("blog") }, { "@type": "ListItem", position: 2, name: post.title, item: siteUrl(`blog/${post.slug}`) }] }} />
       {/* Tracker Marketing (Nivel 3) */}
       <PostMarketingTracker slug={slug} title={post.title} />
 

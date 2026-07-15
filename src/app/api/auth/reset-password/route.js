@@ -24,12 +24,12 @@ export async function POST(request) {
     const newPassword = String(body?.password || "");
     const confirm = String(body?.confirmPassword || "");
 
-    if (!rawToken) return json({ error: "Token faltante. Solicite un nuevo enlace para continuar avanzando con seguridad." }, 400);
+    if (!rawToken) return json({ error: "El enlace está incompleto. Pedí uno nuevo desde «Olvidé mi contraseña»." }, 400);
     if (!newPassword || newPassword.length < 8) {
-      return json({ error: "La contraseña debe incluir al menos 8 caracteres para proteger el acceso." }, 400);
+      return json({ error: "La contraseña necesita al menos 8 caracteres." }, 400);
     }
     if (newPassword !== confirm) {
-      return json({ error: "La confirmación de contraseña no coincide." }, 400);
+      return json({ error: "Las dos contraseñas no coinciden. Revisalas e intentá de nuevo." }, 400);
     }
 
     const tokenHash = createHash("sha256").update(rawToken).digest("hex");
@@ -43,7 +43,7 @@ export async function POST(request) {
       select: { id: true },
     });
 
-    if (!user) return json({ error: "El enlace expiró o no es válido. Solicite uno nuevo para continuar avanzando con seguridad." }, 400);
+    if (!user) return json({ error: "El enlace venció o ya se usó. Pedí uno nuevo desde «Olvidé mi contraseña»." }, 400);
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
 

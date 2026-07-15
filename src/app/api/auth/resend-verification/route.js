@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
-import { sendVerificationEmail } from "@/lib/mail";
+import { sendVerificationEmail, ttlToDate, VERIFY_RESEND_TTL_HOURS } from "@/lib/mail";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 function sha256Hex(input) {
@@ -38,10 +38,10 @@ export async function POST(req) {
     if (user.isActive === false) return genericOk;
     if (user.emailVerified) return genericOk;
 
-    // Nuevo token + hash + exp (1 hora)
+    // Nuevo token + hash + exp
     const token = crypto.randomBytes(32).toString("hex");
     const tokenHash = sha256Hex(token);
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    const expiresAt = ttlToDate(VERIFY_RESEND_TTL_HOURS);
 
     await prisma.user.update({
       where: { id: user.id },
@@ -53,7 +53,7 @@ export async function POST(req) {
 
     // Envío no bloqueante (no romper UX)
     try {
-      await sendVerificationEmail(email, token);
+      await sendVerificationEmail(email, token, VERIFY_RESEND_TTL_HOURS);
     } catch (e) {
       console.error("RESEND_VERIFICATION_EMAIL_ERROR:", e);
     }

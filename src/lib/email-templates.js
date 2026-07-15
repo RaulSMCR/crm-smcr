@@ -4,8 +4,8 @@
 export const emailNuevaSolicitud = (nombreProfesional, nombrePaciente, fecha, hora, linkPanel) => {
   return `
     <div style="font-family: sans-serif; color: #333;">
-      <h1>Estimado/a ${nombreProfesional}</h1>
-      <p>Se registró una nueva solicitud de cita pendiente de aprobación.</p>
+      <h1>Hola ${nombreProfesional}</h1>
+      <p>Tenés una nueva solicitud de cita esperando tu confirmación.</p>
       
       <div style="background: #f3f4f6; padding: 20px; border-radius: 10px; margin: 20px 0;">
         <p><strong>Paciente:</strong> ${nombrePaciente}</p>

@@ -1,15 +1,16 @@
 import ContactForm from "@/components/ContactForm";
 import { getSession } from "@/lib/auth";
+import { siteUrl } from "@/lib/site-url";
 
 export const metadata = {
   title: 'Contacto',
   description:
     'Ponete en contacto con el equipo de Salud Mental Costa Rica. Estamos disponibles para consultas, dudas y coordinar tu primera sesión.',
-  alternates: { canonical: 'https://saludmentalcostarica.com/contacto' },
+  alternates: { canonical: siteUrl('contacto') },
   openGraph: {
     title: 'Contacto | Salud Mental Costa Rica',
     description: 'Escribinos para coordinar tu primera sesión o resolver tus dudas.',
-    url: 'https://saludmentalcostarica.com/contacto',
+    url: siteUrl('contacto'),
   },
 };
 

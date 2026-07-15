@@ -1,27 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { requireAdmin } from "@/lib/api-guards";
 import { markSettlementPaid } from "@/actions/settlement-actions";
+import { round2, toNumber } from "@/lib/invoice-math";
 
 export const dynamic = "force-dynamic";
-
-function toNumber(value, fallback = 0) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-function round2(value) {
-  return Math.round((toNumber(value) + Number.EPSILON) * 100) / 100;
-}
-
-async function requireAdmin() {
-  const session = await getSession();
-  if (!session) return { error: NextResponse.json({ message: "No autorizado." }, { status: 401 }) };
-  if (session.role !== "ADMIN") {
-    return { error: NextResponse.json({ message: "Acción no permitida." }, { status: 403 }) };
-  }
-  return { session };
-}
 
 export async function POST(request, { params }) {
   try {

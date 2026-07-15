@@ -91,6 +91,8 @@ export async function createService(formData) {
     });
 
     revalidatePath("/panel/admin/servicios");
+    revalidatePath("/servicios");
+    revalidatePath("/");
     return { success: true, newId: newService.id };
   } catch (error) {
     console.error("createService error:", error);

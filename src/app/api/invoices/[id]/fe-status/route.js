@@ -7,18 +7,13 @@
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { requireAdmin } from "@/lib/api-guards";
 
 export const dynamic = "force-dynamic";
 
 const FE_REAL_API_URL = process.env.FE_API_URL || null;
 
-async function requireAdmin() {
-  const session = await getSession();
-  if (!session) return { error: NextResponse.json({ message: "No autorizado." }, { status: 401 }) };
-  if (session.role !== "ADMIN") return { error: NextResponse.json({ message: "Acción no permitida." }, { status: 403 }) };
-  return { session };
-}
+
 
 export async function GET(_request, { params }) {
   try {

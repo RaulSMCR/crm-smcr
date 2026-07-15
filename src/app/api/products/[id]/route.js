@@ -1,17 +1,12 @@
 // src/app/api/products/[id]/route.js
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { requireAdmin } from "@/lib/api-guards";
 import { productBodySchema, validationMessage } from "@/lib/financial-schemas";
 
 export const dynamic = "force-dynamic";
 
-async function requireAdmin() {
-  const session = await getSession();
-  if (!session) return { error: NextResponse.json({ message: "No autorizado." }, { status: 401 }) };
-  if (session.role !== "ADMIN") return { error: NextResponse.json({ message: "Acción no permitida." }, { status: 403 }) };
-  return { session };
-}
+
 
 function mapProduct(p) {
   return {

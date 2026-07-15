@@ -2,13 +2,11 @@ import { resend } from "@/lib/resend";
 import { getCalendarClient } from "@/lib/google";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_TZ, formatDateTimeInTZ, toGoogleDateTime } from "@/lib/timezone";
+import { SITE_URL } from "@/lib/site-url";
 
 const TZ = process.env.APP_TIMEZONE || DEFAULT_TZ;
 const FROM_EMAIL = process.env.EMAIL_FROM || process.env.NOTIFICATIONS_FROM_EMAIL || "Salud Mental Costa Rica <onboarding@resend.dev>";
-const APP_DOMAIN =
-  process.env.NEXT_PUBLIC_URL ||
-  process.env.NEXT_PUBLIC_APP_URL ||
-  (process.env.NODE_ENV === "development" ? "http://localhost:3000" : "https://saludmentalcostarica.com");
+const APP_DOMAIN = SITE_URL;
 
 const CANCELLED_STATUSES = new Set(["CANCELLED_BY_USER", "CANCELLED_BY_PRO"]);
 

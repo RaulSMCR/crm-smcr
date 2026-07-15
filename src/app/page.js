@@ -6,6 +6,7 @@ import MissionVideo from "@/components/MissionVideo";
 import HomeFeatureCarousel from "@/components/HomeFeatureCarousel";
 import ProfessionalCtaSection from "@/components/ProfessionalCtaSection";
 import JsonLd from "@/components/JsonLd";
+import { SITE_URL } from "@/lib/site-url";
 
 const STOCK_IMAGES = [
   "https://images.unsplash.com/photo-1526253038957-bce54e05968c?w=1600&q=80",
@@ -187,7 +188,7 @@ export default async function HomePage() {
 
   return (
     <div>
-      <JsonLd data={{ "@context": "https://schema.org", "@type": "MedicalBusiness", name: "Salud Mental Costa Rica", url: "https://saludmentalcostarica.com", medicalSpecialty: "Salud mental" }} />
+      <JsonLd data={{ "@context": "https://schema.org", "@type": "MedicalBusiness", name: "Salud Mental Costa Rica", url: SITE_URL, medicalSpecialty: "Salud mental" }} />
       <HeroSection />
       <MissionVideo />
       <HomeFeatureCarousel items={carouselItems} />

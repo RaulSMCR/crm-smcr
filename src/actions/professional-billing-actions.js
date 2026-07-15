@@ -6,6 +6,11 @@ import { getSession, isPreviewSession, PREVIEW_BLOCKED_MESSAGE } from "@/lib/aut
 import { revalidatePath } from "next/cache";
 import { splitTaxIncluded } from "@/lib/invoice-math";
 import { validateSupplierFeClave } from "@/lib/supplier-invoice";
+import {
+  firstIssueMessage,
+  professionalInvoiceSchema,
+  supplierAcceptanceSchema,
+} from "@/lib/financial-schemas";
 
 async function requireApprovedProfessional() {
   const session = await getSession();
@@ -43,24 +48,28 @@ export async function submitProfessionalInvoice({
     if (auth.error) return { success: false, error: auth.error };
     const { profile } = auth;
 
-    const ref = String(referenceNumber || "").trim();
-    const amt = Number(amount);
-    const url = String(fileUrl || "").trim();
-    const xml = String(xmlUrl || "").trim();
-    const clave = String(supplierFeClave || "").trim();
+    const parsed = professionalInvoiceSchema.safeParse({
+      referenceNumber,
+      amount,
+      fileUrl,
+      xmlUrl,
+      supplierFeClave,
+      periodStart,
+      periodEnd,
+      settlementId,
+    });
+    if (!parsed.success) return { success: false, error: firstIssueMessage(parsed.error) };
 
-    if (!ref) return { success: false, error: "El número de factura es obligatorio." };
-    if (!amt || amt <= 0) return { success: false, error: "El monto debe ser mayor a cero." };
-    if (!url) return { success: false, error: "Debes subir el PDF de la factura." };
-    if (!xml) return { success: false, error: "Debes subir el XML firmado de la factura." };
+    const { referenceNumber: ref, amount: amt, fileUrl: url, xmlUrl: xml, supplierFeClave: clave } = parsed.data;
+
     const claveValidation = validateSupplierFeClave(clave, profile.user?.identification);
     if (!claveValidation.ok) return { success: false, error: claveValidation.error };
     const { baseCents, taxCents } = splitTaxIncluded(Math.round(amt * 100), 4);
     const baseAmount = baseCents / 100;
     const taxAmount = taxCents / 100;
 
-    const pStart = periodStart ? new Date(periodStart) : null;
-    const pEnd = periodEnd ? new Date(periodEnd) : null;
+    const pStart = parsed.data.periodStart ?? null;
+    const pEnd = parsed.data.periodEnd ?? null;
 
     const periodLabel =
       pStart && pEnd
@@ -141,9 +150,11 @@ export async function submitProfessionalInvoice({
 export async function updateSupplierInvoiceAcceptance(invoiceId, acceptanceStatus) {
   const session = await getSession();
   if (!session || session.role !== "ADMIN") return { success: false, error: "No autorizado." };
-  const status = acceptanceStatus === "ACCEPTED" || acceptanceStatus === "REJECTED" ? acceptanceStatus : null;
-  if (!status) return { success: false, error: "Estado de aceptación inválido." };
-  await prisma.invoice.update({ where: { id: String(invoiceId) }, data: { acceptanceStatus: status, acceptanceAt: new Date() } });
+  const parsed = supplierAcceptanceSchema.safeParse({ invoiceId, acceptanceStatus });
+  if (!parsed.success) return { success: false, error: firstIssueMessage(parsed.error) };
+
+  const { invoiceId: id, acceptanceStatus: status } = parsed.data;
+  await prisma.invoice.update({ where: { id }, data: { acceptanceStatus: status, acceptanceAt: new Date() } });
   revalidatePath("/panel/admin/contabilidad");
   return { success: true };
 }

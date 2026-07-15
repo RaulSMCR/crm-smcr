@@ -89,8 +89,8 @@ export default function RescheduleAppointmentModal({ appointment, onClose }) {
         </div>
 
         <p className="text-sm text-slate-600">
-          Excelente avance. Seleccione un nuevo horario para la cita de <strong>{appointment.service?.title || "consulta"}</strong>.
-          El proceso avanzara con estado <strong>Pendiente</strong> hasta la confirmacion profesional para cuidar una coordinacion segura.
+          Elegí un nuevo horario para la cita de <strong>{appointment.service?.title || "consulta"}</strong>.
+          Queda en estado <strong>Pendiente</strong> hasta que el profesional la confirme.
         </p>
 
         {loadingData && <div className="py-8 text-center text-sm text-slate-500">Cargando disponibilidad...</div>}

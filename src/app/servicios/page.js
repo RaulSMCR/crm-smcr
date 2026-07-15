@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { isPrismaConnectionError } from "@/lib/prisma-safe";
 import JsonLd from "@/components/JsonLd";
+import { siteUrl } from "@/lib/site-url";
 
 const FAQ_SCHEMA = {
   '@context': 'https://schema.org',
@@ -54,12 +55,12 @@ export const metadata = {
   title: 'Servicios de bienestar y salud mental',
   description:
     'Explorá nuestra oferta de servicios: psicología clínica, coaching, nutrición, deporte y más. Profesionales verificados en Costa Rica.',
-  alternates: { canonical: 'https://saludmentalcostarica.com/servicios' },
+  alternates: { canonical: siteUrl('servicios') },
   openGraph: {
     title: 'Servicios de bienestar y salud mental | Salud Mental Costa Rica',
     description:
       'Explorá nuestra oferta de servicios: psicología clínica, coaching, nutrición, deporte y más.',
-    url: 'https://saludmentalcostarica.com/servicios',
+    url: siteUrl('servicios'),
   },
 };
 

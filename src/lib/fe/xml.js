@@ -39,8 +39,11 @@ function inferIdType(idNumber) {
   return "04";
 }
 
-/** Genera la Clave de 50 dígitos */
-export function buildFeClave(tipoDoc, feNumber, invoiceDate, securityCode) {
+/**
+ * Genera la Clave de 50 dígitos.
+ * El tipo de documento no se recibe aparte: ya viene embebido en `feNumber`.
+ */
+export function buildFeClave(feNumber, invoiceDate, securityCode) {
   const d    = invoiceDate instanceof Date ? invoiceDate : new Date(invoiceDate);
   const pad  = (n, l) => String(n).padStart(l, "0");
   const date = `${pad(d.getDate(), 2)}${pad(d.getMonth() + 1, 2)}${String(d.getFullYear()).slice(2)}`;
@@ -80,7 +83,7 @@ export function generateFeXml(invoice, lines) {
   const tipoDoc    = TIPO_DOC_MAP[invoice.invoiceType] || "01";
   const consecutivo = extractConsecutivo(invoice.invoiceNumber);
   const feNumber   = buildFeNumber(invoice.invoiceType, consecutivo);
-  const feClave    = buildFeClave(tipoDoc, feNumber, invoice.invoiceDate);
+  const feClave    = buildFeClave(feNumber, invoice.invoiceDate);
   const ns         = NS_MAP[tipoDoc];
   const rootEl     = ROOT_ELEMENT_MAP[tipoDoc];
 
