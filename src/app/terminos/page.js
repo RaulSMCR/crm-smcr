@@ -1,3 +1,5 @@
+/* eslint-disable react/no-unescaped-entities */
+
 export default function Terminos() {
   return (
     <main className="max-w-4xl mx-auto py-16 px-6 text-neutral-800">

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": "20.x"
+    "node": "24.x"
   },
   "prisma": {
     "schema": "prisma/schema.prisma",
@@ -14,7 +14,7 @@
     "build": "next build",
     "migrate": "prisma migrate deploy",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "node prisma/seed.js",
@@ -57,7 +57,7 @@
     "@types/js-cookie": "3.0.6",
     "@vitest/coverage-v8": "^4.0.18",
     "autoprefixer": "10.4.20",
-    "eslint": "8.57.0",
+    "eslint": "^9.0.0",
     "eslint-config-next": "^16.2.10",
     "is-number": "7.0.0",
     "postcss": "8.4.47",
