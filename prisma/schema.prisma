@@ -499,6 +499,8 @@ model PaymentTransaction {
   type     PaymentTransactionType
   amount   Decimal                @db.Decimal(10, 2)
   currency String                 @default("CRC")
+  taxRate  Int                    @default(4)
+  processingFee Decimal?          @db.Decimal(10, 2)
 
   // Campos ONVO Pay
   onvoPaymentLinkId String? // ID del enlace de pago ONVO del profesional (ej. live_xxx)
@@ -532,6 +534,7 @@ model Settlement {
   grossAmount    Decimal  @db.Decimal(12, 2)
   commissionPct  Int
   commissionAmt  Decimal  @db.Decimal(12, 2)
+  processingFeeAmt Decimal @default(0) @db.Decimal(12, 2)
   netAmount      Decimal  @db.Decimal(12, 2)
   status         String   @default("OPEN")
   invoiceId      String?
@@ -554,6 +557,9 @@ model SettlementItem {
   transactionId String  @unique
   amount        Decimal @db.Decimal(10, 2)
   commissionAmt Decimal @db.Decimal(10, 2)
+  commissionPct Int     @default(0)
+  processingFeeAmt Decimal @default(0) @db.Decimal(10, 2)
+  netAmount     Decimal @default(0) @db.Decimal(10, 2)
 
   settlement  Settlement         @relation(fields: [settlementId], references: [id], onDelete: Cascade)
   transaction PaymentTransaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)

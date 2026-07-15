@@ -31,6 +31,7 @@ import { resend } from "@/lib/resend";
 import { submitInvoiceToFe } from "@/lib/fe/submit";
 import { sendInsuranceProSignAlert } from "@/lib/insurance-mail";
 import { splitTaxIncluded } from "@/lib/invoice-math";
+import { estimateOnvoFeeCents } from "@/lib/commission-plan";
 
 export const dynamic = "force-dynamic";
 
@@ -200,17 +201,23 @@ export async function POST(request) {
       statusMessage: `ONVO: ${eventType || onvoStatus}`,
       paidAt:        newStatus === "APPROVED" ? paidAt : null,
       webhookPayload: payload,
+      ...(newStatus === "APPROVED"
+        ? {
+            taxRate: Number(transaction.appointment?.service?.tax?.rate ?? 4),
+            processingFee: estimateOnvoFeeCents(
+              Math.round(Number(transaction.amount) * 100),
+              data?.payment_method || data?.payment_method_type || "card"
+            ) / 100,
+          }
+        : {}),
     },
   });
 
   // ── 7. Si el pago fue aprobado: actualizar cita + crear factura + email ──
   if (newStatus === "APPROVED") {
-    const amountCents = Math.round(Number(transaction.amount) * 100);
-    const commissionPct = Number(transaction.professional?.commission || 0);
-    const commissionCents = Math.round(amountCents * commissionPct / 100);
     await prisma.appointment.update({
       where: { id: transaction.appointmentId },
-      data: { paymentStatus: "PAID", commissionFee: commissionCents / 100 },
+      data: { paymentStatus: "PAID" },
     });
 
     console.log(`[ONVO webhook] Cita ${transaction.appointmentId} → paymentStatus: PAID`);
