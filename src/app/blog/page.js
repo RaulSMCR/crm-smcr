@@ -24,7 +24,7 @@ const formatDate = (date) => {
   }).format(date);
 };
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 300;
 
 export default async function BlogPage({ searchParams }) {
   const selectedAuthor = typeof searchParams?.autor === 'string' ? searchParams.autor : null;

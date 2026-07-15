@@ -4,7 +4,7 @@ import JsonLd from "@/components/JsonLd";
 import ViewTracker from "@/components/tracking/ViewTracker";
 import { prisma } from "@/lib/prisma";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 function formatCRC(value) {
   const amount = Number(value);

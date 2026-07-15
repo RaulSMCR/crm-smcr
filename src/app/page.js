@@ -19,8 +19,7 @@ const FALLBACK_CATEGORIES = [
   { name: "Coaching", slug: "coach", description: "Avance hacia metas concretas.", imageUrl: STOCK_IMAGES[2] },
 ];
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 300;
 
 function summarizeText(value, maxLength = 260) {
   const text = String(value || "")

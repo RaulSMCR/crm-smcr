@@ -1,7 +1,7 @@
 // src/app/layout.js
 import './globals.css';
 import Script from 'next/script';
-import Header from '@/components/Header';
+import Header from '@/components/PublicHeader';
 import Footer from '@/components/Footer';
 import JsonLd from '@/components/JsonLd';
 import ConsentBanner from '@/components/ConsentBanner';

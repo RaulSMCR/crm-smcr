@@ -4,7 +4,7 @@ import Link from "next/link";
 import { isPrismaConnectionError } from "@/lib/prisma-safe";
 import ViewTracker from "@/components/tracking/ViewTracker";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 export async function generateMetadata({ params }) {
   const id = String(params?.id || "");

@@ -15,6 +15,8 @@ const formatDate = (date) => {
   }).format(date);
 };
 
+export const revalidate = 3600;
+
 export async function generateMetadata({ params }) {
   const canonical = `https://saludmentalcostarica.com/blog/${params.slug}`;
   const post = await prisma.post.findUnique({
