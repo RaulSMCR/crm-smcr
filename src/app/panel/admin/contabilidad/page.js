@@ -4,6 +4,7 @@ import { getSession } from "@/actions/auth-actions";
 import { prisma } from "@/lib/prisma";
 import BillingInvoicesManager from "@/components/admin/BillingInvoicesManager";
 import { generateSettlements } from "@/actions/settlement-actions";
+import SettlementQueue from "@/components/admin/SettlementQueue";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -112,7 +113,7 @@ export default async function AdminAccountingPage({ searchParams }) {
 
   const range = getPeriodRange(period, anchorDate, fromInput, toInput);
 
-  const [professionals, patients, appointments, invoices] = await Promise.all([
+  const [professionals, patients, appointments, invoices, settlements] = await Promise.all([
     prisma.professionalProfile.findMany({
       where: { isApproved: true },
       select: { id: true, user: { select: { name: true } } },
@@ -167,6 +168,7 @@ export default async function AdminAccountingPage({ searchParams }) {
       orderBy: { invoiceDate: "desc" },
       take: 300,
     }),
+    prisma.settlement.findMany({ where: { status: "INVOICED" }, include: { professional: { select: { user: { select: { name: true } } } }, invoice: { select: { invoiceNumber: true } } }, orderBy: { periodStart: "desc" }, take: 100 }),
   ]);
 
   const appointmentRevenue = appointments.reduce((acc, appt) => acc + Number(appt.pricePaid ?? 0), 0);
@@ -414,6 +416,7 @@ export default async function AdminAccountingPage({ searchParams }) {
             />
           </div>
         </div>
+        <SettlementQueue settlements={settlements} />
       </div>
     </div>
   );
