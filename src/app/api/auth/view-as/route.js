@@ -1,8 +1,24 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { signAdminViewToken, verifyToken } from "@/lib/auth";
+import { ADMIN_VIEW_MAX_AGE_SECONDS, signAdminViewToken, verifyAdminViewToken, verifyToken } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Aún no hay modelo de auditoría en el schema; hasta que exista, el rastro vive
+ * en los logs del runtime. Una línea por activación y por salida, en JSON para
+ * que sea consultable sin parsear texto libre.
+ */
+function logViewChange({ adminId, email, from, to }) {
+  console.log(JSON.stringify({
+    event: "admin.view-as",
+    adminId,
+    adminEmail: email || null,
+    from,
+    to,
+    at: new Date().toISOString(),
+  }));
+}
 
 function clearViewCookie(response) {
   response.cookies.set({ name: "admin_view", value: "", httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", expires: new Date(0) });
@@ -23,17 +39,26 @@ export async function POST(request) {
     }
 
     const { role } = await request.json().catch(() => ({}));
-    const response = NextResponse.json({ ok: true, role: role || "ADMIN" });
-    if (!role || role === "ADMIN") {
-      clearViewCookie(response);
-      return response;
-    }
-    if (!["USER", "PROFESSIONAL"].includes(role)) {
+    if (role && !["ADMIN", "USER", "PROFESSIONAL"].includes(role)) {
       return NextResponse.json({ error: "Vista no válida." }, { status: 400 });
     }
 
-    const viewToken = await signAdminViewToken(adminId, role);
-    response.cookies.set({ name: "admin_view", value: viewToken, httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 60 * 60 * 24 });
+    const currentView = request.cookies.get("admin_view")?.value;
+    const previous = currentView
+      ? (await verifyAdminViewToken(currentView).catch(() => null))?.role || "ADMIN"
+      : "ADMIN";
+    const target = role || "ADMIN";
+    const response = NextResponse.json({ ok: true, role: target });
+
+    if (target === "ADMIN") {
+      clearViewCookie(response);
+      logViewChange({ adminId, email: baseSession.email, from: previous, to: "ADMIN" });
+      return response;
+    }
+
+    const viewToken = await signAdminViewToken(adminId, target);
+    response.cookies.set({ name: "admin_view", value: viewToken, httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: ADMIN_VIEW_MAX_AGE_SECONDS });
+    logViewChange({ adminId, email: baseSession.email, from: previous, to: target });
     return response;
   } catch (error) {
     console.error("Admin view error:", error);

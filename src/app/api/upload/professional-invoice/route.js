@@ -1,6 +1,6 @@
 // src/app/api/upload/professional-invoice/route.js
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { getSession, isPreviewSession, PREVIEW_BLOCKED_MESSAGE } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { v4 as uuidv4 } from "uuid";
 import { fileApiUrl, uploadPrivate, validateFileSignature } from "@/lib/storage";
@@ -10,6 +10,9 @@ export async function POST(request) {
     const session = await getSession();
     if (!session || session.role !== "PROFESSIONAL") {
       return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+    }
+    if (isPreviewSession(session)) {
+      return NextResponse.json({ error: PREVIEW_BLOCKED_MESSAGE }, { status: 403 });
     }
 
     const professionalId = String(session.professionalProfileId || "");

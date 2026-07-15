@@ -11,7 +11,7 @@
 //   4. ONVO notifica vía webhook → /api/payment/webhook actualiza el estado.
 
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { getSession, isPreviewSession, PREVIEW_BLOCKED_MESSAGE } from "@/lib/auth";
 import { requireProfessionalProfileId } from "@/lib/auth-guards";
 import { revalidatePath } from "next/cache";
 import { buildPaymentLinkUrl } from "@/lib/onvo/client";
@@ -37,6 +37,9 @@ export async function cobrarCita(appointmentId) {
     const session = await getSession();
     if (!session || (session.role !== "PROFESSIONAL" && session.role !== "ADMIN")) {
       return { success: false, error: "No autorizado." };
+    }
+    if (isPreviewSession(session)) {
+      return { success: false, error: PREVIEW_BLOCKED_MESSAGE };
     }
 
     const id = String(appointmentId || "");
@@ -204,6 +207,10 @@ export async function sendPaymentLinkOnCompletion(appointmentId) {
     const session = await getSession();
     if (!session || (session.role !== "ADMIN" && session.role !== "PROFESSIONAL")) {
       console.warn(`[payment] sendPaymentLinkOnCompletion: sesión no autorizada para cita ${id}.`);
+      return null;
+    }
+    if (isPreviewSession(session)) {
+      console.warn(`[payment] sendPaymentLinkOnCompletion: bloqueado en modo «ver como» para cita ${id}.`);
       return null;
     }
     if (session.role === "PROFESSIONAL") {

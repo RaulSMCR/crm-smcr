@@ -34,7 +34,14 @@ const {
 
 vi.mock("@/lib/prisma", () => ({ prisma }));
 // payment-actions usa @/lib/auth; patient-booking usa @/actions/auth-actions.
-vi.mock("@/lib/auth", () => ({ getSession: libGetSession }));
+// El doble reimplementa isPreviewSession en vez de importar el módulo real:
+// cargar auth.js ejecuta cache() de React, que el react 18.2 de vitest no trae
+// (ver admin-view-as.test.js). Aquí las sesiones nunca son preview.
+vi.mock("@/lib/auth", () => ({
+  getSession: libGetSession,
+  isPreviewSession: (session) => !!session?.isPreview,
+  PREVIEW_BLOCKED_MESSAGE: "Acción no disponible en modo «ver como».",
+}));
 vi.mock("@/actions/auth-actions", () => ({ getSession: actionsGetSession }));
 vi.mock("@/lib/auth-guards", () => ({ requireProfessionalProfileId }));
 vi.mock("@/lib/appointments", () => ({

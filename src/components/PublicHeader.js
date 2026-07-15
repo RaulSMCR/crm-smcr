@@ -39,8 +39,7 @@ export default function PublicHeader() {
       ? "/panel/profesional"
       : "/panel/paciente";
 
-  async function changeView(event) {
-    const role = event.target.value;
+  async function changeView(role) {
     const response = await fetch("/api/auth/view-as", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -53,8 +52,18 @@ export default function PublicHeader() {
     }
   }
 
+  const previewLabel = session?.role === "PROFESSIONAL" ? "profesional" : "usuario";
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur">
+      {session?.isPreview ? (
+        <div role="status" className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-amber-400 px-4 py-1.5 text-center text-xs font-semibold text-amber-950">
+          <span>Estás viendo como {previewLabel}. Las acciones de pago, facturación y documentos están bloqueadas.</span>
+          <button type="button" onClick={() => changeView("ADMIN")} className="rounded-md bg-amber-950 px-2 py-1 text-xs font-semibold text-amber-50">
+            Salir del modo
+          </button>
+        </div>
+      ) : null}
       <div className="container flex min-h-20 items-center justify-between gap-4 py-2">
         <Link href="/">
           <Image src="/logo.svg" alt="Logo Salud Mental Costa Rica" width={80} height={80} className="h-14 w-auto md:h-16" priority />
@@ -69,7 +78,7 @@ export default function PublicHeader() {
           {!sessionChecked ? null : session ? (
             <>
               {session.actualRole === "ADMIN" ? (
-                <select aria-label="Cambiar vista" value={session.role} onChange={changeView} className="max-w-32 rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs font-medium text-slate-700">
+                <select aria-label="Cambiar vista" value={session.role} onChange={(event) => changeView(event.target.value)} className="max-w-32 rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs font-medium text-slate-700">
                   <option value="ADMIN">Admin</option>
                   <option value="PROFESSIONAL">Profesional</option>
                   <option value="USER">Usuario</option>

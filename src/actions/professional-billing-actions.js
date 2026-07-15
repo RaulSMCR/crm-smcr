@@ -2,7 +2,7 @@
 
 // src/actions/professional-billing-actions.js
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { getSession, isPreviewSession, PREVIEW_BLOCKED_MESSAGE } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { splitTaxIncluded } from "@/lib/invoice-math";
 import { validateSupplierFeClave } from "@/lib/supplier-invoice";
@@ -11,6 +11,9 @@ async function requireApprovedProfessional() {
   const session = await getSession();
   if (!session || session.role !== "PROFESSIONAL") {
     return { error: "No autorizado." };
+  }
+  if (isPreviewSession(session)) {
+    return { error: PREVIEW_BLOCKED_MESSAGE };
   }
   const profile = await prisma.professionalProfile.findUnique({
     where: { userId: String(session.userId || session.sub) },

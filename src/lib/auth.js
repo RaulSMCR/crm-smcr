@@ -53,12 +53,14 @@ export async function verifyToken(token) {
   return payload;
 }
 
+export const ADMIN_VIEW_MAX_AGE_SECONDS = 60 * 60;
+
 export async function signAdminViewToken(adminId, role) {
   return await new SignJWT({ purpose: "admin-view", role })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(String(adminId))
     .setIssuedAt()
-    .setExpirationTime("1d")
+    .setExpirationTime(`${ADMIN_VIEW_MAX_AGE_SECONDS}s`)
     .sign(getSecretKey());
 }
 
@@ -68,6 +70,18 @@ export async function verifyAdminViewToken(token) {
     return null;
   }
   return payload;
+}
+
+export const PREVIEW_BLOCKED_MESSAGE =
+  "Acción no disponible en modo «ver como». Vuelve a la vista de administrador para continuar.";
+
+/**
+ * En modo «ver como» el admin conserva su propia identidad (`sub`) bajo un rol
+ * prestado: una escritura no simula nada, crea datos reales a nombre del admin.
+ * Las acciones con efecto financiero, fiscal o documental deben rechazarse.
+ */
+export function isPreviewSession(session) {
+  return !!session?.isPreview;
 }
 
 /**

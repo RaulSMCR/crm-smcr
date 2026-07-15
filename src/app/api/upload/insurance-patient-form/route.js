@@ -1,7 +1,7 @@
 // src/app/api/upload/insurance-patient-form/route.js
 // Paciente sube el formulario con sus datos completados.
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { getSession, isPreviewSession, PREVIEW_BLOCKED_MESSAGE } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendInsuranceProTemplateAlert } from "@/lib/insurance-mail";
 import { fileApiUrl, uploadPrivate, validateFileSignature } from "@/lib/storage";
@@ -11,6 +11,9 @@ export async function POST(request) {
     const session = await getSession();
     if (!session || session.role !== "USER") {
       return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+    }
+    if (isPreviewSession(session)) {
+      return NextResponse.json({ error: PREVIEW_BLOCKED_MESSAGE }, { status: 403 });
     }
 
     const userId = String(session.userId || session.sub);
