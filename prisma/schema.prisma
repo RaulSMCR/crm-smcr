@@ -614,3 +614,14 @@ model PostViewEvent {
   @@index([createdAt])
   @@index([anonId])
 }
+
+// Registro de intentos para rate limiting (SEC-01).
+// Cada fila es un intento contado dentro de una ventana temporal.
+// La limpieza de entradas viejas es oportunista (ver src/lib/rate-limit.js).
+model RateLimitEntry {
+  id        String   @id @default(cuid())
+  key       String // ej. "login:1.2.3.4:correo@x.com"
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
+}

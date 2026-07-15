@@ -1,29 +1,39 @@
 // src/app/recuperar/page.js
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
+import AuthTurnstile, { CAPTCHA_ENABLED } from "@/components/AuthTurnstile";
 import Link from "next/link";
 
 export default function RecuperarPage() {
   const [email, setEmail] = useState("");
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState(null); // {type, text}
+  const [captchaToken, setCaptchaToken] = useState("");
+  const turnstileRef = useRef(null);
 
   async function onSubmit(e) {
     e.preventDefault();
     setMsg(null);
+
+    if (CAPTCHA_ENABLED && !captchaToken) {
+      setMsg({ type: "error", text: "Completá la verificación de seguridad antes de continuar." });
+      return;
+    }
 
     startTransition(async () => {
       try {
         const res = await fetch("/api/auth/forgot-password", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ email, captchaToken: captchaToken || "" }),
         });
 
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           setMsg({ type: "error", text: data?.error || "No se pudo procesar." });
+          turnstileRef.current?.reset();
+          setCaptchaToken("");
           return;
         }
 
@@ -74,9 +84,11 @@ export default function RecuperarPage() {
             />
           </div>
 
+          <AuthTurnstile ref={turnstileRef} onToken={setCaptchaToken} className="flex justify-center" />
+
           <button
             type="submit"
-            disabled={pending}
+            disabled={pending || (CAPTCHA_ENABLED && !captchaToken)}
             className="w-full px-4 py-2 rounded bg-neutral-900 text-white hover:bg-neutral-950 disabled:opacity-70"
           >
             {pending ? "Enviando enlace seguro..." : "Enviar enlace y continuar"}

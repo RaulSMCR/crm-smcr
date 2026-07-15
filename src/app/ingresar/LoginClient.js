@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import { login } from "@/actions/auth-actions";
+import AuthTurnstile, { CAPTCHA_ENABLED } from "@/components/AuthTurnstile";
 import Link from "next/link";
 import { Playfair_Display } from "next/font/google";
 
@@ -59,6 +60,8 @@ function PanelForm({ panelKey, onBack, registered }) {
   const [error, setError]     = useState("");
   const [loading, setLoading] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const turnstileRef = useRef(null);
 
   const isProfessionalRegistered = registered === "professional";
   const isGenericRegistered      = registered === "true" || registered === "user";
@@ -66,11 +69,22 @@ function PanelForm({ panelKey, onBack, registered }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (CAPTCHA_ENABLED && !captchaToken) {
+      setError("Completá la verificación de seguridad antes de continuar.");
+      return;
+    }
     setLoading(true);
     setError("");
     const formData = new FormData(e.target);
+    formData.set("captchaToken", captchaToken || "");
     const res = await login(formData);
-    if (res?.error) { setError(res.error); setLoading(false); return; }
+    if (res?.error) {
+      setError(res.error);
+      setLoading(false);
+      turnstileRef.current?.reset();
+      setCaptchaToken("");
+      return;
+    }
     if (res?.success) {
       const next = safeNextPath(searchParams.get("next"));
       if (next) { router.push(next); return; }
@@ -187,8 +201,10 @@ function PanelForm({ panelKey, onBack, registered }) {
           </div>
         </div>
 
+        <AuthTurnstile ref={turnstileRef} onToken={setCaptchaToken} theme="dark" className="flex justify-center pt-1" />
+
         <motion.button
-          type="submit" disabled={loading}
+          type="submit" disabled={loading || (CAPTCHA_ENABLED && !captchaToken)}
           whileHover={!loading ? { scale: 1.02 } : {}}
           whileTap={!loading ? { scale: 0.98 } : {}}
           transition={{ type: "spring", stiffness: 400, damping: 20 }}

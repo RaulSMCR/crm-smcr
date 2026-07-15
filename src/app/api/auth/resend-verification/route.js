@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { sendVerificationEmail } from "@/lib/mail";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 function sha256Hex(input) {
   return crypto.createHash("sha256").update(String(input)).digest("hex");
@@ -19,6 +20,14 @@ export async function POST(req) {
     const body = await req.json().catch(() => ({}));
     const email = String(body?.email || "").trim().toLowerCase();
     if (!email) return genericOk;
+
+    // Rate limit: 3 / 60 min por email. Respuesta neutra si está limitado
+    // (anti-bombardeo de correos; Resend cobra por envío).
+    const rl = await checkRateLimit(`resend:${email}`, { max: 3, windowMinutes: 60 });
+    if (rl.limited) {
+      console.warn("[resend-verification] rate limit alcanzado. Sin envío.");
+      return genericOk;
+    }
 
     const user = await prisma.user.findUnique({
       where: { email },

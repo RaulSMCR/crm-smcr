@@ -3,13 +3,25 @@
 
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 import { sendVerificationEmail } from "@/lib/mail";
 import { signToken, getSession as getLibSession } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { checkRateLimit, recordAttempt } from "@/lib/rate-limit";
+import { verifyTurnstile } from "@/lib/turnstile";
+
+// IP del cliente a partir de las cabeceras (primer valor de x-forwarded-for).
+function getClientIp() {
+  const h = headers();
+  return (
+    h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    h.get("x-real-ip") ||
+    "unknown"
+  );
+}
 
 function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
@@ -61,8 +73,25 @@ export async function getSession() {
 export async function login(formData) {
   const email = normalizeEmail(formData.get("email"));
   const password = String(formData.get("password") || "");
+  const captchaToken = String(formData.get("captchaToken") || "");
 
   if (!email || !password) return { error: "Credenciales requeridas." };
+
+  const ip = getClientIp();
+  const rlKey = `login:${ip}:${email}`;
+
+  // Rate limit: 5 intentos FALLIDOS / 15 min. Solo consultamos (no registramos
+  // aquí); un login correcto no consume presupuesto.
+  const rl = await checkRateLimit(rlKey, { max: 5, windowMinutes: 15, record: false });
+  if (rl.limited) {
+    return { error: "Demasiados intentos. Esperá unos minutos e intentá de nuevo." };
+  }
+
+  // Verificación de Turnstile (se omite si no hay TURNSTILE_SECRET_KEY).
+  const captchaOk = await verifyTurnstile(captchaToken, ip);
+  if (!captchaOk) {
+    return { error: "La verificación de seguridad falló. Recargá la página e intentá de nuevo." };
+  }
 
   try {
     const user = await prisma.user.findUnique({
@@ -70,10 +99,16 @@ export async function login(formData) {
       include: { professionalProfile: true },
     });
 
-    if (!user || !user.passwordHash) return { error: "Credenciales inválidas." };
+    if (!user || !user.passwordHash) {
+      await recordAttempt(rlKey);
+      return { error: "Credenciales inválidas." };
+    }
 
     const isValid = await bcrypt.compare(password, user.passwordHash);
-    if (!isValid) return { error: "Credenciales inválidas." };
+    if (!isValid) {
+      await recordAttempt(rlKey);
+      return { error: "Credenciales inválidas." };
+    }
 
     if (!user.emailVerified) {
       return { error: "Debe verificar el correo electrónico antes de continuar.", code: "EMAIL_NOT_VERIFIED" };
@@ -128,6 +163,16 @@ export async function login(formData) {
 }
 
 export async function registerProfessional(formData) {
+  const ip = getClientIp();
+  const rl = await checkRateLimit(`register:${ip}`, { max: 5, windowMinutes: 60 });
+  if (rl.limited) {
+    return { error: "Demasiados intentos. Esperá unos minutos e intentá de nuevo." };
+  }
+  const captchaOk = await verifyTurnstile(String(formData.get("captchaToken") || ""), ip);
+  if (!captchaOk) {
+    return { error: "La verificación de seguridad falló. Recargá la página e intentá de nuevo." };
+  }
+
   const name = String(formData.get("name") || "").trim();
   const email = normalizeEmail(formData.get("email"));
   const phone = normalizePhone(formData.get("phone"));
@@ -285,6 +330,16 @@ export async function registerProfessional(formData) {
 }
 
 export async function registerUser(formData) {
+  const ip = getClientIp();
+  const rl = await checkRateLimit(`register:${ip}`, { max: 5, windowMinutes: 60 });
+  if (rl.limited) {
+    return { error: "Demasiados intentos. Esperá unos minutos e intentá de nuevo." };
+  }
+  const captchaOk = await verifyTurnstile(String(formData.get("captchaToken") || ""), ip);
+  if (!captchaOk) {
+    return { error: "La verificación de seguridad falló. Recargá la página e intentá de nuevo." };
+  }
+
   const name = String(formData.get("name") || "").trim();
   const email = normalizeEmail(formData.get("email"));
   const phone = normalizePhone(formData.get("phone"));

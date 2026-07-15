@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useRef, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { registerUser } from "@/actions/auth-actions";
+import AuthTurnstile, { CAPTCHA_ENABLED } from "@/components/AuthTurnstile";
 import Link from "next/link";
 import { trackEvent } from "@/lib/analytics";
 import { trackLead } from "@/lib/meta-pixel";
@@ -77,6 +78,8 @@ export default function RegistroUsuarioPage() {
   const [touched, setTouched] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const turnstileRef = useRef(null);
 
   const [form, setForm] = useState({
     name: "", email: "", identification: "", birthDate: "",
@@ -112,15 +115,19 @@ export default function RegistroUsuarioPage() {
     if (!String(form.phone || "").trim())          { setErrorMsg("Falta el teléfono de contacto."); return; }
     if (!String(form.identification || "").trim()) { setErrorMsg("Falta la identificación."); return; }
     if (!isPasswordValid)                          { setErrorMsg("Revise los requisitos de contraseña."); return; }
+    if (CAPTCHA_ENABLED && !captchaToken)          { setErrorMsg("Completá la verificación de seguridad antes de continuar."); return; }
 
     setLoading(true);
     try {
       const formData = new FormData();
       Object.entries(form).forEach(([k, v]) => formData.append(k, v));
+      formData.append("captchaToken", captchaToken || "");
       const res = await registerUser(formData);
       if (res?.error || res?.warning) {
         setErrorMsg(res.error || res.warning);
         setLoading(false);
+        turnstileRef.current?.reset();
+        setCaptchaToken("");
       } else {
         trackEvent("sign_up", { method: "email" });
         trackLead();
@@ -256,9 +263,11 @@ export default function RegistroUsuarioPage() {
               </div>
             </section>
 
+            <AuthTurnstile ref={turnstileRef} onToken={setCaptchaToken} className="flex justify-center" />
+
             <button
               type="submit"
-              disabled={loading || !isPasswordValid}
+              disabled={loading || !isPasswordValid || (CAPTCHA_ENABLED && !captchaToken)}
               className="w-full rounded-xl bg-brand-600 px-6 py-3.5 font-bold text-white transition-colors hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? "Procesando…" : "Crear cuenta y avanzar"}

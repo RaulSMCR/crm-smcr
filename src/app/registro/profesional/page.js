@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useRef, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { registerProfessional } from "@/actions/auth-actions";
+import AuthTurnstile, { CAPTCHA_ENABLED } from "@/components/AuthTurnstile";
 import Link from "next/link";
 import { Playfair_Display } from "next/font/google";
 
@@ -83,6 +84,8 @@ export default function RegistroProfesionalPage() {
   const [file, setFile]               = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [touched, setTouched]         = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const turnstileRef = useRef(null);
 
   const passwordChecks = useMemo(() => {
     const pwd = form.password || "";
@@ -132,6 +135,7 @@ export default function RegistroProfesionalPage() {
     if (!String(form.licenseNumber || "").trim()) { setErrorMsg("Falta el número de licencia."); return; }
     if (!isPasswordValid)                       { setErrorMsg("Revise los requisitos de contraseña."); return; }
     if (!file)                                  { setErrorMsg("Falta adjuntar el CV en PDF."); return; }
+    if (CAPTCHA_ENABLED && !captchaToken)       { setErrorMsg("Completá la verificación de seguridad antes de continuar."); return; }
 
     setLoading(true);
     try {
@@ -149,11 +153,14 @@ export default function RegistroProfesionalPage() {
       const formData = new FormData();
       Object.entries(form).forEach(([k, v]) => formData.append(k, v));
       formData.append("cvUrl", cvUrl);
+      formData.append("captchaToken", captchaToken || "");
 
       const registerRes = await registerProfessional(formData);
       if (registerRes?.error) {
         setErrorMsg(registerRes.error);
         setLoading(false);
+        turnstileRef.current?.reset();
+        setCaptchaToken("");
       } else {
         setSuccessMsg(
           registerRes?.warning || registerRes?.message ||
@@ -339,9 +346,11 @@ export default function RegistroProfesionalPage() {
 
             {/* Submit */}
             <div className="border-t border-neutral-200 pt-6">
+              <AuthTurnstile ref={turnstileRef} onToken={setCaptchaToken} className="mb-6 flex justify-center sm:justify-start" />
+
               <button
                 type="submit"
-                disabled={loading || !isPasswordValid || !file}
+                disabled={loading || !isPasswordValid || !file || (CAPTCHA_ENABLED && !captchaToken)}
                 className="w-full rounded-xl bg-brand-600 px-6 py-3.5 font-bold text-white transition-colors hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50 sm:w-1/2"
               >
                 {loading ? (

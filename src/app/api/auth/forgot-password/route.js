@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { randomBytes, createHash } from "crypto";
 import { sendResetPasswordEmail } from "@/lib/mail";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { verifyTurnstile } from "@/lib/turnstile";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -28,6 +30,25 @@ export async function POST(request) {
 
     if (!email || !email.includes("@")) {
       return json({ error: "Correo electrónico inválido." }, 400);
+    }
+
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+
+    // Verificación de Turnstile (se omite si no hay TURNSTILE_SECRET_KEY).
+    const captchaOk = await verifyTurnstile(body?.captchaToken, ip);
+    if (!captchaOk) {
+      return json({ error: "La verificación de seguridad falló. Recargá la página e intentá de nuevo." }, 403);
+    }
+
+    // Rate limit: 3 / 60 min por IP y 3 / 60 min por email. Si está limitado
+    // devolvemos la MISMA respuesta neutra y NO enviamos correo (anti-bombardeo).
+    const [byIp, byEmail] = await Promise.all([
+      checkRateLimit(`forgot:${ip}`, { max: 3, windowMinutes: 60 }),
+      checkRateLimit(`forgot:${email}`, { max: 3, windowMinutes: 60 }),
+    ]);
+    if (byIp.limited || byEmail.limited) {
+      console.warn(`[forgot-password] rate limit alcanzado (ip=${byIp.limited}, email=${byEmail.limited}). Sin envío.`);
+      return json(neutral, 200);
     }
 
     const user = await prisma.user.findUnique({
