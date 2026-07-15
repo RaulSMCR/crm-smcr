@@ -103,13 +103,14 @@ enum TaxScope {
 // --------------------
 
 model User {
-  id           String  @id @default(cuid())
-  name         String
-  email        String  @unique
-  passwordHash String
-  image        String?
-  phone        String
-  role         Role    @default(USER)
+  id             String  @id @default(cuid())
+  name           String
+  email          String  @unique
+  passwordHash   String
+  sessionVersion Int     @default(0)
+  image          String?
+  phone          String
+  role           Role    @default(USER)
 
   identification String?   @db.VarChar(32)
   birthDate      DateTime?

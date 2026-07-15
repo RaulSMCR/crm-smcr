@@ -28,7 +28,7 @@ export async function POST(_request, { params }) {
 
     await prisma.user.update({
       where: { id: profile.user.id },
-      data: { isActive: false },
+      data: { isActive: false, sessionVersion: { increment: 1 } },
     });
 
     if (process.env.RESEND_API_KEY && profile.user.email) {

@@ -25,7 +25,7 @@ export async function POST(_request, { params }) {
 
     const updated = await prisma.professionalProfile.update({
       where: { id: String(professionalId) },
-      data: { isApproved: false },
+      data: { isApproved: false, user: { update: { sessionVersion: { increment: 1 } } } },
       select: {
         id: true,
         slug: true,

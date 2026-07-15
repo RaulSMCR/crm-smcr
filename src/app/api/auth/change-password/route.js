@@ -53,7 +53,7 @@ export async function POST(request) {
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { passwordHash },
+      data: { passwordHash, sessionVersion: { increment: 1 } },
     });
 
     return json({ ok: true, message: "Contraseña actualizada con éxito. Su acceso seguro está listo para continuar." }, 200);

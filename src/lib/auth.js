@@ -1,6 +1,7 @@
 // src/lib/auth.js
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { prisma } from "@/lib/prisma";
 
 function getSecretKey() {
   const secret = process.env.SESSION_SECRET;
@@ -29,6 +30,7 @@ function sanitizeSessionPayload(payload) {
 
   if (typeof payload.emailVerified === "boolean") out.emailVerified = payload.emailVerified;
   if (typeof payload.isApproved === "boolean") out.isApproved = payload.isApproved;
+  if (payload.sessionVersion !== undefined) out.sessionVersion = Number(payload.sessionVersion) || 0;
 
   return out;
 }
@@ -56,7 +58,12 @@ export async function getSession() {
   if (!token) return null;
 
   try {
-    return await verifyToken(token);
+    const session = await verifyToken(token);
+    const userId = String(session.sub || session.userId || "");
+    if (!userId) return null;
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { sessionVersion: true, isActive: true } });
+    if (!user?.isActive || Number(session.sessionVersion || 0) !== user.sessionVersion) return null;
+    return session;
   } catch {
     return null;
   }

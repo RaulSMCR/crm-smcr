@@ -92,7 +92,7 @@ export async function rejectUser(userId) {
 
     await prisma.user.update({
       where: { id: String(userId) },
-      data: { isActive: false },
+      data: { isActive: false, sessionVersion: { increment: 1 } },
     });
 
     revalidatePath("/panel/admin");

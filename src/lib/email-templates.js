@@ -27,7 +27,7 @@ export const emailCitaConfirmada = (nombrePaciente, nombreProfesional, fecha, ho
   return `
     <div style="font-family: sans-serif; color: #333;">
       <h1 style="color: #16a34a;">Cita confirmada</h1>
-      <p>Estimado/a ${nombrePaciente}, la cita fue aceptada por el profesional. Seguimos avanzando en su proceso de cuidado.</p>
+      <p>Hola ${nombrePaciente}, el profesional confirmó tu cita.</p>
       
       <div style="border: 1px solid #e5e7eb; padding: 20px; border-radius: 10px; margin: 20px 0;">
         <p><strong>Profesional:</strong> ${nombreProfesional}</p>
@@ -35,7 +35,7 @@ export const emailCitaConfirmada = (nombrePaciente, nombreProfesional, fecha, ho
         <p><strong>Dónde:</strong> ${direccion}</p>
       </div>
 
-      <p>Si requiere cancelar, realice la gestión desde el panel con al menos 24 horas de antelación.</p>
+      <p>Si necesitás cancelar, gestionálo desde tu panel con al menos 24 horas de anticipación.</p>
     </div>
   `;
 };

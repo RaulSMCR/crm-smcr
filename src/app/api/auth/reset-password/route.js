@@ -53,6 +53,7 @@ export async function POST(request) {
         passwordHash,
         resetTokenHash: null,
         resetTokenExp: null,
+        sessionVersion: { increment: 1 },
       },
     });
 

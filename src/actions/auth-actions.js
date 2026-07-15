@@ -149,6 +149,7 @@ export async function login(formData) {
       professionalProfileId: user.professionalProfile?.id || null,
       slug: user.professionalProfile?.slug || null,
       isApproved: user.role === "PROFESSIONAL" ? !!user.professionalProfile?.isApproved : true,
+      sessionVersion: user.sessionVersion,
     };
 
     const token = await signToken(sessionData);

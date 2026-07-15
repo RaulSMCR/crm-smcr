@@ -358,7 +358,7 @@ export default function UserAppointmentsPanel({
     <div className="space-y-6">
       {isApplyingAction ? (
         <div className="rounded-xl border border-brand-300 bg-brand-100 px-4 py-3 text-sm text-neutral-900">
-          Registrando su confirmacion para continuar con seguridad...
+          Confirmando tu cita...
         </div>
       ) : null}
 
