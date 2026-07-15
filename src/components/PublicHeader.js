@@ -9,12 +9,28 @@ import LogoutButton from "@/components/LogoutButton";
 export default function PublicHeader() {
   const router = useRouter();
   const [session, setSession] = useState(null);
+  const [sessionChecked, setSessionChecked] = useState(false);
 
   useEffect(() => {
-    fetch("/api/auth/me", { credentials: "same-origin" })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => setSession(data?.ok ? data : null))
-      .catch(() => setSession(null));
+    let cancelled = false;
+    async function loadSession(attempt = 0) {
+      try {
+        const response = await fetch("/api/auth/me", { credentials: "same-origin", cache: "no-store" });
+        const data = response.ok ? await response.json() : null;
+        if (!cancelled) setSession(data?.ok ? data : null);
+      } catch {
+        if (attempt < 1) {
+          window.setTimeout(() => loadSession(attempt + 1), 500);
+          return;
+        }
+        if (!cancelled) setSession(null);
+      } finally {
+        if (!cancelled && attempt > 0) setSessionChecked(true);
+      }
+      if (!cancelled && attempt === 0) setSessionChecked(true);
+    }
+    loadSession();
+    return () => { cancelled = true; };
   }, []);
 
   const dashboard = session?.role === "ADMIN"
@@ -31,6 +47,7 @@ export default function PublicHeader() {
       body: JSON.stringify({ role }),
     });
     if (response.ok) {
+      setSession((current) => current ? { ...current, role, isPreview: role !== "ADMIN" } : current);
       router.push(role === "ADMIN" ? "/panel/admin" : role === "PROFESSIONAL" ? "/panel/profesional" : "/panel/paciente");
       router.refresh();
     }
@@ -49,7 +66,7 @@ export default function PublicHeader() {
           <Link href="/faq">FAQs</Link>
         </nav>
         <div className="flex items-center gap-2">
-          {session ? (
+          {!sessionChecked ? null : session ? (
             <>
               {session.actualRole === "ADMIN" ? (
                 <select aria-label="Cambiar vista" value={session.role} onChange={changeView} className="max-w-32 rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs font-medium text-slate-700">
