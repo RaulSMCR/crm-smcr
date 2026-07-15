@@ -93,7 +93,7 @@ function PanelForm({ panelKey, onBack, registered }) {
       else                              router.push("/panel/paciente");
       return;
     }
-    setError("No se logró iniciar sesión. Por favor, intente nuevamente.");
+    setError("No pudimos iniciar sesión. Revisá tus datos e intentá de nuevo.");
     setLoading(false);
   };
 
@@ -139,7 +139,7 @@ function PanelForm({ panelKey, onBack, registered }) {
           <motion.div {...fadeUp} transition={{ duration: 0.3 }}
             className="mb-5 rounded-xl border border-brand-400/30 bg-brand-950/60 p-4 text-sm text-brand-100 backdrop-blur-sm"
           >
-            Cuenta creada con éxito. Revise su correo para verificarla.
+            Cuenta creada con éxito. Revisá tu correo para verificarla.
           </motion.div>
         )}
         {error && (

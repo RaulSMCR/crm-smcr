@@ -47,7 +47,7 @@ export default function ProfessionalCalendarBooking({
         router.push(`/panel/paciente?created=1&series=${res.createdCount || 1}`);
         router.refresh();
       } else {
-        setMsg({ type: "error", text: res?.error || "No se pudo agendar en este intento. Por favor, intentelo nuevamente." });
+        setMsg({ type: "error", text: res?.error || "No pudimos agendar en este intento. Revisá el horario e intentá de nuevo." });
       }
     });
   };

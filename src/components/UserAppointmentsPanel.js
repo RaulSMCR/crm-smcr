@@ -366,7 +366,7 @@ export default function UserAppointmentsPanel({
         <SectionHeader
           title="Citas futuras"
           count={sections.future.length}
-          description="Citas pendientes de confirmacion o por realizar."
+          description="Citas pendientes de confirmación o por realizar."
         />
         <div className="space-y-4">
           {sections.future.length > 0 ? sections.future.map(renderAppointment) : <EmptySection title="Citas futuras" />}

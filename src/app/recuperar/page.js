@@ -42,10 +42,10 @@ export default function RecuperarPage() {
           type: "ok",
           text:
             data?.message ||
-            "Si el correo existe, se enviará un enlace para restablecer la contraseña y continuar avanzando con acceso protegido.",
+            "Si el correo existe, recibirás un enlace para restablecer tu contraseña.",
         });
       } catch {
-        setMsg({ type: "error", text: "Error de red. Por favor, intente nuevamente para seguir adelante con seguridad." });
+        setMsg({ type: "error", text: "No pudimos conectar. Revisá tu conexión e intentá de nuevo." });
       }
     });
   }
@@ -53,9 +53,9 @@ export default function RecuperarPage() {
   return (
     <main className="min-h-[70vh] flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-2 text-center">Recuperación de contraseña segura</h1>
+        <h1 className="text-2xl font-bold mb-2 text-center">Recuperación de contraseña</h1>
         <p className="text-sm text-gray-600 mb-4 text-center">
-          Ingrese su correo. Para cuidar su seguridad se enviará un enlace para crear una nueva contraseña de acceso protegido.</p>
+          Ingresá tu correo y te enviaremos un enlace para crear una contraseña nueva.</p>
 
         {msg ? (
           <div

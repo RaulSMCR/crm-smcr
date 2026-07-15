@@ -36,7 +36,7 @@ export async function sendVerificationEmail(email, token) {
         <div style="font-family: Arial, Helvetica, sans-serif; line-height:1.5; color:#111">
           <h2>Verificación de cuenta</h2>
           <p>Gracias por registrarse en <b>Salud Mental CR</b>.</p>
-          <p>Para proteger su acceso y continuar con el proceso, utilice el siguiente botón:</p>
+          <p>Para confirmar tu cuenta, usá el siguiente botón:</p>
           <p style="margin:25px 0">
             <a href="${confirmLink}"
               style="
@@ -85,7 +85,7 @@ export async function sendResetPasswordEmail(email, token) {
         <div style="font-family: Arial, Helvetica, sans-serif; line-height:1.5; color:#111">
           <h2>Restablecimiento de contraseña</h2>
           <p>Se recibió una solicitud para restablecer la contraseña de su cuenta en <b>Salud Mental CR</b>.</p>
-          <p>Para continuar de forma segura, utilice el siguiente botón:</p>
+          <p>Para crear una contraseña nueva, usá el siguiente botón:</p>
           <p style="margin:25px 0">
             <a href="${resetLink}"
               style="

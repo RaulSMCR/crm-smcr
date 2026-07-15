@@ -114,7 +114,7 @@ export default function RegistroUsuarioPage() {
     if (!isEmailFormatValid(form.email))           { setErrorMsg("El correo no tiene un formato válido."); return; }
     if (!String(form.phone || "").trim())          { setErrorMsg("Falta el teléfono de contacto."); return; }
     if (!String(form.identification || "").trim()) { setErrorMsg("Falta la identificación."); return; }
-    if (!isPasswordValid)                          { setErrorMsg("Revise los requisitos de contraseña."); return; }
+    if (!isPasswordValid)                          { setErrorMsg("Revisá los requisitos de contraseña."); return; }
     if (CAPTCHA_ENABLED && !captchaToken)          { setErrorMsg("Completá la verificación de seguridad antes de continuar."); return; }
 
     setLoading(true);
@@ -134,7 +134,7 @@ export default function RegistroUsuarioPage() {
         router.push("/ingresar?registered=true");
       }
     } catch {
-      setErrorMsg("Error de conexión. Por favor, intente nuevamente.");
+      setErrorMsg("No pudimos conectar. Revisá tu conexión e intentá de nuevo.");
       setLoading(false);
     }
   }

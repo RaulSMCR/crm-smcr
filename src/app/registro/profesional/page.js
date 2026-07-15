@@ -133,7 +133,7 @@ export default function RegistroProfesionalPage() {
     if (!String(form.phone || "").trim())       { setErrorMsg("Falta el teléfono de contacto."); return; }
     if (!String(form.specialty || "").trim())   { setErrorMsg("Falta indicar la especialidad."); return; }
     if (!String(form.licenseNumber || "").trim()) { setErrorMsg("Falta el número de licencia."); return; }
-    if (!isPasswordValid)                       { setErrorMsg("Revise los requisitos de contraseña."); return; }
+    if (!isPasswordValid)                       { setErrorMsg("Revisá los requisitos de contraseña."); return; }
     if (!file)                                  { setErrorMsg("Falta adjuntar el CV en PDF."); return; }
     if (CAPTCHA_ENABLED && !captchaToken)       { setErrorMsg("Completá la verificación de seguridad antes de continuar."); return; }
 
@@ -164,13 +164,13 @@ export default function RegistroProfesionalPage() {
       } else {
         setSuccessMsg(
           registerRes?.warning || registerRes?.message ||
-          "Se recibió el perfil y el CV. El proceso de revisión avanza para resguardar la calidad de atención. Revise su correo para continuar."
+          "Recibimos tu perfil y CV. Revisaremos la información y te escribiremos por correo con los próximos pasos."
         );
         setSuccess(true);
         setTimeout(() => router.push("/ingresar?registered=professional"), 4000);
       }
     } catch (err) {
-      setErrorMsg(err.message || "Ocurrió un error inesperado.");
+      setErrorMsg(err.message || "Ocurrió un error inesperado. Intentá de nuevo.");
       setLoading(false);
     }
   }

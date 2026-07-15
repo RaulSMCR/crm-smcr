@@ -53,7 +53,7 @@ export async function sendInsurancePatientFormAlert({ patientEmail, patientName,
          (datos del asegurado: nombre, cédula, número de póliza, etc.).</p>
       <p><strong>Pasos a seguir:</strong></p>
       <ol style="line-height:1.8;">
-        <li>Descargue el formulario en blanco usando el botón de abajo</li>
+        <li>Descargá el formulario en blanco usando el botón de abajo</li>
         <li>Complete únicamente las secciones correspondientes al asegurado</li>
         <li>Súbalo de regreso en su panel de paciente</li>
       </ol>
@@ -94,7 +94,7 @@ export async function sendInsuranceProTemplateAlert({ proEmail, patientName, pat
          y súbalo de regreso como plantilla desde su panel.</p>
       <p><strong>Pasos a seguir:</strong></p>
       <ol style="line-height:1.8;">
-        <li>Descargue el formulario con los datos del paciente</li>
+        <li>Descargá el formulario con los datos del paciente</li>
         <li>Complete las secciones del profesional — <em>deje la fecha en blanco</em></li>
         <li>Súbalo en su panel como "plantilla" en la sección Seguros</li>
       </ol>
@@ -172,7 +172,7 @@ export async function sendInsuranceProSignAlert({
       </table>
       <p><strong>Pasos a seguir:</strong></p>
       <ol style="line-height:1.8;">
-        <li>Descargue la plantilla del formulario</li>
+        <li>Descargá la plantilla del formulario</li>
         <li>Escriba la fecha de atención: <strong>${dateStr}</strong></li>
         <li>Imprima, selle y firme el formulario</li>
         <li>Escanee y suba el formulario completo desde su panel</li>
@@ -201,7 +201,7 @@ export async function sendSignedClaimToPatient({ patientEmail, patientName, sign
       <p>Estimado/a <strong>${patientName}</strong>,</p>
       <p>Adjunto encontrará su planilla de reclamo de seguro médico debidamente completada,
          sellada y firmada por el profesional tratante.</p>
-      <p>Puede descargarla y presentarla ante su aseguradora para solicitar el reembolso.</p>
+      <p>Podés descargarla y presentarla ante tu aseguradora para solicitar el reembolso.</p>
       <p style="margin-top:24px;">
         <a href="${signedFormUrl}"
            style="background:#1d4ed8;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:16px;">
