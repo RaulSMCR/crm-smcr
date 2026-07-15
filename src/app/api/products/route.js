@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { productBodySchema, validationMessage } from "@/lib/financial-schemas";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -88,6 +89,8 @@ export async function POST(request) {
     if (auth.error) return auth.error;
 
     const body = await request.json().catch(() => ({}));
+    const parsed = productBodySchema.safeParse(body);
+    if (!parsed.success) return NextResponse.json({ message: validationMessage(parsed.error) }, { status: 400 });
     const name = String(body.name || "").trim();
     if (!name) return NextResponse.json({ message: "name es requerido." }, { status: 400 });
 

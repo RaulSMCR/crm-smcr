@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { invoiceBodySchema, validationMessage } from "@/lib/financial-schemas";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -194,6 +195,8 @@ export async function POST(request) {
     }
 
     const body = await request.json().catch(() => ({}));
+    const parsed = invoiceBodySchema.safeParse(body);
+    if (!parsed.success) return NextResponse.json({ message: validationMessage(parsed.error) }, { status: 400 });
     const invoiceType = normalizeInvoiceType(body.invoiceType);
     const contactId = String(body.contactId || "").trim();
     const appointmentId = String(body.appointmentId || "").trim();

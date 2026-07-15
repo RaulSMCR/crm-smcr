@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { productBodySchema, validationMessage } from "@/lib/financial-schemas";
 
 export const dynamic = "force-dynamic";
 
@@ -76,6 +77,8 @@ export async function PUT(request, { params }) {
     if (!existing) return NextResponse.json({ message: "Producto no encontrado." }, { status: 404 });
 
     const body = await request.json().catch(() => ({}));
+    const parsed = productBodySchema.partial().safeParse(body);
+    if (!parsed.success) return NextResponse.json({ message: validationMessage(parsed.error) }, { status: 400 });
     const data = {};
 
     if (body.name             !== undefined) data.name             = String(body.name).trim() || existing.name;
