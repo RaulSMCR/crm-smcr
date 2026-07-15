@@ -2,18 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { invoiceBodySchema, validationMessage } from "@/lib/financial-schemas";
+import { computeInvoiceLine, round2, toNumber } from "@/lib/invoice-math";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-
-function toNumber(value, fallback = 0) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-function round2(value) {
-  return Math.round((toNumber(value) + Number.EPSILON) * 100) / 100;
-}
 
 function normalizeInvoiceType(value) {
   const raw = String(value || "").trim().toUpperCase();
@@ -44,29 +36,6 @@ function buildDraftInvoiceNumber(type) {
   if (type === "CUSTOMER_CREDIT_NOTE") return `DRAFT-CN-${stamp}`;
   if (type === "SUPPLIER_CREDIT_NOTE") return `DRAFT-SCN-${stamp}`;
   return `DRAFT-CUS-${stamp}`;
-}
-
-function computeLine(lineInput) {
-  const quantity = round2(toNumber(lineInput.quantity, 1));
-  const unitPrice = round2(toNumber(lineInput.unitPrice, 0));
-  const discountPercent = round2(toNumber(lineInput.discountPercent, 0));
-  const taxRate = round2(toNumber(lineInput.taxRate, 0));
-
-  const gross = round2(quantity * unitPrice);
-  const discount = round2(gross * (discountPercent / 100));
-  const lineSubtotal = round2(gross - discount);
-  const taxAmount = round2(lineSubtotal * (taxRate / 100));
-  const lineTotal = round2(lineSubtotal + taxAmount);
-
-  return {
-    quantity,
-    unitPrice,
-    discountPercent,
-    taxRate,
-    taxAmount,
-    lineSubtotal,
-    lineTotal,
-  };
 }
 
 function mapInvoice(invoice) {
@@ -248,7 +217,7 @@ export async function POST(request) {
     }
 
     const computedLines = lines.map((line, index) => {
-      const calc = computeLine(line);
+      const calc = computeInvoiceLine(line);
       return {
         productId: line.productId ? String(line.productId) : null,
         serviceId: line.serviceId ? String(line.serviceId) : null,
