@@ -104,6 +104,49 @@ export async function sendFeEmail(invoice) {
   else console.log(`[FE] Email de FE enviado a ${patientEmail} para factura ${invoice.invoiceNumber}`);
 }
 
+// ─── Alerta al administrador ─────────────────────────────────────────────────
+
+/**
+ * Avisa al administrador cuando una factura no pudo emitirse porque falta la
+ * integración de FE (producción sin FE_API_URL). NO se envía nada al paciente.
+ *
+ * @param {object} invoice  Factura afectada (con invoiceNumber, total, etc.)
+ */
+async function sendFeConfigAlert(invoice) {
+  const to = process.env.ADMIN_ALERT_EMAIL || process.env.EMAIL_FROM;
+  if (!to || !process.env.RESEND_API_KEY) {
+    console.error(
+      "[FE] No se pudo alertar al admin: falta ADMIN_ALERT_EMAIL/EMAIL_FROM o RESEND_API_KEY."
+    );
+    return;
+  }
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#0f172a;">
+      <h2 style="color:#b91c1c;">Factura electrónica NO emitida</h2>
+      <p>La factura <strong>${invoice.invoiceNumber}</strong> no pudo enviarse a Hacienda
+         porque la integración de facturación electrónica no está configurada
+         (falta la variable <code>FE_API_URL</code>).</p>
+      <p>La factura quedó en estado <strong>PENDIENTE</strong>. No se emitió ningún comprobante
+         ni se envió correo de FE al paciente.</p>
+      <p style="margin-top:16px;">Acción requerida: emitir la factura manualmente ante Hacienda
+         o configurar la integración de FE antes de seguir cobrando.</p>
+      <p style="font-size:12px;color:#94a3b8;margin-top:24px;">
+        Alerta automática del sistema de facturación de Salud Mental Costa Rica.
+      </p>
+    </div>`;
+
+  const { error } = await resend.emails.send({
+    from: FROM_EMAIL,
+    to,
+    subject: `⚠ FE no emitida — factura ${invoice.invoiceNumber} pendiente`,
+    html,
+  });
+
+  if (error) console.error("[FE] Error enviando alerta de configuración al admin:", error);
+  else console.log(`[FE] Alerta de FE no configurada enviada al admin para factura ${invoice.invoiceNumber}`);
+}
+
 // ─── Envío a Hacienda ────────────────────────────────────────────────────────
 
 /**
@@ -176,7 +219,13 @@ export async function submitInvoiceToFe(invoiceId) {
     return { feStatus: "ACCEPTED", feNumber: invoice.feNumber, feClave: invoice.feClave, feErrorMessage: null };
   }
 
+  const isProduction =
+    process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
+
   let feNumber, feClave, feStatus, feErrorMessage;
+  // Solo el envío por la integración real de Hacienda produce un comprobante con
+  // validez tributaria. El modo mock JAMÁS debe enviar el correo al paciente.
+  let realAcceptance = false;
 
   if (FE_REAL_API_URL) {
     // ── Integración real con Hacienda CR ─────────────────────────────────────
@@ -187,6 +236,7 @@ export async function submitInvoiceToFe(invoiceId) {
       feClave        = result.feClave;
       feStatus       = result.feStatus;
       feErrorMessage = result.feErrorMessage || null;
+      realAcceptance = feStatus === "ACCEPTED";
     } catch (err) {
       console.error(`[FE] submitInvoiceToFe: error enviando factura ${invoiceId} a Hacienda:`, err);
       feStatus       = "REJECTED";
@@ -194,8 +244,31 @@ export async function submitInvoiceToFe(invoiceId) {
       feClave        = null;
       feErrorMessage = err.message || "Error desconocido al conectar con Hacienda.";
     }
+  } else if (isProduction) {
+    // ── Producción SIN FE_API_URL: NO simular ────────────────────────────────
+    // Emitir un comprobante simulado a un paciente real sería un fraude tributario
+    // ante Hacienda. Dejamos la factura PENDING, alertamos al admin y no enviamos
+    // ningún correo de FE al paciente.
+    feStatus       = "PENDING";
+    feNumber       = null;
+    feClave        = null;
+    feErrorMessage = "FE no configurada: falta FE_API_URL. Emitir manualmente o configurar la integración.";
+    console.error(
+      `[FE] Producción sin FE_API_URL: factura ${invoice.invoiceNumber} (${invoiceId}) queda PENDING sin emitir.`
+    );
+
+    await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: { feNumber, feClave, feStatus, feErrorMessage },
+    });
+
+    await sendFeConfigAlert(invoice).catch((e) =>
+      console.error("[FE] Error enviando alerta de configuración al admin:", e)
+    );
+
+    return { feStatus, feNumber, feClave, feErrorMessage };
   } else {
-    // ── Modo mock: FE simulada (sin FE_API_URL configurada) ─────────────────
+    // ── Modo mock: FE simulada (desarrollo, sin FE_API_URL configurada) ──────
     const { buildFeNumber, buildFeClave, extractConsecutivo } = await import("@/lib/fe/xml.js");
     const { TIPO_DOC_MAP } = await import("@/lib/fe/config.js");
     const tipoDoc    = TIPO_DOC_MAP[invoice.invoiceType] || "01";
@@ -203,8 +276,8 @@ export async function submitInvoiceToFe(invoiceId) {
     feNumber       = buildFeNumber(invoice.invoiceType, consecutivo);
     feClave        = buildFeClave(tipoDoc, feNumber, invoice.invoiceDate);
     feStatus       = "ACCEPTED";
-    feErrorMessage = null;
-    console.log(`[FE MOCK] Factura ${invoice.invoiceNumber} → feNumber=${feNumber}`);
+    feErrorMessage = "SIMULADO — sin validez tributaria";
+    console.log(`[FE MOCK] Factura ${invoice.invoiceNumber} → feNumber=${feNumber} (SIMULADO, sin validez tributaria)`);
   }
 
   // Actualizar factura en BD
@@ -213,8 +286,8 @@ export async function submitInvoiceToFe(invoiceId) {
     data: { feNumber, feClave, feStatus, feErrorMessage },
   });
 
-  // Enviar email al paciente si la FE fue aceptada
-  if (feStatus === "ACCEPTED") {
+  // Enviar email al paciente SOLO si la aceptación provino de la integración real.
+  if (realAcceptance) {
     const enriched = { ...invoice, feNumber, feClave, feStatus };
     sendFeEmail(enriched).catch((e) => console.error("[FE] Error en sendFeEmail:", e));
   }
