@@ -139,7 +139,7 @@ export async function POST(request) {
               insuranceTemplateUrl: true,
             },
           },
-          professional: { select: { user: { select: { name: true, email: true } } } },
+          professional: { select: { commission: true, user: { select: { name: true, email: true } } } },
         },
       })
     : [];
@@ -203,9 +203,12 @@ export async function POST(request) {
 
   // ── 7. Si el pago fue aprobado: actualizar cita + crear factura + email ──
   if (newStatus === "APPROVED") {
+    const amountCents = Math.round(Number(transaction.amount) * 100);
+    const commissionPct = Number(transaction.professional?.commission || 0);
+    const commissionCents = Math.round(amountCents * commissionPct / 100);
     await prisma.appointment.update({
       where: { id: transaction.appointmentId },
-      data: { paymentStatus: "PAID" },
+      data: { paymentStatus: "PAID", commissionFee: commissionCents / 100 },
     });
 
     console.log(`[ONVO webhook] Cita ${transaction.appointmentId} → paymentStatus: PAID`);
@@ -234,7 +237,7 @@ export async function POST(request) {
 
 // ── Facturación automática ───────────────────────────────────────────────────
 
-async function createAutoInvoice(transaction) {
+export async function createAutoInvoice(transaction) {
   try {
     const amount = Number(transaction.amount);
     if (!amount || amount <= 0) return null;

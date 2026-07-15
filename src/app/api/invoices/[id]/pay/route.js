@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { markSettlementPaid } from "@/actions/settlement-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,8 @@ export async function POST(request, { params }) {
         paymentDate: nextStatus === "PAID" ? new Date() : null,
       },
     });
+
+    if (updated.status === "PAID") await markSettlementPaid(updated.id);
 
     return NextResponse.json({
       id: updated.id,

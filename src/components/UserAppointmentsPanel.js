@@ -4,6 +4,7 @@ import { DEFAULT_TZ } from "@/lib/timezone";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { buildPaymentLinkUrl } from "@/lib/onvo/client";
 import Toast from "@/components/ui/Toast";
 import CancelAppointmentModal from "./appointments/CancelAppointmentModal";
 import RescheduleAppointmentModal from "./appointments/RescheduleAppointmentModal";
@@ -274,13 +275,11 @@ export default function UserAppointmentsPanel({
             </span>
           ) : null}
 
-          {appointment.status === "COMPLETED" && appointment.paymentStatus !== "PAID" ? (
+          {appointment.paymentStatus !== "PAID" && appointment.paymentTransactions?.[0] ? (
             (() => {
               const tx = appointment.paymentTransactions?.[0];
               const onvoLinkId = tx?.onvoPaymentLinkId;
-              const payUrl = onvoLinkId
-                ? `https://checkout.onvopay.com/pay/${onvoLinkId}`
-                : null;
+              const payUrl = onvoLinkId ? buildPaymentLinkUrl(onvoLinkId) : null;
               return (
                 <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
                   {payUrl ? (

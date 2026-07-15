@@ -33,6 +33,7 @@ export async function submitProfessionalInvoice({
   supplierFeClave,
   periodStart,
   periodEnd,
+  settlementId,
 }) {
   try {
     const auth = await requireApprovedProfessional();
@@ -66,6 +67,18 @@ export async function submitProfessionalInvoice({
     const now = new Date();
     const dueDate = new Date(now);
     dueDate.setDate(dueDate.getDate() + 7);
+
+    let settlement = null;
+    if (settlementId) {
+      settlement = await prisma.settlement.findFirst({
+        where: { id: String(settlementId), professionalId: profile.id, status: "OPEN" },
+        select: { id: true, netAmount: true },
+      });
+      if (!settlement) return { success: false, error: "La liquidación no está disponible para facturar." };
+      if (Math.abs(amt - Number(settlement.netAmount)) > 0.005) {
+        return { success: false, error: "El monto debe coincidir exactamente con el neto de la liquidación." };
+      }
+    }
 
     const invoice = await prisma.invoice.create({
       data: {
@@ -105,6 +118,13 @@ export async function submitProfessionalInvoice({
       },
       select: { id: true, invoiceNumber: true },
     });
+
+    if (settlement) {
+      await prisma.settlement.update({
+        where: { id: settlement.id },
+        data: { invoiceId: invoice.id, status: "INVOICED" },
+      });
+    }
 
     revalidatePath("/panel/profesional/contabilidad");
 

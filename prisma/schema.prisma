@@ -153,8 +153,9 @@ model User {
   paymentTransactions PaymentTransaction[]
   insuranceClaims     InsuranceClaim[]     @relation("PatientInsuranceClaims")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  Settlement Settlement[]
 
   @@index([identification])
   @@index([role])
@@ -201,8 +202,9 @@ model ProfessionalProfile {
   homeCarouselItems HomeCarouselItem[]
   insuranceClaims   InsuranceClaim[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  settlements Settlement[]
 }
 
 model Service {
@@ -351,6 +353,7 @@ model Invoice {
   originInvoice Invoice?             @relation("InvoiceOrigin", fields: [originInvoiceId], references: [id], onDelete: SetNull)
   creditNotes   Invoice[]            @relation("InvoiceOrigin")
   lines         InvoiceLine[]
+  settlements   Settlement[]
 
   @@unique([invoiceType, invoiceNumber])
   @@index([invoiceType, status])
@@ -508,15 +511,70 @@ model PaymentTransaction {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  appointment  Appointment         @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
-  professional ProfessionalProfile @relation(fields: [professionalId], references: [id])
-  patient      User                @relation(fields: [patientId], references: [id])
+  appointment    Appointment         @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  professional   ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  patient        User                @relation(fields: [patientId], references: [id])
+  settlementItem SettlementItem?
 
   @@index([appointmentId])
   @@index([professionalId])
   @@index([patientId])
   @@index([onvoPaymentLinkId])
   @@index([status, createdAt])
+}
+
+model Settlement {
+  id             String   @id @default(cuid())
+  professionalId String
+  periodStart    DateTime
+  periodEnd      DateTime
+  grossAmount    Decimal  @db.Decimal(12, 2)
+  commissionPct  Int
+  commissionAmt  Decimal  @db.Decimal(12, 2)
+  netAmount      Decimal  @db.Decimal(12, 2)
+  status         String   @default("OPEN")
+  invoiceId      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  invoice      Invoice?            @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  items        SettlementItem[]
+  User         User?               @relation(fields: [userId], references: [id])
+  userId       String?
+
+  @@unique([professionalId, periodStart, periodEnd])
+  @@index([status])
+}
+
+model SettlementItem {
+  id            String  @id @default(cuid())
+  settlementId  String
+  transactionId String  @unique
+  amount        Decimal @db.Decimal(10, 2)
+  commissionAmt Decimal @db.Decimal(10, 2)
+
+  settlement  Settlement         @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  transaction PaymentTransaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+}
+
+model FiscalPeriod {
+  id           String    @id @default(cuid())
+  year         Int
+  month        Int
+  status       String    @default("OPEN")
+  ivaDebito    Decimal?  @db.Decimal(15, 2)
+  ivaCredito   Decimal?  @db.Decimal(15, 2)
+  ivaNeto      Decimal?  @db.Decimal(15, 2)
+  withholdings Decimal   @default(0) @db.Decimal(15, 2)
+  snapshot     Json?
+  filedAt      DateTime?
+  filedReceipt String?
+  notes        String?   @db.Text
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([year, month])
 }
 
 model Post {

@@ -31,7 +31,7 @@ export default async function ProfesionalContabilidadPage({ searchParams }) {
   const rangeFrom = parseDateParam(searchParams?.from, defaultFrom);
   const rangeTo = parseDateParam(searchParams?.to, defaultTo);
 
-  const [profile, transactions, submittedInvoices] = await Promise.all([
+  const [profile, transactions, submittedInvoices, settlements] = await Promise.all([
     prisma.professionalProfile.findUnique({
       where: { id: professionalId },
       select: { id: true, userId: true },
@@ -79,6 +79,12 @@ export default async function ProfesionalContabilidadPage({ searchParams }) {
       orderBy: { invoiceDate: "desc" },
       take: 50,
     }),
+    prisma.settlement.findMany({
+      where: { professionalId },
+      include: { items: { include: { transaction: { include: { appointment: { select: { date: true, patient: { select: { name: true } } } } } } } }, invoice: { select: { id: true, total: true, status: true } } },
+      orderBy: { periodStart: "desc" },
+      take: 24,
+    }),
   ]);
 
   if (!profile) redirect("/panel/profesional/perfil");
@@ -110,6 +116,11 @@ export default async function ProfesionalContabilidadPage({ searchParams }) {
     balance: Number(inv.balance),
     invoiceDate: inv.invoiceDate.toISOString(),
   }));
+  const settlementsForClient = settlements.map((row) => ({
+    id: row.id, periodStart: row.periodStart.toISOString(), periodEnd: row.periodEnd.toISOString(),
+    grossAmount: Number(row.grossAmount), commissionAmt: Number(row.commissionAmt), netAmount: Number(row.netAmount), status: row.status,
+    invoiceId: row.invoiceId, items: row.items.map((item) => ({ date: item.transaction.appointment?.date?.toISOString(), patientName: item.transaction.appointment?.patient?.name || "Paciente", amount: Number(item.amount), commissionAmt: Number(item.commissionAmt) })),
+  }));
 
   return (
     <div className="max-w-6xl mx-auto p-6 md:p-10 space-y-6">
@@ -121,6 +132,7 @@ export default async function ProfesionalContabilidadPage({ searchParams }) {
       <ProfessionalBillingModule
         transactions={txForClient}
         submittedInvoices={invoicesForClient}
+        settlements={settlementsForClient}
         rangeFrom={rangeFrom.toISOString()}
         rangeTo={rangeTo.toISOString()}
       />

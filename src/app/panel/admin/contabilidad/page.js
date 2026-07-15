@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/actions/auth-actions";
 import { prisma } from "@/lib/prisma";
 import BillingInvoicesManager from "@/components/admin/BillingInvoicesManager";
+import { generateSettlements } from "@/actions/settlement-actions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -223,6 +224,8 @@ export default async function AdminAccountingPage({ searchParams }) {
             <p className="text-sm text-slate-600">Vista consolidada por período: {range.label}</p>
           </div>
           <div className="flex gap-2">
+            <Link href="/panel/admin/contabilidad/cierre-fiscal" className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-100">Cierre fiscal</Link>
+            <Link href="/panel/admin/contabilidad/conciliacion" className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-100">Conciliación</Link>
             {["day", "week", "month"].map((quick) => (
               <Link
                 key={quick}
@@ -293,6 +296,11 @@ export default async function AdminAccountingPage({ searchParams }) {
             </Link>
           </div>
         </form>
+
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+          <div><h2 className="font-semibold text-emerald-950">Liquidaciones a profesionales</h2><p className="text-sm text-emerald-800">Genera estados de cuenta con comisión congelada al momento del pago.</p></div>
+          <form action={generateSettlements} className="flex flex-wrap gap-2"><input type="hidden" name="periodStart" value={range.from.toISOString()} /><input type="hidden" name="periodEnd" value={new Date(range.to.getTime() - 1).toISOString()} /><button className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">Generar período</button></form>
+        </div>
 
         <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
           <div className="rounded-xl border border-slate-200 bg-white p-4">

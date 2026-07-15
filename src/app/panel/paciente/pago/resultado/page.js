@@ -16,7 +16,7 @@ export default async function PagoResultadoPage({ searchParams }) {
   let transaction = null;
   if (ref) {
     transaction = await prisma.paymentTransaction.findFirst({
-      where: { appointmentId: ref },
+      where: { appointmentId: ref, patientId: String(session.userId || session.sub) },
       orderBy: { createdAt: "desc" },
       include: {
         appointment: {
@@ -66,6 +66,15 @@ export default async function PagoResultadoPage({ searchParams }) {
             </p>
           </>
         )}
+
+        {isPending && transaction ? (
+          <Link
+            href={`/panel/paciente/pago/resultado?ref=${encodeURIComponent(ref)}`}
+            className="mt-4 inline-block rounded-xl border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-50"
+          >
+            Actualizar estado
+          </Link>
+        ) : null}
 
         {isRejected && (
           <>

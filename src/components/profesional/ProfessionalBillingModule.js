@@ -76,6 +76,7 @@ function filterByPeriod(transactions, period, customFrom, customTo) {
 export default function ProfessionalBillingModule({
   transactions,
   submittedInvoices,
+  settlements = [],
   rangeFrom,
   rangeTo,
 }) {
@@ -87,6 +88,7 @@ export default function ProfessionalBillingModule({
 
   const [refNumber, setRefNumber] = useState("");
   const [invoiceAmount, setInvoiceAmount] = useState("");
+  const [selectedSettlement, setSelectedSettlement] = useState(null);
   const [pdfFile, setPdfFile] = useState(null);
   const [xmlFile, setXmlFile] = useState(null);
   const [supplierFeClave, setSupplierFeClave] = useState("");
@@ -173,6 +175,7 @@ export default function ProfessionalBillingModule({
         supplierFeClave,
         periodStart,
         periodEnd,
+        settlementId: selectedSettlement,
       });
       if (result.success) {
         setSubmitMsg({
@@ -181,6 +184,7 @@ export default function ProfessionalBillingModule({
         });
         setRefNumber("");
         setInvoiceAmount("");
+        setSelectedSettlement(null);
         setPdfFile(null);
         setXmlFile(null);
         setSupplierFeClave("");
@@ -254,6 +258,20 @@ export default function ProfessionalBillingModule({
           </div>
         ))}
       </div>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="text-lg font-bold text-slate-900">Liquidaciones</h2>
+        <div className="mt-3 space-y-3">
+          {settlements.length ? settlements.map((settlement) => (
+            <div key={settlement.id} className="rounded-xl border border-slate-200 p-4">
+              <div className="flex flex-wrap justify-between gap-2"><span>{fmtDate(settlement.periodStart)} - {fmtDate(settlement.periodEnd)}</span><span className="font-semibold">{settlement.status}</span></div>
+              <p className="mt-2 text-sm text-slate-600">Bruto {fmt(settlement.grossAmount)} · Comisión {fmt(settlement.commissionAmt)} · <strong>Neto {fmt(settlement.netAmount)}</strong></p>
+              <p className="mt-1 text-xs text-slate-500">{settlement.items.length} cobro(s). La presentación de la factura se valida contra este neto exacto.</p>
+              {settlement.status === "OPEN" ? <button type="button" onClick={() => { setSelectedSettlement(settlement.id); setInvoiceAmount(String(settlement.netAmount)); window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }); }} className="mt-3 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white">Presentar factura por {fmt(settlement.netAmount)}</button> : null}
+            </div>
+          )) : <p className="text-sm text-slate-500">Todavía no hay liquidaciones generadas.</p>}
+        </div>
+      </section>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-100 px-6 py-4">
@@ -342,13 +360,14 @@ export default function ProfessionalBillingModule({
               <label className="mb-1 block text-sm font-medium text-slate-700">
                 Monto a facturar (₡) *
                 <span className="ml-1 text-xs font-normal text-slate-400">
-                  sugerido, editable
+                  {selectedSettlement ? "neto de liquidación, no editable" : "sugerido, editable"}
                 </span>
               </label>
               <input
                 type="number"
                 value={invoiceAmount || Math.round(totalApproved)}
                 onChange={(e) => setInvoiceAmount(e.target.value)}
+                disabled={Boolean(selectedSettlement)}
                 min="1"
                 required
                 className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"

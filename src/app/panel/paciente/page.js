@@ -56,7 +56,7 @@ export default async function PacientePanelPage({ searchParams }) {
           select: { title: true },
         },
         paymentTransactions: {
-          where: { status: { in: ["PENDING", "LINK_SENT"] } },
+          where: { status: { in: ["PENDING", "LINK_SENT", "APPROVED"] } },
           orderBy: { createdAt: "desc" },
           take: 1,
           select: { onvoPaymentLinkId: true, amount: true, type: true },
@@ -71,6 +71,10 @@ export default async function PacientePanelPage({ searchParams }) {
   const created = String(searchParams?.created || "") === "1";
   const appointmentAction = String(searchParams?.appointmentAction || "");
   const appointmentId = String(searchParams?.appointmentId || "");
+  const pendingPaymentsCount = appointments.filter((appointment) => {
+    const tx = appointment.paymentTransactions?.[0];
+    return appointment.paymentStatus !== "PAID" && ["PENDING", "LINK_SENT"].includes(tx?.status);
+  }).length;
   const unpaidAppointmentsCount = appointments.filter((appointment) => {
     const appointmentDate = new Date(appointment.date).getTime();
     const isPastOrCompleted =
@@ -93,6 +97,12 @@ export default async function PacientePanelPage({ searchParams }) {
           Agendar nueva cita
         </Link>
       </div>
+
+      {pendingPaymentsCount > 0 ? (
+        <a href="#mis-citas" className="block rounded-xl border border-amber-300 bg-amber-100 px-4 py-3 text-sm font-semibold text-amber-950 hover:bg-amber-200">
+          Tenés {pendingPaymentsCount} pago{pendingPaymentsCount === 1 ? "" : "s"} pendiente{pendingPaymentsCount === 1 ? "" : "s"}
+        </a>
+      ) : null}
 
       {created ? (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
@@ -118,7 +128,7 @@ export default async function PacientePanelPage({ searchParams }) {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <div className="rounded-2xl border border-slate-200 bg-white p-6">
+          <div id="mis-citas" className="rounded-2xl border border-slate-200 bg-white p-6">
             <h2 className="text-xl font-bold text-slate-900">Mis citas</h2>
 
             <UserAppointmentsPanel
