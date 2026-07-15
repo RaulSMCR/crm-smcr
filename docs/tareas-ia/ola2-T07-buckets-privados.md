@@ -25,7 +25,7 @@ Los uploads usan `getPublicUrl()`: cualquiera con la URL accede para siempre. Es
    - Admin: todo.
 5. Aplica `validateFileSignature` en TODAS las rutas de upload (incluidas las públicas como avatar).
 6. Actualiza los puntos de consumo (paneles, correos de seguros en `src/lib/insurance-mail.js`) para pasar por `/api/files?path=...`. En correos, el enlace apunta a `/api/files` (que exige sesión), nunca a una URL firmada de larga vida.
-7. Migración de datos: script `scripts/migrate-storage-paths.js` que convierta las URLs públicas ya guardadas al formato ruta (extraer `bucket/path` del patrón `/storage/v1/object/public/{bucket}/{path}`). No lo ejecutes: entrégalo listo.
+7. Migración de datos: script `scripts/migrate-storage-paths.mjs` que convierte las URLs públicas ya guardadas al formato ruta (extrae `bucket/path` del patrón `/storage/v1/object/public/{bucket}/{path}`). Ejecutar primero sin argumentos para simular y luego con `--apply` para escribir.
 8. **Documenta el paso manual** (yo lo hago en el dashboard de Supabase): marcar como privados los buckets de seguros, CVs y facturas; avatares y banners quedan públicos. Lista los nombres exactos de los buckets encontrados en el código.
 
 ## Qué NO hacer

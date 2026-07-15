@@ -48,5 +48,9 @@ Extrae sin cambiar comportamiento: `findRecurringConflict` y helpers de fechas d
 
 ---
 
-## B09 — Activar Storage privado (SEC-05)
-Los buckets de documentos médicos, CVs y facturas profesionales ya tienen rutas privadas y acceso mediante `/api/files`, pero la activación de privacidad en Supabase queda pendiente por la evaluación de costos. Cuando se confirme el plan/costo, marcar como privados: `insurance-blank-forms`, `insurance-patient-forms`, `insurance-templates`, `insurance-signed-forms`, `CVS` y `professional-invoices`. Mantener públicos `avatars`, `service-banners` y `post-covers`. Ejecutar antes `scripts/migrate-storage-paths.js` para convertir referencias públicas históricas.
+## B09 — Activar Storage privado (SEC-05) — ✅ HECHO (buckets privatizados el 15-jul-2026)
+Buckets privados: `insurance-blank-forms`, `insurance-patient-forms`, `insurance-templates`, `insurance-signed-forms`, `CVS`, `professional-invoices`. Públicos: `avatars`, `service-banners`, `post-covers`.
+
+**Migración de rutas: ✅ HECHA (15-jul-2026).** Se ejecutó `node --env-file=.env.local scripts/migrate-storage-paths.mjs --apply`. La ejecución actual detectó 0 cambios pendientes; las 4 referencias antiguas de `professionalProfile.cvUrl` ya habían sido normalizadas a `CVS/{userId}/cv.pdf`. El migrador ahora también cubre `insurance*Url`, `insuranceClaim.signedFormUrl`, `invoice.attachmentUrl/xmlUrl` y recupera adjuntos antiguos desde `Invoice.notes`.
+
+**Pendiente residual:** verificar en producción que un CV antiguo abre vía `/api/files` (probar como ADMIN o como el profesional dueño). No se pudo verificar en local porque `SUPABASE_SERVICE_ROLE_KEY` está vacía en `.env.local` — sin ella `getSupabaseAdmin()` lanza y `/api/files` no puede firmar URLs. Si se rotó por T01, reponer el valor local desde el dashboard de Supabase.
