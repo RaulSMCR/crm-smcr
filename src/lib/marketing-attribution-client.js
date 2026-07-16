@@ -77,14 +77,36 @@ function toFormFields(attribution, defaults = {}) {
   };
 }
 
+export function captureMarketingAttribution() {
+  if (typeof window === "undefined") return;
+
+  const current = fromSearchParams(new URLSearchParams(window.location.search));
+  if (current) {
+    writeStoredAttribution(current);
+    return;
+  }
+
+  if (readStoredAttribution()) return;
+
+  const referrer = getExternalReferrer();
+  if (!referrer) return;
+
+  writeStoredAttribution({
+    referrer,
+    capturedAt: new Date().toISOString(),
+    landingPath: `${window.location.pathname}${window.location.search}`,
+  });
+}
+
 export function getMarketingAttributionFields(defaults = {}) {
   if (typeof window === "undefined") {
     return toFormFields(null, defaults);
   }
 
+  captureMarketingAttribution();
+
   const current = fromSearchParams(new URLSearchParams(window.location.search));
   if (current) {
-    writeStoredAttribution(current);
     return toFormFields(current, defaults);
   }
 

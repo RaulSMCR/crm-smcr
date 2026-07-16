@@ -6,6 +6,7 @@ import Footer from '@/components/Footer';
 import JsonLd from '@/components/JsonLd';
 import ConsentBanner from '@/components/ConsentBanner';
 import AnalyticsLoader from '@/components/AnalyticsLoader';
+import MarketingAttributionCapture from '@/components/MarketingAttributionCapture';
 import { SITE_URL, siteUrl } from '@/lib/site-url';
 
 const ORGANIZATION_SCHEMA = {
@@ -99,6 +100,7 @@ export default function RootLayout({ children }) {
          2. min-h-screen: Asegura que el cuerpo ocupe al menos toda la altura de la ventana.
       */}
       <body className="min-h-screen flex flex-col bg-surface text-neutral-900 antialiased">
+        <MarketingAttributionCapture />
         {process.env.NODE_ENV === 'production' && (
           <AnalyticsLoader gaId={GA_ID} metaPixelId={META_PIXEL_ID} />
         )}

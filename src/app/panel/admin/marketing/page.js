@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/actions/auth-actions";
 import { prisma } from "@/lib/prisma";
 import { siteUrl } from "@/lib/site-url";
+import CopyUrlInput from "@/components/admin/CopyUrlInput";
 import HomeCarouselManager from "@/components/admin/HomeCarouselManager";
 
 export const dynamic = "force-dynamic";
@@ -159,19 +160,6 @@ function SectionHeader({ title, action }) {
   );
 }
 
-function UrlBox({ label, value }) {
-  return (
-    <label className="block space-y-1">
-      <span className="text-xs font-bold uppercase tracking-[0.12em] text-neutral-500">{label}</span>
-      <input
-        readOnly
-        value={value}
-        className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs text-neutral-800"
-      />
-    </label>
-  );
-}
-
 export default async function AdminMarketingPage() {
   const session = await getSession();
   if (!session || session.role !== "ADMIN") redirect("/ingresar");
@@ -182,7 +170,6 @@ export default async function AdminMarketingPage() {
   const adsTagId =
     process.env.NEXT_PUBLIC_GOOGLE_ADS_ID ||
     process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID ||
-    process.env.GOOGLE_ADS_CUSTOMER_ID ||
     "";
 
   const [
@@ -536,7 +523,7 @@ export default async function AdminMarketingPage() {
                   {template.source} / {template.medium} / {template.campaign}
                 </p>
                 <div className="mt-3">
-                  <UrlBox label="URL" value={buildUtmUrl(template.path, template)} />
+                  <CopyUrlInput label="URL" value={buildUtmUrl(template.path, template)} />
                 </div>
               </div>
             ))}
@@ -576,11 +563,7 @@ export default async function AdminMarketingPage() {
                     <td className="py-3 pr-4 text-right">{formatSeconds(row.avgTime)}</td>
                     <td className="py-3 pr-4 text-right">{row.avgScroll}%</td>
                     <td className="min-w-[320px] py-3">
-                      <input
-                        readOnly
-                        value={row.url}
-                        className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs text-neutral-800"
-                      />
+                      <CopyUrlInput label="" value={row.url} />
                     </td>
                   </tr>
                 ))}
