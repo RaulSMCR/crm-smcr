@@ -7,7 +7,7 @@ import AuthTurnstile, { CAPTCHA_ENABLED } from "@/components/AuthTurnstile";
 import Link from "next/link";
 import { trackEvent } from "@/lib/analytics";
 import { trackLead } from "@/lib/meta-pixel";
-import { getMarketingAttributionFields } from "@/lib/marketing-attribution-client";
+import { getMarketingAttributionFields, getMarketingAttributionRaw } from "@/lib/marketing-attribution-client";
 import { Playfair_Display } from "next/font/google";
 
 const playfair = Playfair_Display({
@@ -129,6 +129,7 @@ export default function RegistroUsuarioPage() {
       Object.entries(form).forEach(([k, v]) => formData.append(k, v));
       formData.append("acquisitionChannel", attribution.acquisitionChannel);
       formData.append("campaignName", attribution.campaignName);
+      Object.entries(getMarketingAttributionRaw()).forEach(([k, v]) => formData.append(k, v));
       formData.append("captchaToken", captchaToken || "");
       const res = await registerUser(formData);
       if (res?.error || res?.warning) {

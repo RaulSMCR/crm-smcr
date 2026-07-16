@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { registerProfessional } from "@/actions/auth-actions";
 import AuthTurnstile, { CAPTCHA_ENABLED } from "@/components/AuthTurnstile";
 import Link from "next/link";
-import { getMarketingAttributionFields } from "@/lib/marketing-attribution-client";
+import { getMarketingAttributionFields, getMarketingAttributionRaw } from "@/lib/marketing-attribution-client";
 import { Playfair_Display } from "next/font/google";
 
 const playfair = Playfair_Display({
@@ -168,6 +168,7 @@ export default function RegistroProfesionalPage() {
       Object.entries(form).forEach(([k, v]) => formData.append(k, v));
       formData.append("acquisitionChannel", attribution.acquisitionChannel);
       formData.append("campaignName", attribution.campaignName);
+      Object.entries(getMarketingAttributionRaw()).forEach(([k, v]) => formData.append(k, v));
       formData.append("cvUrl", cvUrl);
       formData.append("captchaToken", captchaToken || "");
 

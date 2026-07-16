@@ -1,6 +1,7 @@
 // src/app/api/contact-faq/route.js
 import { NextResponse } from "next/server";
 import { resend } from "@/lib/resend";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -111,6 +112,28 @@ export async function POST(request) {
     } else {
       // En desarrollo sin clave configurada se omite la verificación
       console.warn("[contact-faq] TURNSTILE_SECRET_KEY no configurada — verificación omitida.");
+    }
+
+    // ── 6. Persistir como Lead (best-effort: si falla, el email igual sale) ────
+    try {
+      await prisma.lead.create({
+        data: {
+          name: nombre,
+          email,
+          subject: ALLOWED_SUBJECTS[asunto],
+          message: mensaje,
+          channel: "FAQ_FORM",
+          utmSource: sanitize(body?.utmSource, 120) || null,
+          utmMedium: sanitize(body?.utmMedium, 120) || null,
+          utmCampaign: sanitize(body?.utmCampaign, 160) || null,
+          utmTerm: sanitize(body?.utmTerm, 160) || null,
+          utmContent: sanitize(body?.utmContent, 160) || null,
+          referrer: sanitize(body?.referrer, 200) || null,
+          landingPath: sanitize(body?.landingPath, 500) || null,
+        },
+      });
+    } catch (leadError) {
+      console.error("[contact-faq] no se pudo guardar el lead:", leadError);
     }
 
     // ── 7. Simular envío si no hay API key de Resend (desarrollo local) ───────

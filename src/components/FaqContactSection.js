@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { Turnstile } from '@marsidev/react-turnstile';
+import { getMarketingAttributionRaw } from '@/lib/marketing-attribution-client';
 
 const SUBJECT_OPTIONS = [
   { value: 'tech',          label: 'Problema técnico con mi cuenta' },
@@ -43,6 +44,7 @@ export default function FaqContactSection() {
       asunto:       fd.get('asunto'),
       mensaje:      fd.get('mensaje'),
       captchaToken: captchaToken || '',
+      ...getMarketingAttributionRaw(),
     };
 
     try {

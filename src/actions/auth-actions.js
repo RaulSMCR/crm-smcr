@@ -68,7 +68,29 @@ function readMarketingAttribution(formData, defaults = {}) {
       defaults.campaignName || "",
       160
     ),
+    // Detalle sin colapsar (los dos de arriba son el resumen legible)
+    utmSource: normalizeMarketingValue(formData.get("utmSource"), "", 120),
+    utmMedium: normalizeMarketingValue(formData.get("utmMedium"), "", 120),
+    utmCampaign: normalizeMarketingValue(formData.get("utmCampaign"), "", 160),
+    utmTerm: normalizeMarketingValue(formData.get("utmTerm"), "", 160),
+    utmContent: normalizeMarketingValue(formData.get("utmContent"), "", 160),
+    referrer: normalizeMarketingValue(formData.get("referrer"), "", 200),
+    landingPath: normalizeMarketingValue(formData.get("landingPath"), "", 500),
   };
+}
+
+// Si esta persona ya había escrito por un formulario público, sus leads pasan a
+// CONVERTED y quedan enlazados al User. Best-effort: no debe romper el registro.
+async function linkLeadsToUser(userId, email) {
+  if (!userId || !email) return;
+  try {
+    await prisma.lead.updateMany({
+      where: { email: String(email).trim().toLowerCase(), userId: null },
+      data: { userId, status: "CONVERTED" },
+    });
+  } catch (error) {
+    console.error("Error vinculando leads al usuario:", error);
+  }
 }
 
 async function linkAnonymousMarketingEvents(userId) {
@@ -231,7 +253,7 @@ export async function registerProfessional(formData) {
   const introVideoUrl = formData.get("introVideoUrl") ? String(formData.get("introVideoUrl")).trim() : null;
   const licenseNumber = formData.get("licenseNumber") ? String(formData.get("licenseNumber")).trim() : null;
 
-  const { acquisitionChannel, campaignName } = readMarketingAttribution(formData, {
+  const attribution = readMarketingAttribution(formData, {
     acquisitionChannel: "Directo",
     campaignName: "Captacion Profesionales",
   });
@@ -301,8 +323,7 @@ export async function registerProfessional(formData) {
           isActive: true,
           verifyTokenHash,
           verifyTokenExp: ttlToDate(VERIFY_TOKEN_TTL_HOURS),
-          acquisitionChannel,
-          campaignName,
+          ...attribution,
         },
       });
 
@@ -325,6 +346,7 @@ export async function registerProfessional(formData) {
     });
 
     await linkAnonymousMarketingEvents(createdUser?.id);
+    await linkLeadsToUser(createdUser?.id, email);
 
     try {
       if (cvUrl && createdUser) {
@@ -395,7 +417,7 @@ export async function registerUser(formData) {
   const password = String(formData.get("password") || "");
   const confirmPassword = String(formData.get("confirmPassword") || "");
 
-  const { acquisitionChannel, campaignName } = readMarketingAttribution(formData, {
+  const attribution = readMarketingAttribution(formData, {
     acquisitionChannel: "Directo",
   });
 
@@ -437,12 +459,12 @@ export async function registerUser(formData) {
         isActive: true,
         verifyTokenHash,
         verifyTokenExp: ttlToDate(VERIFY_TOKEN_TTL_HOURS),
-        acquisitionChannel,
-        campaignName,
+        ...attribution,
       },
     });
 
     await linkAnonymousMarketingEvents(createdUser.id);
+    await linkLeadsToUser(createdUser.id, email);
 
     let verificationEmailSent = false;
     if (process.env.RESEND_API_KEY) {
