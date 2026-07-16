@@ -98,6 +98,37 @@ export function captureMarketingAttribution() {
   });
 }
 
+function toRawFields(attribution) {
+  return {
+    utmSource: clean(attribution?.utm_source, 120),
+    utmMedium: clean(attribution?.utm_medium, 120),
+    utmCampaign: clean(attribution?.utm_campaign, 160),
+    utmTerm: clean(attribution?.utm_term, 160),
+    utmContent: clean(attribution?.utm_content, 160),
+    referrer: clean(attribution?.referrer, 200),
+    landingPath: clean(attribution?.landingPath, 500),
+  };
+}
+
+/**
+ * Atribución completa sin colapsar (los 5 UTMs + referrer + landingPath).
+ * Mismo orden de resolución que getMarketingAttributionFields:
+ * URL actual → localStorage → referrer externo. Campos vacíos = "".
+ */
+export function getMarketingAttributionRaw() {
+  if (typeof window === "undefined") return toRawFields(null);
+
+  captureMarketingAttribution();
+
+  const current = fromSearchParams(new URLSearchParams(window.location.search));
+  if (current) return toRawFields(current);
+
+  const stored = readStoredAttribution();
+  if (stored) return toRawFields(stored);
+
+  return toRawFields(null);
+}
+
 export function getMarketingAttributionFields(defaults = {}) {
   if (typeof window === "undefined") {
     return toFormFields(null, defaults);
