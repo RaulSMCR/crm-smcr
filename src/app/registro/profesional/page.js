@@ -1,10 +1,11 @@
 "use client";
 
-import { useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { registerProfessional } from "@/actions/auth-actions";
 import AuthTurnstile, { CAPTCHA_ENABLED } from "@/components/AuthTurnstile";
 import Link from "next/link";
+import { getMarketingAttributionFields } from "@/lib/marketing-attribution-client";
 import { Playfair_Display } from "next/font/google";
 
 const playfair = Playfair_Display({
@@ -85,6 +86,10 @@ export default function RegistroProfesionalPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [touched, setTouched]         = useState(false);
   const [captchaToken, setCaptchaToken] = useState("");
+  const [attribution, setAttribution] = useState({
+    acquisitionChannel: "Directo",
+    campaignName: "Captacion Profesionales",
+  });
   const turnstileRef = useRef(null);
 
   const passwordChecks = useMemo(() => {
@@ -98,6 +103,15 @@ export default function RegistroProfesionalPage() {
   }, [form.password, form.confirmPassword]);
 
   const isPasswordValid = Object.values(passwordChecks).every(Boolean);
+
+  useEffect(() => {
+    setAttribution(
+      getMarketingAttributionFields({
+        acquisitionChannel: "Directo",
+        campaignName: "Captacion Profesionales",
+      })
+    );
+  }, []);
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -152,6 +166,8 @@ export default function RegistroProfesionalPage() {
       setLoadingText("Creando perfil…");
       const formData = new FormData();
       Object.entries(form).forEach(([k, v]) => formData.append(k, v));
+      formData.append("acquisitionChannel", attribution.acquisitionChannel);
+      formData.append("campaignName", attribution.campaignName);
       formData.append("cvUrl", cvUrl);
       formData.append("captchaToken", captchaToken || "");
 

@@ -50,6 +50,44 @@ function normalizeIdentification(value) {
   return String(value || "").trim();
 }
 
+function normalizeMarketingValue(value, fallback = "", max = 160) {
+  const raw = String(value || "").trim();
+  const safe = raw || fallback;
+  return safe ? safe.slice(0, max) : null;
+}
+
+function readMarketingAttribution(formData, defaults = {}) {
+  return {
+    acquisitionChannel: normalizeMarketingValue(
+      formData.get("acquisitionChannel"),
+      defaults.acquisitionChannel || "Directo",
+      120
+    ),
+    campaignName: normalizeMarketingValue(
+      formData.get("campaignName"),
+      defaults.campaignName || "",
+      160
+    ),
+  };
+}
+
+async function linkAnonymousMarketingEvents(userId) {
+  if (!userId) return;
+
+  try {
+    const cookieStore = await cookies();
+    const anonId = cookieStore.get("anon_id")?.value;
+    if (!anonId) return;
+
+    await prisma.postViewEvent.updateMany({
+      where: { anonId, userId: null },
+      data: { userId },
+    });
+  } catch (error) {
+    console.error("Error vinculando eventos anonimos de marketing:", error);
+  }
+}
+
 function isIdentificationValid(value) {
   const identification = normalizeIdentification(value);
   if (!identification) return false;
@@ -193,9 +231,10 @@ export async function registerProfessional(formData) {
   const introVideoUrl = formData.get("introVideoUrl") ? String(formData.get("introVideoUrl")).trim() : null;
   const licenseNumber = formData.get("licenseNumber") ? String(formData.get("licenseNumber")).trim() : null;
 
-  const acquisitionChannel = formData.get("acquisitionChannel")
-    ? String(formData.get("acquisitionChannel")).trim()
-    : "Directo";
+  const { acquisitionChannel, campaignName } = readMarketingAttribution(formData, {
+    acquisitionChannel: "Directo",
+    campaignName: "Captacion Profesionales",
+  });
 
   if (!name) return { error: "Falta el nombre completo para continuar con el registro." };
   if (!email) return { error: "Falta el correo electrónico para proteger y validar el acceso." };
@@ -263,7 +302,7 @@ export async function registerProfessional(formData) {
           verifyTokenHash,
           verifyTokenExp: ttlToDate(VERIFY_TOKEN_TTL_HOURS),
           acquisitionChannel,
-          campaignName: "Captación Profesionales",
+          campaignName,
         },
       });
 
@@ -284,6 +323,8 @@ export async function registerProfessional(formData) {
         },
       });
     });
+
+    await linkAnonymousMarketingEvents(createdUser?.id);
 
     try {
       if (cvUrl && createdUser) {
@@ -354,9 +395,9 @@ export async function registerUser(formData) {
   const password = String(formData.get("password") || "");
   const confirmPassword = String(formData.get("confirmPassword") || "");
 
-  const acquisitionChannel = formData.get("acquisitionChannel")
-    ? String(formData.get("acquisitionChannel")).trim()
-    : "Directo";
+  const { acquisitionChannel, campaignName } = readMarketingAttribution(formData, {
+    acquisitionChannel: "Directo",
+  });
 
   if (!name) return { error: "Falta el nombre completo para crear la cuenta." };
   if (!email) return { error: "Falta el correo electrónico para proteger y validar el acceso." };
@@ -381,7 +422,7 @@ export async function registerUser(formData) {
     const verifyToken = crypto.randomBytes(32).toString("hex");
     const verifyTokenHash = crypto.createHash("sha256").update(verifyToken).digest("hex");
 
-    await prisma.user.create({
+    const createdUser = await prisma.user.create({
       data: {
         name,
         email,
@@ -397,8 +438,11 @@ export async function registerUser(formData) {
         verifyTokenHash,
         verifyTokenExp: ttlToDate(VERIFY_TOKEN_TTL_HOURS),
         acquisitionChannel,
+        campaignName,
       },
     });
+
+    await linkAnonymousMarketingEvents(createdUser.id);
 
     let verificationEmailSent = false;
     if (process.env.RESEND_API_KEY) {
