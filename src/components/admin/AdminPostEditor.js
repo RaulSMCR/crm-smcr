@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateAdminPost, updatePostStatus } from "@/actions/admin-actions";
+import SeoFieldset from "@/components/admin/SeoFieldset";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
@@ -114,6 +115,11 @@ export default function AdminPostEditor({ post }) {
     coverImageFocusX: post.coverImageFocusX ?? 50,
     coverImageFocusY: post.coverImageFocusY ?? 50,
     coverImageScale: post.coverImageScale ?? 100,
+    metaTitle: post.metaTitle || "",
+    metaDescription: post.metaDescription || "",
+    ogImage: post.ogImage || "",
+    focusKeyword: post.focusKeyword || "",
+    noindex: post.noindex ?? false,
   });
 
   const busy = isPending || uploading;
@@ -255,6 +261,13 @@ export default function AdminPostEditor({ post }) {
             className="w-full rounded-lg border border-slate-300 px-3 py-2 font-serif leading-relaxed"
           />
         </div>
+
+        <SeoFieldset
+          initialValues={form}
+          fallbackTitle={form.title}
+          fallbackDescription={form.excerpt}
+          onChange={updateField}
+        />
 
         <div className="flex flex-wrap items-center gap-3 pt-2">
           <button

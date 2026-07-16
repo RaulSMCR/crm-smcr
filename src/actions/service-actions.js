@@ -32,6 +32,17 @@ function normalizeCabys(value) {
   return raw || null;
 }
 
+/** Lee los campos SEO editoriales del FormData (ver SeoFieldset). */
+function readSeoFields(formData) {
+  return {
+    metaTitle: String(formData.get("metaTitle") || "").trim() || null,
+    metaDescription: String(formData.get("metaDescription") || "").trim() || null,
+    ogImage: String(formData.get("ogImage") || "").trim() || null,
+    focusKeyword: String(formData.get("focusKeyword") || "").trim() || null,
+    noindex: String(formData.get("noindex") || "") === "true",
+  };
+}
+
 async function resolveServiceTax(formData) {
   const cabysCode = normalizeCabys(formData.get("cabysCode"));
   if (cabysCode && !/^\d{13}$/.test(cabysCode)) return { error: "El código CABYS debe tener exactamente 13 dígitos." };
@@ -87,6 +98,7 @@ export async function createService(formData) {
         isActive,
         cabysCode: fiscal.cabysCode,
         taxId: fiscal.taxId,
+        ...readSeoFields(formData),
       },
     });
 
@@ -147,6 +159,7 @@ export async function updateServiceDetails(serviceId, formData) {
         isActive,
         cabysCode: fiscal.cabysCode,
         taxId: fiscal.taxId,
+        ...readSeoFields(formData),
       },
     });
 

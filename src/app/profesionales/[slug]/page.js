@@ -4,6 +4,7 @@ import JsonLd from "@/components/JsonLd";
 import ViewTracker from "@/components/tracking/ViewTracker";
 import { prisma } from "@/lib/prisma";
 import { siteUrl } from "@/lib/site-url";
+import { resolveSeo, buildMetadata } from "@/lib/seo";
 
 export const revalidate = 3600;
 
@@ -32,6 +33,10 @@ async function getProfessional(slug) {
       bio: true,
       profileReview: true,
       rating: true,
+      metaTitle: true,
+      metaDescription: true,
+      ogImage: true,
+      noindex: true,
       user: { select: { name: true, image: true } },
       serviceAssignments: {
         where: {
@@ -56,34 +61,35 @@ async function getProfessional(slug) {
 }
 
 export async function generateMetadata({ params }) {
-  const slug = String(params?.slug || "");
+  const { slug: rawSlug } = await params;
+  const slug = String(rawSlug || "");
   const professional = await getProfessional(slug);
   if (!professional) return { title: "Profesional no encontrado" };
 
   const name = professional.user?.name || "Profesional";
-  const description = (
-    professional.profileReview ||
-    `${name}, especialista en ${professional.specialty || "salud mental"} en Salud Mental Costa Rica.`
-  ).slice(0, 160);
-  const image = professional.user?.image
-    ? [{ url: professional.user.image, width: 800, height: 800, alt: name }]
-    : [{ url: "/og-image.png", width: 1200, height: 630, alt: name }];
-
-  return {
+  const seo = resolveSeo(professional, {
     title: `${name} | Perfil profesional`,
-    description,
-    alternates: { canonical: siteUrl(`profesionales/${professional.slug}`) },
-    openGraph: {
-      title: `${name} | Salud Mental Costa Rica`,
-      description,
-      url: siteUrl(`profesionales/${professional.slug}`),
-      images: image,
-    },
-  };
+    description:
+      professional.profileReview ||
+      `${name}, especialista en ${professional.specialty || "salud mental"} en Salud Mental Costa Rica.`,
+    image: professional.user?.image,
+    imageAlt: name,
+  });
+
+  return buildMetadata({
+    title: seo.title,
+    description: seo.description,
+    path: `profesionales/${professional.slug}`,
+    image: seo.image,
+    imageAlt: seo.imageAlt,
+    type: "profile",
+    noindex: seo.noindex,
+  });
 }
 
 export default async function ProfessionalPublicProfilePage({ params, searchParams }) {
-  const slug = String(params?.slug || "");
+  const { slug: rawSlug } = await params;
+  const slug = String(rawSlug || "");
   const professional = await getProfessional(slug);
   if (!professional) notFound();
 
@@ -95,7 +101,8 @@ export default async function ProfessionalPublicProfilePage({ params, searchPara
       price: Number(assignment.approvedSessionPrice),
     }))
     .filter((service) => service?.id);
-  const requestedServiceId = String(searchParams?.serviceId || "");
+  const resolvedSearchParams = await searchParams;
+  const requestedServiceId = String(resolvedSearchParams?.serviceId || "");
   const firstService = services.find((service) => service.id === requestedServiceId) || services[0];
 
   const personSchema = {

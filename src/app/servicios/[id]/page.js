@@ -5,18 +5,22 @@ import { isPrismaConnectionError } from "@/lib/prisma-safe";
 import ViewTracker from "@/components/tracking/ViewTracker";
 import JsonLd from "@/components/JsonLd";
 import { siteUrl } from "@/lib/site-url";
+import { resolveSeo, buildMetadata } from "@/lib/seo";
 
 export const revalidate = 3600;
 
 export async function generateMetadata({ params }) {
-  const id = String(params?.id || "");
-  const canonical = siteUrl(`servicios/${id}`);
+  const { id: rawId } = await params;
+  const id = String(rawId || "");
   let service = null;
 
   try {
     service = await prisma.service.findUnique({
       where: { id },
-      select: { title: true, description: true, bannerImage: true },
+      select: {
+        title: true, description: true, bannerImage: true,
+        metaTitle: true, metaDescription: true, ogImage: true, noindex: true,
+      },
     });
   } catch (error) {
     if (!isPrismaConnectionError(error)) throw error;
@@ -28,26 +32,26 @@ export async function generateMetadata({ params }) {
 
   if (!service) return { title: "Servicio no encontrado" };
 
-  const description = (service.description || "").substring(0, 160);
-  const ogImage = service.bannerImage
-    ? [{ url: service.bannerImage, width: 1200, height: 630, alt: service.title }]
-    : [{ url: "/og-image.png", width: 1200, height: 630, alt: service.title }];
-
-  return {
+  const seo = resolveSeo(service, {
     title: service.title,
-    description,
-    alternates: { canonical },
-    openGraph: {
-      title: `${service.title} | Salud Mental Costa Rica`,
-      description,
-      url: canonical,
-      images: ogImage,
-    },
-  };
+    description: service.description || "",
+    image: service.bannerImage,
+    imageAlt: service.title,
+  });
+
+  return buildMetadata({
+    title: seo.title,
+    description: seo.description,
+    path: `servicios/${id}`,
+    image: seo.image,
+    imageAlt: seo.imageAlt,
+    noindex: seo.noindex,
+  });
 }
 
 export default async function ServiceDetailPage({ params }) {
-  const id = String(params?.id || "");
+  const { id: rawId } = await params;
+  const id = String(rawId || "");
   let service = null;
   let dbUnavailable = false;
 

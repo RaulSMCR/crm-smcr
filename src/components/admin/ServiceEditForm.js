@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { updateServiceDetails } from "@/actions/service-actions";
 import ServiceBannerField from "@/components/admin/ServiceBannerField";
+import SeoFieldset from "@/components/admin/SeoFieldset";
 import Toast from "@/components/ui/Toast";
 
 export default function ServiceEditForm({ service, taxes = [] }) {
@@ -166,6 +167,12 @@ export default function ServiceEditForm({ service, taxes = [] }) {
             placeholder="Breve texto para reconocer la obra, contexto o técnica."
           />
         </label>
+
+        <SeoFieldset
+          initialValues={service}
+          fallbackTitle={service.title}
+          fallbackDescription={service.description}
+        />
 
         <button
           type="submit"

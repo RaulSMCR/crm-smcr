@@ -4,6 +4,7 @@ import { useCallback, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createService } from "@/actions/service-actions";
 import ServiceBannerField from "@/components/admin/ServiceBannerField";
+import SeoFieldset from "@/components/admin/SeoFieldset";
 import Toast from "@/components/ui/Toast";
 
 export default function ServiceCreateForm({ taxes = [] }) {
@@ -159,6 +160,8 @@ export default function ServiceCreateForm({ taxes = [] }) {
           className="w-full rounded-lg border border-slate-300 px-3 py-2"
         />
       </label>
+
+      <SeoFieldset />
 
       <div className="flex gap-3 pt-2">
         <button

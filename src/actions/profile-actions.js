@@ -46,6 +46,13 @@ export async function updateProfile(formData) {
     const bio = toStr(formData.get("bio")).trim() || null;
     const profileReviewDraft = toStr(formData.get("profileReviewDraft")).trim() || null;
     const imageUrl = toStr(formData.get("imageUrl")).trim() || null;
+    const seo = {
+      metaTitle: toStr(formData.get("metaTitle")).trim() || null,
+      metaDescription: toStr(formData.get("metaDescription")).trim() || null,
+      ogImage: toStr(formData.get("ogImage")).trim() || null,
+      focusKeyword: toStr(formData.get("focusKeyword")).trim() || null,
+      noindex: toStr(formData.get("noindex")) === "true",
+    };
 
     if (!name) return { success: false, error: "El nombre es obligatorio." };
     if (!specialty) return { success: false, error: "La especialidad es obligatoria." };
@@ -112,6 +119,7 @@ export async function updateProfile(formData) {
           specialty,
           licenseNumber,
           bio,
+          ...seo,
           ...(shouldSubmitReview
             ? {
                 profileReviewDraft,

@@ -124,6 +124,16 @@ model User {
   acquisitionChannel String?
   campaignName       String?
 
+  // Atribución estructurada (los dos campos de arriba se conservan como
+  // resumen legible; estos guardan el detalle sin colapsar)
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmTerm     String?
+  utmContent  String?
+  referrer    String?
+  landingPath String? @db.Text
+
   verifyTokenHash String?
   verifyTokenExp  DateTime?
   resetTokenHash  String?
@@ -153,6 +163,7 @@ model User {
   postViewEvents      PostViewEvent[]
   paymentTransactions PaymentTransaction[]
   insuranceClaims     InsuranceClaim[]     @relation("PatientInsuranceClaims")
+  leads               Lead[]
 
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
@@ -185,6 +196,13 @@ model ProfessionalProfile {
   avatarUrl          String?
   calendarUrl        String?
   googleRefreshToken String? @db.Text
+
+  // SEO editorial: si van vacíos, el metadata se deriva del contenido (ver src/lib/seo.js)
+  metaTitle       String?
+  metaDescription String?  @db.Text
+  ogImage         String?
+  focusKeyword    String?
+  noindex         Boolean  @default(false)
 
   isApproved Boolean @default(false)
 
@@ -231,6 +249,13 @@ model Service {
   cabysCode String?
   taxId     String?
   tax       Tax?    @relation(fields: [taxId], references: [id], onDelete: SetNull)
+
+  // SEO editorial: si van vacíos, el metadata se deriva del contenido (ver src/lib/seo.js)
+  metaTitle       String?
+  metaDescription String?  @db.Text
+  ogImage         String?
+  focusKeyword    String?
+  noindex         Boolean  @default(false)
 
   appointments Appointment[]
   invoiceLines InvoiceLine[]
@@ -599,6 +624,13 @@ model Post {
   coverImageScale  Int        @default(100)
   status           PostStatus @default(DRAFT)
 
+  // SEO editorial: si van vacíos, el metadata se deriva del contenido (ver src/lib/seo.js)
+  metaTitle       String?
+  metaDescription String?  @db.Text
+  ogImage         String?
+  focusKeyword    String?
+  noindex         Boolean  @default(false)
+
   authorId String
   author   ProfessionalProfile @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
@@ -718,5 +750,55 @@ model UnmatchedPayment {
   resolvedTxId  String?
   createdAt     DateTime  @default(now())
 
+  @@index([createdAt])
+}
+
+// Pipeline de leads de marketing: personas que escriben por los formularios
+// públicos (contacto / FAQ) antes de registrarse. Los registros ya viven en
+// User; un Lead se enlaza automáticamente a su User si luego se registra con
+// el mismo email (ver registerUser / registerProfessional).
+enum LeadChannel {
+  CONTACT_FORM
+  FAQ_FORM
+  WHATSAPP // reservado: aún no hay superficie pública de WhatsApp
+}
+
+enum LeadStatus {
+  NEW // sin atender
+  CONTACTED // el admin ya respondió
+  CONVERTED // se registró en la plataforma
+  DISCARDED // spam o no aplica
+}
+
+model Lead {
+  id      String      @id @default(cuid())
+  name    String
+  email   String
+  phone   String?
+  subject String? // asunto elegido en el form del FAQ
+  message String      @db.Text
+  channel LeadChannel @default(CONTACT_FORM)
+  status  LeadStatus  @default(NEW)
+
+  adminNote String? @db.Text
+
+  // Atribución estructurada (último toque capturado en el cliente)
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmTerm     String?
+  utmContent  String?
+  referrer    String?
+  landingPath String? @db.Text
+
+  // Se completa solo si el lead se registra después con el mismo email
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([email])
   @@index([createdAt])
 }

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import PostMarketingTracker from '@/components/blog/PostMarketingTracker';
 import JsonLd from '@/components/JsonLd';
 import { siteUrl } from "@/lib/site-url";
+import { resolveSeo, buildMetadata } from "@/lib/seo";
 
 // Helper para fecha
 const formatDate = (date) => {
@@ -19,41 +20,37 @@ const formatDate = (date) => {
 export const revalidate = 3600;
 
 export async function generateMetadata({ params }) {
-  const canonical = siteUrl(`blog/${params.slug}`);
+  const { slug } = await params;
   const post = await prisma.post.findUnique({
-    where: { slug: params.slug },
-    select: { title: true, excerpt: true, coverImage: true, coverImageTitle: true },
+    where: { slug },
+    select: {
+      title: true, excerpt: true, coverImage: true, coverImageTitle: true,
+      metaTitle: true, metaDescription: true, ogImage: true, noindex: true,
+    },
   });
 
   if (!post) return { title: 'Artículo no encontrado' };
 
-  const description = (post.excerpt || post.title).substring(0, 160);
-  const ogImage = post.coverImage
-    ? [{ url: post.coverImage, width: 1200, height: 630, alt: post.coverImageTitle || post.title }]
-    : [{ url: '/og-image.png', width: 1200, height: 630, alt: post.title }];
-
-  return {
+  const seo = resolveSeo(post, {
     title: post.title,
-    description,
-    alternates: { canonical },
-    openGraph: {
-      title: `${post.title} | Salud Mental Costa Rica`,
-      description,
-      url: canonical,
-      type: 'article',
-      images: ogImage,
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: post.title,
-      description,
-      images: ogImage.map((i) => i.url),
-    },
-  };
+    description: post.excerpt || post.title,
+    image: post.coverImage,
+    imageAlt: post.coverImageTitle || post.title,
+  });
+
+  return buildMetadata({
+    title: seo.title,
+    description: seo.description,
+    path: `blog/${slug}`,
+    image: seo.image,
+    imageAlt: seo.imageAlt,
+    type: 'article',
+    noindex: seo.noindex,
+  });
 }
 
 export default async function BlogPostPage({ params }) {
-  const { slug } = params;
+  const { slug } = await params;
 
   const post = await prisma.post.findFirst({
     where: {

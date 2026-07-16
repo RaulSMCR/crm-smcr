@@ -35,6 +35,11 @@ export default async function AdminServicioDetallePage({ params }) {
       isActive: true,
       cabysCode: true,
       taxId: true,
+      metaTitle: true,
+      metaDescription: true,
+      ogImage: true,
+      focusKeyword: true,
+      noindex: true,
       professionalAssignments: {
         orderBy: { professional: { user: { name: "asc" } } },
         select: {

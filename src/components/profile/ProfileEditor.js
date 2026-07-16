@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import ChangePasswordCard from "@/components/auth/ChangePasswordCard";
 import { updateProfile } from "@/actions/profile-actions";
+import SeoFieldset from "@/components/admin/SeoFieldset";
 import Toast from "@/components/ui/Toast";
 
 function formatCRC(value) {
@@ -97,6 +98,11 @@ export default function ProfileEditor({ profile, allServices = [] }) {
     licenseNumber: profile.licenseNumber || "",
     bio: profile.bio || "",
     profileReviewDraft: profile.profileReviewDraft ?? profile.profileReview ?? "",
+    metaTitle: profile.metaTitle || "",
+    metaDescription: profile.metaDescription || "",
+    ogImage: profile.ogImage || "",
+    focusKeyword: profile.focusKeyword || "",
+    noindex: profile.noindex ?? false,
   });
 
   const [selectedServices, setSelectedServices] = useState(() => {
@@ -164,6 +170,11 @@ export default function ProfileEditor({ profile, allServices = [] }) {
       formData.append("licenseNumber", form.licenseNumber);
       formData.append("bio", form.bio);
       formData.append("profileReviewDraft", form.profileReviewDraft);
+      formData.append("metaTitle", form.metaTitle);
+      formData.append("metaDescription", form.metaDescription);
+      formData.append("ogImage", form.ogImage);
+      formData.append("focusKeyword", form.focusKeyword);
+      if (form.noindex) formData.append("noindex", "true");
       if (publicUrl) formData.append("imageUrl", publicUrl);
 
       selectedServices.forEach((id) => {
@@ -335,6 +346,13 @@ export default function ProfileEditor({ profile, allServices = [] }) {
             </div>
           </div>
         </div>
+
+        <SeoFieldset
+          initialValues={form}
+          fallbackTitle={`${form.name} | Perfil profesional`}
+          fallbackDescription={form.profileReviewDraft || form.bio}
+          onChange={(name, value) => setForm((prev) => ({ ...prev, [name]: value }))}
+        />
 
         <div className="rounded-2xl border border-slate-200 bg-white p-6">
           <h3 className="text-lg font-semibold text-slate-800">Mis servicios</h3>

@@ -147,6 +147,11 @@ export async function updateAdminPost(postInput) {
     const coverImageFocusX = clampInt(postInput?.coverImageFocusX, 0, 100, 50);
     const coverImageFocusY = clampInt(postInput?.coverImageFocusY, 0, 100, 50);
     const coverImageScale = clampInt(postInput?.coverImageScale, 100, 180, 100);
+    const metaTitle = String(postInput?.metaTitle || "").trim() || null;
+    const metaDescription = String(postInput?.metaDescription || "").trim() || null;
+    const ogImage = String(postInput?.ogImage || "").trim() || null;
+    const focusKeyword = String(postInput?.focusKeyword || "").trim() || null;
+    const noindex = Boolean(postInput?.noindex);
 
     if (!id) return { error: "ID de articulo requerido." };
     if (title.length < 4) return { error: "El titulo debe tener al menos 4 caracteres." };
@@ -176,6 +181,11 @@ export async function updateAdminPost(postInput) {
         coverImageFocusX,
         coverImageFocusY,
         coverImageScale,
+        metaTitle,
+        metaDescription,
+        ogImage,
+        focusKeyword,
+        noindex,
       },
       select: { slug: true },
     });

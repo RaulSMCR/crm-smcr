@@ -7,6 +7,14 @@ import HomeFeatureCarousel from "@/components/HomeFeatureCarousel";
 import ProfessionalCtaSection from "@/components/ProfessionalCtaSection";
 import JsonLd from "@/components/JsonLd";
 import { SITE_URL } from "@/lib/site-url";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata = buildMetadata({
+  title: "Salud Mental Costa Rica — Bienestar con profesionales validados",
+  description:
+    "Plataforma interdisciplinaria de bienestar y salud mental en Costa Rica. Psicología, nutrición, deporte y más. Consultas virtuales y presenciales con profesionales verificados.",
+  path: "",
+});
 
 const STOCK_IMAGES = [
   "https://images.unsplash.com/photo-1526253038957-bce54e05968c?w=1600&q=80",

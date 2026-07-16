@@ -29,15 +29,15 @@ export default async function sitemap() {
   try {
     [services, professionals, posts] = await Promise.all([
       prisma.service.findMany({
-        where: { isActive: true },
+        where: { isActive: true, noindex: false },
         select: { id: true, updatedAt: true },
       }),
       prisma.professionalProfile.findMany({
-        where: { isApproved: true },
+        where: { isApproved: true, noindex: false },
         select: { id: true, slug: true, updatedAt: true },
       }),
       prisma.post.findMany({
-        where: { status: 'PUBLISHED' },
+        where: { status: 'PUBLISHED', noindex: false },
         select: { slug: true, updatedAt: true },
       }),
     ]);
