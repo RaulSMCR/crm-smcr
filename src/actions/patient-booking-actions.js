@@ -18,6 +18,7 @@ import {
   findRecurringConflict,
   formatConflictDate,
 } from "@/lib/booking-conflicts";
+import { createPaymentRequestForAppointment } from "@/lib/payment-requests";
 
 function describeRecurringConflict(conflict) {
   if (!conflict) return null;
@@ -103,7 +104,7 @@ export async function createAppointmentForPatient({
       }),
       prisma.serviceAssignment.findUnique({
         where: { professionalId_serviceId: { professionalId: pid, serviceId: sid } },
-        select: { status: true, approvedSessionPrice: true },
+        select: { status: true, approvedSessionPrice: true, onvoPaymentLinkId: true },
       }),
     ]);
 
@@ -128,6 +129,22 @@ export async function createAppointmentForPatient({
 
     if (conflictError) return { success: false, error: conflictError };
 
+    const previousCount = await prisma.appointment.count({
+      where: {
+        patientId,
+        professionalId: pid,
+        status: { notIn: CANCELLED_STATUSES },
+      },
+    });
+    const isFirstWithProfessional = previousCount === 0;
+    if (isFirstWithProfessional && !assignment.onvoPaymentLinkId) {
+      return {
+        success: false,
+        error:
+          "No es posible agendar la primera cita porque el profesional no tiene enlace de pago ONVO configurado.",
+      };
+    }
+
     const createdAppointments = await prisma.$transaction(
       starts.map((occurrence, index) =>
         prisma.appointment.create({
@@ -140,6 +157,7 @@ export async function createAppointmentForPatient({
             status: "PENDING",
             paymentStatus: "UNPAID",
             pricePaid: assignment.approvedSessionPrice,
+            isFirstWithProfessional: isFirstWithProfessional && index === 0,
           },
           select: { id: true },
         })
@@ -148,6 +166,14 @@ export async function createAppointmentForPatient({
 
     const hydratedAppointments = await hydrateAppointments(createdAppointments.map((item) => item.id));
     await notifyAppointments(hydratedAppointments, "Se creó una nueva cita en estado pendiente.");
+
+    const firstAppointment = hydratedAppointments.find((item) => item.isFirstWithProfessional);
+    const depositPayment = firstAppointment
+      ? await createPaymentRequestForAppointment(firstAppointment, "DEPOSIT_50")
+      : null;
+    if (depositPayment && !depositPayment.success) {
+      console.error("No se pudo generar el adelanto de primera cita:", depositPayment.error);
+    }
 
     revalidatePath("/panel/paciente");
     revalidatePath("/panel/profesional/citas");

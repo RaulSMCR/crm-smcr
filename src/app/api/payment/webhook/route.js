@@ -32,6 +32,7 @@ import { submitInvoiceToFe } from "@/lib/fe/submit";
 import { sendInsuranceProSignAlert } from "@/lib/insurance-mail";
 import { splitTaxIncluded } from "@/lib/invoice-math";
 import { estimateOnvoFeeCents } from "@/lib/commission-plan";
+import { paymentTypeLabel } from "@/lib/payment-requests";
 
 export const dynamic = "force-dynamic";
 
@@ -125,7 +126,9 @@ export async function POST(request) {
           appointment: {
             select: {
               id: true,
+              status: true,
               paymentStatus: true,
+              isFirstWithProfessional: true,
               service: { select: { id: true, title: true, cabysCode: true, taxId: true, tax: { select: { id: true, rate: true } } } },
             },
           },
@@ -193,7 +196,7 @@ export async function POST(request) {
   const newStatus = statusMap[onvoStatus.toLowerCase()] || "LINK_SENT";
 
   // ── 6. Actualizar la transacción ─────────────────────────────────────────
-  await prisma.paymentTransaction.update({
+  const updatedTransaction = await prisma.paymentTransaction.update({
     where: { id: transaction.id },
     data: {
       onvoEventId:   eventId,
@@ -212,19 +215,21 @@ export async function POST(request) {
         : {}),
     },
   });
+  const processedTransaction = { ...transaction, ...updatedTransaction };
 
   // ── 7. Si el pago fue aprobado: actualizar cita + crear factura + email ──
   if (newStatus === "APPROVED") {
+    const nextPaymentStatus = processedTransaction.type === "DEPOSIT_50" ? "PARTIALLY_PAID" : "PAID";
     await prisma.appointment.update({
-      where: { id: transaction.appointmentId },
-      data: { paymentStatus: "PAID" },
+      where: { id: processedTransaction.appointmentId },
+      data: { paymentStatus: nextPaymentStatus },
     });
 
-    console.log(`[ONVO webhook] Cita ${transaction.appointmentId} → paymentStatus: PAID`);
+    console.log(`[ONVO webhook] Cita ${processedTransaction.appointmentId} -> paymentStatus: ${nextPaymentStatus}`);
 
     const [invoiceResult] = await Promise.allSettled([
-      createAutoInvoice(transaction),
-      sendPaymentConfirmationEmail(transaction),
+      createAutoInvoice(processedTransaction),
+      sendPaymentConfirmationEmail(processedTransaction),
     ]);
 
     const invoiceId = invoiceResult.status === "fulfilled" ? invoiceResult.value : null;
@@ -234,11 +239,13 @@ export async function POST(request) {
       );
     }
 
-    handleInsuranceClaim(transaction, paidAt).catch((e) =>
-      console.error("[ONVO webhook] Error en handleInsuranceClaim:", e)
-    );
+    if (nextPaymentStatus === "PAID") {
+      handleInsuranceClaim(processedTransaction, paidAt).catch((e) =>
+        console.error("[ONVO webhook] Error en handleInsuranceClaim:", e)
+      );
+    }
   } else if (newStatus === "REJECTED") {
-    await sendPaymentFailedEmail(transaction);
+    await sendPaymentFailedEmail(processedTransaction);
   }
 
   return NextResponse.json({ ok: true }, { status: 200 });
@@ -252,6 +259,7 @@ export async function createAutoInvoice(transaction) {
     if (!amount || amount <= 0) return null;
 
     const serviceTitle = transaction.appointment?.service?.title || "Consulta";
+    const paymentLabel = paymentTypeLabel(transaction.type);
     const service = transaction.appointment?.service;
     const taxRate = Number(service?.tax?.rate ?? 4);
     const { baseCents, taxCents } = splitTaxIncluded(Math.round(amount * 100), taxRate);
@@ -298,7 +306,7 @@ export async function createAutoInvoice(transaction) {
           notes: `ONVO Pay | Enlace: ${transaction.onvoPaymentLinkId || "-"} | Evento: ${transaction.onvoEventId || "-"}${fiscalWarning ? " | ALERTA: Servicio sin CABYS/IVA configurado" : ""}`,
           lines: {
             create: {
-              productName: `Pago completo – ${serviceTitle}`,
+              productName: `${paymentLabel} - ${serviceTitle}`,
               description: serviceTitle,
               serviceId: transaction.appointment?.service?.id || transaction.appointment?.serviceId || null,
               cabysCode: service?.cabysCode || null,
@@ -423,13 +431,14 @@ async function sendPaymentConfirmationEmail(transaction) {
   const proName      = transaction.professional?.user?.name || "el profesional";
   const amount       = Number(transaction.amount).toLocaleString("es-CR");
   const currency     = transaction.currency || "CRC";
+  const paymentLabel = paymentTypeLabel(transaction.type);
 
   if (!patientEmail || !process.env.RESEND_API_KEY) return;
 
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#0f172a;">
       <h2>Pago confirmado</h2>
-      <p>Estimado/a <strong>${patientName}</strong>, el pago de <strong>${currency} ${amount}</strong>
+      <p>Estimado/a <strong>${patientName}</strong>, el ${paymentLabel} de <strong>${currency} ${amount}</strong>
          para la cita con ${proName} fue procesado correctamente por ONVO Pay.</p>
       <p>Gracias por su confianza.</p>
       <p style="font-size:12px;color:#64748b;">Este correo fue generado automáticamente.</p>
@@ -438,7 +447,7 @@ async function sendPaymentConfirmationEmail(transaction) {
   const { error } = await resend.emails.send({
     from: FROM_EMAIL,
     to: patientEmail,
-    subject: "Pago confirmado — Salud Mental Costa Rica",
+    subject: `${paymentLabel} confirmado - Salud Mental Costa Rica`,
     html,
   });
 

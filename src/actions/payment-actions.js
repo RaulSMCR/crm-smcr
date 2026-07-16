@@ -1,36 +1,61 @@
 "use server";
 
 // src/actions/payment-actions.js
-// Acciones de pago con ONVO Costa Rica (enlaces de pago / payment links).
+// Acciones de pago con ONVO Costa Rica (payment links).
 //
-// Flujo:
-//   1. Admin asigna el ID de enlace ONVO al profesional (panel de admin).
-//   2. Al marcar la cita como COMPLETADA, el profesional (o el sistema)
-//      invoca cobrarCita(), que envía el enlace al paciente por email.
-//   3. El paciente paga en checkout.onvopay.com.
-//   4. ONVO notifica vía webhook → /api/payment/webhook actualiza el estado.
+// Flujo vigente:
+//   1. Primera cita paciente-profesional: adelanto 50% al crear la cita.
+//   2. Al marcar esa primera cita como COMPLETED: saldo 50%.
+//   3. Citas posteriores con el mismo profesional: postpago 100%.
+//   4. ONVO confirma via webhook en /api/payment/webhook.
 
 import { prisma } from "@/lib/prisma";
 import { getSession, isPreviewSession, PREVIEW_BLOCKED_MESSAGE } from "@/lib/auth";
 import { requireProfessionalProfileId } from "@/lib/auth-guards";
 import { revalidatePath } from "next/cache";
-import { buildPaymentLinkUrl } from "@/lib/onvo/client";
-import { sendPaymentRequestEmail } from "@/lib/appointments";
+import {
+  createPaymentRequestForAppointment,
+  paymentRequestMessage,
+} from "@/lib/payment-requests";
 
-// ─────────────────────────────────────────────
-// 1. Cobrar cita (acción del profesional)
-// ─────────────────────────────────────────────
+function getCompletionPaymentType(appointment) {
+  if (appointment.isFirstWithProfessional) {
+    return appointment.paymentStatus === "PARTIALLY_PAID" ? "BALANCE_50" : "DEPOSIT_50";
+  }
+
+  return "FULL_100";
+}
+
+async function assertProfessionalCanAccessAppointment(session, appointment) {
+  if (session.role !== "PROFESSIONAL") return true;
+
+  let proProfileId = session.professionalProfileId || null;
+  if (!proProfileId) {
+    try {
+      proProfileId = await requireProfessionalProfileId();
+    } catch {
+      proProfileId = null;
+    }
+  }
+
+  return Boolean(proProfileId && appointment.professionalId === proProfileId);
+}
+
+function paymentErrorMessage(paymentRequest) {
+  if (paymentRequest?.code === "MISSING_ONVO_LINK") {
+    return "El profesional no tiene un enlace de pago ONVO configurado. Contacte al administrador.";
+  }
+
+  if (paymentRequest?.code === "MISSING_AMOUNT") {
+    return "No se pudo determinar el monto de la cita. Verifique que el servicio tenga precio aprobado.";
+  }
+
+  return paymentRequest?.error || "No se pudo generar el cobro.";
+}
 
 /**
- * Envía el enlace de pago ONVO al paciente cuando la cita está completada.
- *
- * - Busca el onvoPaymentLinkId del profesional (configurado por el admin).
- * - Crea/reutiliza la PaymentTransaction con status LINK_SENT.
- * - Envía email al paciente con el enlace de pago.
- *
- * Requiere sesión PROFESSIONAL o ADMIN.
- *
- * @param {string} appointmentId
+ * Envia o reenvia el enlace de pago ONVO al paciente cuando la cita esta
+ * completada. Para primeras citas, respeta adelanto/saldo 50%.
  */
 export async function cobrarCita(appointmentId) {
   try {
@@ -43,7 +68,7 @@ export async function cobrarCita(appointmentId) {
     }
 
     const id = String(appointmentId || "");
-    if (!id) return { success: false, error: "ID de cita inválido." };
+    if (!id) return { success: false, error: "ID de cita invalido." };
 
     const appointment = await prisma.appointment.findUnique({
       where: { id },
@@ -56,136 +81,43 @@ export async function cobrarCita(appointmentId) {
 
     if (!appointment) return { success: false, error: "Cita no encontrada." };
 
-    // Pertenencia (SEC-03): un profesional solo puede cobrar SUS citas.
-    // ADMIN mantiene acceso total. Se compara contra el recurso cargado de la BD.
-    if (session.role === "PROFESSIONAL") {
-      let proProfileId = session.professionalProfileId || null;
-      if (!proProfileId) {
-        try {
-          proProfileId = await requireProfessionalProfileId();
-        } catch {
-          proProfileId = null;
-        }
-      }
-      if (!proProfileId || appointment.professionalId !== proProfileId) {
-        return { success: false, error: "No autorizado." };
-      }
+    if (!(await assertProfessionalCanAccessAppointment(session, appointment))) {
+      return { success: false, error: "No autorizado." };
     }
 
     if (appointment.status !== "COMPLETED") {
       return { success: false, error: "Solo se puede cobrar citas completadas." };
     }
     if (appointment.paymentStatus === "PAID") {
-      return { success: false, error: "Esta cita ya está pagada." };
+      return { success: false, error: "Esta cita ya esta pagada." };
     }
 
-    const assignment = appointment.serviceId
-      ? await prisma.serviceAssignment.findUnique({
-          where: {
-            professionalId_serviceId: {
-              professionalId: appointment.professionalId,
-              serviceId: appointment.serviceId,
-            },
-          },
-          select: { onvoPaymentLinkId: true },
-        })
-      : null;
+    const txType = getCompletionPaymentType(appointment);
+    const paymentRequest = await createPaymentRequestForAppointment(appointment, txType);
 
-    const onvoLinkId = assignment?.onvoPaymentLinkId;
-    if (!onvoLinkId) {
-      return {
-        success: false,
-        error: "El profesional no tiene un enlace de pago ONVO configurado. Contacte al administrador.",
-      };
+    if (!paymentRequest.success) {
+      return { success: false, error: paymentErrorMessage(paymentRequest) };
     }
-
-    const paymentUrl = buildPaymentLinkUrl(onvoLinkId);
-    const proName = appointment.professional?.user?.name || "el profesional";
-    const serviceTitle = appointment.service?.title || "Consulta";
-    const amount = appointment.pricePaid ? Number(appointment.pricePaid) : 0;
-
-    // Idempotencia: si ya existe una transacción activa, reenviar el email
-    const existing = await prisma.paymentTransaction.findFirst({
-      where: {
-        appointmentId: id,
-        status: { in: ["PENDING", "LINK_SENT"] },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (existing) {
-      await sendPaymentRequestEmail({
-        patientName: appointment.patient?.name,
-        patientEmail: appointment.patient?.email,
-        processUrl: paymentUrl,
-        amount,
-        serviceTitle,
-        proName,
-        isFirst: appointment.isFirstWithProfessional,
-      });
-
-      return { success: true, message: "Enlace de pago reenviado al paciente por email." };
-    }
-
-    // Crear nueva transacción
-    const txType = appointment.isFirstWithProfessional ? "FULL_100" : "FULL_100";
-    const txAmount = amount > 0 ? amount : await resolvePriceForAppointment(appointment);
-
-    if (!txAmount || txAmount <= 0) {
-      return {
-        success: false,
-        error: "No se pudo determinar el monto de la cita. Verifique que el servicio tenga precio aprobado.",
-      };
-    }
-
-    await prisma.paymentTransaction.create({
-      data: {
-        appointmentId: id,
-        professionalId: appointment.professionalId,
-        patientId: appointment.patientId,
-        type: txType,
-        amount: txAmount,
-        currency: "CRC",
-        onvoPaymentLinkId: onvoLinkId,
-        status: "LINK_SENT",
-      },
-    });
-
-    await sendPaymentRequestEmail({
-      patientName: appointment.patient?.name,
-      patientEmail: appointment.patient?.email,
-      processUrl: paymentUrl,
-      amount: txAmount,
-      serviceTitle,
-      proName,
-      isFirst: appointment.isFirstWithProfessional,
-    });
 
     revalidatePath("/panel/profesional/citas");
     revalidatePath("/panel/admin/citas");
+    revalidatePath("/panel/paciente");
 
-    return { success: true, message: "Enlace de pago enviado al paciente por email." };
+    return { success: true, message: paymentRequestMessage(paymentRequest) };
   } catch (error) {
     console.error("[payment] cobrarCita error:", error);
     return { success: false, error: "Error interno al procesar el cobro." };
   }
 }
 
-// ─────────────────────────────────────────────
-// 2. Envío automático al completar cita (uso interno)
-// ─────────────────────────────────────────────
-
 /**
- * Envía automáticamente el enlace de pago ONVO cuando una cita es marcada
- * como COMPLETADA. Llamar desde el server action que completa la cita.
- * Es idempotente: no duplica transacciones activas.
- *
- * @param {string} appointmentId
- * @returns {Promise<{ paymentUrl: string, amount: number } | null>}
+ * Envia automaticamente el enlace de pago ONVO cuando una cita se marca como
+ * COMPLETED. Es idempotente: si hay una transaccion activa, la reenvia.
  */
 export async function sendPaymentLinkOnCompletion(appointmentId) {
   try {
-    const id = String(appointmentId);
+    const id = String(appointmentId || "");
+    if (!id) return null;
 
     const appointment = await prisma.appointment.findUnique({
       where: { id },
@@ -201,124 +133,54 @@ export async function sendPaymentLinkOnCompletion(appointmentId) {
       return null;
     }
 
-    // Pertenencia (SEC-03): aunque se invoca internamente al completar la cita,
-    // es un server action exportado y directamente invocable. Un profesional solo
-    // puede dispararlo para SUS citas; ADMIN mantiene acceso total.
     const session = await getSession();
     if (!session || (session.role !== "ADMIN" && session.role !== "PROFESSIONAL")) {
-      console.warn(`[payment] sendPaymentLinkOnCompletion: sesión no autorizada para cita ${id}.`);
+      console.warn(`[payment] sendPaymentLinkOnCompletion: sesion no autorizada para cita ${id}.`);
       return null;
     }
     if (isPreviewSession(session)) {
-      console.warn(`[payment] sendPaymentLinkOnCompletion: bloqueado en modo «ver como» para cita ${id}.`);
+      console.warn(`[payment] sendPaymentLinkOnCompletion: bloqueado en modo ver-como para cita ${id}.`);
       return null;
     }
-    if (session.role === "PROFESSIONAL") {
-      let proProfileId = session.professionalProfileId || null;
-      if (!proProfileId) {
-        try {
-          proProfileId = await requireProfessionalProfileId();
-        } catch {
-          proProfileId = null;
-        }
-      }
-      if (!proProfileId || appointment.professionalId !== proProfileId) {
-        console.warn(`[payment] sendPaymentLinkOnCompletion: profesional ajeno a cita ${id}.`);
-        return null;
-      }
+    if (!(await assertProfessionalCanAccessAppointment(session, appointment))) {
+      console.warn(`[payment] sendPaymentLinkOnCompletion: profesional ajeno a cita ${id}.`);
+      return null;
     }
 
     if (appointment.paymentStatus === "PAID") {
-      console.log(`[payment] sendPaymentLinkOnCompletion: cita ${id} ya está PAID.`);
+      console.log(`[payment] sendPaymentLinkOnCompletion: cita ${id} ya esta PAID.`);
       return null;
     }
 
-    const assignment = appointment.serviceId
-      ? await prisma.serviceAssignment.findUnique({
-          where: {
-            professionalId_serviceId: {
-              professionalId: appointment.professionalId,
-              serviceId: appointment.serviceId,
-            },
-          },
-          select: { onvoPaymentLinkId: true },
-        })
-      : null;
+    const txType = getCompletionPaymentType(appointment);
+    const paymentRequest = await createPaymentRequestForAppointment(appointment, txType);
 
-    const onvoLinkId = assignment?.onvoPaymentLinkId;
-    if (!onvoLinkId) {
-      console.warn(`[payment] sendPaymentLinkOnCompletion: sin onvoPaymentLinkId en asignación para cita ${id}.`);
+    if (!paymentRequest.success) {
+      console.error(
+        `[payment] sendPaymentLinkOnCompletion: ${paymentErrorMessage(paymentRequest)} cita ${id}.`
+      );
       return null;
     }
-
-    // Idempotencia: no crear nueva transacción si ya existe una activa
-    const existing = await prisma.paymentTransaction.findFirst({
-      where: {
-        appointmentId: id,
-        status: { in: ["PENDING", "LINK_SENT", "APPROVED"] },
-      },
-    });
-
-    if (existing) {
-      if (existing.status === "APPROVED") return null;
-      console.log(`[payment] sendPaymentLinkOnCompletion: cita ${id} ya tiene transacción activa, reutilizando.`);
-      const paymentUrl = buildPaymentLinkUrl(onvoLinkId);
-      return { paymentUrl, amount: Number(existing.amount) };
-    }
-
-    const price = await resolvePriceForAppointment(appointment);
-    if (!price || price <= 0) {
-      console.error(`[payment] sendPaymentLinkOnCompletion: cita ${id} sin precio definido.`);
-      return null;
-    }
-
-    const paymentUrl = buildPaymentLinkUrl(onvoLinkId);
-    const proName = appointment.professional?.user?.name || "el profesional";
-    const serviceTitle = appointment.service?.title || "Consulta";
-
-    await prisma.paymentTransaction.create({
-      data: {
-        appointmentId: id,
-        professionalId: appointment.professionalId,
-        patientId: appointment.patientId,
-        type: "FULL_100",
-        amount: price,
-        currency: "CRC",
-        onvoPaymentLinkId: onvoLinkId,
-        status: "LINK_SENT",
-      },
-    });
-
-    await sendPaymentRequestEmail({
-      patientName: appointment.patient?.name,
-      patientEmail: appointment.patient?.email,
-      processUrl: paymentUrl,
-      amount: price,
-      serviceTitle,
-      proName,
-      isFirst: appointment.isFirstWithProfessional,
-    });
 
     revalidatePath("/panel/paciente");
     revalidatePath("/panel/admin/citas");
+    revalidatePath("/panel/profesional/citas");
 
-    console.log(`[payment] sendPaymentLinkOnCompletion: enlace enviado para cita ${id}.`);
-    return { paymentUrl, amount: price };
+    console.log(`[payment] sendPaymentLinkOnCompletion: ${paymentRequestMessage(paymentRequest)} cita ${id}.`);
+    return {
+      paymentUrl: paymentRequest.paymentUrl,
+      amount: paymentRequest.amount,
+      type: paymentRequest.type,
+    };
   } catch (error) {
     console.error("[payment] sendPaymentLinkOnCompletion error:", error);
     return null;
   }
 }
 
-// ─────────────────────────────────────────────
-// 3. Consultar transacciones de una cita (auditoría)
-// ─────────────────────────────────────────────
-
 /**
  * Devuelve todas las transacciones de pago de una cita.
  * Acceso: ADMIN o el propio paciente.
- *
- * @param {string} appointmentId
  */
 export async function getPaymentTransactions(appointmentId) {
   try {
@@ -333,7 +195,7 @@ export async function getPaymentTransactions(appointmentId) {
     if (!appointment) return { success: false, error: "Cita no encontrada." };
 
     const isAdmin = session.role === "ADMIN";
-    const isOwner = appointment.patientId === session.sub;
+    const isOwner = appointment.patientId === session.sub || appointment.patientId === session.userId;
     if (!isAdmin && !isOwner) return { success: false, error: "No autorizado." };
 
     const transactions = await prisma.paymentTransaction.findMany({
@@ -359,41 +221,4 @@ export async function getPaymentTransactions(appointmentId) {
     console.error("[payment] getPaymentTransactions error:", error);
     return { success: false, error: "Error consultando transacciones." };
   }
-}
-
-// ─────────────────────────────────────────────
-// Helpers internos
-// ─────────────────────────────────────────────
-
-async function resolvePriceForAppointment(appointment) {
-  if (appointment.pricePaid && Number(appointment.pricePaid) > 0) {
-    return Number(appointment.pricePaid);
-  }
-
-  if (appointment.serviceId || appointment.professionalId) {
-    const assignment = await prisma.serviceAssignment
-      .findUnique({
-        where: {
-          professionalId_serviceId: {
-            professionalId: appointment.professionalId,
-            serviceId: appointment.serviceId,
-          },
-        },
-        select: { approvedSessionPrice: true },
-      })
-      .catch(() => null);
-
-    const price = assignment?.approvedSessionPrice
-      ? Number(assignment.approvedSessionPrice)
-      : 0;
-
-    if (price > 0) {
-      await prisma.appointment
-        .update({ where: { id: appointment.id }, data: { pricePaid: price } })
-        .catch(() => {});
-      return price;
-    }
-  }
-
-  return 0;
 }

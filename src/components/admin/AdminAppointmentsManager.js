@@ -180,7 +180,8 @@ export default function AdminAppointmentsManager({ appointments = [] }) {
             const overdue = isOverdueNoAction(row);
             const approvedPayment = getLatestApprovedPayment(row);
             const latestInvoice = getLatestInvoice(row);
-            const paid = row.paymentStatus === "PAID" || Boolean(approvedPayment);
+            const paid = row.paymentStatus === "PAID";
+            const partiallyPaid = row.paymentStatus === "PARTIALLY_PAID";
 
             return (
               <Fragment key={row.id}>
@@ -217,6 +218,10 @@ export default function AdminAppointmentsManager({ appointments = [] }) {
                     {paid ? (
                       <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
                         Pagada
+                      </span>
+                    ) : partiallyPaid ? (
+                      <span className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-blue-700">
+                        Adelanto
                       </span>
                     ) : (
                       <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700">

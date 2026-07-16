@@ -51,9 +51,10 @@ export async function POST(request) {
   const unmatched = await prisma.unmatchedPayment.findUnique({ where: { id: unmatchedId } });
   const transaction = await prisma.paymentTransaction.findUnique({ where: { id: transactionId }, include: { patient: true, professional: { include: { user: true } }, appointment: { include: { service: true } } } });
   if (!unmatched || unmatched.resolvedAt || !transaction) return NextResponse.json({ message: "Pago o transacción no disponibles." }, { status: 404 });
+  const nextPaymentStatus = transaction.type === "DEPOSIT_50" ? "PARTIALLY_PAID" : "PAID";
   await prisma.$transaction([
     prisma.paymentTransaction.update({ where: { id: transaction.id }, data: { status: "APPROVED", paidAt: new Date(), statusMessage: "Conciliado manualmente por ADMIN" } }),
-    prisma.appointment.update({ where: { id: transaction.appointmentId }, data: { paymentStatus: "PAID" } }),
+    prisma.appointment.update({ where: { id: transaction.appointmentId }, data: { paymentStatus: nextPaymentStatus } }),
     prisma.unmatchedPayment.update({ where: { id: unmatched.id }, data: { resolvedAt: new Date(), resolvedTxId: transaction.id } }),
   ]);
   await createAutoInvoice(transaction);

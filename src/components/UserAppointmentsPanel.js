@@ -14,6 +14,13 @@ import {
 } from "@/actions/patient-booking-actions";
 
 const CANCELLED_STATUSES = new Set(["CANCELLED_BY_USER", "CANCELLED_BY_PRO"]);
+const ACTIVE_PAYMENT_STATUSES = new Set(["PENDING", "LINK_SENT"]);
+
+const PAYMENT_TYPE_LABELS = {
+  DEPOSIT_50: "Adelanto 50%",
+  BALANCE_50: "Saldo 50%",
+  FULL_100: "Pago de cita",
+};
 
 const formatDateInTZ = (date) =>
   new Intl.DateTimeFormat("es-CR", {
@@ -279,14 +286,21 @@ export default function UserAppointmentsPanel({
             (() => {
               const tx = appointment.paymentTransactions?.[0];
               const onvoLinkId = tx?.onvoPaymentLinkId;
-              const payUrl = onvoLinkId ? buildPaymentLinkUrl(onvoLinkId) : null;
+              const isActivePayment = ACTIVE_PAYMENT_STATUSES.has(tx?.status);
+              const payUrl = isActivePayment && onvoLinkId ? buildPaymentLinkUrl(onvoLinkId) : null;
+              const paymentLabel = PAYMENT_TYPE_LABELS[tx?.type] || "Pago";
+              const amountLabel = tx?.amount ? `₡${Number(tx.amount).toLocaleString("es-CR")}` : "";
               return (
-                <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                <div className={`mt-2 rounded-xl border px-3 py-2 text-sm ${
+                  payUrl
+                    ? "border-amber-200 bg-amber-50 text-amber-800"
+                    : "border-emerald-200 bg-emerald-50 text-emerald-800"
+                }`}>
                   {payUrl ? (
                     <>
-                      <p className="font-semibold">Pago pendiente</p>
+                      <p className="font-semibold">{paymentLabel} pendiente</p>
                       <p className="mt-1 text-xs text-amber-700">
-                        Se le envió un enlace de pago al correo. También puede pagar directamente:
+                        {amountLabel ? `${amountLabel}. ` : ""}Se le envio un enlace de pago al correo. Tambien puede pagar directamente:
                       </p>
                       <a
                         href={payUrl}
@@ -297,8 +311,10 @@ export default function UserAppointmentsPanel({
                         Pagar ahora
                       </a>
                     </>
+                  ) : appointment.paymentStatus === "PARTIALLY_PAID" ? (
+                    <p className="font-semibold">Adelanto recibido. El saldo se cobra al completar la cita.</p>
                   ) : (
-                    <p>Pago pendiente — revise su correo electrónico para el enlace de pago.</p>
+                    <p>{paymentLabel} registrado.</p>
                   )}
                 </div>
               );

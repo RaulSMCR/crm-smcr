@@ -59,7 +59,7 @@ export default async function PacientePanelPage({ searchParams }) {
           where: { status: { in: ["PENDING", "LINK_SENT", "APPROVED"] } },
           orderBy: { createdAt: "desc" },
           take: 1,
-          select: { onvoPaymentLinkId: true, amount: true, type: true },
+          select: { onvoPaymentLinkId: true, amount: true, type: true, status: true, currency: true },
         },
       },
     }),

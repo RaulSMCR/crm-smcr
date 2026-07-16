@@ -21,7 +21,7 @@ const PIXEL_EXCLUDED = [
   /^\/verificar-email$/,
 ];
 
-export default function AnalyticsLoader({ gaId, metaPixelId }) {
+export default function AnalyticsLoader({ gaId, metaPixelId, googleAdsId }) {
   const pathname = usePathname();
   const [granted, setGranted] = useState(false);
 
@@ -32,16 +32,26 @@ export default function AnalyticsLoader({ gaId, metaPixelId }) {
 
   const pixelAllowedHere = !PIXEL_EXCLUDED.some((re) => re.test(pathname || ""));
 
+  // Un solo gtag.js sirve para GA4 y Google Ads: se carga si hay al menos uno y
+  // se configura cada destino por separado. Google Ads (ad_storage) respeta el
+  // Consent Mode, y además este bloque solo se monta con consentimiento "granted".
+  const gtagPrimaryId = gaId || googleAdsId;
+
   return (
     <>
-      {granted && gaId && (
+      {granted && gtagPrimaryId && (
         <>
           <Script
-            src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
+            src={`https://www.googletagmanager.com/gtag/js?id=${gtagPrimaryId}`}
             strategy="afterInteractive"
           />
-          <Script id="ga-config" strategy="afterInteractive">
-            {`gtag('config', '${gaId}');`}
+          <Script id="gtag-config" strategy="afterInteractive">
+            {[
+              gaId && `gtag('config', '${gaId}');`,
+              googleAdsId && `gtag('config', '${googleAdsId}');`,
+            ]
+              .filter(Boolean)
+              .join("\n")}
           </Script>
         </>
       )}

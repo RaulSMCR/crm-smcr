@@ -211,6 +211,7 @@ export async function sendPaymentRequestEmail({
   serviceTitle,
   proName,
   isFirst,
+  paymentType = "FULL_100",
 }) {
   if (!patientEmail) return;
   if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY === "re_dummy_key") {
@@ -219,10 +220,23 @@ export async function sendPaymentRequestEmail({
   }
 
   const amountFormatted = new Intl.NumberFormat("es-CR", { style: "currency", currency: "CRC", maximumFractionDigits: 0 }).format(amount);
-  const subject = isFirst ? "Pago de saldo pendiente — su sesión fue completada" : "Pago pendiente — su sesión fue completada";
-  const intro = isFirst
-    ? `Su sesión de <strong>${serviceTitle}</strong> con <strong>${proName}</strong> ha sido completada. Queda pendiente el pago del saldo (50% restante) por un monto de <strong>${amountFormatted}</strong>.`
-    : `Su sesión de <strong>${serviceTitle}</strong> con <strong>${proName}</strong> ha sido completada. El monto a pagar es de <strong>${amountFormatted}</strong>.`;
+  const copyByType = {
+    DEPOSIT_50: {
+      subject: "Pago de adelanto 50% - primera cita",
+      intro: `Para reservar su primera cita de <strong>${serviceTitle}</strong> con <strong>${proName}</strong>, corresponde el pago adelantado del 50% por <strong>${amountFormatted}</strong>.`,
+    },
+    BALANCE_50: {
+      subject: "Pago de saldo 50% - sesion completada",
+      intro: `Su sesion de <strong>${serviceTitle}</strong> con <strong>${proName}</strong> ha sido completada. Queda pendiente el pago del saldo 50% por <strong>${amountFormatted}</strong>.`,
+    },
+    FULL_100: {
+      subject: "Pago pendiente - sesion completada",
+      intro: `Su sesion de <strong>${serviceTitle}</strong> con <strong>${proName}</strong> ha sido completada. El monto a pagar es de <strong>${amountFormatted}</strong>.`,
+    },
+  };
+  const selectedCopy = copyByType[paymentType] || (isFirst ? copyByType.BALANCE_50 : copyByType.FULL_100);
+  const subject = selectedCopy.subject;
+  const intro = selectedCopy.intro;
 
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;line-height:1.5;color:#1f2937;">

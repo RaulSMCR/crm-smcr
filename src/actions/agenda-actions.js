@@ -11,6 +11,7 @@ import {
 import { sendPaymentLinkOnCompletion } from "@/actions/payment-actions";
 import { scheduleReminder } from "@/lib/qstash";
 import { buildSlots } from "@/lib/appointment-slots";
+import { createPaymentRequestForAppointment } from "@/lib/payment-requests";
 import {
   buildRecurringStarts,
   normalizeRecurrenceCount,
@@ -253,7 +254,7 @@ export async function createAppointmentByProfessional({
       }),
       prisma.serviceAssignment.findUnique({
         where: { professionalId_serviceId: { professionalId, serviceId: sid } },
-        select: { status: true, approvedSessionPrice: true },
+        select: { status: true, approvedSessionPrice: true, onvoPaymentLinkId: true },
       }),
     ]);
 
@@ -314,6 +315,22 @@ export async function createAppointmentByProfessional({
       return conflictResponse;
     }
 
+    const previousCount = await prisma.appointment.count({
+      where: {
+        patientId: pid,
+        professionalId,
+        status: { notIn: CANCELLED_STATUSES },
+      },
+    });
+    const isFirstWithProfessional = previousCount === 0;
+    if (isFirstWithProfessional && !assignment.onvoPaymentLinkId) {
+      return {
+        success: false,
+        error:
+          "No es posible agendar la primera cita porque falta el enlace de pago ONVO para este servicio.",
+      };
+    }
+
     const createdAppointments = await prisma.$transaction(
       starts.map((occurrence, index) =>
         prisma.appointment.create({
@@ -326,6 +343,7 @@ export async function createAppointmentByProfessional({
             status: "PENDING",
             paymentStatus: "UNPAID",
             pricePaid: assignment.approvedSessionPrice,
+            isFirstWithProfessional: isFirstWithProfessional && index === 0,
           },
           select: { id: true },
         })
@@ -334,6 +352,13 @@ export async function createAppointmentByProfessional({
 
     const hydratedAppointments = await hydrateAppointments(createdAppointments.map((item) => item.id));
     await notifyAppointments(hydratedAppointments, "El profesional creó una nueva cita en estado pendiente.");
+    const firstAppointment = hydratedAppointments.find((item) => item.isFirstWithProfessional);
+    const depositPayment = firstAppointment
+      ? await createPaymentRequestForAppointment(firstAppointment, "DEPOSIT_50")
+      : null;
+    if (depositPayment && !depositPayment.success) {
+      console.error("No se pudo generar el adelanto de primera cita:", depositPayment.error);
+    }
     revalidateAgendaPaths();
 
     return {

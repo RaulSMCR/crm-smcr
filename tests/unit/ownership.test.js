@@ -116,7 +116,74 @@ describe("cobrarCita — pertenencia del profesional (SEC-03)", () => {
 
     expect(res.success).toBe(true);
     expect(prisma.paymentTransaction.create).toHaveBeenCalledTimes(1);
+    expect(prisma.paymentTransaction.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        appointmentId: "apt1",
+        type: "FULL_100",
+        amount: 25000,
+      }),
+    });
     expect(sendPaymentRequestEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it("la primera cita sin adelanto crea cobro DEPOSIT_50", async () => {
+    libGetSession.mockResolvedValue({ role: "PROFESSIONAL", professionalProfileId: "proA" });
+    prisma.appointment.findUnique.mockResolvedValue({
+      id: "apt1",
+      status: "COMPLETED",
+      paymentStatus: "UNPAID",
+      professionalId: "proA",
+      patientId: "patX",
+      serviceId: "svc1",
+      pricePaid: 25000,
+      isFirstWithProfessional: true,
+      service: { title: "Consulta" },
+      patient: { name: "Paciente", email: "p@x.cr" },
+      professional: { user: { name: "Dra. A" } },
+    });
+    prisma.paymentTransaction.findFirst.mockResolvedValue(null);
+    prisma.serviceAssignment.findUnique.mockResolvedValue({ onvoPaymentLinkId: "link1" });
+
+    const res = await cobrarCita("apt1");
+
+    expect(res.success).toBe(true);
+    expect(prisma.paymentTransaction.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        appointmentId: "apt1",
+        type: "DEPOSIT_50",
+        amount: 12500,
+      }),
+    });
+  });
+
+  it("la primera cita con adelanto confirmado crea cobro BALANCE_50", async () => {
+    libGetSession.mockResolvedValue({ role: "PROFESSIONAL", professionalProfileId: "proA" });
+    prisma.appointment.findUnique.mockResolvedValue({
+      id: "apt1",
+      status: "COMPLETED",
+      paymentStatus: "PARTIALLY_PAID",
+      professionalId: "proA",
+      patientId: "patX",
+      serviceId: "svc1",
+      pricePaid: 25000,
+      isFirstWithProfessional: true,
+      service: { title: "Consulta" },
+      patient: { name: "Paciente", email: "p@x.cr" },
+      professional: { user: { name: "Dra. A" } },
+    });
+    prisma.paymentTransaction.findFirst.mockResolvedValue(null);
+    prisma.serviceAssignment.findUnique.mockResolvedValue({ onvoPaymentLinkId: "link1" });
+
+    const res = await cobrarCita("apt1");
+
+    expect(res.success).toBe(true);
+    expect(prisma.paymentTransaction.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        appointmentId: "apt1",
+        type: "BALANCE_50",
+        amount: 12500,
+      }),
+    });
   });
 });
 

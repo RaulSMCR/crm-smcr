@@ -33,6 +33,7 @@ const ORGANIZATION_SCHEMA = {
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID;
+const GOOGLE_ADS_ID = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID;
 
 const BASE_URL = SITE_URL;
 
@@ -102,7 +103,7 @@ export default function RootLayout({ children }) {
       <body className="min-h-screen flex flex-col bg-surface text-neutral-900 antialiased">
         <MarketingAttributionCapture />
         {process.env.NODE_ENV === 'production' && (
-          <AnalyticsLoader gaId={GA_ID} metaPixelId={META_PIXEL_ID} />
+          <AnalyticsLoader gaId={GA_ID} metaPixelId={META_PIXEL_ID} googleAdsId={GOOGLE_ADS_ID} />
         )}
         <JsonLd data={ORGANIZATION_SCHEMA} />
         <Header />
