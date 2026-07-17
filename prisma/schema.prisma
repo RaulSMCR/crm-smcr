@@ -813,3 +813,19 @@ model Lead {
   @@index([email])
   @@index([createdAt])
 }
+
+// Gasto publicitario por canal y mes, cargado a mano por el admin. Alimenta el
+// CAC del dashboard de atribución (gasto / pacientes que pagaron la 1ª cita).
+model ChannelSpend {
+  id       String  @id @default(cuid())
+  source   String // utm_source (ej. "meta", "google"); "directo" para orgánico
+  month    String // "YYYY-MM"
+  amount   Decimal @db.Decimal(12, 2)
+  currency String  @default("CRC")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([source, month])
+  @@index([month])
+}
