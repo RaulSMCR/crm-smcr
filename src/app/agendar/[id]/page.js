@@ -6,9 +6,10 @@ import ViewTracker from '@/components/tracking/ViewTracker';
 import { siteUrl } from "@/lib/site-url";
 
 export async function generateMetadata({ params }) {
-  const canonical = siteUrl(`agendar/${params.id}`);
+  const { id } = await params;
+  const canonical = siteUrl(`agendar/${id}`);
   const professional = await prisma.professionalProfile.findUnique({
-    where: { id: params.id },
+    where: { id },
     select: {
       specialty: true,
       slug: true,
@@ -44,8 +45,9 @@ export async function generateMetadata({ params }) {
 }
 
 export default async function AgendarPage({ params, searchParams }) {
-  const { id } = params;
-  const preSelectedServiceId = searchParams?.serviceId;
+  const { id } = await params;
+  const resolvedSearchParams = await searchParams;
+  const preSelectedServiceId = resolvedSearchParams?.serviceId;
 
   const professional = await prisma.professionalProfile.findUnique({
     where: { id },

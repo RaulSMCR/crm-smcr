@@ -499,6 +499,12 @@ model Appointment {
   followUps           Appointment[] @relation("FollowUps")
 
   isFirstWithProfessional Boolean              @default(false)
+
+  // Atribución publicitaria capturada al agendar (para la conversión GA4 del
+  // adelanto, que se confirma server-side días después). Ver src/lib/analytics.
+  gaClientId String? // client_id de GA4 (cookie _ga) o sintético estable
+  gaGclid    String? // gclid del anuncio de Google Ads, si vino en la URL
+
   paymentTransactions     PaymentTransaction[]
   invoices                Invoice[]            @relation("AppointmentInvoices")
   insuranceClaim          InsuranceClaim?
@@ -535,6 +541,11 @@ model PaymentTransaction {
   statusMessage  String?                  @db.Text
   paidAt         DateTime?
   webhookPayload Json?
+
+  // Idempotencia de la conversión GA4/Ads: se reclama de forma atómica antes de
+  // enviar, para no inflar conversiones si el webhook reintenta o se concilia manual.
+  conversionSent   Boolean   @default(false)
+  conversionSentAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

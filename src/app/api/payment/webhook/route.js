@@ -33,6 +33,7 @@ import { sendInsuranceProSignAlert } from "@/lib/insurance-mail";
 import { splitTaxIncluded } from "@/lib/invoice-math";
 import { estimateOnvoFeeCents } from "@/lib/commission-plan";
 import { paymentTypeLabel } from "@/lib/payment-requests";
+import { reportDepositConversion } from "@/lib/analytics/reportDepositConversion";
 
 export const dynamic = "force-dynamic";
 
@@ -236,6 +237,14 @@ export async function POST(request) {
     if (invoiceId) {
       submitInvoiceToFe(invoiceId).catch((e) =>
         console.error("[ONVO webhook] Error en submitInvoiceToFe:", e)
+      );
+    }
+
+    // Conversión GA4/Ads del adelanto de primera cita (server-to-server).
+    // Idempotente: no reenvía si ya se contabilizó (ver reportDepositConversion).
+    if (processedTransaction.type === "DEPOSIT_50") {
+      reportDepositConversion(processedTransaction.id).catch((e) =>
+        console.error("[ONVO webhook] Error reportando conversión GA4:", e)
       );
     }
 

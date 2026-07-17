@@ -136,8 +136,13 @@ export async function requestAppointment(
   timeString,
   serviceId,
   recurrenceRule,
-  recurrenceCount
+  recurrenceCount,
+  attribution = {}
 ) {
+  // Identificadores de atribución publicitaria: solo se persisten en la PRIMERA
+  // cita de la serie (es la que genera el adelanto y, por tanto, la conversión).
+  const gaClientId = String(attribution?.gaClientId || "").slice(0, 120) || null;
+  const gaGclid = String(attribution?.gaGclid || "").slice(0, 200) || null;
   const session = await getSession();
 
   if (!session || !session.sub) {
@@ -236,6 +241,9 @@ export async function requestAppointment(
             serviceId: serviceId || undefined,
             pricePaid,
             isFirstWithProfessional: isFirstWithProfessional && index === 0,
+            // Solo la primera cita de la serie lleva los identificadores.
+            gaClientId: index === 0 ? gaClientId : null,
+            gaGclid: index === 0 ? gaGclid : null,
           },
           select: { id: true }
         })

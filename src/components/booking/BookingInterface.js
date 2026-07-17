@@ -10,6 +10,7 @@ import RecurrenceFields from "@/components/appointments/RecurrenceFields";
 import Toast from "@/components/ui/Toast";
 import { trackEvent } from "@/lib/analytics";
 import { trackSchedule } from "@/lib/meta-pixel";
+import { readGaClientId, readGclid } from "@/lib/analytics/client-identifiers";
 
 export default function BookingInterface({ professionalId, servicePrice, serviceTitle, serviceId, professionalName }) {
   const router = useRouter();
@@ -69,7 +70,8 @@ export default function BookingInterface({ professionalId, servicePrice, service
       timeOverride || selectedSlot,
       serviceId,
       recurrenceRule,
-      recurrenceCount
+      recurrenceCount,
+      { gaClientId: readGaClientId(), gaGclid: readGclid() }
     );
 
     if (result.success) {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { createAutoInvoice } from "@/app/api/payment/webhook/route";
+import { reportDepositConversion } from "@/lib/analytics/reportDepositConversion";
 
 export const dynamic = "force-dynamic";
 
@@ -58,5 +59,12 @@ export async function POST(request) {
     prisma.unmatchedPayment.update({ where: { id: unmatched.id }, data: { resolvedAt: new Date(), resolvedTxId: transaction.id } }),
   ]);
   await createAutoInvoice(transaction);
+  // Conversión GA4/Ads del adelanto, también desde la conciliación manual.
+  // Idempotente vía claim atómico: si el webhook ya la envió, acá no se duplica.
+  if (transaction.type === "DEPOSIT_50") {
+    await reportDepositConversion(transaction.id).catch((e) =>
+      console.error("[reconciliation] Error reportando conversión GA4:", e)
+    );
+  }
   return NextResponse.json({ success: true });
 }
