@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { createAutoInvoice } from "@/app/api/payment/webhook/route";
 import { reportDepositConversion } from "@/lib/analytics/reportDepositConversion";
+import { sendPurchaseMeta } from "@/lib/analytics/meta-events";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +66,8 @@ export async function POST(request) {
     await reportDepositConversion(transaction.id).catch((e) =>
       console.error("[reconciliation] Error reportando conversión GA4:", e)
     );
+    // Purchase a Meta CAPI (fire-and-forget). Mismo eventId que el webhook.
+    after(() => sendPurchaseMeta(transaction.id));
   }
   return NextResponse.json({ success: true });
 }

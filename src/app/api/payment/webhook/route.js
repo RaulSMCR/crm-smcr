@@ -34,6 +34,8 @@ import { splitTaxIncluded } from "@/lib/invoice-math";
 import { estimateOnvoFeeCents } from "@/lib/commission-plan";
 import { paymentTypeLabel } from "@/lib/payment-requests";
 import { reportDepositConversion } from "@/lib/analytics/reportDepositConversion";
+import { sendPurchaseMeta } from "@/lib/analytics/meta-events";
+import { after } from "next/server";
 
 export const dynamic = "force-dynamic";
 
@@ -246,6 +248,8 @@ export async function POST(request) {
       reportDepositConversion(processedTransaction.id).catch((e) =>
         console.error("[ONVO webhook] Error reportando conversión GA4:", e)
       );
+      // Purchase a Meta CAPI (fire-and-forget). Dedup por eventId purchase:<txId>.
+      after(() => sendPurchaseMeta(processedTransaction.id));
     }
 
     if (nextPaymentStatus === "PAID") {

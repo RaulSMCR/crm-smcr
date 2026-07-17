@@ -2,12 +2,13 @@
 // Recibe leads de los formularios públicos (contacto). Persiste SIEMPRE en DB
 // (la fuente de verdad es la tabla Lead) y avisa al admin por email como
 // best-effort: si Resend falla, el lead no se pierde.
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resend } from "@/lib/resend";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { leadSchema, firstIssueMessage } from "@/lib/lead-schemas";
+import { sendMetaEvent, utmCustomData } from "@/lib/meta-capi";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -168,6 +169,23 @@ export async function POST(request) {
     });
 
     await notifyAdmin(lead);
+
+    // Evento Lead a Meta CAPI. Fire-and-forget (no bloquea la respuesta) y
+    // dedup determinístico por lead.id para el futuro píxel del cliente.
+    // Solo se envían email/teléfono hasheados + UTMs (nada del mensaje).
+    after(() =>
+      sendMetaEvent({
+        eventName: "Lead",
+        eventId: `lead:${lead.id}`,
+        userData: {
+          email: lead.email,
+          phone: lead.phone,
+          clientIpAddress: ip,
+          clientUserAgent: request.headers.get("user-agent") || undefined,
+        },
+        customData: utmCustomData(lead),
+      }),
+    );
 
     return json({
       ok: true,

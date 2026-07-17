@@ -5,6 +5,8 @@ import { startOfDay, endOfDay, addMinutes, format, parse, isBefore } from "date-
 import { fromZonedTime } from "date-fns-tz";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { sendScheduleMeta } from "@/lib/analytics/meta-events";
 import { sendAppointmentNotifications, syncGoogleCalendarEvent } from "@/lib/appointments";
 import { scheduleReminder } from "@/lib/qstash";
 import {
@@ -267,6 +269,11 @@ export async function requestAppointment(
     const depositAmount = firstAppointment && pricePaid
       ? Math.round(Number(pricePaid) * 0.5)
       : null;
+
+    // Evento Schedule a Meta CAPI (fire-and-forget; no bloquea la reserva).
+    // Se ancla en la primera cita creada, igual que el píxel cliente trackSchedule.
+    const scheduledId = hydratedAppointments[0]?.id;
+    if (scheduledId) after(() => sendScheduleMeta(scheduledId));
 
     return {
       success: true,

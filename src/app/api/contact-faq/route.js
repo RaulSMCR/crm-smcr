@@ -1,7 +1,8 @@
 // src/app/api/contact-faq/route.js
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { resend } from "@/lib/resend";
 import { prisma } from "@/lib/prisma";
+import { sendMetaEvent, utmCustomData } from "@/lib/meta-capi";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -116,7 +117,7 @@ export async function POST(request) {
 
     // ── 6. Persistir como Lead (best-effort: si falla, el email igual sale) ────
     try {
-      await prisma.lead.create({
+      const lead = await prisma.lead.create({
         data: {
           name: nombre,
           email,
@@ -132,6 +133,16 @@ export async function POST(request) {
           landingPath: sanitize(body?.landingPath, 500) || null,
         },
       });
+
+      // Evento Lead a Meta CAPI (fire-and-forget, sin datos del mensaje).
+      after(() =>
+        sendMetaEvent({
+          eventName: "Lead",
+          eventId: `lead:${lead.id}`,
+          userData: { email: lead.email, clientUserAgent: request.headers.get("user-agent") || undefined },
+          customData: utmCustomData(lead),
+        }),
+      );
     } catch (leadError) {
       console.error("[contact-faq] no se pudo guardar el lead:", leadError);
     }
