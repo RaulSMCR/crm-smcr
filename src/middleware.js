@@ -15,6 +15,13 @@ const PUBLIC_EXACT = new Set([
   "/servicios",
   "/espera-aprobacion",
   "/verificar-email",
+  // PWA de pacientes: el navegador pide el manifest SIN credenciales (no lleva
+  // la cookie de sesión), así que debe ser público o la app no es instalable.
+  // La página offline se sirve desde el service worker y también debe ser
+  // alcanzable sin sesión. Ambas viven bajo el prefijo /mi (protegido abajo),
+  // por eso se listan aquí como excepciones públicas explícitas.
+  "/mi/manifest.webmanifest",
+  "/mi-offline.html",
 ]);
 
 // Públicas por prefijo
@@ -32,6 +39,12 @@ const PROTECTED_ROUTES = [
   { prefix: "/panel/profesional", role: "PROFESSIONAL" },
   { prefix: "/panel/paciente", role: "USER" },
   { prefix: "/api/admin", role: "ADMIN" },
+  // PWA de pacientes (/mi/*): mismas reglas que el panel del paciente (rol USER).
+  // /api/mi va antes que /mi por claridad; el matcheo es por startsWith y no se
+  // solapan ("/api/mi/..." no empieza por "/mi"). Sin sesión: la lógica de abajo
+  // responde 401 JSON en /api/* y redirige a /ingresar en las páginas.
+  { prefix: "/api/mi", role: "USER" },
+  { prefix: "/mi", role: "USER" },
 ];
 
 // ---- Secret defensivo (NO rompe middleware) ----
