@@ -199,6 +199,12 @@ export async function login(formData) {
       .update({ where: { id: user.id }, data: { lastLogin: new Date() } })
       .catch((error) => console.error("Error actualizando lastLogin:", error));
 
+    // Adjudica al usuario los PostViewEvent anónimos de este dispositivo (cookie
+    // anon_id) — misma función que usa registerUser. Cierra el hueco de que el
+    // historial de lectura solo se vinculaba en el registro (AUDIT-PWA · RIESGOS-6).
+    // Silenciosa por dentro (try/catch): un fallo de vinculación nunca rompe el login.
+    await linkAnonymousMarketingEvents(user.id);
+
     const sessionData = {
       sub: user.id,
       userId: user.id,

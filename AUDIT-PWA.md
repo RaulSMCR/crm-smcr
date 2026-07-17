@@ -124,3 +124,13 @@ Server actions de paciente en [`src/actions/patient-booking-actions.js`](src/act
 10. **Supabase no aporta a la auth de la PWA.** Solo es Storage; no hay Supabase Auth ni RLS que reutilizar. Toda la seguridad de `/mi/*` recae en el JWT propio + middleware + los checks `patientId === session.sub` que ya usan las server actions.
 
 11. **`redirect("/panel")` para rol equivocado + rutas `force-dynamic`.** Todas las páginas de paciente son `export const dynamic = "force-dynamic"`. Está bien para datos por-usuario, pero implica que **nada de `/mi/*` será cacheable/offline por defecto**; la estrategia offline de la PWA (SW) tendrá que decidir explícitamente qué precachear (shell) frente a los datos dinámicos por paciente.
+
+---
+
+## DECISIONES
+
+Decisiones de diseño tomadas durante la implementación de `/mi/*` (no son bugs; se documentan para que queden explícitas).
+
+1. **Historial de lectura vinculado en registro y en login — limitación cross-device conocida.** `PostViewEvent.userId` ahora se adjudica también al iniciar sesión (`login` llama a `linkAnonymousMarketingEvents`, que reasigna los eventos anónimos de la cookie `anon_id` de ese dispositivo), cerrando el hueco de RIESGOS-6 para el dispositivo donde el paciente se loguea. **Limitación que NO se resuelve acá:** la lectura hecha en otro dispositivo donde el paciente todavía no se logueó queda anónima (ligada solo a `anon_id`) hasta el **próximo login en ese dispositivo**. No hay identidad de lectura entre dispositivos previa al login; resolverlo requeriría vincular por email/identidad al leer (fuera de alcance) o sincronizar `anon_id` entre dispositivos (no factible sin login).
+
+2. **"Para vos" usa afinidad por AUTOR, no por categoría/tag.** El modelo `Post` **no tiene categorías ni tags** (el único `category` del schema es de `Product`), así que la recomendación se deriva de los **autores** de los posts que el paciente ya leyó (cada autor es un profesional con su especialidad) → otros posts publicados de esos autores que aún no vio. Sin historial (o si se agota la afinidad) cae en **"Últimas publicaciones"** (5 más recientes). Si en el futuro se agregan categorías/tags a `Post`, esta señal se puede refinar sin cambiar la estructura de la vista.

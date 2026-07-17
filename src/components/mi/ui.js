@@ -23,6 +23,23 @@ export function formatDate(iso) {
   }).format(new Date(iso));
 }
 
+// Fecha relativa natural ("ayer", "hace 3 días", "hace 2 meses"). Sirve para
+// pasado y futuro; Intl.RelativeTimeFormat maneja el signo del diferencial.
+export function formatRelative(date) {
+  if (!date) return "";
+  const diffMs = new Date(date).getTime() - Date.now();
+  const abs = Math.abs(diffMs);
+  const rtf = new Intl.RelativeTimeFormat("es", { numeric: "auto" });
+  const H = 3600000;
+  const D = 86400000;
+
+  if (abs < H) return rtf.format(Math.round(diffMs / 60000), "minute");
+  if (abs < D) return rtf.format(Math.round(diffMs / H), "hour");
+  if (abs < 30 * D) return rtf.format(Math.round(diffMs / D), "day");
+  if (abs < 365 * D) return rtf.format(Math.round(diffMs / (30 * D)), "month");
+  return rtf.format(Math.round(diffMs / (365 * D)), "year");
+}
+
 export function formatMoney(amount, currency = "CRC") {
   const n = Number(amount || 0);
   try {
