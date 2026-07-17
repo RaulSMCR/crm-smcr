@@ -2,6 +2,9 @@
 
 const STORAGE_KEY = "smcr-marketing-attribution";
 const UTM_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"];
+// Ventana de atribución first-touch: pasados 30 días, se permite re-capturar
+// (equivale a la expiración de la cookie de 30 días descrita en el requisito).
+const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 function clean(value, max = 160) {
   if (typeof value !== "string") return "";
@@ -26,6 +29,21 @@ function writeStoredAttribution(attribution) {
   } catch {
     // Helpful for attribution, but the registration flow must keep working.
   }
+}
+
+/** ¿La atribución guardada sigue vigente (capturada hace menos de 30 días)? */
+function isFresh(attribution) {
+  const ts = Date.parse(attribution?.capturedAt || "");
+  return Number.isFinite(ts) && Date.now() - ts < MAX_AGE_MS;
+}
+
+/**
+ * Devuelve la atribución de PRIMER toque si sigue vigente; si no, null (lo que
+ * habilita una nueva captura). Es la única fuente de verdad para first-touch.
+ */
+function storedFirstTouch() {
+  const stored = readStoredAttribution();
+  return isFresh(stored) ? stored : null;
 }
 
 function getExternalReferrer() {
@@ -55,6 +73,7 @@ function fromSearchParams(searchParams) {
 
   return {
     ...data,
+    referrer: getExternalReferrer(),
     capturedAt: new Date().toISOString(),
     landingPath: `${window.location.pathname}${window.location.search}`,
   };
@@ -80,13 +99,15 @@ function toFormFields(attribution, defaults = {}) {
 export function captureMarketingAttribution() {
   if (typeof window === "undefined") return;
 
+  // First-touch: si ya hay atribución vigente, NO sobrescribir.
+  if (storedFirstTouch()) return;
+
+  // Prioridad de captura: UTMs de la URL > referrer externo.
   const current = fromSearchParams(new URLSearchParams(window.location.search));
   if (current) {
     writeStoredAttribution(current);
     return;
   }
-
-  if (readStoredAttribution()) return;
 
   const referrer = getExternalReferrer();
   if (!referrer) return;
@@ -112,21 +133,14 @@ function toRawFields(attribution) {
 
 /**
  * Atribución completa sin colapsar (los 5 UTMs + referrer + landingPath).
- * Mismo orden de resolución que getMarketingAttributionFields:
- * URL actual → localStorage → referrer externo. Campos vacíos = "".
+ * First-touch: primero asegura la captura, luego devuelve el PRIMER toque
+ * guardado (no la URL actual). Campos vacíos = "".
  */
 export function getMarketingAttributionRaw() {
   if (typeof window === "undefined") return toRawFields(null);
 
   captureMarketingAttribution();
-
-  const current = fromSearchParams(new URLSearchParams(window.location.search));
-  if (current) return toRawFields(current);
-
-  const stored = readStoredAttribution();
-  if (stored) return toRawFields(stored);
-
-  return toRawFields(null);
+  return toRawFields(storedFirstTouch());
 }
 
 export function getMarketingAttributionFields(defaults = {}) {
@@ -135,25 +149,5 @@ export function getMarketingAttributionFields(defaults = {}) {
   }
 
   captureMarketingAttribution();
-
-  const current = fromSearchParams(new URLSearchParams(window.location.search));
-  if (current) {
-    return toFormFields(current, defaults);
-  }
-
-  const stored = readStoredAttribution();
-  if (stored) return toFormFields(stored, defaults);
-
-  const referrer = getExternalReferrer();
-  if (referrer) {
-    const attribution = {
-      referrer,
-      capturedAt: new Date().toISOString(),
-      landingPath: `${window.location.pathname}${window.location.search}`,
-    };
-    writeStoredAttribution(attribution);
-    return toFormFields(attribution, defaults);
-  }
-
-  return toFormFields(null, defaults);
+  return toFormFields(storedFirstTouch(), defaults);
 }
