@@ -3,6 +3,7 @@
 
 import { logout } from "@/actions/auth-actions";
 import { useFormStatus } from "react-dom";
+import { cleanupPushAndServiceWorker } from "@/lib/mi/logout-cleanup";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -20,7 +21,14 @@ function SubmitButton() {
 
 export default function LogoutButton() {
   return (
-    <form action={logout}>
+    <form
+      action={logout}
+      onSubmit={() => {
+        // Best-effort, no bloquea ni pospone el submit (sin preventDefault):
+        // no-op fuera de /mi (ver cleanupPushAndServiceWorker).
+        cleanupPushAndServiceWorker();
+      }}
+    >
       <SubmitButton />
     </form>
   );

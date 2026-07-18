@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { isPrismaConnectionError } from "@/lib/prisma-safe";
 import JsonLd from "@/components/JsonLd";
 import { siteUrl } from "@/lib/site-url";
+import SafeImage, { SafeAvatar } from "@/components/SafeImage";
+import { IMAGE_FALLBACKS } from "@/lib/images";
 
 const FAQ_SCHEMA = {
   '@context': 'https://schema.org',
@@ -154,9 +156,10 @@ export default async function ServiciosPage() {
             <div key={service.id} className="group flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
               <div className="relative h-56 overflow-hidden bg-gradient-to-br from-brand-800 to-brand-950">
                 {service.bannerImage ? (
-                  <img
+                  <SafeImage
                     src={service.bannerImage}
                     alt={service.title}
+                    fallbackSrc={IMAGE_FALLBACKS.service}
                     className="service-img h-full w-full object-cover"
                     style={{
                       "--img-scale": (service.bannerScale ?? 100) / 100,
@@ -224,9 +227,9 @@ export default async function ServiciosPage() {
                         className="flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 transition hover:border-brand-300 hover:bg-brand-50"
                       >
                         {professional.user?.image ? (
-                          <img
+                          <SafeAvatar
                             src={professional.user.image}
-                            alt={professional.user.name || "Profesional"}
+                            name={professional.user.name || "Profesional"}
                             className="h-6 w-6 rounded-full object-cover"
                           />
                         ) : (

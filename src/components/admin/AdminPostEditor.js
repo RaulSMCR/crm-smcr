@@ -4,9 +4,13 @@ import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateAdminPost, updatePostStatus } from "@/actions/admin-actions";
+import { notifyPostToReaders } from "@/actions/push-actions";
 import SeoFieldset from "@/components/admin/SeoFieldset";
+import SafeImage from "@/components/SafeImage";
+import { IMAGE_FALLBACKS, PUBLIC_IMAGE_ACCEPT, SUPPORTED_PUBLIC_IMAGE_TYPES } from "@/lib/images";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const IMAGE_FORMAT_ERROR = "Formato no soportado. Usa JPG, PNG, WEBP, GIF o AVIF.";
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -66,10 +70,10 @@ function CoverPreview({ imageUrl, focusX, focusY, scale, title, subtitle, height
       >
         {imageUrl ? (
           <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <SafeImage
               src={imageUrl}
               alt=""
+              fallbackSrc={IMAGE_FALLBACKS.article}
               draggable="false"
               className="h-full w-full select-none object-cover"
               style={{
@@ -166,10 +170,23 @@ export default function AdminPostEditor({ post }) {
     startTransition(() => router.refresh());
   }
 
+  async function notifyReaders() {
+    setError(null);
+    setNotice(null);
+    const result = await notifyPostToReaders(post.id);
+    if (result?.error) {
+      setError(result.error);
+      return;
+    }
+    setNotice(
+      `Notificación enviada: ${result.sent} de ${result.targets} lector${result.targets === 1 ? "" : "es"} con afinidad.`
+    );
+  }
+
   async function uploadImage(file) {
     setError(null);
     if (!file) return;
-    if (!file.type?.startsWith("image/")) return setError("El archivo debe ser una imagen.");
+    if (file.type && !SUPPORTED_PUBLIC_IMAGE_TYPES.includes(file.type)) return setError(IMAGE_FORMAT_ERROR);
     if (file.size > MAX_IMAGE_BYTES) return setError("La imagen no puede pesar mas de 5 MB.");
 
     setUploading(true);
@@ -294,6 +311,17 @@ export default function AdminPostEditor({ post }) {
           >
             {isPublished ? "Despublicar" : "Publicar sin cambios"}
           </button>
+          {isPublished ? (
+            <button
+              type="button"
+              onClick={notifyReaders}
+              disabled={busy}
+              title="Push a lectores con afinidad (mismo autor, todavía no vieron este artículo)"
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
+            >
+              Notificar a lectores
+            </button>
+          ) : null}
           <Link href="/panel/admin/blog" className="ml-auto text-sm font-semibold text-slate-600 hover:text-slate-900">
             Volver
           </Link>
@@ -327,8 +355,7 @@ export default function AdminPostEditor({ post }) {
           >
             {form.coverImage ? (
               <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={form.coverImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                <SafeImage src={form.coverImage} alt="" fallbackSrc={IMAGE_FALLBACKS.article} className="absolute inset-0 h-full w-full object-cover" />
                 <div className="absolute inset-0 bg-slate-950/30" />
                 <span className="relative rounded bg-white/95 px-3 py-2 text-xs font-semibold text-slate-800">
                   {uploading ? "Subiendo..." : "Cambiar imagen"}
@@ -341,7 +368,7 @@ export default function AdminPostEditor({ post }) {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept={PUBLIC_IMAGE_ACCEPT}
             className="hidden"
             onChange={(event) => uploadImage(event.target.files?.[0])}
           />

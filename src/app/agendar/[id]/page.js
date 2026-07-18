@@ -4,6 +4,7 @@ import BookingInterface from '@/components/booking/BookingInterface';
 import JsonLd from '@/components/JsonLd';
 import ViewTracker from '@/components/tracking/ViewTracker';
 import { siteUrl } from "@/lib/site-url";
+import { SafeAvatar } from "@/components/SafeImage";
 
 export async function generateMetadata({ params }) {
   const { id } = await params;
@@ -152,16 +153,16 @@ export default async function AgendarPage({ params, searchParams }) {
               {professional.user.image ? (
                 professional.slug ? (
                   <a href={`/profesionales/${professional.slug}`} aria-label={`Ver perfil de ${professional.user.name}`}>
-                    <img
+                    <SafeAvatar
                       src={professional.user.image}
-                      alt={professional.user.name}
+                      name={professional.user.name}
                       className="h-full w-full object-cover"
                     />
                   </a>
                 ) : (
-                  <img
+                  <SafeAvatar
                     src={professional.user.image}
-                    alt={professional.user.name}
+                    name={professional.user.name}
                     className="h-full w-full object-cover"
                   />
                 )

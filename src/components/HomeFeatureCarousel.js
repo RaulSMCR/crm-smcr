@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import SafeImage, { SafeAvatar } from "@/components/SafeImage";
+import { IMAGE_FALLBACKS } from "@/lib/images";
 
 const FALLBACK_ARTICLE_IMAGE =
   "https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=1600&q=80&auto=format&fit=crop";
@@ -36,8 +38,7 @@ function ProfessionalAvatar({ professional }) {
   return (
     <div className="relative mx-auto h-36 w-36 overflow-hidden rounded-full border-4 border-white bg-brand-100 shadow-card md:h-44 md:w-44">
       {image ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={image} alt={name} className="h-full w-full object-cover" />
+        <SafeAvatar src={image} name={name} className="h-full w-full object-cover" />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-5xl font-bold text-brand-800">
           {initialFor(name)}
@@ -52,10 +53,10 @@ function ArticleImage({ article }) {
 
   return (
     <div className="relative min-h-[260px] overflow-hidden bg-neutral-100 md:min-h-[420px]">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <SafeImage
         src={src}
         alt={article?.title || "Articulo"}
+        fallbackSrc={IMAGE_FALLBACKS.article}
         className="h-full min-h-[260px] w-full object-cover md:min-h-[420px]"
         style={{
           objectPosition: `${article?.focusX ?? 50}% ${article?.focusY ?? 50}%`,
@@ -86,8 +87,7 @@ function ArticleSlide({ item, meta }) {
         <div className="mt-4 flex items-center gap-3 border-y border-neutral-200 py-3">
           <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-brand-100 text-sm font-bold text-brand-900">
             {author.image ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={author.image} alt="" className="h-full w-full object-cover" />
+              <SafeAvatar src={author.image} name={author.name} alt="" className="h-full w-full object-cover" />
             ) : (
               initialFor(author.name)
             )}

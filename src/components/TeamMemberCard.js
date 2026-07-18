@@ -1,17 +1,15 @@
 // src/components/TeamMemberCard.js
-import Image from 'next/image';
-import Link from 'next/link';
+import Link from "next/link";
+import SafeImage from "@/components/SafeImage";
 
-// Ahora recibe el 'id' para poder crear el enlace
 export default function TeamMemberCard({ name, role, imageUrl, id }) {
   return (
-    <Link href={`/perfil/${id}`} className="block text-center group">
-      <div className="relative w-40 h-40 mx-auto mb-4 rounded-full overflow-hidden shadow-lg transform group-hover:scale-105 transition-transform duration-300">
-        <Image
+    <Link href={`/perfil/${id}`} className="group block text-center">
+      <div className="relative mx-auto mb-4 h-40 w-40 overflow-hidden rounded-full shadow-lg transition-transform duration-300 group-hover:scale-105">
+        <SafeImage
           src={imageUrl}
           alt={`Foto de ${name}`}
-          layout="fill"
-          objectFit="cover"
+          className="absolute inset-0 h-full w-full object-cover"
         />
       </div>
       <h3 className="text-xl font-bold text-brand-600">{name}</h3>

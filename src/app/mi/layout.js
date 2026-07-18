@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import MiBottomNav from "@/components/mi/MiBottomNav";
 import ServiceWorkerRegister from "@/components/mi/ServiceWorkerRegister";
+import InstallPrompt from "@/components/mi/InstallPrompt";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +52,10 @@ export default async function MiLayout({ children }) {
 
       <div className="min-h-[100dvh] bg-[rgb(var(--app-bg))] text-neutral-900">
         <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col">
-          <main className="flex-1 px-4 pb-24 pt-5">{children}</main>
+          <main className="flex-1 px-4 pb-24 pt-5">
+          <InstallPrompt />
+          {children}
+        </main>
         </div>
         <MiBottomNav />
       </div>

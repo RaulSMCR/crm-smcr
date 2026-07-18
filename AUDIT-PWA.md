@@ -1,7 +1,66 @@
-# AUDIT-PWA.md — Auditoría previa a la PWA de pacientes
+# AUDIT-PWA.md — Auditoría e implementación de la PWA de pacientes
 
-> Auditoría de **solo lectura**. No se modificó ningún archivo del proyecto.
-> Fecha: 2026-07-17 · Stack detectado: Next.js 16.2.10 (App Router) · React 18.2.0 · Prisma 5.22 · Tailwind 3.4.
+> Empezó como auditoría de **solo lectura** (secciones 1–7 + RIESGOS, aún vigentes como foto del punto de partida). Luego se **implementó** la PWA `/mi/*`. Lo construido está en **IMPLEMENTADO** (abajo); las decisiones de diseño en **DECISIONES**; el detalle de push en **PUSH**.
+> Fecha: 2026-07-17 · Stack: Next.js 16.2.10 (App Router) · React 18.2.0 · Prisma 5.22 · Tailwind 3.4.
+
+---
+
+## IMPLEMENTADO
+
+Estado de la **v1 de la PWA de pacientes** (`/mi/*`). Los números entre paréntesis referencian los RIESGOS que cada pieza resuelve.
+
+### Rutas nuevas
+
+| Ruta | Tipo | Qué hace |
+|------|------|----------|
+| `/mi` | página (SC) | Inicio: próximo turno, aviso de pago pendiente, frase del día |
+| `/mi/agenda` | página (SC) + `AgendaList` (CC) | Citas futuras/anteriores; cancelar/reagendar/confirmar reusando los server actions; opt-in de push; nudge de instalación |
+| `/mi/pagos` | página (SC) | Pendientes (con "Pagar" ONVO) + historial |
+| `/mi/biblioteca` | página (SC) | Seguí leyendo / Leídos / Para vos (afinidad por autor) |
+| `/mi/manifest.webmanifest` | route handler | Manifest de la PWA (estático) |
+| `/panel` | página (SC) | Redirect por rol — **cierra el 404 de RIESGOS-5** |
+| `/api/mi/push/subscribe` | route (POST/DELETE) | Alta/baja de suscripción push |
+
+SC = server component · CC = client component. Layout `/mi` ([src/app/mi/layout.js](src/app/mi/layout.js)): guard USER, shell tipo app (oculta header/footer del sitio), bottom-nav, registro del SW, `metadata.manifest` + `themeColor`, captura de `beforeinstallprompt`. Helpers: [src/lib/mi/api-session.js](src/lib/mi/api-session.js) (`requirePatientSession`, RIESGOS-2), [src/lib/mi/serializers.js](src/lib/mi/serializers.js), [src/components/mi/ui.js](src/components/mi/ui.js).
+
+### Migración de base de datos
+
+[`20260717120000_add_push_subscription`](prisma/migrations/20260717120000_add_push_subscription/migration.sql) — modelo `PushSubscription` + relación inversa en `User`. **Escrita a mano** (la DB no estaba accesible); aplicar con `prisma migrate deploy`.
+
+### Variables de entorno nuevas (VAPID)
+
+`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_SUBJECT` (ver sección **PUSH**). `.env.example` las tiene pero **está gitignored** en este repo, así que no se versiona.
+
+### Cambios quirúrgicos a archivos existentes
+
+| Archivo | Cambio |
+|---------|--------|
+| [src/middleware.js](src/middleware.js) | Prefijos protegidos `/mi` y `/api/mi` (401 JSON en API); `/mi/manifest.webmanifest` y `/mi-offline.html` públicos (RIESGOS-1) |
+| [src/actions/auth-actions.js](src/actions/auth-actions.js) | `login` llama a `linkAnonymousMarketingEvents` (vincula historial de lectura al userId, RIESGOS-6) |
+| [src/app/api/reminders/send/route.js](src/app/api/reminders/send/route.js) | Canal push tras el email (RIESGOS-8); firma QStash y email intactos |
+| [src/lib/appointments.js](src/lib/appointments.js) | Link "Ingresá a tu espacio → /mi" en los emails al paciente |
+| [src/app/panel/paciente/page.js](src/app/panel/paciente/page.js) | Monta `InstallPrompt variant="booking"` en la confirmación (`?created=1`) |
+| [src/components/LogoutButton.js](src/components/LogoutButton.js) | `onSubmit` dispara `cleanupPushAndServiceWorker()` (best-effort, no bloquea el submit) — único choke point de logout de todo el sitio, no-op fuera de `/mi` |
+| [src/components/admin/AdminPostEditor.js](src/components/admin/AdminPostEditor.js) | Botón "Notificar a lectores" (solo si `PUBLISHED`) → `notifyPostToReaders` |
+| [.gitignore](.gitignore) | `!.env.example` — deja de estar atrapado por el patrón `.env*` |
+
+El **layout raíz y `public/site.webmanifest` no se tocaron**. `public/mi-sw.js` (SW propio de `/mi`) y `public/mi-offline.html` son nuevos. `pnpm-lock.yaml` fue **eliminado** (obsoleto, apuntaba a Next 14; el repo usa `package-lock.json`/npm — sin referencias a pnpm en CI/Vercel).
+
+### Limpieza al cerrar sesión (cierra los dos TODOs de push)
+
+[src/lib/mi/logout-cleanup.js](src/lib/mi/logout-cleanup.js) `cleanupPushAndServiceWorker()`: si la página está controlada por `mi-sw.js` (`navigator.serviceWorker.controller`), da de baja la suscripción push (`DELETE /api/mi/push/subscribe` con `keepalive` + `subscription.unsubscribe()`) y le pide al SW vaciar su cache (`postMessage({type:"CLEAR_CACHES"})`, manejado en [mi-sw.js](public/mi-sw.js)). Se dispara desde el `LogoutButton` compartido — **no había ningún punto de logout dentro de `/mi`** (el header/footer del sitio está oculto ahí), así que también se montó `<LogoutButton />` en el header de [`/mi`](src/app/mi/page.js).
+
+### Configuraciones manuales pendientes
+
+1. `npx web-push generate-vapid-keys` y setear las 4 VAPID vars.
+2. `prisma migrate deploy` para crear la tabla `PushSubscription`.
+3. Correr **Lighthouse** sobre `/mi` autenticado (installable + a11y ≥ 90) — no reproducible en el entorno de dev (headless + `/mi` requiere sesión).
+4. Smoke tests con device real: suscribir push, recibir con app cerrada, 410 → poda (ver **PUSH · Smoke test**).
+
+### TODOs abiertos
+
+- **Renovación de sesión** para PWA instalada (RIESGOS-3, sin resolver — la sesión sigue expirando a los 7 días sin refresh).
+- Limitación cross-device del historial de lectura (DECISIONES-1, aceptada por diseño, no es un TODO de código).
 
 ---
 
@@ -134,3 +193,64 @@ Decisiones de diseño tomadas durante la implementación de `/mi/*` (no son bugs
 1. **Historial de lectura vinculado en registro y en login — limitación cross-device conocida.** `PostViewEvent.userId` ahora se adjudica también al iniciar sesión (`login` llama a `linkAnonymousMarketingEvents`, que reasigna los eventos anónimos de la cookie `anon_id` de ese dispositivo), cerrando el hueco de RIESGOS-6 para el dispositivo donde el paciente se loguea. **Limitación que NO se resuelve acá:** la lectura hecha en otro dispositivo donde el paciente todavía no se logueó queda anónima (ligada solo a `anon_id`) hasta el **próximo login en ese dispositivo**. No hay identidad de lectura entre dispositivos previa al login; resolverlo requeriría vincular por email/identidad al leer (fuera de alcance) o sincronizar `anon_id` entre dispositivos (no factible sin login).
 
 2. **"Para vos" usa afinidad por AUTOR, no por categoría/tag.** El modelo `Post` **no tiene categorías ni tags** (el único `category` del schema es de `Product`), así que la recomendación se deriva de los **autores** de los posts que el paciente ya leyó (cada autor es un profesional con su especialidad) → otros posts publicados de esos autores que aún no vio. Sin historial (o si se agota la afinidad) cae en **"Últimas publicaciones"** (5 más recientes). Si en el futuro se agregan categorías/tags a `Post`, esta señal se puede refinar sin cambiar la estructura de la vista.
+
+---
+
+## PUSH (Web Push)
+
+Implementación de notificaciones push para la PWA (`web-push@3.6.7`). El **scheduling se reutiliza** — no se creó uno nuevo: el job QStash existente (`/api/reminders/send`) ahora envía email **y** push.
+
+### Claves VAPID y variables de entorno
+
+Generar el par de claves una vez:
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+Setear en el entorno (ver `.env.example`):
+
+| Var | Valor | Notas |
+|-----|-------|-------|
+| `VAPID_PUBLIC_KEY` | Public Key generada | server-side |
+| `VAPID_PRIVATE_KEY` | Private Key generada | **SECRETA**, nunca `NEXT_PUBLIC_` |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | **misma** Public Key | la lee el cliente para suscribirse |
+| `VAPID_SUBJECT` | `mailto:...` | contacto del emisor (requerido por el estándar) |
+
+Sin claves, todo degrada con gracia: el opt-in no aparece (falta la pública) y `sendPushToUsers` no envía (falta la privada); el email y el resto del job siguen intactos.
+
+### Piezas
+
+- **Modelo** [`PushSubscription`](prisma/schema.prisma) + relación inversa en `User`. Migración: [`prisma/migrations/20260717120000_add_push_subscription`](prisma/migrations/20260717120000_add_push_subscription/migration.sql) — aplicar con `prisma migrate deploy` (o `prisma migrate dev` para regenerarla) cuando la BD esté accesible.
+- **Endpoints** [`/api/mi/push/subscribe`](src/app/api/mi/push/subscribe/route.js): `POST` (upsert por `endpoint`, `userId = session.sub`) y `DELETE` (baja validando pertenencia). Protegidos por `requirePatientSession`.
+- **Envío** [`src/lib/push/send.js`](src/lib/push/send.js): `sendPushToUsers/User(payload)`. Configura VAPID lazy, nunca lanza, y **poda** suscripciones muertas (`404`/`410`). Payload: `{ title, body, url, icon }`.
+- **Service worker** [`public/mi-sw.js`](public/mi-sw.js) (v2): handlers `push` (muestra la notificación con ícono 192) y `notificationclick` (enfoca una ventana abierta o abre `data.url`).
+- **Opt-in** [`PushOptIn`](src/components/mi/PushOptIn.js) en `/mi/agenda`: **nunca** pide permiso al cargar; solo tras tap en "Activar recordatorios".
+- **Recordatorios** [`/api/reminders/send`](src/app/api/reminders/send/route.js): tras el email, `sendReminderPush` en su propio try/catch → título "Recordatorio de cita", body "Mañana a las HH:MM con [profesional]" (24 h) o "Tu cita es en 1 hora" (1 h), `url: /mi/agenda`. La firma QStash y el email quedan intactos.
+
+### Artículo nuevo (v1 manual, sin UI)
+
+[`notifyPostToReaders(postId)`](src/actions/push-actions.js) — server action **solo ADMIN o el PROFESSIONAL autor** del post. Envía push (título = título del post, `url = /blog/<slug>`) a los usuarios con afinidad. **Afinidad por AUTOR** (igual que "Para vos": el post no tiene categoría — ver DECISIONES): usuarios que ya leyeron algún post del mismo autor y que **todavía no vieron** este. No tiene UI aún; se invoca desde un script/consola o desde un botón futuro en el admin del blog.
+
+### Smoke test
+
+[`scripts/smoke-reminder-push.mjs`](scripts/smoke-reminder-push.mjs) dispara `/api/reminders/send` con una **firma QStash válida forjada localmente** (JWT HS256 con `QSTASH_CURRENT_SIGNING_KEY`, claim `body` = SHA-256 del cuerpo; el wrapper no valida el `sub`/URL), para probar el push sin esperar al schedule real.
+
+```bash
+# server corriendo + QSTASH_CURRENT/NEXT_SIGNING_KEY seteadas
+node scripts/smoke-reminder-push.mjs <appointmentId> [24h|1h]
+SMOKE_URL=http://localhost:3123/api/reminders/send node scripts/smoke-reminder-push.mjs <id> 1h
+```
+
+- `HTTP 200` → firma aceptada y job corrió (email + push disparados si hay cita/suscripción/VAPID).
+- `HTTP 403 invalid signature` → la signing key del script no coincide con la del server.
+
+Checklist manual para el resto (necesita device real + HTTPS/localhost):
+
+1. **Suscribir**: entrar a `/mi/agenda` logueado como paciente, tap en "Activar recordatorios", aceptar el permiso → se crea una `PushSubscription`.
+2. **Recibir con la app cerrada**: cerrar la pestaña/PWA y correr el script con un `appointmentId` real del paciente → llega la notificación del sistema.
+3. **410 → poda**: revocar la suscripción desde el navegador (o dejarla caducar) y volver a disparar → `sendPushToUsers` recibe `410` y **elimina** esa fila (verificar en la BD que desaparece).
+
+### Pendiente
+
+Resuelto — ver **IMPLEMENTADO · Limpieza al cerrar sesión**: la baja de suscripción y la limpieza de caches del SW ahora se disparan desde `LogoutButton` vía `cleanupPushAndServiceWorker()`.

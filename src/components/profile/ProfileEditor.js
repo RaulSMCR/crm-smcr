@@ -6,6 +6,8 @@ import ChangePasswordCard from "@/components/auth/ChangePasswordCard";
 import { updateProfile } from "@/actions/profile-actions";
 import SeoFieldset from "@/components/admin/SeoFieldset";
 import Toast from "@/components/ui/Toast";
+import { SafeAvatar } from "@/components/SafeImage";
+import { PUBLIC_IMAGE_ACCEPT } from "@/lib/images";
 
 function formatCRC(value) {
   const amount = Number(value);
@@ -213,8 +215,7 @@ export default function ProfileEditor({ profile, allServices = [] }) {
           <div className="mt-4 flex items-center gap-4">
             <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-50">
               {previewUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={previewUrl} alt="Avatar" className="h-full w-full object-cover" />
+                <SafeAvatar src={previewUrl} name={profile.user?.name || "P"} alt="Avatar" className="h-full w-full object-cover" />
               ) : (
                 <span className="font-bold text-slate-600">
                   {(profile.user?.name || "P").charAt(0)}
@@ -224,7 +225,7 @@ export default function ProfileEditor({ profile, allServices = [] }) {
 
             <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
               Cambiar foto
-              <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+              <input type="file" accept={PUBLIC_IMAGE_ACCEPT} className="hidden" onChange={handleImageChange} />
             </label>
           </div>
         </div>

@@ -12,6 +12,7 @@ import {
   cancelAppointmentByPatient,
   confirmCurrentAppointmentByPatient,
 } from "@/actions/patient-booking-actions";
+import { SafeAvatar } from "@/components/SafeImage";
 
 const CANCELLED_STATUSES = new Set(["CANCELLED_BY_USER", "CANCELLED_BY_PRO"]);
 const ACTIVE_PAYMENT_STATUSES = new Set(["PENDING", "LINK_SENT"]);
@@ -210,10 +211,9 @@ export default function UserAppointmentsPanel({
             className="flex-shrink-0 rounded-full transition hover:ring-2 hover:ring-blue-200"
           >
             {appointment.professional.user?.image ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <SafeAvatar
                 src={appointment.professional.user.image}
-                alt={appointment.professional.user?.name}
+                name={appointment.professional.user?.name}
                 className="h-12 w-12 rounded-full border object-cover"
               />
             ) : (

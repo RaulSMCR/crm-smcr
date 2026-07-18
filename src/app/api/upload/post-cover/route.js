@@ -1,18 +1,15 @@
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { validateFileSignature } from "@/lib/storage";
+import {
+  PUBLIC_IMAGE_MIME_TYPES,
+  uploadPublicImage,
+  validatePublicImageUpload,
+  withImageCacheBust,
+} from "@/lib/storage";
 
 const BUCKET = "post-covers";
 const MAX_BYTES = 5 * 1024 * 1024;
-
-const EXTENSION_BY_TYPE = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-  "image/gif": "gif",
-};
 
 async function getUploaderKey(session) {
   if (!session) return null;
@@ -47,49 +44,25 @@ export async function POST(request) {
       return NextResponse.json({ error: "No se recibio archivo." }, { status: 400 });
     }
 
-    if (!file.type?.startsWith("image/")) {
-      return NextResponse.json({ error: "El archivo debe ser una imagen." }, { status: 400 });
-    }
-
     if (file.size > MAX_BYTES) {
       return NextResponse.json({ error: "La imagen no puede pesar mas de 5 MB." }, { status: 400 });
     }
 
-    const ext = EXTENSION_BY_TYPE[file.type] || file.name.split(".").pop()?.toLowerCase() || "jpg";
-    const path = `${uploaderKey}/${crypto.randomUUID()}.${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
-    if (!validateFileSignature(buffer, ["image/jpeg", "image/png", "image/webp"])) {
-      return NextResponse.json({ error: "El contenido no coincide con una imagen válida." }, { status: 400 });
+    const validation = validatePublicImageUpload(buffer, file.type);
+    if (!validation.ok) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
     }
 
-    const supabaseAdmin = getSupabaseAdmin();
-    const uploadOptions = {
+    const path = `${uploaderKey}/${crypto.randomUUID()}.${validation.extension}`;
+    const publicUrl = await uploadPublicImage(BUCKET, path, buffer, {
       upsert: false,
-      contentType: file.type,
-      cacheControl: "3600",
-    };
+      contentType: validation.contentType,
+      fileSizeLimit: MAX_BYTES,
+      allowedMimeTypes: PUBLIC_IMAGE_MIME_TYPES,
+    });
 
-    let { error: uploadError } = await supabaseAdmin.storage.from(BUCKET).upload(path, buffer, uploadOptions);
-
-    if (uploadError?.message?.toLowerCase().includes("bucket not found")) {
-      const { error: bucketError } = await supabaseAdmin.storage.createBucket(BUCKET, {
-        public: true,
-        fileSizeLimit: MAX_BYTES,
-        allowedMimeTypes: Object.keys(EXTENSION_BY_TYPE),
-      });
-
-      if (bucketError && !bucketError.message?.toLowerCase().includes("already exists")) {
-        throw bucketError;
-      }
-
-      const retry = await supabaseAdmin.storage.from(BUCKET).upload(path, buffer, uploadOptions);
-      uploadError = retry.error;
-    }
-
-    if (uploadError) throw uploadError;
-
-    const { data } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(path);
-    return NextResponse.json({ url: data.publicUrl });
+    return NextResponse.json({ url: withImageCacheBust(publicUrl) });
   } catch (error) {
     console.error("Error subiendo portada de articulo:", error);
     return NextResponse.json({ error: error.message || "Error inesperado." }, { status: 500 });

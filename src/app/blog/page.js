@@ -1,8 +1,9 @@
 // src/app/blog/page.js
 import Link from 'next/link';
-import Image from 'next/image';
 import { prisma } from '@/lib/prisma';
 import { siteUrl } from "@/lib/site-url";
+import SafeImage, { SafeAvatar } from "@/components/SafeImage";
+import { IMAGE_FALLBACKS } from "@/lib/images";
 
 export const metadata = {
   title: 'Blog de salud mental y bienestar',
@@ -97,11 +98,11 @@ export default async function BlogPage({ searchParams }) {
             <article key={p.id} className="group flex flex-col bg-white border border-gray-200 rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300">
               <Link href={`/blog/${p.slug}`} className="relative h-56 w-full overflow-hidden bg-gray-100 block">
                 {p.coverImage ? (
-                  <Image
+                  <SafeImage
                     src={p.coverImage}
                     alt={`Portada: ${p.title}`}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    fallbackSrc={IMAGE_FALLBACKS.article}
+                    className="absolute inset-0 h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
                     style={{
                       objectPosition: `${p.coverImageFocusX ?? 50}% ${p.coverImageFocusY ?? 50}%`,
                       transform: `scale(${(p.coverImageScale ?? 100) / 100})`,
@@ -133,7 +134,7 @@ export default async function BlogPage({ searchParams }) {
                 <div className="mt-auto pt-4 border-t border-gray-100 flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-bold uppercase overflow-hidden">
                     {p.author?.user?.image ? (
-                      <img src={p.author.user.image} alt="" className="w-full h-full object-cover" />
+                      <SafeAvatar src={p.author.user.image} name={p.author.user.name} alt="" className="h-full w-full object-cover" />
                     ) : (
                       <span>{p.author?.user?.name ? p.author.user.name.charAt(0) : 'A'}</span>
                     )}

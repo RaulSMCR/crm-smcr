@@ -1,9 +1,12 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
+import SafeImage from "@/components/SafeImage";
+import { IMAGE_FALLBACKS, PUBLIC_IMAGE_ACCEPT, SUPPORTED_PUBLIC_IMAGE_TYPES } from "@/lib/images";
 
-const FALLBACK_BANNER =
-  "https://images.unsplash.com/photo-1526253038957-bce54e05968c?w=1600&q=80&auto=format&fit=crop";
+const FALLBACK_BANNER = IMAGE_FALLBACKS.service;
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const IMAGE_FORMAT_ERROR = "Formato no soportado. Usa JPG, PNG, WEBP, GIF o AVIF.";
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -70,10 +73,10 @@ function BannerPreview({
           updateFromPointer(touch.clientX, touch.clientY);
         }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <SafeImage
           src={imageUrl}
           alt="Vista previa del banner del servicio"
+          fallbackSrc={FALLBACK_BANNER}
           className="h-full w-full object-cover select-none"
           draggable="false"
           style={{
@@ -121,6 +124,16 @@ export default function ServiceBannerField({
     if (!file) return;
 
     setError("");
+    if (file.type && !SUPPORTED_PUBLIC_IMAGE_TYPES.includes(file.type)) {
+      setError(IMAGE_FORMAT_ERROR);
+      event.target.value = "";
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      setError("La imagen no puede pesar mas de 5 MB.");
+      event.target.value = "";
+      return;
+    }
     setUploading(true);
 
     try {
@@ -270,7 +283,7 @@ export default function ServiceBannerField({
             <input
               id={inputId}
               type="file"
-              accept="image/*"
+              accept={PUBLIC_IMAGE_ACCEPT}
               className="hidden"
               onChange={handleFileChange}
               disabled={uploading}

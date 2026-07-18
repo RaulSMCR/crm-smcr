@@ -12,7 +12,7 @@
  * de estas fundaciones).
  */
 
-const VERSION = "mi-v1";
+const VERSION = "mi-v2"; // v2: handlers de Web Push (push / notificationclick)
 const SHELL_CACHE = `${VERSION}-shell`;
 const OFFLINE_URL = "/mi-offline.html";
 
@@ -64,8 +64,66 @@ self.addEventListener("activate", (event) => {
 });
 
 // Actualización inmediata si la página lo pide (para futuros flujos de update).
+// CLEAR_CACHES: la página lo pide al cerrar sesión (dispositivo compartido) —
+// ver src/lib/mi/logout-cleanup.js. Vacía el shell para que el próximo paciente
+// no herede el cache del anterior.
 self.addEventListener("message", (event) => {
   if (event.data === "SKIP_WAITING") self.skipWaiting();
+  if (event.data?.type === "CLEAR_CACHES") {
+    event.waitUntil(caches.delete(SHELL_CACHE));
+  }
+});
+
+// ── Web Push ──
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = {};
+  }
+
+  const title = data.title || "Salud Mental Costa Rica";
+  const options = {
+    body: data.body || "",
+    icon: data.icon || "/web-app-manifest-192x192.png",
+    badge: "/web-app-manifest-192x192.png",
+    data: { url: data.url || "/mi" },
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || "/mi";
+
+  event.waitUntil(
+    (async () => {
+      const allClients = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+
+      // Enfocar una ventana ya abierta de la app y navegarla al destino.
+      for (const client of allClients) {
+        if ("focus" in client) {
+          await client.focus();
+          if ("navigate" in client) {
+            try {
+              await client.navigate(targetUrl);
+            } catch {
+              /* algunos navegadores no permiten navigate cross-scope; se ignora */
+            }
+          }
+          return;
+        }
+      }
+
+      // Si no hay ventana abierta, abrir una nueva.
+      if (self.clients.openWindow) await self.clients.openWindow(targetUrl);
+    })()
+  );
 });
 
 self.addEventListener("fetch", (event) => {

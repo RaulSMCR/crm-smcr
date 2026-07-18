@@ -108,6 +108,14 @@ export async function sendAppointmentNotifications(appointment, reason, paymentI
       `;
     }
 
+    // Puente a la PWA: link al espacio del paciente (/mi) en sus emails.
+    patientHtml += `
+      <p style="margin:20px 0 0;font-size:14px;color:#374151;">
+        Seguí tu cita, pagos y recordatorios en tu espacio:
+        <a href="${APP_DOMAIN}/mi" style="color:#2b7073;font-weight:700;text-decoration:none;">Ingresá a tu espacio →</a>
+      </p>
+    `;
+
     deliveries.push(
       resend.emails.send({
         from: FROM_EMAIL,

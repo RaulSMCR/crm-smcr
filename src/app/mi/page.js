@@ -7,6 +7,7 @@ import { getSession } from "@/lib/auth";
 import { formatDateTimeInTZ } from "@/lib/timezone";
 import { getFraseDelDia } from "@/lib/mi/frases";
 import { Card, Pill } from "@/components/mi/ui";
+import LogoutButton from "@/components/LogoutButton";
 
 export const dynamic = "force-dynamic";
 
@@ -165,11 +166,17 @@ export default async function MiInicioPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold text-brand-800">
-          Hola{primerNombre ? `, ${primerNombre}` : ""}
-        </h1>
-        <p className="mt-1 text-sm text-neutral-600">Este es tu espacio de bienestar.</p>
+      <header className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-brand-800">
+            Hola{primerNombre ? `, ${primerNombre}` : ""}
+          </h1>
+          <p className="mt-1 text-sm text-neutral-600">Este es tu espacio de bienestar.</p>
+        </div>
+        {/* Único punto de logout dentro de /mi: el header/footer del sitio está
+            oculto acá (ver layout de /mi), así que sin esto no habría forma de
+            cerrar sesión desde la PWA. */}
+        <LogoutButton />
       </header>
 
       {pagoPendiente ? <PagoPendienteBanner /> : null}

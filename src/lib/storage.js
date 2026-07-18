@@ -1,4 +1,15 @@
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { SUPPORTED_PUBLIC_IMAGE_TYPES } from "@/lib/images";
+
+export const PUBLIC_IMAGE_MIME_TYPES = SUPPORTED_PUBLIC_IMAGE_TYPES;
+
+export const IMAGE_EXTENSION_BY_MIME_TYPE = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "image/avif": "avif",
+};
 
 // Las columnas de documentos privados guardan `bucket/path`, nunca una URL pública.
 export function storageReference(bucket, path) {
@@ -35,19 +46,110 @@ export async function getSignedUrl(bucket, path, expiresInSeconds = 900) {
   return data.signedUrl;
 }
 
-export function validateFileSignature(buffer, allowedTypes) {
+export function detectFileMimeType(buffer) {
   const bytes = Buffer.from(buffer || []);
-  const types = new Set(allowedTypes || []);
   const isPdf = bytes.subarray(0, 4).toString("ascii") === "%PDF";
   const isJpeg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
   const isPng = bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
   const isWebp = bytes.subarray(0, 4).toString("ascii") === "RIFF" && bytes.subarray(8, 12).toString("ascii") === "WEBP";
+  const gifHeader = bytes.subarray(0, 6).toString("ascii");
+  const isGif = gifHeader === "GIF87a" || gifHeader === "GIF89a";
+  const brand = bytes.subarray(8, 12).toString("ascii");
+  const isAvif = bytes.subarray(4, 8).toString("ascii") === "ftyp" && (brand === "avif" || brand === "avis");
   const isLegacyWord = bytes.subarray(0, 8).equals(Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]));
   const isOpenXml = bytes.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]));
-  return (isPdf && types.has("application/pdf")) ||
-    (isJpeg && types.has("image/jpeg")) ||
-    (isPng && types.has("image/png")) ||
-    (isWebp && types.has("image/webp")) ||
-    (isLegacyWord && types.has("application/msword")) ||
-    (isOpenXml && types.has("application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
+
+  if (isPdf) return "application/pdf";
+  if (isJpeg) return "image/jpeg";
+  if (isPng) return "image/png";
+  if (isWebp) return "image/webp";
+  if (isGif) return "image/gif";
+  if (isAvif) return "image/avif";
+  if (isLegacyWord) return "application/msword";
+  if (isOpenXml) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  return "";
+}
+
+export function validateFileSignature(buffer, allowedTypes) {
+  const types = new Set(allowedTypes || []);
+  return types.has(detectFileMimeType(buffer));
+}
+
+function normalizeDeclaredMimeType(value) {
+  const type = String(value || "").toLowerCase().trim();
+  if (type === "image/jpg" || type === "image/pjpeg") return "image/jpeg";
+  if (type === "image/x-png") return "image/png";
+  return type;
+}
+
+export function validatePublicImageUpload(buffer, declaredType = "") {
+  const allowed = new Set(PUBLIC_IMAGE_MIME_TYPES);
+  const detectedType = detectFileMimeType(buffer);
+  const cleanDeclaredType = normalizeDeclaredMimeType(declaredType);
+
+  if (!allowed.has(detectedType)) {
+    return {
+      ok: false,
+      error: "Formato no soportado. Usa JPG, PNG, WEBP, GIF o AVIF.",
+    };
+  }
+
+  if (cleanDeclaredType && cleanDeclaredType !== detectedType) {
+    return {
+      ok: false,
+      error: "El contenido no coincide con el tipo de imagen indicado.",
+    };
+  }
+
+  return {
+    ok: true,
+    contentType: detectedType,
+    extension: IMAGE_EXTENSION_BY_MIME_TYPE[detectedType] || "jpg",
+  };
+}
+
+function isBucketNotFound(error) {
+  return String(error?.message || "").toLowerCase().includes("bucket not found");
+}
+
+export async function uploadPublicImage(bucket, path, buffer, {
+  contentType,
+  upsert = true,
+  cacheControl = "3600",
+  fileSizeLimit,
+  allowedMimeTypes = PUBLIC_IMAGE_MIME_TYPES,
+} = {}) {
+  const supabaseAdmin = getSupabaseAdmin();
+  const uploadOptions = { upsert, contentType, cacheControl };
+  let { error } = await supabaseAdmin.storage.from(bucket).upload(path, buffer, uploadOptions);
+
+  if (isBucketNotFound(error)) {
+    const { error: bucketError } = await supabaseAdmin.storage.createBucket(bucket, {
+      public: true,
+      ...(fileSizeLimit ? { fileSizeLimit } : {}),
+      allowedMimeTypes,
+    });
+
+    if (bucketError && !String(bucketError.message || "").toLowerCase().includes("already exists")) {
+      throw bucketError;
+    }
+
+    const retry = await supabaseAdmin.storage.from(bucket).upload(path, buffer, uploadOptions);
+    error = retry.error;
+  }
+
+  if (error) throw error;
+
+  const { data } = supabaseAdmin.storage.from(bucket).getPublicUrl(path);
+  return data.publicUrl;
+}
+
+export function withImageCacheBust(url, version = Date.now()) {
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.set("v", String(version));
+    return parsed.toString();
+  } catch {
+    return url;
+  }
 }

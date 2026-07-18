@@ -164,6 +164,7 @@ model User {
   paymentTransactions PaymentTransaction[]
   insuranceClaims     InsuranceClaim[]     @relation("PatientInsuranceClaims")
   leads               Lead[]
+  pushSubscriptions   PushSubscription[]
 
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
@@ -828,4 +829,16 @@ model ChannelSpend {
 
   @@unique([source, month])
   @@index([month])
+}
+
+// Suscripciones Web Push de la PWA de pacientes (una por navegador/dispositivo).
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
 }

@@ -11,6 +11,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { formatRelative } from "@/components/mi/ui";
+import SafeImage from "@/components/SafeImage";
+import { IMAGE_FALLBACKS } from "@/lib/images";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Biblioteca" };
@@ -32,8 +34,7 @@ function PostCard({ post, caption }) {
       className="block overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm transition-colors hover:bg-neutral-50"
     >
       {post.coverImage ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={post.coverImage} alt="" className="h-40 w-full object-cover" />
+        <SafeImage src={post.coverImage} alt="" fallbackSrc={IMAGE_FALLBACKS.article} className="h-40 w-full object-cover" />
       ) : (
         <div className="h-40 w-full bg-brand-100" />
       )}

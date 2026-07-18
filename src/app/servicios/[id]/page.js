@@ -6,6 +6,8 @@ import ViewTracker from "@/components/tracking/ViewTracker";
 import JsonLd from "@/components/JsonLd";
 import { siteUrl } from "@/lib/site-url";
 import { resolveSeo, buildMetadata } from "@/lib/seo";
+import SafeImage, { SafeAvatar } from "@/components/SafeImage";
+import { IMAGE_FALLBACKS } from "@/lib/images";
 
 export const revalidate = 3600;
 
@@ -153,9 +155,10 @@ export default async function ServiceDetailPage({ params }) {
       <div className="group overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
         <div className="relative h-72 bg-slate-200 md:h-80">
           {service.bannerImage ? (
-            <img
+            <SafeImage
               src={service.bannerImage}
               alt={service.title}
+              fallbackSrc={IMAGE_FALLBACKS.service}
               className="h-full w-full object-cover transition-transform duration-500"
               style={{
                 objectPosition: `${service.bannerFocusX ?? 50}% ${service.bannerFocusY ?? 50}%`,
@@ -212,9 +215,9 @@ export default async function ServiceDetailPage({ params }) {
                   className="inline-flex items-center gap-3 rounded-lg p-1 transition hover:bg-brand-50"
                 >
                   {professional.user?.image ? (
-                    <img
+                    <SafeAvatar
                       src={professional.user.image}
-                      alt={professional.user?.name || "Profesional"}
+                      name={professional.user?.name || "Profesional"}
                       className="h-12 w-12 rounded-full object-cover"
                     />
                   ) : (

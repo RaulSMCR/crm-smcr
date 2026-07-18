@@ -5,6 +5,7 @@ import ViewTracker from "@/components/tracking/ViewTracker";
 import { prisma } from "@/lib/prisma";
 import { siteUrl } from "@/lib/site-url";
 import { resolveSeo, buildMetadata } from "@/lib/seo";
+import { SafeAvatar } from "@/components/SafeImage";
 
 export const revalidate = 3600;
 
@@ -136,7 +137,7 @@ export default async function ProfessionalPublicProfilePage({ params, searchPara
           <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
             <div className="mx-auto h-44 w-44 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
               {professional.user?.image ? (
-                <img src={professional.user.image} alt={name} className="h-full w-full object-cover" />
+                <SafeAvatar src={professional.user.image} name={name} className="h-full w-full object-cover" />
               ) : (
                 <div className="grid h-full w-full place-items-center text-5xl font-bold text-slate-500">
                   {name.charAt(0)}

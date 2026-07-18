@@ -1,45 +1,42 @@
 // src/components/ServiceCard.js
-import Image from 'next/image';
-import Link from 'next/link';
+import Link from "next/link";
+import SafeImage from "@/components/SafeImage";
+import { IMAGE_FALLBACKS } from "@/lib/images";
 
 export default function ServiceCard({ service }) {
   const {
-    id,
     slug,
     title,
     description,
     price,
-    imageUrl = 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=1600&q=80&auto=format&fit=crop',
+    imageUrl = IMAGE_FALLBACKS.service,
     professionalName,
   } = service || {};
 
   return (
-    <article className="rounded-2xl overflow-hidden border bg-neutral-250 hover:shadow-lg transition-shadow">
+    <article className="overflow-hidden rounded-2xl border bg-neutral-250 transition-shadow hover:shadow-lg">
       <div className="relative aspect-[16/9]">
-        <Image
+        <SafeImage
           src={imageUrl}
-          alt={title || 'Servicio'}
-          fill
-          sizes="(max-width: 768px) 100vw, 33vw"
-          className="object-cover"
+          alt={title || "Servicio"}
+          fallbackSrc={IMAGE_FALLBACKS.service}
+          className="absolute inset-0 h-full w-full object-cover"
         />
       </div>
 
       <div className="p-4">
         <h3 className="text-lg font-semibold">{title}</h3>
-        {professionalName ? (
-          <p className="text-sm text-brand-600">por {professionalName}</p>
-        ) : null}
-        {description ? (
-          <p className="mt-2 text-sm text-brand-600 line-clamp-2">{description}</p>
-        ) : null}
+        {professionalName ? <p className="text-sm text-brand-600">por {professionalName}</p> : null}
+        {description ? <p className="mt-2 line-clamp-2 text-sm text-brand-600">{description}</p> : null}
 
         <div className="mt-3 flex items-center justify-between">
-          {typeof price === 'number' ? (
+          {typeof price === "number" ? (
             <span className="text-base font-semibold">${price.toFixed(2)}</span>
-          ) : <span />}
+          ) : (
+            <span />
+          )}
           <Link
-            href={slug ? `/servicios/${encodeURIComponent(slug)}` : '#'}
+            href={slug ? `/servicios/${encodeURIComponent(slug)}` : "#"}
             className="text-sm text-brand-600 hover:underline"
           >
             Ver detalle

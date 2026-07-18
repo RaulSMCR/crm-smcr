@@ -7,6 +7,7 @@ import { createAppointmentForPatient } from "@/actions/patient-booking-actions";
 import { buildSlots } from "@/lib/appointment-slots";
 import { RECURRENCE_RULES } from "@/lib/appointment-recurrence";
 import RecurrenceFields from "@/components/appointments/RecurrenceFields";
+import { SafeAvatar } from "@/components/SafeImage";
 
 export default function ProfessionalCalendarBooking({
   serviceId,
@@ -62,8 +63,7 @@ export default function ProfessionalCalendarBooking({
           >
             <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-50">
               {professionalImage ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={professionalImage} alt={professionalName} className="h-full w-full object-cover" />
+                <SafeAvatar src={professionalImage} name={professionalName} className="h-full w-full object-cover" />
               ) : (
                 <span className="font-semibold text-slate-700">{professionalName?.charAt(0)}</span>
               )}

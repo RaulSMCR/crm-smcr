@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getSession } from "@/lib/auth";
-import { validateFileSignature } from "@/lib/storage";
+import {
+  PUBLIC_IMAGE_MIME_TYPES,
+  uploadPublicImage,
+  validatePublicImageUpload,
+  withImageCacheBust,
+} from "@/lib/storage";
+
+const MAX_BYTES = 5 * 1024 * 1024;
 
 export async function POST(request) {
   try {
@@ -22,33 +28,30 @@ export async function POST(request) {
       return NextResponse.json({ error: "Falta la referencia del servicio." }, { status: 400 });
     }
 
-    if (!file.type.startsWith("image/")) {
-      return NextResponse.json({ error: "El archivo debe ser una imagen." }, { status: 400 });
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > MAX_BYTES) {
       return NextResponse.json({ error: "La imagen no puede pesar mas de 5 MB." }, { status: 400 });
     }
 
-    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
     const safeKey = serviceKey.replace(/[^a-zA-Z0-9-_]/g, "");
-    const path = `${safeKey}/banner.${ext}`;
-    const buffer = Buffer.from(await file.arrayBuffer());
-    if (!validateFileSignature(buffer, ["image/jpeg", "image/png", "image/webp"])) {
-      return NextResponse.json({ error: "El contenido no coincide con una imagen válida." }, { status: 400 });
+    if (!safeKey) {
+      return NextResponse.json({ error: "La referencia del servicio no es valida." }, { status: 400 });
     }
-    const supabaseAdmin = getSupabaseAdmin();
 
-    const { error: uploadError } = await supabaseAdmin.storage.from("service-banners").upload(path, buffer, {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const validation = validatePublicImageUpload(buffer, file.type);
+    if (!validation.ok) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
+    }
+
+    const path = `${safeKey}/banner.${validation.extension}`;
+    const publicUrl = await uploadPublicImage("service-banners", path, buffer, {
       upsert: true,
-      contentType: file.type,
-      cacheControl: "3600",
+      contentType: validation.contentType,
+      fileSizeLimit: MAX_BYTES,
+      allowedMimeTypes: PUBLIC_IMAGE_MIME_TYPES,
     });
 
-    if (uploadError) throw uploadError;
-
-    const { data } = supabaseAdmin.storage.from("service-banners").getPublicUrl(path);
-    return NextResponse.json({ url: data.publicUrl });
+    return NextResponse.json({ url: withImageCacheBust(publicUrl) });
   } catch (error) {
     console.error("Error subiendo banner de servicio:", error);
     return NextResponse.json({ error: error.message || "Error inesperado." }, { status: 500 });

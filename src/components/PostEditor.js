@@ -2,8 +2,11 @@
 
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import SafeImage from "@/components/SafeImage";
+import { IMAGE_FALLBACKS, PUBLIC_IMAGE_ACCEPT, SUPPORTED_PUBLIC_IMAGE_TYPES } from "@/lib/images";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const IMAGE_FORMAT_ERROR = "Formato no soportado. Usa JPG, PNG, WEBP, GIF o AVIF.";
 
 function slugify(text) {
   return String(text)
@@ -51,8 +54,8 @@ export default function PostEditor({ initial = null }) {
   async function uploadCoverImage(file) {
     setError(null);
 
-    if (!file.type?.startsWith("image/")) {
-      setError("El archivo debe ser una imagen.");
+    if (file.type && !SUPPORTED_PUBLIC_IMAGE_TYPES.includes(file.type)) {
+      setError(IMAGE_FORMAT_ERROR);
       return;
     }
 
@@ -240,8 +243,7 @@ export default function PostEditor({ initial = null }) {
         >
           {previewUrl ? (
             <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={previewUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+              <SafeImage src={previewUrl} alt="" fallbackSrc={IMAGE_FALLBACKS.article} className="absolute inset-0 h-full w-full object-cover" />
               <div className="absolute inset-0 bg-slate-950/35" />
               <div className="relative z-10 rounded bg-white/95 px-4 py-3 text-center shadow-sm">
                 <div className="text-sm font-semibold text-slate-900">
@@ -256,7 +258,7 @@ export default function PostEditor({ initial = null }) {
               <div className="mt-3 text-sm font-semibold text-slate-800">
                 Suelta la imagen aqui
               </div>
-              <div className="mt-1 text-xs text-slate-500">PNG, JPG, WEBP o GIF hasta 5 MB</div>
+              <div className="mt-1 text-xs text-slate-500">JPG, PNG, WEBP, GIF o AVIF hasta 5 MB</div>
             </div>
           )}
         </button>
@@ -264,7 +266,7 @@ export default function PostEditor({ initial = null }) {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept={PUBLIC_IMAGE_ACCEPT}
           className="hidden"
           onChange={(event) => handleFiles(event.target.files)}
           disabled={isWorking}

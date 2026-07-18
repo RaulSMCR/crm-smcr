@@ -4,6 +4,7 @@
 // Paleta: brand (teal) / accent (coral) / neutral — los semánticos success/
 // warning/danger no están definidos en CSS (ver globals.css).
 import { DEFAULT_TZ } from "@/lib/timezone";
+import { normalizeImageSrc } from "@/lib/images";
 
 // ── Formateadores ────────────────────────────────────────────────────────────
 export function formatDateTime(iso) {
@@ -124,9 +125,10 @@ export function Avatar({ src, name }) {
     .map((w) => w[0])
     .join("")
     .toUpperCase();
-  if (src) {
+  const safeSrc = normalizeImageSrc(src);
+  if (safeSrc) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={src} alt={name || ""} className="h-11 w-11 rounded-full object-cover" />;
+    return <img src={safeSrc} alt={name || ""} className="h-11 w-11 rounded-full object-cover" />;
   }
   return (
     <div className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-700">

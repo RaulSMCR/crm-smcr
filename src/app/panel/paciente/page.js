@@ -4,6 +4,7 @@ import { getSession } from "@/actions/auth-actions";
 import PatientProfileEditorCard from "@/components/paciente/PatientProfileEditorCard";
 import InsurancePatientUploader from "@/components/paciente/InsurancePatientUploader";
 import UserAppointmentsPanel from "@/components/UserAppointmentsPanel";
+import InstallPrompt from "@/components/mi/InstallPrompt";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -105,9 +106,13 @@ export default async function PacientePanelPage({ searchParams }) {
       ) : null}
 
       {created ? (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-          Cita creada con éxito. El proceso de atención continúa.
-        </div>
+        <>
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+            Cita creada con éxito. El proceso de atención continúa.
+          </div>
+          {/* Nudge de instalación tras reservar (RIESGOS-8 / v1 PWA). */}
+          <InstallPrompt variant="booking" />
+        </>
       ) : null}
 
       <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">

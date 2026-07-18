@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { appointmentSelect, UPCOMING_STATUSES } from "@/lib/mi/serializers";
 import AgendaList from "@/components/mi/AgendaList";
+import PushOptIn from "@/components/mi/PushOptIn";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Agenda" };
@@ -35,5 +36,10 @@ export default async function MiAgendaPage() {
 
   const anteriores = appointments.filter((a) => !esFutura(a)).slice(0, ANTERIORES_LIMIT);
 
-  return <AgendaList futuras={futuras} anteriores={anteriores} />;
+  return (
+    <>
+      <PushOptIn />
+      <AgendaList futuras={futuras} anteriores={anteriores} />
+    </>
+  );
 }

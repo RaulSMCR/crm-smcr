@@ -1,12 +1,13 @@
 // src/app/blog/[slug]/page.js
 import { prisma } from '@/lib/prisma';
 import { notFound } from 'next/navigation';
-import Image from 'next/image';
 import Link from 'next/link';
 import PostMarketingTracker from '@/components/blog/PostMarketingTracker';
 import JsonLd from '@/components/JsonLd';
 import { siteUrl } from "@/lib/site-url";
 import { resolveSeo, buildMetadata } from "@/lib/seo";
+import SafeImage, { SafeAvatar } from "@/components/SafeImage";
+import { IMAGE_FALLBACKS } from "@/lib/images";
 
 // Helper para fecha
 const formatDate = (date) => {
@@ -118,16 +119,15 @@ export default async function BlogPostPage({ params }) {
       {/* Hero / Cabecera */}
       <header className="relative flex h-[400px] w-full items-center justify-center overflow-hidden bg-gray-900">
         {post.coverImage ? (
-          <Image
+          <SafeImage
             src={post.coverImage}
             alt={post.coverImageTitle || post.title}
-            fill
-            className="object-cover"
+            fallbackSrc={IMAGE_FALLBACKS.article}
+            className="absolute inset-0 h-full w-full object-cover"
             style={{
               objectPosition: `${post.coverImageFocusX ?? 50}% ${post.coverImageFocusY ?? 50}%`,
               transform: `scale(${(post.coverImageScale ?? 100) / 100})`,
             }}
-            priority
           />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-r from-blue-900 to-gray-900 opacity-90" />
@@ -166,7 +166,7 @@ export default async function BlogPostPage({ params }) {
         <div className="flex items-center gap-4 p-6 bg-gray-50 rounded-xl border border-gray-100 mb-10">
           <div className="w-16 h-16 rounded-full bg-white border-2 border-white shadow-sm overflow-hidden flex-shrink-0">
             {authorUser.image ? (
-              <img src={authorUser.image} alt={authorUser.name} className="w-full h-full object-cover" />
+              <SafeAvatar src={authorUser.image} name={authorUser.name} className="h-full w-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-500 font-bold text-xl">
                 {authorUser.name.charAt(0)}

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { SafeAvatar } from "@/components/SafeImage";
 
 export default function ProfessionalProfileCard({ professional }) {
   const publicHref = professional.slug ? `/profesionales/${professional.slug}` : `/agendar/${professional.id}`;
@@ -15,10 +16,9 @@ export default function ProfessionalProfileCard({ professional }) {
           aria-label={`Ver perfil de ${professional.user.name}`}
         >
           {professional.user.image ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <SafeAvatar
               src={professional.user.image}
-              alt={professional.user.name}
+              name={professional.user.name}
               className="h-full w-full object-cover"
             />
           ) : (

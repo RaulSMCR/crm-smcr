@@ -1,4 +1,6 @@
 import Link from "next/link";
+import SafeImage from "@/components/SafeImage";
+import { IMAGE_FALLBACKS } from "@/lib/images";
 
 export default function CategorySection({ categories, title }) {
   if (!categories || categories.length === 0) {
@@ -25,9 +27,10 @@ export default function CategorySection({ categories, title }) {
             >
               <div className="relative h-48 overflow-hidden bg-neutral-200">
                 {category.imageUrl ? (
-                  <img
+                  <SafeImage
                     src={category.imageUrl}
                     alt={category.name}
+                    fallbackSrc={IMAGE_FALLBACKS.service}
                     className="h-full w-full object-cover transition-transform duration-500"
                     style={{
                       objectPosition: category.imagePosition || "50% 50%",
