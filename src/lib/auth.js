@@ -140,6 +140,47 @@ export const getSession = cache(async () => {
   }
 });
 
+/**
+ * Sesión LIVIANA para UI (header): lee la cookie y verifica el JWT, **sin tocar
+ * la base de datos**. No hace la revalidación de revocación (`sessionVersion` /
+ * `isActive`) — eso lo siguen haciendo `getSession()` y las rutas protegidas.
+ *
+ * Se usa solo para decidir qué mostrar en el header de forma rápida y fiable:
+ * `getSession()` hace un query que puede tardar varios segundos, y basar el
+ * header en eso lo deja lento y, tras un login, desactualizado. El peor caso de
+ * usar el JWT sin verificar contra la BD es cosmético: una sesión revocada
+ * mostraría "Mi perfil" hasta que el usuario navegue a una ruta protegida, que
+ * sí corre `getSession()` y lo redirige al login.
+ */
+export async function getSessionLite() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("session")?.value;
+  if (!token) return null;
+
+  try {
+    const session = await verifyToken(token);
+    const userId = String(session.sub || session.userId || "");
+    if (!userId) return null;
+
+    // Modo admin «ver como» (JWT-only, sin DB).
+    const viewToken = cookieStore.get("admin_view")?.value;
+    if (session.role === "ADMIN" && viewToken) {
+      try {
+        const view = await verifyAdminViewToken(viewToken);
+        if (view?.sub === userId) {
+          return { ...session, role: view.role, actualRole: "ADMIN", isPreview: true };
+        }
+      } catch {
+        // cookie de vista inválida: se ignora
+      }
+    }
+
+    return { ...session, actualRole: session.role, isPreview: false };
+  } catch {
+    return null;
+  }
+}
+
 export function setSessionCookie(response, token) {
   response.cookies.set({
     name: "session",

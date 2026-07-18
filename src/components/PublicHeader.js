@@ -3,41 +3,40 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import LogoutButton from "@/components/LogoutButton";
 
 export default function PublicHeader() {
   const router = useRouter();
+  const pathname = usePathname();
   const [session, setSession] = useState(null);
   const [sessionChecked, setSessionChecked] = useState(false);
 
+  // Revalida en cada cambio de ruta (dependencia `pathname`): sin esto, el header
+  // se queda con el estado del montaje inicial y muestra "Ingresar" incluso
+  // después de loguearse. Usa /api/auth/session (verifica el JWT SIN tocar la DB)
+  // en vez de /api/auth/me (que corre getSession() y tarda segundos).
   useEffect(() => {
     let cancelled = false;
-    async function loadSession(attempt = 0) {
+    (async () => {
       try {
-        const response = await fetch("/api/auth/me", { credentials: "same-origin", cache: "no-store" });
+        const response = await fetch("/api/auth/session", { credentials: "same-origin", cache: "no-store" });
         const data = response.ok ? await response.json() : null;
         if (!cancelled) setSession(data?.ok ? data : null);
       } catch {
-        if (attempt < 1) {
-          window.setTimeout(() => loadSession(attempt + 1), 500);
-          return;
-        }
         if (!cancelled) setSession(null);
       } finally {
-        if (!cancelled && attempt > 0) setSessionChecked(true);
+        if (!cancelled) setSessionChecked(true);
       }
-      if (!cancelled && attempt === 0) setSessionChecked(true);
-    }
-    loadSession();
+    })();
     return () => { cancelled = true; };
-  }, []);
+  }, [pathname]);
 
   const dashboard = session?.role === "ADMIN"
     ? "/panel/admin"
     : session?.role === "PROFESSIONAL"
       ? "/panel/profesional"
-      : "/panel/paciente";
+      : "/mi";
 
   async function changeView(role) {
     const response = await fetch("/api/auth/view-as", {

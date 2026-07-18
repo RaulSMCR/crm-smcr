@@ -173,10 +173,18 @@ export default async function MiInicioPage() {
           </h1>
           <p className="mt-1 text-sm text-neutral-600">Este es tu espacio de bienestar.</p>
         </div>
-        {/* Único punto de logout dentro de /mi: el header/footer del sitio está
-            oculto acá (ver layout de /mi), así que sin esto no habría forma de
-            cerrar sesión desde la PWA. */}
-        <LogoutButton />
+        {/* Acciones de cuenta dentro de /mi: el header/footer del sitio está
+            oculto acá (ver layout de /mi). "Editar perfil" lleva al panel clásico
+            (perfil, seguro); LogoutButton es el único punto de logout de la PWA. */}
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <Link
+            href="/panel/paciente"
+            className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-100"
+          >
+            Editar perfil
+          </Link>
+          <LogoutButton />
+        </div>
       </header>
 
       {pagoPendiente ? <PagoPendienteBanner /> : null}

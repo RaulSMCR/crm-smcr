@@ -12,6 +12,11 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
+      // La limpieza va en onClick (no en onSubmit del form) para no interferir
+      // con el server action `logout`. El click dispara la limpieza best-effort
+      // ANTES de que logout borre la cookie (así el DELETE de la suscripción va
+      // autenticado); luego el form envía el server action normalmente.
+      onClick={() => cleanupPushAndServiceWorker()}
       className="text-red-600 font-bold hover:text-red-800 text-sm border border-red-200 bg-white px-4 py-2 rounded-lg hover:bg-red-50 transition-colors flex items-center gap-2 disabled:opacity-50"
     >
       {pending ? "Saliendo..." : "🚪 Cerrar Sesión"}
@@ -21,14 +26,7 @@ function SubmitButton() {
 
 export default function LogoutButton() {
   return (
-    <form
-      action={logout}
-      onSubmit={() => {
-        // Best-effort, no bloquea ni pospone el submit (sin preventDefault):
-        // no-op fuera de /mi (ver cleanupPushAndServiceWorker).
-        cleanupPushAndServiceWorker();
-      }}
-    >
+    <form action={logout}>
       <SubmitButton />
     </form>
   );

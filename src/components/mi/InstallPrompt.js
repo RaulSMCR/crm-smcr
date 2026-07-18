@@ -14,7 +14,6 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 
 const DISMISS_KEY = "mi_install_dismissed_at";
-const VISITS_KEY = "mi_visits";
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 function isStandalone() {
@@ -67,29 +66,35 @@ export default function InstallPrompt({ variant = "mi" }) {
   useEffect(() => {
     if (typeof window === "undefined" || isStandalone()) return undefined;
 
+    // Puede haberse capturado antes de montar (ver ServiceWorkerRegister).
+    if (window.__miDeferredInstallPrompt) setDeferred(window.__miDeferredInstallPrompt);
+
     const onBeforeInstall = (event) => {
       event.preventDefault();
+      window.__miDeferredInstallPrompt = event;
       setDeferred(event);
     };
+    const onReady = () => {
+      if (window.__miDeferredInstallPrompt) setDeferred(window.__miDeferredInstallPrompt);
+    };
     const onInstalled = () => {
+      window.__miDeferredInstallPrompt = null;
       localStorage.setItem(DISMISS_KEY, String(Date.now()));
       setEligible(false);
     };
     window.addEventListener("beforeinstallprompt", onBeforeInstall);
+    window.addEventListener("mi:installprompt-ready", onReady);
     window.addEventListener("appinstalled", onInstalled);
 
     setIos(isIOSDevice());
 
-    let ok = !dismissedRecently();
-    if (variant === "mi") {
-      const visits = Number(localStorage.getItem(VISITS_KEY) || 0) + 1;
-      localStorage.setItem(VISITS_KEY, String(visits));
-      ok = ok && visits >= 2;
-    }
-    setEligible(ok);
+    // Se ofrece desde la 1ª visita (el paciente pidió que se ofrezca), pero sigue
+    // siendo dismissible: tras cerrarlo no reaparece por 7 días.
+    setEligible(!dismissedRecently());
 
     return () => {
       window.removeEventListener("beforeinstallprompt", onBeforeInstall);
+      window.removeEventListener("mi:installprompt-ready", onReady);
       window.removeEventListener("appinstalled", onInstalled);
     };
   }, [variant]);
@@ -107,6 +112,7 @@ export default function InstallPrompt({ variant = "mi" }) {
     } catch {
       /* el usuario canceló */
     }
+    window.__miDeferredInstallPrompt = null;
     setDeferred(null);
     setEligible(false);
   }
