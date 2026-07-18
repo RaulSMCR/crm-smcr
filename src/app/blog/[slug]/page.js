@@ -7,7 +7,6 @@ import JsonLd from '@/components/JsonLd';
 import { siteUrl } from "@/lib/site-url";
 import { resolveSeo, buildMetadata } from "@/lib/seo";
 import SafeImage, { SafeAvatar } from "@/components/SafeImage";
-import { IMAGE_FALLBACKS } from "@/lib/images";
 
 // Helper para fecha
 const formatDate = (date) => {
@@ -122,7 +121,7 @@ export default async function BlogPostPage({ params }) {
           <SafeImage
             src={post.coverImage}
             alt={post.coverImageTitle || post.title}
-            fallbackSrc={IMAGE_FALLBACKS.article}
+            fallbackSrc=""
             className="absolute inset-0 h-full w-full object-cover"
             style={{
               objectPosition: `${post.coverImageFocusX ?? 50}% ${post.coverImageFocusY ?? 50}%`,

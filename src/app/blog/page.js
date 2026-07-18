@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { siteUrl } from "@/lib/site-url";
 import SafeImage, { SafeAvatar } from "@/components/SafeImage";
-import { IMAGE_FALLBACKS } from "@/lib/images";
 
 export const metadata = {
   title: 'Blog de salud mental y bienestar',
@@ -101,7 +100,7 @@ export default async function BlogPage({ searchParams }) {
                   <SafeImage
                     src={p.coverImage}
                     alt={`Portada: ${p.title}`}
-                    fallbackSrc={IMAGE_FALLBACKS.article}
+                    fallbackSrc=""
                     className="absolute inset-0 h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
                     style={{
                       objectPosition: `${p.coverImageFocusX ?? 50}% ${p.coverImageFocusY ?? 50}%`,

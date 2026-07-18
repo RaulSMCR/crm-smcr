@@ -1,7 +1,6 @@
 // src/components/BlogPostCard.js
 import Link from "next/link";
 import SafeImage from "@/components/SafeImage";
-import { IMAGE_FALLBACKS } from "@/lib/images";
 
 export default function BlogPostCard({ post }) {
   const {
@@ -14,7 +13,7 @@ export default function BlogPostCard({ post }) {
     author,
   } = post || {};
 
-  const cover = imageUrl || IMAGE_FALLBACKS.article;
+  const cover = imageUrl || "";
 
   return (
     <article className="overflow-hidden rounded-2xl border bg-white transition-shadow hover:shadow-lg">
@@ -22,7 +21,7 @@ export default function BlogPostCard({ post }) {
         <SafeImage
           src={cover}
           alt={title || "Articulo"}
-          fallbackSrc={IMAGE_FALLBACKS.article}
+          fallbackSrc=""
           className="absolute inset-0 h-full w-full object-cover"
         />
       </div>
