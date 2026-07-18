@@ -57,7 +57,7 @@ function HeroPanel() {
 
         <div>
           <p className={`${playfair.className} mb-3 text-base italic text-neutral-300 md:text-lg`}>
-            Tu bienestar comienza con un paso
+            El bienestar empieza por buscarlo
           </p>
           <h2 className={`${playfair.className} text-2xl font-bold text-white md:text-3xl`}>
             Registro de paciente
@@ -160,7 +160,7 @@ export default function RegistroUsuarioPage() {
       {/* Formulario */}
       <div className="flex-1 bg-surface px-6 py-12 md:px-12 md:py-14">
         <div className="mx-auto max-w-xl">
-          <h1 className="mb-1 text-2xl font-bold text-neutral-950">Crea tu cuenta</h1>
+          <h1 className="mb-1 text-2xl font-bold text-neutral-950">Aquí empieza tu camino</h1>
           <p className="mb-8 text-sm text-neutral-600">
             Completa los datos para acceder a la red de profesionales SMCR.
           </p>
@@ -279,7 +279,7 @@ export default function RegistroUsuarioPage() {
               disabled={loading || !isPasswordValid || (CAPTCHA_ENABLED && !captchaToken)}
               className="w-full rounded-xl bg-brand-600 px-6 py-3.5 font-bold text-white transition-colors hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {loading ? "Procesando…" : "Crear cuenta y avanzar"}
+              {loading ? "Avanzando…" : "¿Estás listo?"}
             </button>
           </form>
 

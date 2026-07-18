@@ -22,7 +22,7 @@ function SubmitButton({ variant }) {
         ? "inline-flex min-h-9 items-center justify-center rounded-lg border border-accent-300 bg-accent-50 px-3 py-2 text-xs font-semibold text-accent-950 transition-colors hover:bg-accent-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 disabled:opacity-50 sm:text-sm"
         : "flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-bold text-red-600 transition-colors hover:bg-red-50 hover:text-red-800 disabled:opacity-50"}
     >
-      {pending ? "Saliendo..." : isHeader ? "Cerrar sesión" : "🚪 Cerrar Sesión"}
+      {pending ? "Saliendo..." : isHeader ? "Listo por hoy" : "🚪 Listo por hoy"}
     </button>
   );
 }

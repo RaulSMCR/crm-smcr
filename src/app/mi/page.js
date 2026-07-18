@@ -38,9 +38,9 @@ function ProximoTurno({ cita }) {
   if (!cita) {
     return (
       <Card className="text-center">
-        <p className="font-semibold text-neutral-800">No tenés citas programadas</p>
+        <p className="font-semibold text-neutral-800">No hay encuentros a la vista</p>
         <p className="mt-1 text-sm text-neutral-500">
-          Cuando agendes una consulta, la vas a ver acá.
+          ¿Cuál será tu próximo paso?
         </p>
         <Link
           href="/servicios"
@@ -169,9 +169,9 @@ export default async function MiInicioPage() {
       <header className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-brand-800">
-            Hola{primerNombre ? `, ${primerNombre}` : ""}
+            Te esperábamos{primerNombre ? `, ${primerNombre}` : ""}
           </h1>
-          <p className="mt-1 text-sm text-neutral-600">Este es tu espacio de bienestar.</p>
+          <p className="mt-1 text-sm text-neutral-600">Esta es la puerta a tu espacio de bienestar.</p>
         </div>
         {/* Acciones de cuenta dentro de /mi: el header/footer del sitio está
             oculto acá (ver layout de /mi). "Editar perfil" lleva al panel clásico
@@ -181,7 +181,7 @@ export default async function MiInicioPage() {
             href="/panel/paciente"
             className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-100"
           >
-            Editar perfil
+            Mi bitácora
           </Link>
           <LogoutButton />
         </div>
@@ -191,7 +191,7 @@ export default async function MiInicioPage() {
 
       <section>
         <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-neutral-500">
-          Tu próximo turno
+          Tu próximo encuentro
         </h2>
         <ProximoTurno cita={proximaCita} />
       </section>

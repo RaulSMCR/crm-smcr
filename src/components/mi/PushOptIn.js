@@ -90,7 +90,7 @@ export default function PushOptIn() {
   return (
     <div className="mb-4 rounded-2xl border border-brand-200 bg-brand-50 p-4">
       <p className="text-sm font-medium text-brand-900">
-        Activá las notificaciones para recibir recordatorios de tus citas.
+        Activá las notificaciones; te ayudaremos con recordatorios de tus citas.
       </p>
       {error ? <p className="mt-1 text-xs text-accent-700">{error}</p> : null}
       <button
@@ -99,7 +99,7 @@ export default function PushOptIn() {
         disabled={state === "working"}
         className="mt-3 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-500 disabled:opacity-60"
       >
-        {state === "working" ? "Activando…" : "Activar recordatorios"}
+        {state === "working" ? "Activando…" : "Acepto ayudarme con recordatorios"}
       </button>
     </div>
   );

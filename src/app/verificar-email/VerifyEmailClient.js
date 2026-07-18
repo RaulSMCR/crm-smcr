@@ -46,7 +46,7 @@ export default function VerifyEmailClient() {
         }
 
         setStatus("ok");
-        setMessage("Correo verificado con éxito. Ya puede ingresar.");
+        setMessage("Tu correo quedó confirmado. Comenzá tu camino.");
 
         setTimeout(() => {
           if (!cancelled) router.push("/ingresar");

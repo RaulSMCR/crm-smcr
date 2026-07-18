@@ -23,13 +23,15 @@ function safeNextPath(nextValue) {
 const PANELS = {
   patient: {
     image: "/images/paciente-hero.webp",
-    headline: "Soy paciente",
-    subline: "Accedo a mi espacio de bienestar",
-    narrativeNew: "Aquí comienza tu viaje",
-    narrativeReturn: "Continuás tu recorrido",
-    cta: "Ingresar",
+    headline: "Busco mi bienestar",
+    subline: "Continúo mi camino de bienestar",
+    narrativeNew: "Toda búsqueda empieza desde adentro",
+    narrativeReturn: "Retomá tu búsqueda",
+    cta: "Seguí la búsqueda",
+    ctaLoading: "Paciencia",
     registerHref: "/registro/usuario",
-    registerLabel: "Crear cuenta de paciente",
+    registerLead: "Da el primer paso,",
+    registerLabel: "registrate",
   },
   professional: {
     image: "/images/profesional-hero.webp",
@@ -38,7 +40,9 @@ const PANELS = {
     narrativeNew: "Elegiste bien tu camino",
     narrativeReturn: "Siempre es bueno ver a los compañeros de vuelta",
     cta: "Ingresar",
+    ctaLoading: "Validando…",
     registerHref: "/registro/profesional",
+    registerLead: "¿Sin cuenta?",
     registerLabel: "Postularme como profesional",
   },
 };
@@ -113,7 +117,7 @@ function PanelForm({ panelKey, onBack, registered }) {
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0">
           <path fillRule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z" clipRule="evenodd" />
         </svg>
-        Volver
+        Volver un paso
       </motion.button>
 
       {/* Titular */}
@@ -196,7 +200,7 @@ function PanelForm({ panelKey, onBack, registered }) {
           </div>
           <div className="mt-2 text-right">
             <Link href="/recuperar" className="text-xs text-neutral-400 underline underline-offset-2 hover:text-neutral-200 transition-colors">
-              ¿Olvidó su contraseña?
+              ¿Te ayudamos a recordar tu clave?
             </Link>
           </div>
         </div>
@@ -210,12 +214,12 @@ function PanelForm({ panelKey, onBack, registered }) {
           transition={{ type: "spring", stiffness: 400, damping: 20 }}
           className="mt-1 w-full rounded-xl bg-brand-600 px-6 py-3.5 font-bold text-white hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
         >
-          {loading ? "Validando…" : config.cta}
+          {loading ? config.ctaLoading : config.cta}
         </motion.button>
       </form>
 
       <div className="mt-6 border-t border-white/10 pt-5 text-center text-sm text-neutral-400">
-        ¿Sin cuenta?{" "}
+        {config.registerLead}{" "}
         <Link href={config.registerHref} className="font-medium text-brand-300 hover:text-brand-200 transition-colors">
           {config.registerLabel}
         </Link>

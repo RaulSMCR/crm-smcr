@@ -127,7 +127,7 @@ export default function InstallPrompt({ variant = "mi" }) {
   const copy =
     variant === "booking"
       ? "Instalá la app para recibir el recordatorio de tu cita."
-      : "Instalá la app para tener tu espacio a mano.";
+      : "Instalá la app. Tu bitácora, a un toque.";
 
   return (
     <div className="mb-4 rounded-2xl border border-brand-200 bg-brand-50 p-4">
@@ -149,7 +149,7 @@ export default function InstallPrompt({ variant = "mi" }) {
           onClick={install}
           className="mt-3 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-500"
         >
-          Instalar app
+          Llevar la app conmigo
         </button>
       ) : ios ? (
         <p className="mt-2 text-xs leading-relaxed text-brand-800">

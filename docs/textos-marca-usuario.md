@@ -18,7 +18,7 @@
 | Dónde aparece | Texto final |
 | --- | --- |
 | Header / botón principal | Retomar mi camino |
-| Header / registro | Da el primer paso, registrate |
+| Header / registro | Registrate |
 | Header / cuenta ⚙️ | Listo por hoy |
 | Header / a su espacio | Mi recorrido |
 | Formularios / atrás | Volver un paso |
@@ -60,7 +60,7 @@
 | Subtítulo inicio | Esta es la puerta a tu espacio de bienestar |
 | Botón a perfil | Mi bitácora |
 | Sección próxima cita | Tu próximo encuentro |
-| Agenda vacía | No tenés citas programadas. Elegí cuándo, te esperamos. |
+| Agenda vacía | No hay encuentros a la vista. ¿Cuál será tu próximo paso? |
 | Botón agendar | Agendar |
 
 > ⚠️ **Bienvenida, {nombre}** (aún en el header viejo) asume que la persona es

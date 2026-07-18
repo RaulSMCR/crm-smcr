@@ -125,7 +125,7 @@ export default async function PacientePanelPage({ searchParams }) {
       {created ? (
         <>
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-            Cita creada con éxito. El proceso de atención continúa.
+            Reservado. Das un paso más en tu búsqueda.
           </div>
           {/* Nudge de instalación tras reservar (RIESGOS-8 / v1 PWA). */}
           <InstallPrompt variant="booking" />

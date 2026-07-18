@@ -31,7 +31,7 @@ export default async function VerificarEmailPage({ searchParams }) {
         {result.success ? (
           <>
             <div className="text-green-500 text-6xl mb-4">OK</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Correo verificado con éxito</h1>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Tu correo quedó confirmado. Comenzá tu camino.</h1>
             <p className="text-gray-600 mb-6">
               Gracias por confirmar su correo <strong>{result.email}</strong>.
               {result.role === "PROFESSIONAL"

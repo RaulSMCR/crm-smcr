@@ -68,7 +68,7 @@ export default async function Header() {
           {session ? (
             <div className="flex items-center gap-3">
               <span className="text-xs text-gray-500 hidden sm:inline-block">
-                Bienvenida, {session.name || "Usuario"}
+                Te esperábamos, {session.name || "Usuario"}
               </span>
 
               {/* Botón Mi Perfil */}
@@ -76,7 +76,7 @@ export default async function Header() {
                 href={dashboardUrl}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
               >
-                Mi Perfil
+                Mi recorrido
               </Link>
 
               {/* ✅ Logout correcto: Server Action vía form (evita 404 y asegura redirect) */}
@@ -88,13 +88,13 @@ export default async function Header() {
                 href="/ingresar"
                 className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors"
               >
-                Ingresar
+                Retomar mi camino
               </Link>
               <Link
                 href="/registro"
                 className="hidden sm:inline-flex px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
               >
-                Registrarse
+                Registrate
               </Link>
             </div>
           )}
