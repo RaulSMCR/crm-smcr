@@ -6,6 +6,7 @@ import InsurancePatientUploader from "@/components/paciente/InsurancePatientUplo
 import UserAppointmentsPanel from "@/components/UserAppointmentsPanel";
 import InstallPrompt from "@/components/mi/InstallPrompt";
 import Link from "next/link";
+import { getFraseDelDia } from "@/lib/mi/frases";
 
 export const dynamic = "force-dynamic";
 
@@ -82,6 +83,7 @@ export default async function PacientePanelPage({ searchParams }) {
       appointment.status === "COMPLETED" || appointmentDate <= Date.now();
     return appointment.paymentStatus !== "PAID" && isPastOrCompleted;
   }).length;
+  const frase = getFraseDelDia();
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-6 md:p-10">
@@ -93,11 +95,26 @@ export default async function PacientePanelPage({ searchParams }) {
 
         <Link
           href="/servicios"
-          className="rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700"
+          className="rounded-xl bg-brand-700 px-4 py-2 font-semibold text-white transition-colors hover:bg-brand-800"
         >
           Agendar nueva cita
         </Link>
       </div>
+
+      <section
+        aria-labelledby="frase-del-dia"
+        className="rounded-2xl border border-brand-200 bg-brand-50 px-5 py-4 shadow-sm"
+      >
+        <p id="frase-del-dia" className="text-xs font-bold uppercase tracking-wide text-brand-700">
+          Frase del día
+        </p>
+        <blockquote className="mt-1.5 text-lg font-medium leading-relaxed text-brand-950">
+          &ldquo;{frase.texto}&rdquo;
+        </blockquote>
+        {frase.autor ? (
+          <p className="mt-1 text-sm font-semibold text-brand-700">{frase.autor}</p>
+        ) : null}
+      </section>
 
       {pendingPaymentsCount > 0 ? (
         <a href="#mis-citas" className="block rounded-xl border border-amber-300 bg-amber-100 px-4 py-3 text-sm font-semibold text-amber-950 hover:bg-amber-200">
