@@ -1,6 +1,6 @@
 // src/app/panel/profesional/horarios/page.js
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
+import { getSession, professionalProfileWhere } from "@/lib/auth";
 import { getAvailability } from "@/actions/availability-actions";
 import AvailabilityForm from "@/components/AvailabilityForm";
 import Link from "next/link";
@@ -15,7 +15,7 @@ export default async function HorariosPage() {
   if (!session || session.role !== "PROFESSIONAL") redirect("/ingresar");
 
   const profile = await prisma.professionalProfile.findUnique({
-    where: { userId: String(session.sub) },
+    where: professionalProfileWhere(session),
     select: { googleRefreshToken: true },
   });
 

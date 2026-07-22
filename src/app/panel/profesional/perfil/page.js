@@ -1,5 +1,6 @@
 // src/app/panel/profesional/perfil/page.js
 import { getSession } from "@/actions/auth-actions";
+import { professionalProfileWhere } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import ProfileEditor from "@/components/profile/ProfileEditor";
@@ -11,7 +12,7 @@ export default async function PerfilPage() {
   if (!session || session.role !== "PROFESSIONAL") redirect("/ingresar");
 
   const profileRaw = await prisma.professionalProfile.findUnique({
-    where: { userId: String(session.sub) },
+    where: professionalProfileWhere(session),
     include: {
       serviceAssignments: { include: { service: true } },
       user: { select: { name: true, email: true, image: true, phone: true } },

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { getSession, professionalProfileWhere } from "@/lib/auth";
 import PostEditor from "@/components/PostEditor";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +31,7 @@ export default async function EditarArticuloPage({ params }) {
   if (!session?.sub || session.role !== "PROFESSIONAL") redirect("/ingresar");
 
   const profile = await prisma.professionalProfile.findUnique({
-    where: { userId: String(session.sub) },
+    where: professionalProfileWhere(session),
     select: { id: true },
   });
 

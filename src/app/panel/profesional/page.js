@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { getSession, professionalProfileWhere } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +31,7 @@ export default async function ProfesionalDashboardPage() {
   if (session.role !== "PROFESSIONAL") redirect("/");
 
   const profile = await prisma.professionalProfile.findUnique({
-    where: { userId: String(session.sub) },
+    where: professionalProfileWhere(session),
     include: {
       user: true,
       serviceAssignments: {

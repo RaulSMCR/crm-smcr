@@ -85,6 +85,46 @@ export function isPreviewSession(session) {
 }
 
 /**
+ * `where` para localizar EL perfil profesional de la sesión.
+ * En modo normal usa userId (comportamiento intacto). En «ver como profesional»
+ * usa el professionalProfileId resuelto (un profesional real), para que las
+ * páginas del profesional muestren datos reales en vez de exigir credenciales.
+ */
+export function professionalProfileWhere(session) {
+  if (session?.isPreview && session?.professionalProfileId) {
+    return { id: String(session.professionalProfileId) };
+  }
+  return { userId: String(session?.sub || session?.userId || "") };
+}
+
+// Profesional "real" que se muestra cuando un admin usa la vista de profesional.
+// Configurable por env; por defecto la cuenta profesional de Raúl (ya aprobada).
+const PREVIEW_PROFESSIONAL_EMAIL = process.env.PREVIEW_PROFESSIONAL_EMAIL || "raul.olmedo@gmail.com";
+const PREVIEW_PRO_SELECT = { id: true, slug: true, specialty: true, licenseNumber: true, isApproved: true };
+
+/**
+ * Perfil profesional a usar en la vista «ver como profesional» del admin:
+ * 1) el propio del admin si está aprobado; 2) el designado por email (config);
+ * 3) el primer profesional aprobado. Así la vista no exige que el admin sea un
+ * profesional real, pero muestra datos reales de un profesional aprobado.
+ */
+async function resolvePreviewProfessional(adminProfile) {
+  if (adminProfile?.isApproved) return adminProfile;
+  let target = await prisma.professionalProfile.findFirst({
+    where: { isApproved: true, user: { is: { email: PREVIEW_PROFESSIONAL_EMAIL, isActive: true } } },
+    select: PREVIEW_PRO_SELECT,
+  });
+  if (!target) {
+    target = await prisma.professionalProfile.findFirst({
+      where: { isApproved: true, user: { is: { isActive: true } } },
+      orderBy: { createdAt: "asc" },
+      select: PREVIEW_PRO_SELECT,
+    });
+  }
+  return target || null;
+}
+
+/**
  * Resuelve la sesión del request actual: verifica el JWT y contrasta
  * `sessionVersion` e `isActive` contra la base en cada request.
  *
@@ -119,14 +159,28 @@ export const getSession = cache(async () => {
       try {
         const view = await verifyAdminViewToken(viewToken);
         if (view?.sub === userId) {
+          if (view.role === "PROFESSIONAL") {
+            // Vista de profesional: usar un profesional real (el del admin si lo
+            // tiene aprobado, o el designado por PREVIEW_PROFESSIONAL_EMAIL).
+            const pro = await resolvePreviewProfessional(user.professionalProfile);
+            return {
+              ...session,
+              role: "PROFESSIONAL",
+              actualRole: "ADMIN",
+              isPreview: true,
+              professionalProfile: pro || null,
+              professionalProfileId: pro?.id || null,
+              isApproved: !!pro?.isApproved,
+            };
+          }
           return {
             ...session,
             role: view.role,
             actualRole: "ADMIN",
             isPreview: true,
-            professionalProfile: user.professionalProfile || null,
-            professionalProfileId: user.professionalProfile?.id || null,
-            isApproved: view.role === "PROFESSIONAL" ? !!user.professionalProfile?.isApproved : true,
+            professionalProfile: null,
+            professionalProfileId: null,
+            isApproved: true,
           };
         }
       } catch {
