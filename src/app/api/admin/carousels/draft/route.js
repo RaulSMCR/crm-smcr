@@ -60,6 +60,32 @@ function tryParseSpec(raw) {
   return { ok: false, errors: formatZodIssues(result.error.issues) };
 }
 
+/**
+ * Traduce los fallos típicos de la API de Anthropic a un mensaje accionable.
+ * El saldo de la Consola (créditos de API) es una cuenta aparte de la
+ * suscripción de claude.ai: que el plan no tenga consumo no significa que la
+ * API key tenga saldo.
+ */
+function anthropicErrorMessage(err) {
+  const status = err?.status;
+  const detail = String(err?.message || err || "");
+
+  if (/credit balance is too low/i.test(detail)) {
+    return (
+      "Sin créditos de API de Anthropic. El saldo de la Consola (console.anthropic.com → " +
+      "Plans & Billing) es independiente de la suscripción de claude.ai: hay que comprar créditos ahí. " +
+      "Mientras tanto puedes crear el carrusel escribiendo la spec a mano; el resto del generador no usa IA."
+    );
+  }
+  if (status === 401) {
+    return "ANTHROPIC_API_KEY inválida o revocada. Revísala en la Consola y actualízala en Vercel.";
+  }
+  if (status === 429) {
+    return "Límite de tasa de la API de Anthropic alcanzado. Espera unos segundos y reintenta.";
+  }
+  return "Fallo al llamar a la API de Anthropic";
+}
+
 export async function POST(req) {
   const { res } = await getCarouselActor();
   if (res) return res;
@@ -125,7 +151,7 @@ export async function POST(req) {
   } catch (err) {
     const status = err?.status || 502;
     return NextResponse.json(
-      { message: "Fallo al llamar a la API de Anthropic", detail: String(err?.message || err) },
+      { message: anthropicErrorMessage(err), detail: String(err?.message || err) },
       { status: status >= 400 && status < 600 ? status : 502 }
     );
   }
@@ -142,8 +168,8 @@ export async function POST(req) {
       parsed = tryParseSpec(raw);
     } catch (err) {
       return NextResponse.json(
-        { message: "Fallo en el reintento de generación", detail: String(err?.message || err) },
-        { status: 502 }
+        { message: anthropicErrorMessage(err), detail: String(err?.message || err) },
+        { status: err?.status >= 400 && err?.status < 600 ? err.status : 502 }
       );
     }
   }
