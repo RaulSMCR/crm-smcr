@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/actions/auth-actions";
+import { sessionUserId } from "@/lib/auth";
 import PatientProfileEditorCard from "@/components/paciente/PatientProfileEditorCard";
 import InsurancePatientUploader from "@/components/paciente/InsurancePatientUploader";
 import UserAppointmentsPanel from "@/components/UserAppointmentsPanel";
@@ -22,7 +23,7 @@ export default async function PacientePanelPage({ searchParams }) {
   if (!session) redirect("/ingresar");
   if (session.role !== "USER") redirect("/panel");
 
-  const userId = String(session.userId || session.sub);
+  const userId = sessionUserId(session);
 
   const [user, appointments] = await Promise.all([
     prisma.user.findUnique({

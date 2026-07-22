@@ -2,6 +2,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/actions/auth-actions";
+import { sessionUserId } from "@/lib/auth";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ export default async function PagoResultadoPage({ searchParams }) {
   let transaction = null;
   if (ref) {
     transaction = await prisma.paymentTransaction.findFirst({
-      where: { appointmentId: ref, patientId: String(session.userId || session.sub) },
+      where: { appointmentId: ref, patientId: sessionUserId(session) },
       orderBy: { createdAt: "desc" },
       include: {
         appointment: {

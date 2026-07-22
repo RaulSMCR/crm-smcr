@@ -124,6 +124,27 @@ async function resolvePreviewProfessional(adminProfile) {
   return target || null;
 }
 
+// Usuario/paciente "real" que se muestra cuando un admin usa la vista de usuario.
+const PREVIEW_USER_EMAIL = process.env.PREVIEW_USER_EMAIL || "carolinacourtis@gmail.com";
+
+async function resolvePreviewUserId() {
+  const u = await prisma.user.findFirst({
+    where: { email: PREVIEW_USER_EMAIL, role: "USER", isActive: true },
+    select: { id: true },
+  });
+  return u?.id || null;
+}
+
+/**
+ * Id de usuario efectivo para lecturas de paciente. En modo normal es el propio
+ * (sub); en «ver como usuario» es un usuario real de prueba, para que las páginas
+ * del paciente muestren datos reales en vez de la cuenta admin vacía.
+ */
+export function sessionUserId(session) {
+  if (session?.isPreview && session?.previewUserId) return String(session.previewUserId);
+  return String(session?.userId || session?.sub || "");
+}
+
 /**
  * Resuelve la sesión del request actual: verifica el JWT y contrasta
  * `sessionVersion` e `isActive` contra la base en cada request.
@@ -173,6 +194,8 @@ export const getSession = cache(async () => {
               isApproved: !!pro?.isApproved,
             };
           }
+          // Vista de usuario: mostrar un usuario real de prueba (datos poblados).
+          const previewUserId = await resolvePreviewUserId();
           return {
             ...session,
             role: view.role,
@@ -181,6 +204,7 @@ export const getSession = cache(async () => {
             professionalProfile: null,
             professionalProfileId: null,
             isApproved: true,
+            previewUserId,
           };
         }
       } catch {
