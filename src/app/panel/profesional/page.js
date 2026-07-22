@@ -196,6 +196,9 @@ export default async function ProfesionalDashboardPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
+        <Link href="/panel/profesional/carruseles" className="text-sm inline-flex items-center rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 font-medium text-blue-700 hover:bg-blue-100">
+          Carruseles
+        </Link>
         <Link href="/panel/profesional/horarios" className="text-sm inline-flex items-center rounded-xl border border-slate-200 px-4 py-2 hover:bg-slate-50">
           Gestionar horarios
         </Link>

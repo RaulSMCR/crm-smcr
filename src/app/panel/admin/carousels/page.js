@@ -26,11 +26,21 @@ export default async function AdminCarouselsPage() {
       slug: true,
       title: true,
       status: true,
+      authorId: true,
       updatedAt: true,
       _count: { select: { assets: true } },
     },
     take: 200,
   });
+
+  const authorIds = [...new Set(carousels.map((c) => c.authorId).filter(Boolean))];
+  const authors = authorIds.length
+    ? await prisma.professionalProfile.findMany({
+        where: { id: { in: authorIds } },
+        select: { id: true, user: { select: { name: true } } },
+      })
+    : [];
+  const authorName = new Map(authors.map((a) => [a.id, a.user?.name || "Profesional"]));
 
   return (
     <div className="min-h-screen bg-surface p-6">
@@ -59,6 +69,7 @@ export default async function AdminCarouselsPage() {
               <thead className="border-b border-neutral-200 text-xs uppercase tracking-[0.12em] text-neutral-500">
                 <tr>
                   <th className="py-3 pr-4">Título</th>
+                  <th className="py-3 pr-4">Autor</th>
                   <th className="py-3 pr-4">Estado</th>
                   <th className="py-3 pr-4 text-right">Slides</th>
                   <th className="py-3 pr-4">Actualizado</th>
@@ -74,6 +85,9 @@ export default async function AdminCarouselsPage() {
                       </Link>
                       <div className="mt-0.5 text-xs text-neutral-500">{c.slug}</div>
                     </td>
+                    <td className="py-3 pr-4 text-neutral-700">
+                      {c.authorId ? authorName.get(c.authorId) || "—" : "—"}
+                    </td>
                     <td className="py-3 pr-4">
                       <CarouselStatusBadge status={c.status} />
                     </td>
@@ -88,7 +102,7 @@ export default async function AdminCarouselsPage() {
                 ))}
                 {carousels.length === 0 ? (
                   <tr>
-                    <td className="py-6 text-sm text-neutral-600" colSpan={5}>
+                    <td className="py-6 text-sm text-neutral-600" colSpan={6}>
                       Todavía no hay carruseles. Crea el primero con “Nuevo carrusel”.
                     </td>
                   </tr>

@@ -866,10 +866,13 @@ model Carousel {
   sourcePostId String? // id del Post si la fuente ya era un artículo del blog (no se duplica)
   blogPostId   String? // id del Post creado vía "Enviar al blog" (evita duplicar)
 
-  // Id del User (admin) que lo creó. Plano por diseño: relacionarlo con User
-  // exigiría una back-relation en el modelo User y el plan pide no tocar modelos
-  // existentes. La route admin ya valida sesión ADMIN antes de escribir.
+  // Id del User que lo creó (admin o profesional). Plano por diseño.
   createdBy String
+
+  // Id del ProfessionalProfile atribuido como autor. Plano (sin FK) para no
+  // añadir back-relation al modelo ProfessionalProfile. Profesional que crea = él
+  // mismo; admin puede elegirlo al crear. Null si admin no atribuye.
+  authorId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -878,6 +881,7 @@ model Carousel {
 
   @@index([status])
   @@index([createdBy])
+  @@index([authorId])
 }
 
 model CarouselAsset {

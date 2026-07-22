@@ -4,12 +4,13 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { EXAMPLE_SPEC, validateSpecJson, slugify } from "@/lib/carousel-spec";
 
-export default function NewCarouselForm() {
+export default function NewCarouselForm({ isAdmin = false, authorOptions = [], basePath = "/panel/admin/carousels" }) {
   const router = useRouter();
   const [tab, setTab] = useState("manual"); // "manual" | "article"
 
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
+  const [authorId, setAuthorId] = useState("");
   const [specText, setSpecText] = useState(() => JSON.stringify(EXAMPLE_SPEC, null, 2));
   const [serverError, setServerError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -126,6 +127,8 @@ export default function NewCarouselForm() {
           title: title.trim(),
           slug: slug.trim() || undefined,
           spec: validation.data,
+          // Autor: solo el admin lo elige; el profesional se asigna en el server.
+          authorId: isAdmin && authorId ? authorId : undefined,
           // Si hubo artículo fuente, lo guardamos para poder "Enviar al blog" luego.
           sourceText: articleText.trim() || undefined,
           sourcePostId: selectedPostId || undefined,
@@ -138,7 +141,7 @@ export default function NewCarouselForm() {
         setSubmitting(false);
         return;
       }
-      router.push(`/panel/admin/carousels/${data.id}`);
+      router.push(`${basePath}/${data.id}`);
     } catch (err) {
       setServerError(String(err));
       setSubmitting(false);
@@ -265,6 +268,25 @@ export default function NewCarouselForm() {
             </label>
           </div>
 
+          {isAdmin ? (
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-[0.12em] text-neutral-500">Autor (profesional)</span>
+              <select
+                value={authorId}
+                onChange={(e) => setAuthorId(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-brand-500 focus:outline-none"
+              >
+                <option value="">Sin autor asignado</option>
+                {authorOptions.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                    {a.specialty ? ` — ${a.specialty}` : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+
           <div>
             <div className="mb-1 flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-[0.12em] text-neutral-500">Spec (JSON)</span>
@@ -304,7 +326,7 @@ export default function NewCarouselForm() {
             </button>
             <button
               type="button"
-              onClick={() => router.push("/panel/admin/carousels")}
+              onClick={() => router.push(basePath)}
               className="rounded-lg border border-neutral-300 bg-white px-5 py-2 text-sm font-semibold text-neutral-800 transition hover:border-neutral-400"
             >
               Cancelar

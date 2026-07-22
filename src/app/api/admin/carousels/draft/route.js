@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { getSession } from "@/lib/auth";
+import { getCarouselActor } from "@/lib/carousel-access";
 import { carouselSpecSchema, formatZodIssues } from "@/lib/carousel-spec";
 
 export const dynamic = "force-dynamic";
@@ -61,9 +61,8 @@ function tryParseSpec(raw) {
 }
 
 export async function POST(req) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ message: "No autorizado" }, { status: 401 });
-  if (session.role !== "ADMIN") return NextResponse.json({ message: "Acción no permitida" }, { status: 403 });
+  const { res } = await getCarouselActor();
+  if (res) return res;
 
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json(

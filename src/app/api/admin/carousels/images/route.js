@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { getCarouselActor } from "@/lib/carousel-access";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { uploadPrivate, getSignedUrl, detectFileMimeType } from "@/lib/storage";
 import { imageDimensions } from "@/lib/image-size";
@@ -14,13 +14,6 @@ const MAX_BYTES = 8 * 1024 * 1024;
 const MIN_WIDTH = 1080;
 const EXT_BY_MIME = { "image/jpeg": "jpg", "image/png": "png" };
 const SIGNED_TTL = 3600;
-
-async function requireAdmin() {
-  const session = await getSession();
-  if (!session) return { res: NextResponse.json({ message: "No autorizado" }, { status: 401 }) };
-  if (session.role !== "ADMIN") return { res: NextResponse.json({ message: "Acción no permitida" }, { status: 403 }) };
-  return { session };
-}
 
 function currentMonthKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
@@ -36,7 +29,7 @@ function lastMonthKeys(n) {
 }
 
 export async function POST(req) {
-  const { res } = await requireAdmin();
+  const { res } = await getCarouselActor();
   if (res) return res;
 
   let form;
@@ -99,7 +92,7 @@ export async function POST(req) {
 }
 
 export async function GET() {
-  const { res } = await requireAdmin();
+  const { res } = await getCarouselActor();
   if (res) return res;
 
   const supabase = getSupabaseAdmin();

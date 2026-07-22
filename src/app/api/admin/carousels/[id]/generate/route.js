@@ -1,18 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { getCarouselActor, canAccessCarousel } from "@/lib/carousel-access";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 // La generación de 9 slides tarda ~5-15s; damos margen a la route Node.
 export const maxDuration = 60;
-
-async function requireAdmin() {
-  const session = await getSession();
-  if (!session) return { res: NextResponse.json({ message: "No autorizado" }, { status: 401 }) };
-  if (session.role !== "ADMIN") return { res: NextResponse.json({ message: "Acción no permitida" }, { status: 403 }) };
-  return { session };
-}
 
 function selfOrigin(req) {
   try {
@@ -24,7 +17,7 @@ function selfOrigin(req) {
 }
 
 export async function POST(req, { params }) {
-  const { res } = await requireAdmin();
+  const { actor, res } = await getCarouselActor();
   if (res) return res;
   const { id } = await params;
 
@@ -38,9 +31,11 @@ export async function POST(req, { params }) {
 
   const carousel = await prisma.carousel.findUnique({
     where: { id },
-    select: { id: true, slug: true, spec: true },
+    select: { id: true, slug: true, spec: true, createdBy: true },
   });
-  if (!carousel) return NextResponse.json({ message: "Carrusel no encontrado" }, { status: 404 });
+  if (!carousel || !canAccessCarousel(actor, carousel)) {
+    return NextResponse.json({ message: "Carrusel no encontrado" }, { status: 404 });
+  }
 
   const origin = selfOrigin(req);
   let pyRes, pyBody;

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { getCarouselActor, canAccessCarousel } from "@/lib/carousel-access";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { buildZip } from "@/lib/zip";
 
@@ -9,15 +9,8 @@ export const revalidate = 0;
 
 const CAROUSELS_BUCKET = "carousels";
 
-async function requireAdmin() {
-  const session = await getSession();
-  if (!session) return { res: NextResponse.json({ message: "No autorizado" }, { status: 401 }) };
-  if (session.role !== "ADMIN") return { res: NextResponse.json({ message: "Acción no permitida" }, { status: 403 }) };
-  return { session };
-}
-
 export async function GET(_req, { params }) {
-  const { res } = await requireAdmin();
+  const { actor, res } = await getCarouselActor();
   if (res) return res;
   const { id } = await params;
 
@@ -25,7 +18,9 @@ export async function GET(_req, { params }) {
     where: { id },
     include: { assets: { orderBy: { index: "asc" } } },
   });
-  if (!carousel) return NextResponse.json({ message: "Carrusel no encontrado" }, { status: 404 });
+  if (!carousel || !canAccessCarousel(actor, carousel)) {
+    return NextResponse.json({ message: "Carrusel no encontrado" }, { status: 404 });
+  }
   if (carousel.assets.length === 0) {
     return NextResponse.json({ message: "El carrusel no tiene slides generadas." }, { status: 409 });
   }

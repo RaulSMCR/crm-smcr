@@ -23,6 +23,14 @@ export default async function CarouselDetailPage({ params }) {
   });
   if (!carousel) notFound();
 
+  const author = carousel.authorId
+    ? await prisma.professionalProfile.findUnique({
+        where: { id: carousel.authorId },
+        select: { user: { select: { name: true } } },
+      })
+    : null;
+  const authorName = author?.user?.name || null;
+
   const assets = await Promise.all(
     carousel.assets.map(async (a) => {
       let url = null;
@@ -67,10 +75,13 @@ export default async function CarouselDetailPage({ params }) {
               <CarouselStatusBadge status={carousel.status} />
             </div>
             <p className="mt-1 font-mono text-xs text-neutral-500">{carousel.slug}</p>
+            {authorName ? (
+              <p className="mt-1 text-sm text-neutral-600">Autor: {authorName}</p>
+            ) : null}
           </div>
         </div>
 
-        <CarouselEditor carousel={editorData} />
+        <CarouselEditor carousel={editorData} canApprove />
       </div>
     </div>
   );

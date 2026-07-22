@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { getCarouselActor, canAccessCarousel } from "@/lib/carousel-access";
 import { getSignedUrl } from "@/lib/storage";
 import { carouselSpecSchema, formatZodIssues } from "@/lib/carousel-spec";
 
@@ -10,15 +10,8 @@ export const revalidate = 0;
 const CAROUSELS_BUCKET = "carousels";
 const SIGNED_URL_TTL = 3600; // 1h
 
-async function requireAdmin() {
-  const session = await getSession();
-  if (!session) return { res: NextResponse.json({ message: "No autorizado" }, { status: 401 }) };
-  if (session.role !== "ADMIN") return { res: NextResponse.json({ message: "Acción no permitida" }, { status: 403 }) };
-  return { session };
-}
-
 export async function GET(_req, { params }) {
-  const { res } = await requireAdmin();
+  const { actor, res } = await getCarouselActor();
   if (res) return res;
   const { id } = await params;
 
@@ -26,7 +19,9 @@ export async function GET(_req, { params }) {
     where: { id },
     include: { assets: { orderBy: { index: "asc" } } },
   });
-  if (!carousel) return NextResponse.json({ message: "Carrusel no encontrado" }, { status: 404 });
+  if (!carousel || !canAccessCarousel(actor, carousel)) {
+    return NextResponse.json({ message: "Carrusel no encontrado" }, { status: 404 });
+  }
 
   const assets = await Promise.all(
     carousel.assets.map(async (a) => {
@@ -55,6 +50,7 @@ export async function GET(_req, { params }) {
     status: carousel.status,
     spec: carousel.spec,
     articleUrl: carousel.articleUrl,
+    authorId: carousel.authorId,
     createdAt: carousel.createdAt,
     updatedAt: carousel.updatedAt,
     assets,
@@ -62,12 +58,17 @@ export async function GET(_req, { params }) {
 }
 
 export async function PATCH(req, { params }) {
-  const { res } = await requireAdmin();
+  const { actor, res } = await getCarouselActor();
   if (res) return res;
   const { id } = await params;
 
-  const carousel = await prisma.carousel.findUnique({ where: { id }, select: { id: true } });
-  if (!carousel) return NextResponse.json({ message: "Carrusel no encontrado" }, { status: 404 });
+  const carousel = await prisma.carousel.findUnique({
+    where: { id },
+    select: { id: true, createdBy: true },
+  });
+  if (!carousel || !canAccessCarousel(actor, carousel)) {
+    return NextResponse.json({ message: "Carrusel no encontrado" }, { status: 404 });
+  }
 
   let body;
   try {
@@ -91,13 +92,19 @@ export async function PATCH(req, { params }) {
     data.status = "DRAFT";
   }
 
-  // Cambios de estado permitidos por el flujo editorial.
+  // Estados: aprobar/publicar (colocar en redes) es exclusivo de admin.
   if (body.status !== undefined) {
     const allowed = ["DRAFT", "APPROVED", "PUBLISHED"];
     if (!allowed.includes(body.status)) {
       return NextResponse.json(
         { message: `status inválido (permitidos: ${allowed.join(", ")})` },
         { status: 422 }
+      );
+    }
+    if ((body.status === "APPROVED" || body.status === "PUBLISHED") && !actor.isAdmin) {
+      return NextResponse.json(
+        { message: "Solo un administrador puede aprobar o publicar (colocar en redes)." },
+        { status: 403 }
       );
     }
     data.status = body.status;

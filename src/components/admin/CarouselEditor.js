@@ -7,7 +7,7 @@ import CarouselStatusBadge from "@/components/admin/CarouselStatusBadge";
 import CarouselImageGallery from "@/components/admin/CarouselImageGallery";
 import CarouselPublishToBlog from "@/components/admin/CarouselPublishToBlog";
 
-export default function CarouselEditor({ carousel }) {
+export default function CarouselEditor({ carousel, canApprove = false }) {
   const router = useRouter();
   const [specText, setSpecText] = useState(() => JSON.stringify(carousel.spec, null, 2));
   const [busy, setBusy] = useState(null); // "save" | "generate" | "status"
@@ -189,31 +189,37 @@ export default function CarouselEditor({ carousel }) {
             >
               Descargar ZIP
             </a>
-            <button
-              onClick={() => setStatus("APPROVED")}
-              disabled={busyAny || !hasAssets || carousel.status === "APPROVED"}
-              className="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Aprobar
-            </button>
-            <button
-              onClick={() => setStatus("PUBLISHED")}
-              disabled={busyAny || !hasAssets || carousel.status === "PUBLISHED"}
-              className="rounded-lg border border-accent-300 bg-accent-100 px-4 py-2 text-sm font-semibold text-accent-950 transition hover:bg-accent-200 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Marcar publicado
-            </button>
+            {canApprove ? (
+              <>
+                <button
+                  onClick={() => setStatus("APPROVED")}
+                  disabled={busyAny || !hasAssets || carousel.status === "APPROVED"}
+                  className="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Aprobar
+                </button>
+                <button
+                  onClick={() => setStatus("PUBLISHED")}
+                  disabled={busyAny || !hasAssets || carousel.status === "PUBLISHED"}
+                  className="rounded-lg border border-accent-300 bg-accent-100 px-4 py-2 text-sm font-semibold text-accent-950 transition hover:bg-accent-200 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Marcar publicado
+                </button>
+              </>
+            ) : null}
           </div>
         </section>
       </div>
 
-      <CarouselPublishToBlog
-        carouselId={carousel.id}
-        defaultTitle={carousel.title}
-        hasSource={carousel.hasSource}
-        sourcePostId={carousel.sourcePostId}
-        blogPostId={carousel.blogPostId}
-      />
+      {canApprove ? (
+        <CarouselPublishToBlog
+          carouselId={carousel.id}
+          defaultTitle={carousel.title}
+          hasSource={carousel.hasSource}
+          sourcePostId={carousel.sourcePostId}
+          blogPostId={carousel.blogPostId}
+        />
+      ) : null}
 
       <details className="rounded-lg border border-neutral-200 bg-neutral-50 p-5 shadow-card">
         <summary className="cursor-pointer text-lg font-bold text-neutral-950">
