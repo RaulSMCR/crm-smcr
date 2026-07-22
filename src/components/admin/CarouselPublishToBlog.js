@@ -12,30 +12,41 @@ export default function CarouselPublishToBlog({
 }) {
   const [postId, setPostId] = useState(blogPostId || null);
   const [professionals, setProfessionals] = useState([]);
-  const [loaded, setLoaded] = useState(false);
+  const [loadingPros, setLoadingPros] = useState(true);
+  const [prosError, setProsError] = useState("");
   const [authorId, setAuthorId] = useState("");
   const [title, setTitle] = useState(defaultTitle || "");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
 
   const alreadyOnBlog = Boolean(sourcePostId); // la fuente ya era un post del blog
-  const needsForm = hasSource && !alreadyOnBlog && !postId;
+  const showForm = !alreadyOnBlog && !postId;
 
   useEffect(() => {
-    if (!needsForm || loaded) return;
-    setLoaded(true);
+    if (!showForm) return;
+    let active = true;
     (async () => {
+      setLoadingPros(true);
+      setProsError("");
       try {
         const res = await fetch("/api/admin/professionals");
-        const data = await res.json().catch(() => []);
+        const data = await res.json().catch(() => null);
+        if (!active) return;
         if (res.ok && Array.isArray(data)) {
           setProfessionals(data.filter((p) => p.isApproved));
+        } else {
+          setProsError((data && data.message) || "No se pudo cargar la lista de profesionales.");
         }
-      } catch {
-        // silencioso
+      } catch (err) {
+        if (active) setProsError(String(err));
+      } finally {
+        if (active) setLoadingPros(false);
       }
     })();
-  }, [needsForm, loaded]);
+    return () => {
+      active = false;
+    };
+  }, [showForm]);
 
   async function sendToBlog() {
     setError("");
@@ -77,17 +88,22 @@ export default function CarouselPublishToBlog({
         </p>
       ) : postId ? (
         <p className="text-sm text-neutral-700">
-          Enviado al blog como <strong>borrador</strong>.{" "}
+          Creado en el blog como <strong>borrador</strong>.{" "}
           <Link href={`/panel/admin/blog/${postId}`} className="font-semibold text-brand-700 hover:text-brand-900">
             Editar el artículo →
           </Link>{" "}
-          (asigna la portada y publícalo desde el editor de blog).
+          (portada, contenido, descripción y publicación se definen en el editor de blog).
         </p>
-      ) : hasSource ? (
+      ) : (
         <div className="space-y-3">
           <p className="text-sm text-neutral-600">
-            Crea un borrador de artículo en el blog con el texto fuente de este carrusel. Elige quién lo firma;
-            la portada y la publicación se definen luego en el editor de blog.
+            Crea la entrada de blog de este carrusel y elige quién la firma. La portada, la descripción y la
+            publicación se trabajan luego en el editor de blog.
+            {hasSource ? (
+              " El borrador se precarga con el texto fuente del carrusel."
+            ) : (
+              " Este carrusel no tiene artículo fuente: se crea un borrador vacío para redactarlo en el editor."
+            )}
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block">
@@ -95,9 +111,10 @@ export default function CarouselPublishToBlog({
               <select
                 value={authorId}
                 onChange={(e) => setAuthorId(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-brand-500 focus:outline-none"
+                disabled={loadingPros}
+                className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-brand-500 focus:outline-none disabled:opacity-60"
               >
-                <option value="">Elegir profesional…</option>
+                <option value="">{loadingPros ? "Cargando…" : "Elegir profesional…"}</option>
                 {professionals.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -105,6 +122,12 @@ export default function CarouselPublishToBlog({
                   </option>
                 ))}
               </select>
+              {!loadingPros && professionals.length === 0 && !prosError ? (
+                <span className="mt-1 block text-xs text-accent-700">
+                  No hay profesionales aprobados. Aprueba alguno en Personal / Gestión editorial.
+                </span>
+              ) : null}
+              {prosError ? <span className="mt-1 block text-xs text-accent-700">{prosError}</span> : null}
             </label>
             <label className="block">
               <span className="text-xs font-bold uppercase tracking-[0.12em] text-neutral-500">Título</span>
@@ -125,13 +148,9 @@ export default function CarouselPublishToBlog({
             disabled={sending || !authorId}
             className="rounded-lg bg-brand-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {sending ? "Enviando…" : "Enviar al blog (borrador)"}
+            {sending ? "Creando…" : "Crear artículo en el blog (borrador)"}
           </button>
         </div>
-      ) : (
-        <p className="text-sm text-neutral-500">
-          Este carrusel se creó desde una spec manual (sin artículo fuente), así que no hay texto para enviar al blog.
-        </p>
       )}
     </section>
   );

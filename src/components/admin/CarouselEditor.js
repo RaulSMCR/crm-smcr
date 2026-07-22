@@ -15,6 +15,7 @@ export default function CarouselEditor({ carousel, canApprove = false }) {
   const [assets, setAssets] = useState(carousel.assets);
   const [lightbox, setLightbox] = useState(null); // índice de slide abierta, o null
   const specRef = useRef(null);
+  const messageRef = useRef(null);
 
   function focusSpec() {
     setLightbox(null);
@@ -29,6 +30,11 @@ export default function CarouselEditor({ carousel, canApprove = false }) {
     setAssets(carousel.assets);
   }, [carousel.assets]);
 
+  // Lleva a la vista el mensaje de estado (éxito/error) para que no pase desapercibido.
+  useEffect(() => {
+    if (message) messageRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [message]);
+
   const validation = useMemo(() => validateSpecJson(specText), [specText]);
   const dirty = useMemo(
     () => specText !== JSON.stringify(carousel.spec, null, 2),
@@ -37,14 +43,6 @@ export default function CarouselEditor({ carousel, canApprove = false }) {
   const hasAssets = assets.length > 0;
   const readyCount = assets.filter((a) => a.ready).length;
   const allReady = hasAssets && readyCount === assets.length;
-
-  // Slides donde tiene sentido una foto (cover / narrative), para insertar desde la galería.
-  const imageSlides = useMemo(() => {
-    if (!validation.ok) return [];
-    return (validation.data.slides || [])
-      .map((s, i) => ({ index: i, type: s.type, title: s.title || s.hook || `Slide ${i + 1}` }))
-      .filter((s) => s.type === "cover" || s.type === "narrative");
-  }, [validation]);
 
   function notify(kind, text) {
     setMessage({ kind, text });
@@ -112,15 +110,33 @@ export default function CarouselEditor({ carousel, canApprove = false }) {
   }
 
   async function generate() {
-    if (dirty) return notify("error", "Guarda los cambios de la spec antes de generar.");
+    if (!validation.ok) return notify("error", "Corrige los errores de la spec antes de generar.");
     setBusy("generate");
-    setMessage(null);
+    setMessage({ kind: "ok", text: "Generando slides… (puede tardar 5-15s)" });
     try {
+      // La generación lee la spec de la DB: si hay cambios sin guardar, guarda primero.
+      if (dirty) {
+        const saveRes = await fetch(`/api/admin/carousels/${carousel.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ spec: validation.data }),
+        });
+        if (!saveRes.ok) {
+          const d = await saveRes.json().catch(() => ({}));
+          notify("error", `No se pudo guardar la spec antes de generar: ${d.message || saveRes.status}`);
+          setBusy(null);
+          return;
+        }
+      }
       const res = await fetch(`/api/admin/carousels/${carousel.id}/generate`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         const detail = data.detail ? ` — ${JSON.stringify(data.detail)}` : "";
-        notify("error", `${data.message || "Falló la generación"}${detail}`);
+        notify(
+          "error",
+          `${data.message || "Falló la generación"}${detail}. ` +
+            "Recuerda: la generación necesita el entorno desplegado (función Python + buckets); en desarrollo local no corre."
+        );
       } else {
         notify("ok", `Generadas ${data.count} slides.`);
         router.refresh();
@@ -156,10 +172,16 @@ export default function CarouselEditor({ carousel, canApprove = false }) {
 
   const busyAny = busy !== null;
 
+  // Slide del lightbox: si es cover/narrative, admite foto (duotono) por-slide.
+  const lightboxSpecSlide = lightbox !== null && validation.ok ? validation.data.slides?.[lightbox] : null;
+  const lightboxIsImage =
+    !!lightboxSpecSlide && (lightboxSpecSlide.type === "cover" || lightboxSpecSlide.type === "narrative");
+
   return (
     <div className="space-y-6">
       {message ? (
         <p
+          ref={messageRef}
           className={`rounded-lg border px-3 py-2 text-sm font-semibold ${
             message.kind === "ok"
               ? "border-emerald-300 bg-emerald-50 text-emerald-800"
@@ -199,22 +221,24 @@ export default function CarouselEditor({ carousel, canApprove = false }) {
             <button
               onClick={saveSpec}
               disabled={busyAny || !validation.ok || !dirty}
+              title={!dirty ? "No hay cambios que guardar" : "Guardar la spec"}
               className="rounded-lg bg-brand-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {busy === "save" ? "Guardando…" : "Guardar spec"}
+              {busy === "save" ? "Guardando…" : dirty ? "Guardar spec" : "Spec guardada ✓"}
             </button>
             <button
               onClick={generate}
-              disabled={busyAny || !validation.ok || dirty}
+              disabled={busyAny || !validation.ok}
+              title={dirty ? "Guarda los cambios y genera (auto-guarda)" : "Generar slides (~5-15s)"}
               className="rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent-600 disabled:cursor-not-allowed disabled:opacity-50"
-              title={dirty ? "Guarda la spec antes de generar" : "Generar slides (~10-30s)"}
             >
               {busy === "generate" ? "Generando…" : hasAssets ? "Regenerar slides" : "Generar slides"}
             </button>
           </div>
           <p className="mt-2 text-xs text-neutral-500">
-            Aquí editas el contenido. Tras cambiar la spec, pulsa <strong>Guardar spec</strong> y luego{" "}
-            <strong>Regenerar slides</strong> para ver los cambios en los previews.
+            Aquí editas el contenido. <strong>Regenerar slides</strong> guarda los cambios y recrea los previews
+            (~5-15s). Ojo: la generación requiere el entorno desplegado (función Python + buckets); en desarrollo
+            local no corre.
           </p>
         </section>
 
@@ -340,15 +364,6 @@ export default function CarouselEditor({ carousel, canApprove = false }) {
         />
       ) : null}
 
-      <details open className="rounded-lg border border-neutral-200 bg-neutral-50 p-5 shadow-card">
-        <summary className="cursor-pointer text-lg font-bold text-neutral-950">
-          Imágenes (duotono)
-        </summary>
-        <div className="mt-4">
-          <CarouselImageGallery slides={imageSlides} onInsert={insertImage} />
-        </div>
-      </details>
-
       {lightbox !== null && assets[lightbox] ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
@@ -403,6 +418,29 @@ export default function CarouselEditor({ carousel, canApprove = false }) {
                 />
                 <span className="mt-1 block text-[11px] text-neutral-400">Se guarda al salir del campo.</span>
               </label>
+
+              {lightboxIsImage ? (
+                <div className="mt-4 border-t border-neutral-200 pt-3">
+                  <span className="text-xs font-bold uppercase tracking-[0.12em] text-neutral-500">
+                    Imagen de la slide (duotono)
+                  </span>
+                  <div className="mt-2">
+                    <CarouselImageGallery
+                      slides={[
+                        {
+                          index: lightbox,
+                          type: lightboxSpecSlide.type,
+                          title: lightboxSpecSlide.title || lightboxSpecSlide.hook || `Slide ${lightbox + 1}`,
+                        },
+                      ]}
+                      onInsert={insertImage}
+                    />
+                  </div>
+                  <p className="mt-1 text-[11px] text-neutral-400">
+                    Tras insertar, cierra y pulsa Regenerar para ver la foto.
+                  </p>
+                </div>
+              ) : null}
 
               <div className="mt-4 flex items-center justify-between">
                 <button

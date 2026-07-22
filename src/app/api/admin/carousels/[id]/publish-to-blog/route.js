@@ -49,12 +49,6 @@ export async function POST(req, { params }) {
       { status: 409 }
     );
   }
-  if (!carousel.sourceText || carousel.sourceText.trim().length < 40) {
-    return NextResponse.json(
-      { message: "Este carrusel no tiene un artículo fuente para enviar al blog." },
-      { status: 422 }
-    );
-  }
 
   let body;
   try {
@@ -74,7 +68,9 @@ export async function POST(req, { params }) {
 
   const title = (typeof body.title === "string" && body.title.trim()) || carousel.title;
   const slug = await uniquePostSlug(title);
-  const content = carousel.sourceText.trim();
+  // Si el carrusel no trae artículo fuente, se crea un borrador vacío para redactar
+  // en el editor de blog (portada, contenido, descripción, etc.).
+  const content = (carousel.sourceText || "").trim() || "Redacta el contenido del artículo en este editor.";
   const excerptRaw = content.replace(/\s+/g, " ").trim();
   const excerpt = excerptRaw.length > 220 ? `${excerptRaw.slice(0, 220)}…` : excerptRaw;
 

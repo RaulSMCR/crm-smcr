@@ -94,7 +94,7 @@ export default function CarouselImageGallery({ slides = [], onInsert = null }) {
           <input type="checkbox" checked={duotone} onChange={(e) => setDuotone(e.target.checked)} />
           Duotono
         </label>
-        {canInsert ? (
+        {canInsert && slides.length > 1 ? (
           <label className="flex items-center gap-2 text-sm text-neutral-700">
             Insertar en:
             <select
@@ -109,9 +109,13 @@ export default function CarouselImageGallery({ slides = [], onInsert = null }) {
               ))}
             </select>
           </label>
+        ) : canInsert && slides.length === 1 ? (
+          <span className="text-sm font-semibold text-neutral-700">
+            Insertar en slide {slides[0].index + 1} ({slides[0].type})
+          </span>
         ) : (
           <span className="text-xs text-neutral-500">
-            {onInsert ? "Añade una slide cover o narrative para poder insertar." : ""}
+            {onInsert ? "Esta slide no admite foto (solo cover o narrative)." : ""}
           </span>
         )}
         <button
