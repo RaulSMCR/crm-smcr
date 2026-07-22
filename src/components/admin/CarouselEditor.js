@@ -366,27 +366,27 @@ export default function CarouselEditor({ carousel, canApprove = false }) {
 
       {lightbox !== null && assets[lightbox] ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
           onClick={() => setLightbox(null)}
         >
           <div
-            className="flex max-h-full w-full max-w-5xl flex-col gap-4 overflow-auto lg:flex-row"
+            className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl lg:flex-row"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex flex-1 items-center justify-center">
+            <div className="flex items-center justify-center bg-neutral-900 p-4 lg:flex-1">
               {assets[lightbox].url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={assets[lightbox].url}
                   alt={assets[lightbox].filename}
-                  className="mx-auto max-h-[85vh] w-auto rounded-lg"
+                  className="mx-auto max-h-[45vh] w-auto rounded-lg lg:max-h-[84vh]"
                 />
               ) : (
                 <div className="text-white">sin URL</div>
               )}
             </div>
 
-            <div className="w-full shrink-0 rounded-lg bg-white p-4 lg:w-80">
+            <div className="w-full shrink-0 overflow-auto bg-white p-4 lg:w-96">
               <div className="mb-3 flex items-center justify-between">
                 <span className="text-sm font-bold text-neutral-900">
                   Slide {lightbox + 1} / {assets.length}
@@ -424,7 +424,7 @@ export default function CarouselEditor({ carousel, canApprove = false }) {
                   <span className="text-xs font-bold uppercase tracking-[0.12em] text-neutral-500">
                     Imagen de la slide (duotono)
                   </span>
-                  <div className="mt-2">
+                  <div className="mt-2 rounded-lg border border-neutral-200 bg-neutral-50 p-3">
                     <CarouselImageGallery
                       slides={[
                         {

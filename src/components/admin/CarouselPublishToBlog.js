@@ -80,20 +80,48 @@ export default function CarouselPublishToBlog({
       <h2 className="mb-1 text-lg font-bold text-neutral-950">Artículo en el blog</h2>
 
       {alreadyOnBlog ? (
-        <p className="text-sm text-neutral-700">
-          El artículo fuente ya es una entrada del blog.{" "}
-          <Link href={`/panel/admin/blog/${sourcePostId}`} className="font-semibold text-brand-700 hover:text-brand-900">
-            Abrir en el blog →
-          </Link>
-        </p>
+        <div className="space-y-2 text-sm text-neutral-700">
+          <p>Este carrusel se extrae de un artículo del blog. Trabájalo desde su entrada:</p>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={`/panel/admin/blog/${sourcePostId}`}
+              className="rounded-lg bg-brand-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-800"
+            >
+              Editar el artículo
+            </Link>
+            <Link
+              href={`/blog/preview/${sourcePostId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm font-semibold text-neutral-800 hover:border-brand-400"
+            >
+              Vista previa ↗
+            </Link>
+          </div>
+        </div>
       ) : postId ? (
-        <p className="text-sm text-neutral-700">
-          Creado en el blog como <strong>borrador</strong>.{" "}
-          <Link href={`/panel/admin/blog/${postId}`} className="font-semibold text-brand-700 hover:text-brand-900">
-            Editar el artículo →
-          </Link>{" "}
-          (portada, contenido, descripción y publicación se definen en el editor de blog).
-        </p>
+        <div className="space-y-2 text-sm text-neutral-700">
+          <p>
+            Artículo creado en el blog como <strong>borrador</strong> (portada, contenido, descripción y
+            publicación se definen en el editor):
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={`/panel/admin/blog/${postId}`}
+              className="rounded-lg bg-brand-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-800"
+            >
+              Editar el artículo
+            </Link>
+            <Link
+              href={`/blog/preview/${postId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm font-semibold text-neutral-800 hover:border-brand-400"
+            >
+              Vista previa ↗
+            </Link>
+          </div>
+        </div>
       ) : (
         <div className="space-y-3">
           <p className="text-sm text-neutral-600">

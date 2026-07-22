@@ -197,6 +197,38 @@ sigue siendo el default; la foto es énfasis, no relleno.
 5. **Las palabras nunca se dividen** (el motor hace wrap por medición real de píxeles).
    Aun así, preferir palabras de ≤14 caracteres en títulos de cover.
 
+## Ajuste del texto a la filmina (verificar SIEMPRE)
+
+Las filminas miden 1080×1080 px. **El texto debe caber completo, sin desbordar ni pisar
+el footer/número de slide.** El motor reduce la fuente y hace wrap por medición real de
+píxeles, pero **no evita el desborde vertical** si el texto es demasiado largo: hay que
+controlar la extensión al redactar y revisar visualmente.
+
+Longitudes orientativas por campo (para que entren con holgura):
+
+- `cover.title`: ≤ ~40 caracteres (1-2 líneas). Palabras de ≤14 caracteres.
+- `cover.subtitle`: ≤ ~90 caracteres.
+- `narrative.hook`: ≤ ~90 caracteres (1-2 líneas).
+- `narrative.body`: ≤ ~320 caracteres (3-5 oraciones cortas). Con foto, ≤ ~240.
+- `map.items`: `name` ≤ ~24, `desc` ≤ ~60. Hasta 8 items.
+- `directory.items`: `name` ≤ ~28, `desc` ≤ ~70. Hasta 4 items.
+- `content.points`: ≤ ~90 caracteres cada uno, máx 6.
+- `quote.quote`: ≤ ~160 caracteres; `author` ≤ ~40.
+- `highlight.stat`: muy corto (≤ ~8); `label` ≤ ~80; `description` ≤ ~90.
+- `cta.cta`: ≤ ~40; `subcta` ≤ ~80; `handle` corto.
+
+Regla práctica: si dudas, **acorta**. Antes de entregar, revisa al menos cover, la
+narrative más larga, el map y el cta; si algún texto se sale del área o toca el footer,
+reduce la extensión (no dependas solo del auto-ajuste de fuente).
+
+## Puntuación y gramática del español (obligatorio)
+
+- **Signos de apertura Y cierre**: `¿…?` y `¡…!` — nunca solo el de cierre.
+- **Tildes y ñ correctas** (á, é, í, ó, ú, ñ, ü); las mayúsculas también se tildan (Á, É…).
+- **Comillas**: usar «angulares» o "dobles" de forma consistente; no mezclar estilos.
+- **Puntos suspensivos** `…` (uno solo, tres puntos) y **raya** `—` para incisos.
+- Nada de puntuación anglosajona (no abrir preguntas/exclamaciones sin su signo inicial).
+
 ## Workflow paso a paso
 
 ### 1. Planificá el contenido

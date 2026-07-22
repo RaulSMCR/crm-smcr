@@ -22,7 +22,7 @@ export async function GET() {
         isApproved: true,
         createdAt: true,
         user: { select: { name: true, email: true } },
-        services: { select: { id: true, title: true } },
+        serviceAssignments: { select: { service: { select: { id: true, title: true } } } },
       },
       take: 200,
     });
@@ -35,7 +35,7 @@ export async function GET() {
       profession: p.specialty,
       isApproved: p.isApproved,
       createdAt: p.createdAt,
-      services: p.services || [],
+      services: (p.serviceAssignments || []).map((sa) => sa.service).filter(Boolean),
     }));
 
     return NextResponse.json(out);

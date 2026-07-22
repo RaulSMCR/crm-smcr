@@ -95,6 +95,9 @@ export async function POST(req) {
     "GUÍA DE CARRUSELES para el formato: cuando haya tensión (segunda persona, CTA), manda la guía " +
     "de carruseles. Respeta: voz nosotros, distancia sin descalificación, reconocimiento afirmativo, " +
     "sin bullets innecesarios, una sola quote accent, arco narrativo, CTA con valor concreto (nunca de urgencia). " +
+    "IMPORTANTE: cada texto debe CABER en la filmina 1080x1080 — respeta las longitudes orientativas de la guía " +
+    "(sección 'Ajuste del texto a la filmina') y, ante la duda, acorta. Usa puntuación correcta del español: " +
+    "signos de apertura y cierre (¿…? ¡…!), tildes y ñ. " +
     "Devuelve ÚNICAMENTE el JSON de la spec: un objeto con \"title\" (string) y \"slides\" (array). " +
     "Nada de markdown, nada de explicación, nada de bloques de código. Solo el objeto JSON.";
 

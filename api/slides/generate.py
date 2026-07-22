@@ -92,6 +92,8 @@ def upload_asset(slug, filename, png_bytes):
             "apikey": key,
             "Content-Type": "image/png",
             "x-upsert": "true",
+            # Sin cache: al regenerar se reescribe la misma ruta; evita servir el PNG viejo.
+            "Cache-Control": "no-cache, max-age=0",
         },
         timeout=60,
     )
