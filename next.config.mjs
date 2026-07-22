@@ -15,6 +15,15 @@ const nextConfig = {
   },
   // IMPORTANTE: NO usar output: "export" si tenes /api y cookies
   // output: "export",
+
+  // La guia editorial (SKILL.md) se lee en runtime como system prompt de la
+  // redaccion asistida; forzamos su inclusion en el bundle de la route.
+  outputFileTracingIncludes: {
+    "/api/admin/carousels/draft": [
+      "./vendor/instagram-slides/SKILL.md",
+      "./vendor/smcr-editorial/voz-marca.md",
+    ],
+  },
 };
 
 export default nextConfig;

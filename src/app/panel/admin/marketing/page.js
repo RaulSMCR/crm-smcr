@@ -421,6 +421,12 @@ export default async function AdminMarketingPage() {
               Leads
             </Link>
             <Link
+              href="/panel/admin/carousels"
+              className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition hover:border-brand-400"
+            >
+              Carruseles
+            </Link>
+            <Link
               href="/panel/admin/tareas"
               className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition hover:border-brand-400"
             >

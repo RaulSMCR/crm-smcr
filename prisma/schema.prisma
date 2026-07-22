@@ -842,3 +842,48 @@ model PushSubscription {
   userAgent String?
   createdAt DateTime @default(now())
 }
+
+// Carruseles de Instagram generados desde el panel admin (api/slides + generador PIL).
+enum CarouselStatus {
+  DRAFT
+  GENERATED
+  APPROVED
+  PUBLISHED
+}
+
+model Carousel {
+  id     String         @id @default(cuid())
+  slug   String         @unique
+  title  String
+  status CarouselStatus @default(DRAFT)
+  spec   Json
+
+  articleUrl String?
+
+  // Id del User (admin) que lo creó. Plano por diseño: relacionarlo con User
+  // exigiría una back-relation en el modelo User y el plan pide no tocar modelos
+  // existentes. La route admin ya valida sesión ADMIN antes de escribir.
+  createdBy String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assets CarouselAsset[]
+
+  @@index([status])
+  @@index([createdBy])
+}
+
+model CarouselAsset {
+  id          String   @id @default(cuid())
+  carouselId  String
+  carousel    Carousel @relation(fields: [carouselId], references: [id], onDelete: Cascade)
+  index       Int
+  filename    String
+  storagePath String
+  width       Int      @default(1080)
+  height      Int      @default(1080)
+
+  @@unique([carouselId, index])
+  @@index([carouselId])
+}
