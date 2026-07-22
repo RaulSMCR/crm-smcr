@@ -69,6 +69,18 @@ const AREAS = [
     description: "Coordinar articulos, carruseles, reels, pauta y aprendizajes de campanas.",
     tasks: [
       {
+        id: "ads-new-articles",
+        kind: "decision",
+        label: "¿Hay articulos nuevos para crear?",
+        detail: "Marca 'No hay' si hoy no toca, o 'Completado' cuando el o los articulos queden creados.",
+      },
+      {
+        id: "ads-new-carousels",
+        kind: "decision",
+        label: "¿Hay carruseles para crear?",
+        detail: "Marca 'No hay' si hoy no toca, o 'Completado' cuando el o los carruseles queden generados.",
+      },
+      {
         id: "ads-select-assets",
         label: "Seleccionar activos del dia",
         detail: "Elegir articulo, tema, imagen, enfoque emocional y llamada a la accion.",
@@ -86,6 +98,7 @@ const AREAS = [
     ],
     links: [
       { href: "/panel/admin/marketing", label: "Marketing" },
+      { href: "/panel/admin/carousels", label: "Carruseles" },
       { href: "/panel/admin/comunicaciones", label: "Comunicaciones" },
     ],
   },
