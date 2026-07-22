@@ -23,6 +23,21 @@ Neutros:       #383A3C (texto)      |  #7A7D7F (secundario)
 Fondo app:     #F6EFDF (crema)      |  on-brand: #F5F6F2  |  on-accent: #FFF5F2
 ```
 
+## Logo de marca (automático en cada slide)
+
+El isotipo de la marca (la hoja Monstera) va en **una esquina de TODAS las slides de
+cada carrusel**, como marca de agua o visible. **No se añade a la spec**: el renderer lo
+compone automáticamente en cada slide. Por defecto va **abajo a la derecha, sobre el
+footer**, como marca de agua sutil. Es configurable en el renderer:
+
+- `LOGO_CORNER`: `top-left` | `top-right` | `bottom-left` | `bottom-right`.
+- `LOGO_WIDTH`: ancho en px del isotipo.
+- `LOGO_OPACITY`: 0-255 — marca de agua (~120-160) o visible (~230-255).
+- `LOGO_MARGIN`: separación del borde (y del footer si va abajo).
+
+El asset es `_assets/logo.png` (isotipo con fondo transparente). Si falta, el renderer
+simplemente omite el logo sin romper.
+
 ## Guía editorial (OBLIGATORIA antes de escribir el copy)
 
 El carrusel no resume un texto: produce en quien mira el deseo de informarse con nosotros.

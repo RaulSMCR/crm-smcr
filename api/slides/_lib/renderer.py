@@ -99,6 +99,60 @@ def F(size, bold=False, light=False):
     _font_cache[key] = fnt
     return fnt
 
+# -- Logo de marca (marca de agua en una esquina de cada slide) -------------
+# El isotipo (hoja Monstera) va en una esquina de TODAS las slides. Ajustable:
+#   LOGO_CORNER : "top-left" | "top-right" | "bottom-left" | "bottom-right"
+#   LOGO_WIDTH  : ancho en px
+#   LOGO_OPACITY: 0-255 (marca de agua ~120-160; visible ~230-255)
+#   LOGO_MARGIN : separación del borde (y del footer si va abajo)
+_LOGO_PATH = os.path.join(_FONTS_DIR, "..", "logo.png")
+LOGO_CORNER = "bottom-right"
+LOGO_WIDTH = 104
+LOGO_OPACITY = 150
+LOGO_MARGIN = 28
+_FOOTER_H = 72  # alto del footer; el logo abajo se coloca por encima de él
+_logo_cache = {}
+
+def _load_logo():
+    key = (LOGO_WIDTH, LOGO_OPACITY)
+    if key in _logo_cache:
+        return _logo_cache[key]
+    logo = None
+    try:
+        path = os.path.normpath(_LOGO_PATH)
+        if os.path.exists(path):
+            src = Image.open(path).convert("RGBA")
+            h = max(1, round(src.height * LOGO_WIDTH / src.width))
+            logo = src.resize((LOGO_WIDTH, h), _LANCZOS)
+            if LOGO_OPACITY < 255:
+                r, g, b, a = logo.split()
+                a = a.point(lambda v: int(v * LOGO_OPACITY / 255))
+                logo = Image.merge("RGBA", (r, g, b, a))
+    except Exception:  # pragma: no cover - el logo es decorativo, nunca debe romper
+        logo = None
+    _logo_cache[key] = logo
+    return logo
+
+def draw_logo(img, corner=None):
+    """Compone el isotipo de marca en una esquina. Devuelve RGB. No rompe si falta."""
+    logo = _load_logo()
+    if logo is None:
+        return img
+    corner = corner or LOGO_CORNER
+    lw, lh = logo.size
+    m = LOGO_MARGIN
+    if corner == "top-left":
+        pos = (m, m)
+    elif corner == "top-right":
+        pos = (SIZE[0] - lw - m, m)
+    elif corner == "bottom-left":
+        pos = (m, SIZE[1] - _FOOTER_H - lh - m)
+    else:  # bottom-right (default)
+        pos = (SIZE[0] - lw - m, SIZE[1] - _FOOTER_H - lh - m)
+    base = img.convert("RGBA")
+    base.alpha_composite(logo, pos)
+    return base.convert("RGB")
+
 def measure(draw, text, fnt):
     bb = draw.textbbox((0, 0), text, font=fnt)
     return bb[2]-bb[0], bb[3]-bb[1]
@@ -879,6 +933,7 @@ def render_carousel(spec: dict):
             creator = CREATORS.get(stype, slide_narrative)
             resolved = _resolve_image_field(sd, tempfiles)
             img = creator(resolved, i, total)
+            img = draw_logo(img)  # logo de marca en una esquina de cada slide
             buf = BytesIO()
             img.save(buf, "PNG", optimize=True)
             out.append((f"slide_{i:02d}_{stype}.png", buf.getvalue()))

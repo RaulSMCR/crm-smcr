@@ -91,6 +91,55 @@ def fit_font(draw, text, max_w_px, start_size, bold=False, light=False, min_size
     return F(min_size, bold=bold, light=light)
 
 # ---------------------------------------------------------------------------
+# LOGO DE MARCA (isotipo en una esquina de cada slide)
+# ---------------------------------------------------------------------------
+_LOGO_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "logo.png")
+LOGO_CORNER = "bottom-right"  # top-left | top-right | bottom-left | bottom-right
+LOGO_WIDTH = 104
+LOGO_OPACITY = 150  # 0-255: marca de agua (~120-160) o visible (~230-255)
+LOGO_MARGIN = 28
+_LOGO_FOOTER_H = 72
+_logo_cache = {}
+
+def _load_logo():
+    if "logo" in _logo_cache:
+        return _logo_cache["logo"]
+    logo = None
+    try:
+        p = os.path.normpath(_LOGO_PATH)
+        if os.path.exists(p):
+            src = Image.open(p).convert("RGBA")
+            h = max(1, round(src.height * LOGO_WIDTH / src.width))
+            logo = src.resize((LOGO_WIDTH, h), Image.LANCZOS)
+            if LOGO_OPACITY < 255:
+                r, g, b, a = logo.split()
+                a = a.point(lambda v: int(v * LOGO_OPACITY / 255))
+                logo = Image.merge("RGBA", (r, g, b, a))
+    except Exception:
+        logo = None
+    _logo_cache["logo"] = logo
+    return logo
+
+def draw_logo(img, corner=LOGO_CORNER):
+    """Compone el isotipo en una esquina. Devuelve RGB. No rompe si falta el asset."""
+    logo = _load_logo()
+    if logo is None:
+        return img
+    lw, lh = logo.size
+    m = LOGO_MARGIN
+    if corner == "top-left":
+        pos = (m, m)
+    elif corner == "top-right":
+        pos = (SIZE[0]-lw-m, m)
+    elif corner == "bottom-left":
+        pos = (m, SIZE[1]-_LOGO_FOOTER_H-lh-m)
+    else:
+        pos = (SIZE[0]-lw-m, SIZE[1]-_LOGO_FOOTER_H-lh-m)
+    base = img.convert("RGBA")
+    base.alpha_composite(logo, pos)
+    return base.convert("RGB")
+
+# ---------------------------------------------------------------------------
 # FOTOS
 # ---------------------------------------------------------------------------
 
@@ -757,6 +806,7 @@ def main():
         stype   = sd.get("type", "narrative")
         creator = CREATORS.get(stype, slide_narrative)
         img     = creator(sd, i, total)
+        img     = draw_logo(img)
         img.save(os.path.join(out_dir, f"slide_{i:02d}_{stype}.png"), "PNG", optimize=True)
         print(f"  [{i:02d}] {stype} -> {detect_style(sd.get('hook','') + sd.get('body',''))}")
     print(f"\n{total} slides listas en {out_dir}")
