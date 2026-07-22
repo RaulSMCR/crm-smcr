@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { validateSpecJson } from "@/lib/carousel-spec";
 import CarouselStatusBadge from "@/components/admin/CarouselStatusBadge";
@@ -12,16 +12,69 @@ export default function CarouselEditor({ carousel, canApprove = false }) {
   const [specText, setSpecText] = useState(() => JSON.stringify(carousel.spec, null, 2));
   const [busy, setBusy] = useState(null); // "save" | "generate" | "status"
   const [message, setMessage] = useState(null); // { kind, text }
+  const [assets, setAssets] = useState(carousel.assets);
+  const [lightbox, setLightbox] = useState(null); // índice de slide abierta, o null
+
+  // Re-sincroniza con el servidor tras regenerar (router.refresh cambia la prop).
+  useEffect(() => {
+    setAssets(carousel.assets);
+  }, [carousel.assets]);
 
   const validation = useMemo(() => validateSpecJson(specText), [specText]);
   const dirty = useMemo(
     () => specText !== JSON.stringify(carousel.spec, null, 2),
     [specText, carousel.spec]
   );
-  const hasAssets = carousel.assets.length > 0;
+  const hasAssets = assets.length > 0;
+  const readyCount = assets.filter((a) => a.ready).length;
+  const allReady = hasAssets && readyCount === assets.length;
+
+  // Slides donde tiene sentido una foto (cover / narrative), para insertar desde la galería.
+  const imageSlides = useMemo(() => {
+    if (!validation.ok) return [];
+    return (validation.data.slides || [])
+      .map((s, i) => ({ index: i, type: s.type, title: s.title || s.hook || `Slide ${i + 1}` }))
+      .filter((s) => s.type === "cover" || s.type === "narrative");
+  }, [validation]);
 
   function notify(kind, text) {
     setMessage({ kind, text });
+  }
+
+  function insertImage(index, specValue, style) {
+    try {
+      const spec = JSON.parse(specText);
+      if (!spec?.slides?.[index]) return;
+      spec.slides[index].image = specValue;
+      spec.slides[index].image_style = style;
+      setSpecText(JSON.stringify(spec, null, 2));
+      notify("ok", `Imagen insertada en la slide ${index + 1} (${style}). Guarda la spec y regenera.`);
+    } catch {
+      notify("error", "La spec debe ser JSON válido para insertar la imagen.");
+    }
+  }
+
+  async function patchAsset(assetId, patch) {
+    try {
+      const res = await fetch(`/api/admin/carousels/${carousel.id}/assets/${assetId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setAssets((prev) => prev.map((a) => (a.id === assetId ? { ...a, ...data } : a)));
+        return true;
+      }
+      notify("error", data.message || "No se pudo guardar la revisión");
+    } catch (err) {
+      notify("error", String(err));
+    }
+    return false;
+  }
+
+  function updateNoteLocal(assetId, note) {
+    setAssets((prev) => prev.map((a) => (a.id === assetId ? { ...a, note } : a)));
   }
 
   async function saveSpec() {
@@ -155,23 +208,45 @@ export default function CarouselEditor({ carousel, canApprove = false }) {
         <section className="rounded-lg border border-neutral-200 bg-neutral-50 p-5 shadow-card">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-lg font-bold text-neutral-950">Previews</h2>
-            <span className="text-xs text-neutral-500">{carousel.assets.length} slides</span>
+            <span className="text-xs text-neutral-500">
+              {assets.length} slides{hasAssets ? ` · ${readyCount} listas` : ""}
+            </span>
           </div>
+          {hasAssets ? (
+            <p className="mb-2 text-xs text-neutral-500">Click en una slide para verla en grande, anotar y marcar “listo”.</p>
+          ) : null}
 
           {hasAssets ? (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {carousel.assets.map((a) => (
-                <figure key={a.id} className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
+              {assets.map((a, i) => (
+                <button
+                  type="button"
+                  key={a.id}
+                  onClick={() => setLightbox(i)}
+                  className="group relative overflow-hidden rounded-lg border border-neutral-200 bg-white text-left"
+                >
                   {a.url ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={a.url} alt={a.filename} width={a.width} height={a.height} className="block aspect-square w-full object-cover" />
+                    <img src={a.url} alt={a.filename} className="block aspect-square w-full object-cover" />
                   ) : (
-                    <div className="flex aspect-square w-full items-center justify-center text-xs text-neutral-400">
-                      sin URL
-                    </div>
+                    <div className="flex aspect-square w-full items-center justify-center text-xs text-neutral-400">sin URL</div>
                   )}
-                  <figcaption className="truncate px-2 py-1 text-[11px] text-neutral-500">{a.filename}</figcaption>
-                </figure>
+                  <span
+                    className={`absolute right-1.5 top-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                      a.ready ? "bg-emerald-600 text-white" : "bg-neutral-900/60 text-white"
+                    }`}
+                  >
+                    {a.ready ? "✓ listo" : i + 1}
+                  </span>
+                  {a.note ? (
+                    <span className="absolute left-1.5 top-1.5 rounded bg-amber-400/90 px-1.5 py-0.5 text-[10px] font-bold text-amber-950">
+                      nota
+                    </span>
+                  ) : null}
+                  <span className="block truncate px-2 py-1 text-[11px] text-neutral-500 group-hover:text-brand-700">
+                    {a.filename}
+                  </span>
+                </button>
               ))}
             </div>
           ) : (
@@ -193,10 +268,17 @@ export default function CarouselEditor({ carousel, canApprove = false }) {
               <>
                 <button
                   onClick={() => setStatus("APPROVED")}
-                  disabled={busyAny || !hasAssets || carousel.status === "APPROVED"}
+                  disabled={busyAny || !hasAssets || !allReady || carousel.status === "APPROVED"}
+                  title={
+                    !allReady
+                      ? `Marca todas las slides como listas primero (${readyCount}/${assets.length})`
+                      : "Aprobar todas"
+                  }
                   className="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Aprobar
+                  {carousel.status === "APPROVED"
+                    ? "Aprobado"
+                    : `Aprobar todas (${readyCount}/${assets.length})`}
                 </button>
                 <button
                   onClick={() => setStatus("PUBLISHED")}
@@ -221,14 +303,90 @@ export default function CarouselEditor({ carousel, canApprove = false }) {
         />
       ) : null}
 
-      <details className="rounded-lg border border-neutral-200 bg-neutral-50 p-5 shadow-card">
+      <details open className="rounded-lg border border-neutral-200 bg-neutral-50 p-5 shadow-card">
         <summary className="cursor-pointer text-lg font-bold text-neutral-950">
-          Galería de imágenes
+          Imágenes (duotono)
         </summary>
         <div className="mt-4">
-          <CarouselImageGallery />
+          <CarouselImageGallery slides={imageSlides} onInsert={insertImage} />
         </div>
       </details>
+
+      {lightbox !== null && assets[lightbox] ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
+          onClick={() => setLightbox(null)}
+        >
+          <div
+            className="flex max-h-full w-full max-w-5xl flex-col gap-4 overflow-auto lg:flex-row"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-1 items-center justify-center">
+              {assets[lightbox].url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={assets[lightbox].url}
+                  alt={assets[lightbox].filename}
+                  className="mx-auto max-h-[85vh] w-auto rounded-lg"
+                />
+              ) : (
+                <div className="text-white">sin URL</div>
+              )}
+            </div>
+
+            <div className="w-full shrink-0 rounded-lg bg-white p-4 lg:w-80">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-sm font-bold text-neutral-900">
+                  Slide {lightbox + 1} / {assets.length}
+                </span>
+                <button onClick={() => setLightbox(null)} className="text-sm text-neutral-500 hover:text-neutral-800">
+                  Cerrar ✕
+                </button>
+              </div>
+
+              <label className="flex items-center gap-2 text-sm font-semibold text-neutral-800">
+                <input
+                  type="checkbox"
+                  checked={!!assets[lightbox].ready}
+                  onChange={(e) => patchAsset(assets[lightbox].id, { ready: e.target.checked })}
+                  className="h-4 w-4 rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500"
+                />
+                Marcar como listo
+              </label>
+
+              <label className="mt-3 block">
+                <span className="text-xs font-bold uppercase tracking-[0.12em] text-neutral-500">Nota de edición</span>
+                <textarea
+                  value={assets[lightbox].note || ""}
+                  onChange={(e) => updateNoteLocal(assets[lightbox].id, e.target.value)}
+                  onBlur={(e) => patchAsset(assets[lightbox].id, { note: e.target.value })}
+                  rows={5}
+                  placeholder="Qué ajustar en esta slide…"
+                  className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm text-neutral-900 focus:border-brand-500 focus:outline-none"
+                />
+                <span className="mt-1 block text-[11px] text-neutral-400">Se guarda al salir del campo.</span>
+              </label>
+
+              <div className="mt-4 flex items-center justify-between">
+                <button
+                  onClick={() => setLightbox((v) => (v > 0 ? v - 1 : v))}
+                  disabled={lightbox === 0}
+                  className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-semibold text-neutral-700 disabled:opacity-40"
+                >
+                  ← Anterior
+                </button>
+                <button
+                  onClick={() => setLightbox((v) => (v < assets.length - 1 ? v + 1 : v))}
+                  disabled={lightbox === assets.length - 1}
+                  className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-semibold text-neutral-700 disabled:opacity-40"
+                >
+                  Siguiente →
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

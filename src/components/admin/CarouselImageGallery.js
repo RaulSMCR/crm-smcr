@@ -2,13 +2,17 @@
 
 import { useEffect, useState } from "react";
 
-export default function CarouselImageGallery() {
+export default function CarouselImageGallery({ slides = [], onInsert = null }) {
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [duotone, setDuotone] = useState(true);
   const [msg, setMsg] = useState(null); // { kind, text }
   const [copied, setCopied] = useState("");
+  const [targetSlide, setTargetSlide] = useState("");
+
+  const canInsert = Boolean(onInsert) && slides.length > 0;
+  const effectiveTarget = targetSlide !== "" ? Number(targetSlide) : slides[0]?.index;
 
   async function load() {
     setLoading(true);
@@ -52,15 +56,15 @@ export default function CarouselImageGallery() {
     }
   }
 
+  const style = () => (duotone ? "duotone" : "photo");
+
   function snippetFor(specValue) {
-    const style = duotone ? "duotone" : "photo";
-    return `"image": "${specValue}", "image_style": "${style}"`;
+    return `"image": "${specValue}", "image_style": "${style()}"`;
   }
 
   async function copySnippet(specValue) {
-    const snippet = snippetFor(specValue);
     try {
-      await navigator.clipboard.writeText(snippet);
+      await navigator.clipboard.writeText(snippetFor(specValue));
       setCopied(specValue);
       setTimeout(() => setCopied((c) => (c === specValue ? "" : c)), 1500);
     } catch {
@@ -68,10 +72,15 @@ export default function CarouselImageGallery() {
     }
   }
 
+  function insert(specValue) {
+    if (!canInsert || effectiveTarget === undefined) return;
+    onInsert(effectiveTarget, specValue, style());
+  }
+
   return (
     <div className="space-y-3">
       <p className="text-xs text-neutral-600">
-        Sube o elige una foto y copia el fragmento en el campo de una slide <strong>cover</strong> o{" "}
+        Sube o elige una foto y <strong>insértala</strong> en una slide <strong>cover</strong> o{" "}
         <strong>narrative</strong>. <span className="font-semibold text-brand-800">Duotono recomendado</span> —
         mantiene la paleta de marca. Mínimo 1080px de ancho.
       </p>
@@ -85,6 +94,26 @@ export default function CarouselImageGallery() {
           <input type="checkbox" checked={duotone} onChange={(e) => setDuotone(e.target.checked)} />
           Duotono
         </label>
+        {canInsert ? (
+          <label className="flex items-center gap-2 text-sm text-neutral-700">
+            Insertar en:
+            <select
+              value={targetSlide === "" ? String(effectiveTarget ?? "") : targetSlide}
+              onChange={(e) => setTargetSlide(e.target.value)}
+              className="rounded-lg border border-neutral-300 bg-white px-2 py-1.5 text-sm text-neutral-800 focus:border-brand-500 focus:outline-none"
+            >
+              {slides.map((s) => (
+                <option key={s.index} value={s.index}>
+                  {s.index + 1}. {s.type} — {String(s.title).slice(0, 30)}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <span className="text-xs text-neutral-500">
+            {onInsert ? "Añade una slide cover o narrative para poder insertar." : ""}
+          </span>
+        )}
         <button
           type="button"
           onClick={load}
@@ -122,14 +151,25 @@ export default function CarouselImageGallery() {
               ) : (
                 <div className="flex aspect-square w-full items-center justify-center text-xs text-neutral-400">sin URL</div>
               )}
-              <button
-                type="button"
-                onClick={() => copySnippet(img.specValue)}
-                className="w-full border-t border-neutral-200 px-2 py-1.5 text-[11px] font-semibold text-brand-700 transition hover:bg-brand-50"
-                title={snippetFor(img.specValue)}
-              >
-                {copied === img.specValue ? "¡Copiado!" : "Copiar fragmento"}
-              </button>
+              <div className="flex divide-x divide-neutral-200 border-t border-neutral-200">
+                {canInsert ? (
+                  <button
+                    type="button"
+                    onClick={() => insert(img.specValue)}
+                    className="flex-1 px-2 py-1.5 text-[11px] font-semibold text-white bg-brand-700 transition hover:bg-brand-800"
+                  >
+                    Insertar
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => copySnippet(img.specValue)}
+                  className="flex-1 px-2 py-1.5 text-[11px] font-semibold text-brand-700 transition hover:bg-brand-50"
+                  title={snippetFor(img.specValue)}
+                >
+                  {copied === img.specValue ? "¡Copiado!" : "Copiar"}
+                </button>
+              </div>
             </figure>
           ))}
         </div>

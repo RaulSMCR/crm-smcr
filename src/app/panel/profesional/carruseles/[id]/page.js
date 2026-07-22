@@ -33,7 +33,16 @@ export default async function ProfesionalCarruselDetallePage({ params }) {
       } catch {
         url = null;
       }
-      return { id: a.id, index: a.index, filename: a.filename, width: a.width, height: a.height, url };
+      return {
+        id: a.id,
+        index: a.index,
+        filename: a.filename,
+        width: a.width,
+        height: a.height,
+        ready: a.ready,
+        note: a.note || "",
+        url,
+      };
     })
   );
 

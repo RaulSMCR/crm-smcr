@@ -28,7 +28,8 @@ const formatDate = (date) => {
 export const revalidate = 300;
 
 export default async function BlogPage({ searchParams }) {
-  const selectedAuthor = typeof searchParams?.autor === 'string' ? searchParams.autor : null;
+  const sp = await searchParams;
+  const selectedAuthor = typeof sp?.autor === 'string' ? sp.autor : null;
 
   const posts = await prisma.post.findMany({
     where: {

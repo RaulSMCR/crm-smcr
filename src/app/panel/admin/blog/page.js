@@ -6,7 +6,8 @@ import { updatePostStatus } from "@/actions/admin-actions";
 export const dynamic = "force-dynamic";
 
 export default async function AdminBlogPage({ searchParams }) {
-  const authorId = typeof searchParams?.authorId === "string" ? searchParams.authorId : null;
+  const sp = await searchParams;
+  const authorId = typeof sp?.authorId === "string" ? sp.authorId : null;
 
   const where = authorId ? { authorId } : undefined;
 

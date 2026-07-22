@@ -37,7 +37,7 @@ export default async function EditarArticuloPage({ params }) {
 
   if (!profile?.id) redirect("/panel/profesional/perfil");
 
-  const idParam = params?.id;
+  const { id: idParam } = await params;
   if (!idParam) notFound();
 
   const post = await getPostOrNull(idParam, profile.id);
@@ -45,10 +45,20 @@ export default async function EditarArticuloPage({ params }) {
 
   return (
     <main className="max-w-3xl mx-auto px-4 py-10">
-      <div className="mb-6">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <Link href="/panel/profesional" className="text-sm text-blue-600 underline">
           ← Volver al panel
         </Link>
+        {post ? (
+          <a
+            href={`/blog/preview/${post.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:border-blue-400"
+          >
+            Vista previa ↗
+          </a>
+        ) : null}
       </div>
 
       <PostEditor initial={post} />

@@ -45,6 +45,8 @@ export default async function CarouselDetailPage({ params }) {
         filename: a.filename,
         width: a.width,
         height: a.height,
+        ready: a.ready,
+        note: a.note || "",
         url,
       };
     })

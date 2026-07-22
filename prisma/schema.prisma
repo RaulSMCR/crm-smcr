@@ -894,6 +894,10 @@ model CarouselAsset {
   width       Int      @default(1080)
   height      Int      @default(1080)
 
+  // Revisión por slide: nota de edición + marca de "listo".
+  ready Boolean @default(false)
+  note  String? @db.Text
+
   @@unique([carouselId, index])
   @@index([carouselId])
 }
