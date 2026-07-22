@@ -15,12 +15,11 @@ export default function NewCarouselForm({ isAdmin = false, authorOptions = [], b
   const [serverError, setServerError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Pestaña "Desde artículo"
+  // Pestaña "Artículo fuente": adjunta el artículo del que sale el carrusel. No
+  // redacta nada — la spec se escribe en Claude y se pega en la otra pestaña. Se
+  // guarda como sourceText/sourcePostId para habilitar "Enviar al blog" después.
   const [articleText, setArticleText] = useState("");
-  const [notes, setNotes] = useState("");
-  const [drafting, setDrafting] = useState(false);
-  const [draftError, setDraftError] = useState("");
-  const [draftInfo, setDraftInfo] = useState("");
+  const [sourceError, setSourceError] = useState("");
   const [posts, setPosts] = useState([]);
   const [postsLoaded, setPostsLoaded] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState("");
@@ -37,9 +36,9 @@ export default function NewCarouselForm({ isAdmin = false, authorOptions = [], b
     reader.onload = () => {
       setArticleText(String(reader.result || ""));
       setSourceNote(`Cargado: ${file.name}`);
-      setDraftError("");
+      setSourceError("");
     };
-    reader.onerror = () => setDraftError("No se pudo leer el archivo.");
+    reader.onerror = () => setSourceError("No se pudo leer el archivo.");
     reader.readAsText(file);
   }
 
@@ -59,51 +58,18 @@ export default function NewCarouselForm({ isAdmin = false, authorOptions = [], b
     const id = e.target.value;
     setSelectedPostId(id);
     if (!id) return;
-    setDraftError("");
+    setSourceError("");
     try {
       const res = await fetch(`/api/admin/carousels/source-posts?id=${encodeURIComponent(id)}`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setDraftError(data.message || "No se pudo cargar el artículo del blog.");
+        setSourceError(data.message || "No se pudo cargar el artículo del blog.");
         return;
       }
       setArticleText(data.text || "");
       setSourceNote(`Desde el blog: ${data.title}`);
     } catch (err) {
-      setDraftError(String(err));
-    }
-  }
-
-  async function generateDraft() {
-    setDraftError("");
-    setDraftInfo("");
-    if (articleText.trim().length < 80) {
-      setDraftError("Pega el texto del artículo (al menos ~80 caracteres).");
-      return;
-    }
-    setDrafting(true);
-    try {
-      const res = await fetch("/api/admin/carousels/draft", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ articleText: articleText.trim(), notes: notes.trim() || undefined }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const detail = Array.isArray(data.errors) ? ` (${data.errors.join("; ")})` : data.detail ? ` — ${data.detail}` : "";
-        setDraftError(`${data.message || "No se pudo generar la propuesta"}${detail}`);
-        setDrafting(false);
-        return;
-      }
-      // Precargar el editor con la propuesta. Nunca genera PNGs: pasa por revisión.
-      setSpecText(JSON.stringify(data.spec, null, 2));
-      if (data.spec?.title && !title.trim()) setTitle(data.spec.title);
-      setDraftInfo(`Propuesta generada con ${data.model}. Revísala y ajústala antes de crear.`);
-      setTab("manual");
-    } catch (err) {
-      setDraftError(String(err));
-    } finally {
-      setDrafting(false);
+      setSourceError(String(err));
     }
   }
 
@@ -161,17 +127,18 @@ export default function NewCarouselForm({ isAdmin = false, authorOptions = [], b
         <button type="button" onClick={() => setTab("manual")} className={tabBtn("manual", "Manual")}>
           Spec manual
         </button>
-        <button type="button" onClick={() => setTab("article")} className={tabBtn("article", "Desde artículo")}>
-          Desde artículo
+        <button type="button" onClick={() => setTab("article")} className={tabBtn("article", "Artículo fuente")}>
+          Artículo fuente
         </button>
       </div>
 
       {tab === "article" ? (
         <div className="space-y-4">
           <p className="text-sm text-neutral-600">
-            Pega el texto, sube un <strong>.md</strong> o elige un <strong>artículo del blog</strong>. Claude
-            propondrá una spec siguiendo la guía editorial. La propuesta precarga el editor manual para
-            revisión: <strong>nunca genera imágenes automáticamente.</strong>
+            Opcional: adjunta el artículo del que sale el carrusel, para poder <strong>enviarlo al blog</strong>
+            después con su autoría. Pega el texto, sube un <strong>.md</strong> o elige un{" "}
+            <strong>artículo del blog</strong>. La spec del carrusel se redacta aparte y se pega en{" "}
+            <strong>Spec manual</strong>.
           </p>
 
           <div className="flex flex-wrap items-center gap-3 rounded-lg border border-neutral-200 bg-white p-3">
@@ -213,34 +180,25 @@ export default function NewCarouselForm({ isAdmin = false, authorOptions = [], b
               className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-brand-500 focus:outline-none"
             />
           </label>
-          <label className="block">
-            <span className="text-xs font-bold uppercase tracking-[0.12em] text-neutral-500">Notas (opcional)</span>
-            <input
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Ángulo, tono, CTA específico…"
-              className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-brand-500 focus:outline-none"
-            />
-          </label>
-          {draftError ? (
+          {sourceError ? (
             <p className="rounded-lg border border-accent-300 bg-accent-50 px-3 py-2 text-sm font-semibold text-accent-900">
-              {draftError}
+              {sourceError}
             </p>
           ) : null}
           <button
             type="button"
-            onClick={generateDraft}
-            disabled={drafting || articleText.trim().length < 80}
-            className="rounded-lg bg-accent-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-accent-600 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => setTab("manual")}
+            className="rounded-lg bg-brand-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-brand-800"
           >
-            {drafting ? "Generando propuesta…" : "Generar propuesta"}
+            Continuar a la spec →
           </button>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-5">
-          {draftInfo ? (
-            <p className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
-              {draftInfo}
+          {sourceNote ? (
+            <p className="rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-700">
+              Artículo fuente adjunto — <strong>{sourceNote}</strong>. Se guardará con el carrusel para poder
+              enviarlo al blog.
             </p>
           ) : null}
 

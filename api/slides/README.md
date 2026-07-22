@@ -43,7 +43,7 @@ El `slug` se valida contra `^[a-z0-9][a-z0-9_-]{0,79}$` (previene path traversal
 | `SLIDES_INTERNAL_SECRET` | Secret compartido Node ↔ Python. Requerido. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Bearer para subir/descargar de Storage. **SECRETO**, nunca al cliente. |
 | `SUPABASE_URL` | URL base de Supabase. Si falta, se usa `NEXT_PUBLIC_SUPABASE_URL`. |
-| `ANTHROPIC_API_KEY` | Redacción asistida (pestaña "Desde artículo"). **SECRETO**. Opcional: sin ella el resto funciona. |
+| `ANTHROPIC_API_KEY` | **Desactivada.** La redacción asistida se retiró de la UI; los carruseles se redactan en Claude. Dejar vacía. |
 | `ANTHROPIC_MODEL` | Modelo de la propuesta. Default `claude-opus-4-8`; usar `claude-sonnet-4-6` para bajar costo. |
 
 ## Endpoints del panel (orquestador Node)
