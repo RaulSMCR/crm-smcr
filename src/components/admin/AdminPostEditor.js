@@ -7,6 +7,7 @@ import { updateAdminPost, updatePostStatus } from "@/actions/admin-actions";
 import { notifyPostToReaders } from "@/actions/push-actions";
 import SeoFieldset from "@/components/admin/SeoFieldset";
 import SafeImage from "@/components/SafeImage";
+import MarkdownEditor from "@/components/MarkdownEditor";
 import { IMAGE_FALLBACKS, PUBLIC_IMAGE_ACCEPT, SUPPORTED_PUBLIC_IMAGE_TYPES } from "@/lib/images";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -271,11 +272,11 @@ export default function AdminPostEditor({ post }) {
 
         <div>
           <label className="mb-1 block text-sm font-semibold text-slate-700">Contenido</label>
-          <textarea
+          <MarkdownEditor
             value={form.content}
-            onChange={(event) => updateField("content", event.target.value)}
+            onChange={(v) => updateField("content", v)}
             rows={18}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 font-serif leading-relaxed"
+            placeholder="Contenido del artículo. Usa los botones de formato (título, negrita, lista…)."
           />
         </div>
 

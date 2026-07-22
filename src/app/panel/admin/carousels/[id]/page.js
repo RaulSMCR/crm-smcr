@@ -83,7 +83,7 @@ export default async function CarouselDetailPage({ params }) {
           </div>
         </div>
 
-        <CarouselEditor carousel={editorData} canApprove />
+        <CarouselEditor carousel={editorData} canApprove basePath="/panel/admin/carousels" />
       </div>
     </div>
   );

@@ -76,7 +76,7 @@ export default async function ProfesionalCarruselDetallePage({ params }) {
         ) : null}
       </div>
 
-      <CarouselEditor carousel={editorData} canApprove={false} />
+      <CarouselEditor carousel={editorData} canApprove={false} basePath="/panel/profesional/carruseles" />
     </div>
   );
 }

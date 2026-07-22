@@ -3,14 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { validateSpecJson } from "@/lib/carousel-spec";
-import CarouselStatusBadge from "@/components/admin/CarouselStatusBadge";
 import CarouselImageGallery from "@/components/admin/CarouselImageGallery";
 import CarouselPublishToBlog from "@/components/admin/CarouselPublishToBlog";
 
-export default function CarouselEditor({ carousel, canApprove = false }) {
+export default function CarouselEditor({ carousel, canApprove = false, basePath = "/panel/admin/carousels" }) {
   const router = useRouter();
   const [specText, setSpecText] = useState(() => JSON.stringify(carousel.spec, null, 2));
-  const [busy, setBusy] = useState(null); // "save" | "generate" | "status"
+  const [busy, setBusy] = useState(null); // "save" | "generate" | "status" | "delete"
   const [message, setMessage] = useState(null); // { kind, text }
   const [assets, setAssets] = useState(carousel.assets);
   const [lightbox, setLightbox] = useState(null); // índice de slide abierta, o null
@@ -170,6 +169,26 @@ export default function CarouselEditor({ carousel, canApprove = false }) {
     }
   }
 
+  async function deleteCarousel() {
+    if (!window.confirm("¿Eliminar este carrusel y todas sus slides? Esta acción no se puede deshacer.")) return;
+    setBusy("delete");
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/admin/carousels/${carousel.id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        notify("error", data.message || "No se pudo eliminar el carrusel");
+        setBusy(null);
+        return;
+      }
+      router.push(basePath);
+      router.refresh();
+    } catch (err) {
+      notify("error", String(err));
+      setBusy(null);
+    }
+  }
+
   const busyAny = busy !== null;
 
   // Slide del lightbox: si es cover/narrative, admite foto (duotono) por-slide.
@@ -179,6 +198,24 @@ export default function CarouselEditor({ carousel, canApprove = false }) {
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => router.push(basePath)}
+          className="inline-flex items-center gap-1 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm font-semibold text-neutral-800 transition hover:border-brand-400 hover:text-brand-700"
+        >
+          ← Volver a carruseles
+        </button>
+        <button
+          type="button"
+          onClick={deleteCarousel}
+          disabled={busyAny}
+          className="inline-flex items-center gap-1 rounded-lg border border-accent-300 bg-white px-3 py-1.5 text-sm font-semibold text-accent-700 transition hover:bg-accent-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {busy === "delete" ? "Eliminando…" : "🗑 Eliminar carrusel"}
+        </button>
+      </div>
+
       {message ? (
         <p
           ref={messageRef}

@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import SafeImage from "@/components/SafeImage";
+import MarkdownEditor from "@/components/MarkdownEditor";
 import { IMAGE_FALLBACKS, PUBLIC_IMAGE_ACCEPT, SUPPORTED_PUBLIC_IMAGE_TYPES } from "@/lib/images";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -203,12 +204,11 @@ export default function PostEditor({ initial = null }) {
 
       <div>
         <label className="mb-1 block text-sm font-medium">Contenido *</label>
-        <textarea
+        <MarkdownEditor
           value={content}
-          onChange={(e) => setContent(e.target.value)}
-          className="min-h-[180px] w-full rounded border px-3 py-2"
-          placeholder="Escribe el contenido del articulo"
-          required
+          onChange={setContent}
+          rows={14}
+          placeholder="Escribe el contenido del articulo. Usa los botones de formato (título, negrita, lista…)."
         />
       </div>
 

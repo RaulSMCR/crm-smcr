@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCarouselActor, canAccessCarousel } from "@/lib/carousel-access";
 import { getSignedUrl } from "@/lib/storage";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { carouselSpecSchema, formatZodIssues } from "@/lib/carousel-spec";
 
 export const dynamic = "force-dynamic";
@@ -128,4 +129,32 @@ export async function PATCH(req, { params }) {
   });
 
   return NextResponse.json(updated);
+}
+
+export async function DELETE(_req, { params }) {
+  const { actor, res } = await getCarouselActor();
+  if (res) return res;
+  const { id } = await params;
+
+  const carousel = await prisma.carousel.findUnique({
+    where: { id },
+    select: { id: true, createdBy: true, assets: { select: { storagePath: true } } },
+  });
+  if (!carousel || !canAccessCarousel(actor, carousel)) {
+    return NextResponse.json({ message: "Carrusel no encontrado" }, { status: 404 });
+  }
+
+  // Limpieza best-effort de los PNG en Storage; no bloquea el borrado del registro.
+  try {
+    const paths = carousel.assets.map((a) => a.storagePath).filter(Boolean);
+    if (paths.length) {
+      await getSupabaseAdmin().storage.from(CAROUSELS_BUCKET).remove(paths);
+    }
+  } catch {
+    // Los objetos huérfanos se pueden limpiar aparte; el registro debe borrarse igual.
+  }
+
+  await prisma.carousel.delete({ where: { id } }); // cascade borra los assets
+
+  return NextResponse.json({ ok: true });
 }
