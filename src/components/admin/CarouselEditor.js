@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { validateSpecJson } from "@/lib/carousel-spec";
 import CarouselStatusBadge from "@/components/admin/CarouselStatusBadge";
@@ -14,6 +14,15 @@ export default function CarouselEditor({ carousel, canApprove = false }) {
   const [message, setMessage] = useState(null); // { kind, text }
   const [assets, setAssets] = useState(carousel.assets);
   const [lightbox, setLightbox] = useState(null); // índice de slide abierta, o null
+  const specRef = useRef(null);
+
+  function focusSpec() {
+    setLightbox(null);
+    setTimeout(() => {
+      specRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      specRef.current?.focus();
+    }, 60);
+  }
 
   // Re-sincroniza con el servidor tras regenerar (router.refresh cambia la prop).
   useEffect(() => {
@@ -171,6 +180,7 @@ export default function CarouselEditor({ carousel, canApprove = false }) {
             </span>
           </div>
           <textarea
+            ref={specRef}
             value={specText}
             onChange={(e) => setSpecText(e.target.value)}
             spellCheck={false}
@@ -202,6 +212,10 @@ export default function CarouselEditor({ carousel, canApprove = false }) {
               {busy === "generate" ? "Generando…" : hasAssets ? "Regenerar slides" : "Generar slides"}
             </button>
           </div>
+          <p className="mt-2 text-xs text-neutral-500">
+            Aquí editas el contenido. Tras cambiar la spec, pulsa <strong>Guardar spec</strong> y luego{" "}
+            <strong>Regenerar slides</strong> para ver los cambios en los previews.
+          </p>
         </section>
 
         {/* Previews */}
@@ -254,6 +268,29 @@ export default function CarouselEditor({ carousel, canApprove = false }) {
               Aún no hay slides generadas. Ajusta la spec y pulsa “Generar slides”.
             </p>
           )}
+
+          {assets.some((a) => a.note) ? (
+            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="font-bold">Notas de edición ({assets.filter((a) => a.note).length})</span>
+                <button
+                  onClick={focusSpec}
+                  className="rounded border border-amber-300 bg-white px-2 py-1 font-semibold text-amber-900 transition hover:bg-amber-100"
+                >
+                  Editar la spec →
+                </button>
+              </div>
+              <ul className="space-y-1">
+                {assets
+                  .filter((a) => a.note)
+                  .map((a) => (
+                    <li key={a.id}>
+                      <span className="font-semibold">Slide {a.index + 1}:</span> {a.note}
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          ) : null}
 
           <div className="mt-4 flex flex-wrap gap-2">
             <a
@@ -382,6 +419,29 @@ export default function CarouselEditor({ carousel, canApprove = false }) {
                 >
                   Siguiente →
                 </button>
+              </div>
+
+              <div className="mt-4 space-y-2 border-t border-neutral-200 pt-3">
+                {lightbox === assets.length - 1 ? (
+                  <p className="text-xs font-semibold text-emerald-700">
+                    Última slide. Cuando termines de anotar, usa “Terminar revisión”.
+                  </p>
+                ) : null}
+                <button
+                  onClick={() => setLightbox(null)}
+                  className="w-full rounded-lg bg-brand-700 px-3 py-2 text-sm font-semibold text-white transition hover:bg-brand-800"
+                >
+                  Terminar revisión
+                </button>
+                <button
+                  onClick={focusSpec}
+                  className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-800 transition hover:border-brand-400"
+                >
+                  Editar la spec →
+                </button>
+                <p className="text-[11px] text-neutral-400">
+                  Las notas son recordatorios. Los cambios se hacen editando la spec y regenerando.
+                </p>
               </div>
             </div>
           </div>
