@@ -9,7 +9,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const { prisma, cookieStore } = vi.hoisted(() => ({
-  prisma: { user: { findUnique: vi.fn() } },
+  // `findFirst` lo usa la resolución del usuario/profesional real de la vista previa.
+  prisma: { user: { findUnique: vi.fn(), findFirst: vi.fn() } },
   cookieStore: { get: vi.fn() },
 }));
 
@@ -52,6 +53,8 @@ const {
 } = await import("@/lib/auth");
 
 const ADMIN_ID = "admin-1";
+// Usuario real de prueba que la vista «ver como usuario» presta para mostrar datos.
+const PREVIEW_USER_ID = "user-preview-1";
 const ACTIVE_ADMIN = {
   sessionVersion: 1,
   isActive: true,
@@ -70,6 +73,7 @@ async function setCookies({ session, adminView }) {
 beforeEach(async () => {
   vi.clearAllMocks();
   prisma.user.findUnique.mockResolvedValue(ACTIVE_ADMIN);
+  prisma.user.findFirst.mockResolvedValue({ id: PREVIEW_USER_ID });
   enterRequest();
 });
 
@@ -95,6 +99,9 @@ describe("modo «ver como» (F04)", () => {
 
     expect(session).toMatchObject({ sub: ADMIN_ID, role: "USER", actualRole: "ADMIN", isPreview: true });
     expect(isPreviewSession(session)).toBe(true);
+    // La identidad sigue siendo la del admin, pero las lecturas de paciente se
+    // redirigen al usuario real prestado (si no, la vista saldría vacía).
+    expect(session.previewUserId).toBe(PREVIEW_USER_ID);
   });
 
   it("ignora una cookie de vista emitida para OTRO admin", async () => {

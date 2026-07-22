@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "crm-carruseles": {
+      "command": "node",
+      "args": ["mcp/crm-carousels.mjs"],
+      "env": {
+        "CRM_BASE_URL": "${CRM_BASE_URL:-https://saludmentalcostarica.com}",
+        "MCP_ADMIN_TOKEN": "${MCP_ADMIN_TOKEN}"
+      }
+    }
+  }
+}
