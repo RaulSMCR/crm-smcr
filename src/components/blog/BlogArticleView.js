@@ -2,6 +2,7 @@ import Link from "next/link";
 import JsonLd from "@/components/JsonLd";
 import PostMarketingTracker from "@/components/blog/PostMarketingTracker";
 import SafeImage, { SafeAvatar } from "@/components/SafeImage";
+import MarkdownRenderer from "@/components/MarkdownRenderer";
 import { siteUrl } from "@/lib/site-url";
 
 const formatDate = (date) =>
@@ -123,11 +124,10 @@ export default function BlogArticleView({ post, slug, preview = false }) {
           </div>
         </div>
 
-        {/* Cuerpo del Artículo */}
-        <div
-          className="prose prose-lg prose-blue max-w-none text-gray-700 leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: post.content }}
-        />
+        {/* Cuerpo del Artículo (markdown → formato) */}
+        <div className="prose prose-lg prose-blue max-w-none text-gray-700 leading-relaxed">
+          <MarkdownRenderer content={post.content || ""} />
+        </div>
 
         {/* Footer del Artículo */}
         <div className="mt-12 pt-8 border-t border-gray-200">
