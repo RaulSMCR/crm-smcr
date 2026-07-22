@@ -49,6 +49,9 @@ export default async function CarouselDetailPage({ params }) {
     status: carousel.status,
     spec: carousel.spec,
     assets,
+    hasSource: Boolean(carousel.sourceText && carousel.sourceText.trim()),
+    sourcePostId: carousel.sourcePostId || null,
+    blogPostId: carousel.blogPostId || null,
   };
 
   return (

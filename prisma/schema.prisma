@@ -860,6 +860,12 @@ model Carousel {
 
   articleUrl String?
 
+  // Artículo fuente (para "Enviar al blog"). Plano por diseño: sourcePostId/blogPostId
+  // guardan ids de Post sin FK, para no añadir back-relations al modelo Post.
+  sourceText   String? @db.Text // texto usado como fuente (paste/.md); null si se creó a mano
+  sourcePostId String? // id del Post si la fuente ya era un artículo del blog (no se duplica)
+  blogPostId   String? // id del Post creado vía "Enviar al blog" (evita duplicar)
+
   // Id del User (admin) que lo creó. Plano por diseño: relacionarlo con User
   // exigiría una back-relation en el modelo User y el plan pide no tocar modelos
   // existentes. La route admin ya valida sesión ADMIN antes de escribir.

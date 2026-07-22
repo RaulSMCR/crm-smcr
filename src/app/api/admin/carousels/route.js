@@ -77,6 +77,9 @@ export async function POST(req) {
     return NextResponse.json({ message: `El slug "${slug}" ya existe.` }, { status: 409 });
   }
 
+  const sourceText = parsed.data.sourceText?.trim() || null;
+  const sourcePostId = parsed.data.sourcePostId?.trim() || null;
+
   const carousel = await prisma.carousel.create({
     data: {
       title,
@@ -84,6 +87,8 @@ export async function POST(req) {
       spec,
       status: "DRAFT",
       createdBy: String(session.sub || session.userId || ""),
+      sourceText,
+      sourcePostId,
     },
     select: { id: true, slug: true, title: true, status: true },
   });

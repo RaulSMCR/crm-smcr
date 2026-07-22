@@ -20,9 +20,58 @@ export default function NewCarouselForm() {
   const [drafting, setDrafting] = useState(false);
   const [draftError, setDraftError] = useState("");
   const [draftInfo, setDraftInfo] = useState("");
+  const [posts, setPosts] = useState([]);
+  const [postsLoaded, setPostsLoaded] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState("");
+  const [sourceNote, setSourceNote] = useState("");
 
   const validation = useMemo(() => validateSpecJson(specText), [specText]);
   const derivedSlug = slug.trim() || slugify(title);
+
+  function onMdUpload(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setArticleText(String(reader.result || ""));
+      setSourceNote(`Cargado: ${file.name}`);
+      setDraftError("");
+    };
+    reader.onerror = () => setDraftError("No se pudo leer el archivo.");
+    reader.readAsText(file);
+  }
+
+  async function loadPostsOnce() {
+    if (postsLoaded) return;
+    setPostsLoaded(true);
+    try {
+      const res = await fetch("/api/admin/carousels/source-posts");
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) setPosts(data.posts || []);
+    } catch {
+      // silencioso: el usuario puede pegar texto igual
+    }
+  }
+
+  async function onPickPost(e) {
+    const id = e.target.value;
+    setSelectedPostId(id);
+    if (!id) return;
+    setDraftError("");
+    try {
+      const res = await fetch(`/api/admin/carousels/source-posts?id=${encodeURIComponent(id)}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setDraftError(data.message || "No se pudo cargar el artículo del blog.");
+        return;
+      }
+      setArticleText(data.text || "");
+      setSourceNote(`Desde el blog: ${data.title}`);
+    } catch (err) {
+      setDraftError(String(err));
+    }
+  }
 
   async function generateDraft() {
     setDraftError("");
@@ -77,6 +126,9 @@ export default function NewCarouselForm() {
           title: title.trim(),
           slug: slug.trim() || undefined,
           spec: validation.data,
+          // Si hubo artículo fuente, lo guardamos para poder "Enviar al blog" luego.
+          sourceText: articleText.trim() || undefined,
+          sourcePostId: selectedPostId || undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -114,9 +166,40 @@ export default function NewCarouselForm() {
       {tab === "article" ? (
         <div className="space-y-4">
           <p className="text-sm text-neutral-600">
-            Pega el texto del artículo y Claude propondrá una spec siguiendo la guía editorial. La propuesta
-            precarga el editor manual para revisión: <strong>nunca genera imágenes automáticamente.</strong>
+            Pega el texto, sube un <strong>.md</strong> o elige un <strong>artículo del blog</strong>. Claude
+            propondrá una spec siguiendo la guía editorial. La propuesta precarga el editor manual para
+            revisión: <strong>nunca genera imágenes automáticamente.</strong>
           </p>
+
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-neutral-200 bg-white p-3">
+            <span className="text-xs font-bold uppercase tracking-[0.12em] text-neutral-500">Fuente</span>
+            <label className="cursor-pointer rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm font-semibold text-neutral-800 transition hover:border-brand-400">
+              Subir .md
+              <input
+                type="file"
+                accept=".md,.markdown,.txt,text/markdown,text/plain"
+                className="hidden"
+                onChange={onMdUpload}
+              />
+            </label>
+            <select
+              value={selectedPostId}
+              onChange={onPickPost}
+              onMouseDown={loadPostsOnce}
+              onFocus={loadPostsOnce}
+              className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm text-neutral-800 focus:border-brand-500 focus:outline-none"
+            >
+              <option value="">Desde el blog…</option>
+              {posts.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.title}
+                  {p.status && p.status !== "PUBLISHED" ? ` (${p.status})` : ""}
+                </option>
+              ))}
+            </select>
+            {sourceNote ? <span className="text-xs text-neutral-500">{sourceNote}</span> : null}
+          </div>
+
           <label className="block">
             <span className="text-xs font-bold uppercase tracking-[0.12em] text-neutral-500">Artículo</span>
             <textarea

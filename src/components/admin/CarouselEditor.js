@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { validateSpecJson } from "@/lib/carousel-spec";
 import CarouselStatusBadge from "@/components/admin/CarouselStatusBadge";
 import CarouselImageGallery from "@/components/admin/CarouselImageGallery";
+import CarouselPublishToBlog from "@/components/admin/CarouselPublishToBlog";
 
 export default function CarouselEditor({ carousel }) {
   const router = useRouter();
@@ -205,6 +206,14 @@ export default function CarouselEditor({ carousel }) {
           </div>
         </section>
       </div>
+
+      <CarouselPublishToBlog
+        carouselId={carousel.id}
+        defaultTitle={carousel.title}
+        hasSource={carousel.hasSource}
+        sourcePostId={carousel.sourcePostId}
+        blogPostId={carousel.blogPostId}
+      />
 
       <details className="rounded-lg border border-neutral-200 bg-neutral-50 p-5 shadow-card">
         <summary className="cursor-pointer text-lg font-bold text-neutral-950">

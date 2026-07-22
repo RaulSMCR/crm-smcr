@@ -99,6 +99,9 @@ export const createCarouselSchema = z.object({
   title: z.string().min(1, "El título es obligatorio"),
   slug: z.string().regex(SLUG_RE, "slug inválido: minúsculas, dígitos, '-' o '_'").optional(),
   spec: carouselSpecSchema,
+  // Artículo fuente (opcional): para poder "Enviar al blog" luego.
+  sourceText: z.string().optional(),
+  sourcePostId: z.string().optional(),
 });
 
 export function slugify(value) {
