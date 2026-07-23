@@ -858,6 +858,8 @@ model Carousel {
   status CarouselStatus @default(DRAFT)
   spec   Json
 
+  activeVersionId String? @unique
+
   articleUrl String?
 
   // Artículo fuente (para "Enviar al blog"). Plano por diseño: sourcePostId/blogPostId
@@ -878,10 +880,14 @@ model Carousel {
   updatedAt DateTime @updatedAt
 
   assets CarouselAsset[]
+  versions CarouselVersion[] @relation("CarouselVersions")
+  activeVersion CarouselVersion? @relation("CarouselActiveVersion", fields: [activeVersionId], references: [id], onDelete: SetNull)
+  approvalEvents CarouselApprovalEvent[]
 
   @@index([status])
   @@index([createdBy])
   @@index([authorId])
+  @@index([activeVersionId])
 }
 
 model CarouselAsset {
@@ -900,4 +906,67 @@ model CarouselAsset {
 
   @@unique([carouselId, index])
   @@index([carouselId])
+}
+
+model CarouselVersion {
+  id             String   @id @default(cuid())
+  carouselId     String
+  number         Int
+  spec           Json
+  specHash       String
+  parentVersionId String?
+  comment        String?  @db.Text
+  source         String   @default("MANUAL")
+  createdBy      String
+  createdAt      DateTime @default(now())
+
+  carousel       Carousel          @relation("CarouselVersions", fields: [carouselId], references: [id], onDelete: Cascade)
+  activeCarousel Carousel?          @relation("CarouselActiveVersion")
+  parent         CarouselVersion?  @relation("CarouselVersionParent", fields: [parentVersionId], references: [id], onDelete: SetNull)
+  children       CarouselVersion[] @relation("CarouselVersionParent")
+  assets         CarouselVersionAsset[]
+  approvalEvents CarouselApprovalEvent[]
+
+  @@unique([carouselId, number])
+  @@index([carouselId, createdAt])
+  @@index([parentVersionId])
+}
+
+model CarouselVersionAsset {
+  id          String   @id @default(cuid())
+  versionId   String
+  slideId     String
+  role        String   @default("rendered-slide")
+  index       Int
+  filename    String
+  storagePath String
+  mimeType    String?
+  sha256      String?
+  note        String?  @db.Text
+  width       Int      @default(1080)
+  height      Int      @default(1080)
+  createdAt   DateTime @default(now())
+
+  version CarouselVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@unique([versionId, slideId, role])
+  @@index([versionId])
+  @@index([slideId])
+}
+
+model CarouselApprovalEvent {
+  id        String   @id @default(cuid())
+  carouselId String
+  versionId String
+  slideId   String
+  status    String
+  actorId   String
+  comment   String?  @db.Text
+  createdAt DateTime @default(now())
+
+  carousel Carousel        @relation(fields: [carouselId], references: [id], onDelete: Cascade)
+  version  CarouselVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@index([carouselId, slideId, createdAt])
+  @@index([versionId])
 }

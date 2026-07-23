@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://SaludMentalCostaRica.com/schemas/smcr-editorial-package-1.json",
+  "title": "SMCR Editorial Package",
+  "type": "object",
+  "required": ["format", "schemaVersion", "article", "carousel", "metadata"],
+  "properties": {
+    "format": { "const": "smcr-editorial-package" },
+    "schemaVersion": { "const": 1 },
+    "article": {
+      "type": "object",
+      "required": ["id", "title", "content"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "slug": { "type": "string" },
+        "status": { "type": "string" },
+        "content": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "carousel": {
+      "type": "object",
+      "required": ["title", "slides"],
+      "properties": {
+        "id": { "type": ["string", "null"] },
+        "title": { "type": "string" },
+        "baseVersionId": { "type": ["string", "null"] },
+        "version": { "type": ["integer", "null"], "minimum": 1 },
+        "slides": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/slide" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "comment": { "type": ["string", "null"] },
+        "source": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "slide": {
+      "type": "object",
+      "required": ["slideId", "position", "type", "approvalStatus"],
+      "properties": {
+        "slideId": { "type": "string", "minLength": 1 },
+        "position": { "type": "integer", "minimum": 1 },
+        "type": { "type": "string" },
+        "title": { "type": "string" },
+        "subtitle": { "type": "string" },
+        "body": { "type": "string" },
+        "bullets": { "type": "array", "items": { "type": "string" } },
+        "quote": { "type": "string" },
+        "visualBrief": { "type": "string" },
+        "approvalStatus": {
+          "type": "string",
+          "enum": ["DRAFT", "APPROVED", "REJECTED"]
+        },
+        "assetRefs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path"],
+            "properties": {
+              "assetId": { "type": "string" },
+              "path": { "type": "string" },
+              "filename": { "type": "string" },
+              "mimeType": { "type": "string" },
+              "sha256": { "type": "string" },
+              "role": { "type": "string" }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

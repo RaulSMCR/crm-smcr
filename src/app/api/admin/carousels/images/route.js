@@ -12,7 +12,7 @@ export const maxDuration = 30;
 const BUCKET = "carousel-images";
 const MAX_BYTES = 8 * 1024 * 1024;
 const MIN_WIDTH = 1080;
-const EXT_BY_MIME = { "image/jpeg": "jpg", "image/png": "png" };
+const EXT_BY_MIME = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 const SIGNED_TTL = 3600;
 
 function currentMonthKey(date = new Date()) {
@@ -49,12 +49,12 @@ export async function POST(req) {
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const mime = detectFileMimeType(buffer);
-  if (mime !== "image/jpeg" && mime !== "image/png") {
-    return NextResponse.json({ message: "Formato no soportado. Usa JPG o PNG." }, { status: 422 });
+  if (mime !== "image/jpeg" && mime !== "image/png" && mime !== "image/webp") {
+    return NextResponse.json({ message: "Formato no soportado. Usa JPG, PNG o WebP." }, { status: 422 });
   }
 
   const dims = imageDimensions(buffer);
-  if (!dims || dims.width < MIN_WIDTH) {
+  if (dims && dims.width < MIN_WIDTH) {
     return NextResponse.json(
       { message: `La imagen debe medir al menos ${MIN_WIDTH}px de ancho (tiene ${dims?.width ?? "desconocido"}).` },
       { status: 422 }
@@ -83,8 +83,8 @@ export async function POST(req) {
     {
       storagePath: pathInBucket,
       specValue: `storage:${BUCKET}/${pathInBucket}`,
-      width: dims.width,
-      height: dims.height,
+      width: dims?.width || MIN_WIDTH,
+      height: dims?.height || MIN_WIDTH,
       url,
     },
     { status: 201 }

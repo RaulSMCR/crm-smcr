@@ -23,9 +23,9 @@ import generate  # noqa: E402
 
 # --- Mock del upload: no toca red, registra las llamadas -----------------------
 uploaded = []
-def _fake_upload(slug, filename, png_bytes):
+def _fake_upload(slug, filename, png_bytes, render_key="legacy"):
     assert isinstance(png_bytes, (bytes, bytearray)) and len(png_bytes) > 0
-    path = f"{slug}/{filename}"
+    path = f"{slug}/{render_key}/{filename}"
     uploaded.append(path)
     return path
 generate.upload_asset = _fake_upload
@@ -74,6 +74,13 @@ def main() -> int:
     check("asset bien formado", all(k in first for k in ("index", "filename", "storagePath", "width", "height")))
     check("dimensiones 1080x1080", first["width"] == 1080 and first["height"] == 1080)
     check(f"tiempo < 60s ({dt:.2f}s)", dt < 60)
+
+    # 1b) Renderizado selectivo: solo sube el índice solicitado.
+    uploaded.clear()
+    status, body = generate.process({"slug": "ejemplo-9", "spec": SPEC_9, "selection": [2], "renderKey": "selective-test"}, SECRET)
+    check("200 en renderizado selectivo", status == 200)
+    check("1 asset selectivo devuelto", len(body.get("assets", [])) == 1)
+    check("solo se sube el índice solicitado", body["assets"][0]["index"] == 2 and len(uploaded) == 1)
 
     # 2) Auth
     status, _ = generate.process({"slug": "x", "spec": SPEC_9}, "")

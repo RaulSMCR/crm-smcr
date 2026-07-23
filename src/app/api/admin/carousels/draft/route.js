@@ -10,6 +10,8 @@ export const revalidate = 0;
 // La llamada a Anthropic con thinking puede tardar; damos margen (requiere plan Pro).
 export const maxDuration = 60;
 
+const ANTHROPIC_DRAFT_ENABLED = process.env.EDITORIAL_ANTHROPIC_DRAFT_ENABLED === "true";
+
 // Modelo por defecto: Opus 4.8 (guia de modelos vigente). Override por env para
 // bajar a un modelo mas economico (p.ej. claude-sonnet-4-6) sin tocar codigo.
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-opus-4-8";
@@ -89,6 +91,14 @@ function anthropicErrorMessage(err) {
 export async function POST(req) {
   const { res } = await getCarouselActor();
   if (res) return res;
+
+  if (!ANTHROPIC_DRAFT_ENABLED) {
+    console.warn("[editorial-anthropic-disabled] POST /api/admin/carousels/draft");
+    return NextResponse.json(
+      { message: "La redacción asistida por proveedor está desactivada. Usa el intercambio manual con ChatGPT." },
+      { status: 410 }
+    );
+  }
 
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json(

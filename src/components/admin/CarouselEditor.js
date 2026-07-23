@@ -13,6 +13,9 @@ export default function CarouselEditor({ carousel, canApprove = false, basePath 
   const [message, setMessage] = useState(null); // { kind, text }
   const [assets, setAssets] = useState(carousel.assets);
   const [lightbox, setLightbox] = useState(null); // índice de slide abierta, o null
+  const [slideDraftText, setSlideDraftText] = useState("");
+  const [rangeStart, setRangeStart] = useState("");
+  const [rangeEnd, setRangeEnd] = useState("");
   const specRef = useRef(null);
   const messageRef = useRef(null);
 
@@ -35,6 +38,14 @@ export default function CarouselEditor({ carousel, canApprove = false, basePath 
   }, [message]);
 
   const validation = useMemo(() => validateSpecJson(specText), [specText]);
+  useEffect(() => {
+    if (lightbox === null || !validation.ok) {
+      setSlideDraftText("");
+      return;
+    }
+    setSlideDraftText(JSON.stringify(validation.data.slides?.[lightbox] || {}, null, 2));
+  }, [lightbox, validation.ok, validation.data]);
+
   const dirty = useMemo(
     () => specText !== JSON.stringify(carousel.spec, null, 2),
     [specText, carousel.spec]
@@ -77,6 +88,59 @@ export default function CarouselEditor({ carousel, canApprove = false, basePath 
       notify("error", String(err));
     }
     return false;
+  }
+
+  async function reviewSlide(asset, status) {
+    try {
+      const res = await fetch(`/api/admin/carousels/${carousel.id}/slides/${encodeURIComponent(asset.slideId)}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        notify("error", data.message || "No se pudo actualizar la revisión");
+        return;
+      }
+      setAssets((prev) => prev.map((item) => item.id === asset.id
+        ? { ...item, ready: status === "APPROVED", approvalStatus: status }
+        : item));
+      notify("ok", `Slide ${status === "APPROVED" ? "aprobada" : status === "REJECTED" ? "rechazada" : "devuelta a borrador"}.`);
+      router.refresh();
+    } catch (err) {
+      notify("error", String(err));
+    }
+  }
+
+  async function saveSlideText() {
+    if (lightbox === null) return;
+    let changes;
+    try {
+      changes = JSON.parse(slideDraftText);
+    } catch (error) {
+      notify("error", `JSON de slide inválido: ${error.message}`);
+      return;
+    }
+    const slideId = assets[lightbox]?.slideId;
+    if (!slideId) return notify("error", "La slide no tiene identificador estable.");
+    setBusy("slide-text");
+    try {
+      const res = await fetch(`/api/admin/carousels/${carousel.id}/slides/${encodeURIComponent(slideId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ changes, comment: "Edición desde la revisión individual" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) notify("error", data.message || "No se pudo guardar el texto");
+      else {
+        notify("ok", "Texto guardado como nueva versión; el asset no fue regenerado.");
+        router.refresh();
+      }
+    } catch (err) {
+      notify("error", String(err));
+    } finally {
+      setBusy(null);
+    }
   }
 
   function updateNoteLocal(assetId, note) {
@@ -167,6 +231,38 @@ export default function CarouselEditor({ carousel, canApprove = false, basePath 
     } finally {
       setBusy(null);
     }
+  }
+
+  async function generateSelected(indices) {
+    setBusy("generate-selected");
+    setMessage({ kind: "ok", text: "Renderizando la selección…" });
+    try {
+      const res = await fetch(`/api/admin/carousels/${carousel.id}/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ indices }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) notify("error", data.message || "No se pudo renderizar la selección");
+      else {
+        notify("ok", `Renderizadas ${data.count} slide(s) sin reemplazar las demás.`);
+        router.refresh();
+      }
+    } catch (err) {
+      notify("error", String(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function generateRange() {
+    const start = Number(rangeStart);
+    const end = Number(rangeEnd);
+    if (!Number.isInteger(start) || !Number.isInteger(end) || start < 1 || end < start || end > assets.length) {
+      notify("error", "Indica un rango válido de slides (numeración visible, desde 1).");
+      return;
+    }
+    generateSelected(Array.from({ length: end - start + 1 }, (_, offset) => start - 1 + offset));
   }
 
   async function deleteCarousel() {
@@ -270,6 +366,30 @@ export default function CarouselEditor({ carousel, canApprove = false, basePath 
               className="rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy === "generate" ? "Generando…" : hasAssets ? "Regenerar slides" : "Generar slides"}
+            </button>
+            <input
+              value={rangeStart}
+              onChange={(event) => setRangeStart(event.target.value)}
+              inputMode="numeric"
+              placeholder="Desde"
+              aria-label="Slide inicial del rango"
+              className="w-20 rounded-lg border border-neutral-300 px-2 py-2 text-sm"
+            />
+            <input
+              value={rangeEnd}
+              onChange={(event) => setRangeEnd(event.target.value)}
+              inputMode="numeric"
+              placeholder="Hasta"
+              aria-label="Slide final del rango"
+              className="w-20 rounded-lg border border-neutral-300 px-2 py-2 text-sm"
+            />
+            <button
+              type="button"
+              onClick={generateRange}
+              disabled={busyAny || !validation.ok || !hasAssets}
+              className="rounded-lg border border-accent-300 bg-accent-50 px-3 py-2 text-sm font-semibold text-accent-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Renderizar rango
             </button>
           </div>
           <p className="mt-2 text-xs text-neutral-500">
@@ -433,14 +553,48 @@ export default function CarouselEditor({ carousel, canApprove = false, basePath 
                 </button>
               </div>
 
-              <label className="flex items-center gap-2 text-sm font-semibold text-neutral-800">
-                <input
-                  type="checkbox"
-                  checked={!!assets[lightbox].ready}
-                  onChange={(e) => patchAsset(assets[lightbox].id, { ready: e.target.checked })}
-                  className="h-4 w-4 rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500"
+              <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-neutral-500">Estado de revisión</p>
+                <p className="mt-1 text-sm font-semibold text-neutral-800">
+                  {assets[lightbox].approvalStatus || (assets[lightbox].ready ? "APPROVED" : "DRAFT")}
+                </p>
+                {canApprove ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => reviewSlide(assets[lightbox], "APPROVED")}
+                      className="rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white"
+                    >
+                      Aprobar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => reviewSlide(assets[lightbox], "REJECTED")}
+                      className="rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-800"
+                    >
+                      Rechazar
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+
+              <label className="mt-3 block">
+                <span className="text-xs font-bold uppercase tracking-[0.12em] text-neutral-500">Texto de esta slide</span>
+                <textarea
+                  value={slideDraftText}
+                  onChange={(event) => setSlideDraftText(event.target.value)}
+                  rows={8}
+                  className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 font-mono text-xs text-neutral-900 focus:border-brand-500 focus:outline-none"
+                  aria-label="JSON textual de la slide"
                 />
-                Marcar como listo
+                <button
+                  type="button"
+                  onClick={saveSlideText}
+                  disabled={busyAny}
+                  className="mt-2 rounded-lg bg-brand-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                >
+                  {busy === "slide-text" ? "Guardando…" : "Guardar texto sin regenerar imagen"}
+                </button>
               </label>
 
               <label className="mt-3 block">
@@ -513,6 +667,13 @@ export default function CarouselEditor({ carousel, canApprove = false, basePath 
                   className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-800 transition hover:border-brand-400"
                 >
                   Editar la spec →
+                </button>
+                <button
+                  onClick={() => generateSelected([lightbox])}
+                  disabled={busyAny}
+                  className="w-full rounded-lg border border-brand-300 bg-brand-50 px-3 py-2 text-sm font-semibold text-brand-800 transition hover:border-brand-500 disabled:opacity-50"
+                >
+                  {busy === "generate-selected" ? "Renderizando…" : "Renderizar solo esta slide"}
                 </button>
                 <p className="text-[11px] text-neutral-400">
                   Las notas son recordatorios. Los cambios se hacen editando la spec y regenerando.

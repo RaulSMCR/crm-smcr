@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { getSignedUrl } from "@/lib/storage";
 import CarouselStatusBadge from "@/components/admin/CarouselStatusBadge";
 import CarouselEditor from "@/components/admin/CarouselEditor";
+import EditorialPackageActions from "@/components/admin/EditorialPackageActions";
+import CarouselVersionHistory from "@/components/admin/CarouselVersionHistory";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -41,6 +43,8 @@ export default async function ProfesionalCarruselDetallePage({ params }) {
         height: a.height,
         ready: a.ready,
         note: a.note || "",
+        slideId: carousel.spec?.slides?.[a.index]?.slideId || `slide-${a.id}`,
+        approvalStatus: carousel.spec?.slides?.[a.index]?.approvalStatus || (a.ready ? "APPROVED" : "DRAFT"),
         url,
       };
     })
@@ -76,7 +80,9 @@ export default async function ProfesionalCarruselDetallePage({ params }) {
         ) : null}
       </div>
 
-      <CarouselEditor carousel={editorData} canApprove={false} basePath="/panel/profesional/carruseles" />
-    </div>
+        <CarouselEditor carousel={editorData} canApprove={false} basePath="/panel/profesional/carruseles" />
+        <EditorialPackageActions carouselId={carousel.id} articleId={carousel.sourcePostId || null} />
+        <CarouselVersionHistory carouselId={carousel.id} activeVersionId={carousel.activeVersionId || null} />
+      </div>
   );
 }

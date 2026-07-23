@@ -23,6 +23,10 @@ const nextConfig = {
       "./vendor/instagram-slides/SKILL.md",
       "./vendor/smcr-editorial/voz-marca.md",
     ],
+    "/api/admin/editorial/export": [
+      "./docs/gpt-smcr/01-identidad-y-marca.md",
+      "./docs/gpt-smcr/10-instrucciones-gpt.md",
+    ],
   },
 };
 

@@ -31,53 +31,53 @@ const coverSlide = z.object({
   title: z.string().min(1, "cover requiere title"),
   subtitle: z.string().optional(),
   ...imageFields,
-});
+}).passthrough();
 
 const narrativeSlide = z.object({
   type: z.literal("narrative"),
   hook: z.string().min(1, "narrative requiere hook"),
   body: z.string().optional(),
   ...imageFields,
-});
+}).passthrough();
 
 const mapSlide = z.object({
   type: z.literal("map"),
   title: z.string().min(1, "map requiere title"),
   items: z.array(itemSchema).min(1, "map requiere al menos 1 item").max(8, "map admite hasta 8 items"),
-});
+}).passthrough();
 
 const directorySlide = z.object({
   type: z.literal("directory"),
   title: z.string().min(1, "directory requiere title"),
   items: z.array(itemSchema).min(1, "directory requiere al menos 1 item").max(4, "directory admite hasta 4 items"),
-});
+}).passthrough();
 
 const contentSlide = z.object({
   type: z.literal("content"),
   title: z.string().min(1, "content requiere title"),
   points: z.array(z.string().min(1)).min(1, "content requiere al menos 1 punto").max(6, "content admite hasta 6 puntos"),
-});
+}).passthrough();
 
 const quoteSlide = z.object({
   type: z.literal("quote"),
   quote: z.string().min(1, "quote requiere quote"),
   author: z.string().optional(),
   accent: z.boolean().optional(),
-});
+}).passthrough();
 
 const highlightSlide = z.object({
   type: z.literal("highlight"),
   stat: z.string().min(1, "highlight requiere stat"),
   label: z.string().optional(),
   description: z.string().optional(),
-});
+}).passthrough();
 
 const ctaSlide = z.object({
   type: z.literal("cta"),
   cta: z.string().min(1, "cta requiere cta"),
   subcta: z.string().optional(),
   handle: z.string().optional(),
-});
+}).passthrough();
 
 export const slideSchema = z.discriminatedUnion("type", [
   coverSlide,

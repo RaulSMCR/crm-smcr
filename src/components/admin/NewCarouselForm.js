@@ -16,7 +16,7 @@ export default function NewCarouselForm({ isAdmin = false, authorOptions = [], b
   const [submitting, setSubmitting] = useState(false);
 
   // Pestaña "Artículo fuente": adjunta el artículo del que sale el carrusel. No
-  // redacta nada — la spec se escribe en Claude y se pega en la otra pestaña. Se
+  // redacta nada — la spec se trabaja fuera del CRM y se pega/importa aquí. Se
   // guarda como sourceText/sourcePostId para habilitar "Enviar al blog" después.
   const [articleText, setArticleText] = useState("");
   const [sourceError, setSourceError] = useState("");

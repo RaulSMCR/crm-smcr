@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { getSignedUrl } from "@/lib/storage";
 import CarouselStatusBadge from "@/components/admin/CarouselStatusBadge";
 import CarouselEditor from "@/components/admin/CarouselEditor";
+import EditorialPackageActions from "@/components/admin/EditorialPackageActions";
+import CarouselVersionHistory from "@/components/admin/CarouselVersionHistory";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -47,6 +49,8 @@ export default async function CarouselDetailPage({ params }) {
         height: a.height,
         ready: a.ready,
         note: a.note || "",
+        slideId: carousel.spec?.slides?.[a.index]?.slideId || `slide-${a.id}`,
+        approvalStatus: carousel.spec?.slides?.[a.index]?.approvalStatus || (a.ready ? "APPROVED" : "DRAFT"),
         url,
       };
     })
@@ -61,7 +65,9 @@ export default async function CarouselDetailPage({ params }) {
     assets,
     hasSource: Boolean(carousel.sourceText && carousel.sourceText.trim()),
     sourcePostId: carousel.sourcePostId || null,
+    activeVersionId: carousel.activeVersionId || null,
     blogPostId: carousel.blogPostId || null,
+    sourcePostId: carousel.sourcePostId || null,
   };
 
   return (
@@ -84,6 +90,8 @@ export default async function CarouselDetailPage({ params }) {
         </div>
 
         <CarouselEditor carousel={editorData} canApprove basePath="/panel/admin/carousels" />
+        <EditorialPackageActions carouselId={carousel.id} articleId={carousel.sourcePostId || null} />
+        <CarouselVersionHistory carouselId={carousel.id} activeVersionId={carousel.activeVersionId || null} />
       </div>
     </div>
   );

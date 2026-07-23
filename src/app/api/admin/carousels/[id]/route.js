@@ -4,6 +4,8 @@ import { getCarouselActor, canAccessCarousel } from "@/lib/carousel-access";
 import { getSignedUrl } from "@/lib/storage";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { carouselSpecSchema, formatZodIssues } from "@/lib/carousel-spec";
+import { createVersion } from "@/lib/carousel-versioning";
+import { normalizeCurrentSlides } from "@/lib/editorial-import";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -65,7 +67,7 @@ export async function PATCH(req, { params }) {
 
   const carousel = await prisma.carousel.findUnique({
     where: { id },
-    select: { id: true, createdBy: true },
+    include: { assets: { orderBy: { index: "asc" } } },
   });
   if (!carousel || !canAccessCarousel(actor, carousel)) {
     return NextResponse.json({ message: "Carrusel no encontrado" }, { status: 404 });
@@ -80,7 +82,7 @@ export async function PATCH(req, { params }) {
 
   const data = {};
 
-  // Editar la spec vuelve el carrusel a DRAFT (los assets previos quedan obsoletos).
+  // La spec se conserva como proyecciÃ³n de la nueva versiÃ³n; la versiÃ³n anterior no se modifica.
   if (body.spec !== undefined) {
     const parsed = carouselSpecSchema.safeParse(body.spec);
     if (!parsed.success) {
@@ -89,8 +91,44 @@ export async function PATCH(req, { params }) {
         { status: 422 }
       );
     }
-    data.spec = parsed.data;
-    data.status = "DRAFT";
+    const normalizedSpec = {
+      ...parsed.data,
+      slides: normalizeCurrentSlides(parsed.data, carousel.assets),
+    };
+    const versionAssets = carousel.assets.map((asset) => {
+      const slide = normalizedSpec.slides[asset.index];
+      return slide ? {
+        slideId: slide.slideId,
+        index: asset.index,
+        filename: asset.filename,
+        storagePath: asset.storagePath,
+        mimeType: "image/png",
+        width: asset.width,
+        height: asset.height,
+        note: asset.note,
+      } : null;
+    }).filter(Boolean);
+    const version = await prisma.$transaction(async (tx) => {
+      const created = await createVersion(tx, {
+        carouselId: id,
+        baseVersionId: carousel.activeVersionId || null,
+        spec: normalizedSpec,
+        createdBy: actor.userId,
+        comment: "EdiciÃ³n manual de la spec",
+        source: "MANUAL_EDIT",
+        assets: versionAssets,
+      });
+      await tx.carousel.update({
+        where: { id },
+        data: { spec: normalizedSpec, status: "DRAFT", activeVersionId: created.id },
+      });
+      return created;
+    });
+    return NextResponse.json({
+      id,
+      status: "DRAFT",
+      version: { id: version.id, number: version.number, hash: version.specHash, createdAt: version.createdAt },
+    });
   }
 
   // Estados: aprobar/publicar (colocar en redes) es exclusivo de admin.

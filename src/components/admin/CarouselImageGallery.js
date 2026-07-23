@@ -88,7 +88,7 @@ export default function CarouselImageGallery({ slides = [], onInsert = null }) {
       <div className="flex flex-wrap items-center gap-3">
         <label className="cursor-pointer rounded-lg bg-brand-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-800">
           {uploading ? "Subiendo…" : "Añadir imagen"}
-          <input type="file" accept="image/jpeg,image/png" className="hidden" onChange={onUpload} disabled={uploading} />
+          <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onUpload} disabled={uploading} />
         </label>
         <label className="flex items-center gap-2 text-sm text-neutral-700">
           <input type="checkbox" checked={duotone} onChange={(e) => setDuotone(e.target.checked)} />

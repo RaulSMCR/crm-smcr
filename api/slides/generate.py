@@ -31,10 +31,10 @@ _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,79}$")
 
 
 def validate_payload(payload):
-    """Devuelve (slug, spec, errores). errores es lista vacia si todo OK."""
+    """Devuelve (slug, spec, selection, render_key, errores)."""
     errors = []
     if not isinstance(payload, dict):
-        return None, None, ["el body debe ser un objeto JSON"]
+        return None, None, None, None, ["el body debe ser un objeto JSON"]
 
     slug = payload.get("slug")
     if not isinstance(slug, str) or not _SLUG_RE.match(slug or ""):
@@ -45,7 +45,21 @@ def validate_payload(payload):
 
     spec = payload.get("spec")
     errors.extend(validate_spec(spec))
-    return slug, spec, errors
+
+    selection = payload.get("selection")
+    if selection is not None:
+        if not isinstance(selection, list) or any(not isinstance(i, int) or i < 0 for i in selection):
+            errors.append("selection debe ser una lista de índices enteros no negativos")
+        elif isinstance(spec, dict) and isinstance(spec.get("slides"), list):
+            max_index = len(spec["slides"]) - 1
+            if any(i > max_index for i in selection):
+                errors.append("selection contiene un índice fuera de rango")
+
+    render_key = payload.get("renderKey") or "legacy"
+    if not isinstance(render_key, str) or not re.match(r"^[a-zA-Z0-9_-]{1,80}$", render_key):
+        errors.append("renderKey inválido")
+
+    return slug, spec, selection, render_key, errors
 
 
 def validate_spec(spec):
@@ -71,9 +85,9 @@ def validate_spec(spec):
     return errors
 
 
-def upload_asset(slug, filename, png_bytes):
+def upload_asset(slug, filename, png_bytes, render_key="legacy"):
     """
-    Sube un PNG al bucket privado 'carousels' en path '{slug}/{filename}' con upsert.
+    Sube un PNG al bucket privado 'carousels' en path '{slug}/{render_key}/{filename}'.
     Devuelve el storagePath. Lanza en caso de fallo.
     """
     import requests
@@ -82,7 +96,7 @@ def upload_asset(slug, filename, png_bytes):
     if not base or not key:
         raise RuntimeError("SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY no configurados")
 
-    path = f"{slug}/{filename}"
+    path = f"{slug}/{render_key}/{filename}"
     url = f"{base}/storage/v1/object/carousels/{path}"
     resp = requests.post(
         url,
@@ -113,14 +127,17 @@ def process(payload, secret_header):
     if not expected or secret_header != expected:
         return 401, {"error": "unauthorized"}
 
-    slug, spec, errors = validate_payload(payload)
+    slug, spec, selection, render_key, errors = validate_payload(payload)
     if errors:
         return 422, {"error": "invalid_request", "detail": errors}
 
     rendered = render_carousel(spec)
+    selected = set(range(len(rendered))) if selection is None else set(selection)
     assets = []
     for idx, (filename, png_bytes) in enumerate(rendered):
-        storage_path = upload_asset(slug, filename, png_bytes)
+        if idx not in selected:
+            continue
+        storage_path = upload_asset(slug, filename, png_bytes, render_key)
         assets.append({
             "index": idx,
             "filename": filename,
