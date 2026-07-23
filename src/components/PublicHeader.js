@@ -77,7 +77,7 @@ export default function PublicHeader() {
           <Image src="/logo.svg" alt="Logo Salud Mental Costa Rica" width={80} height={80} className="h-14 w-auto md:h-16" priority />
         </Link>
         {!isPatient ? (
-          <nav className="hidden gap-6 text-sm font-medium text-neutral-600 md:flex">
+          <nav className="hidden gap-6 font-display text-[16px] font-normal text-neutral-600 md:flex">
             <Link href="/servicios" className="transition-colors hover:text-brand-700">Servicios</Link>
             <Link href="/nosotros" className="transition-colors hover:text-brand-700">Nosotros</Link>
             <Link href="/blog" className="transition-colors hover:text-brand-700">Blog</Link>

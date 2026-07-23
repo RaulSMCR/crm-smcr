@@ -20,16 +20,39 @@ export default function HeroSection() {
                 className="h-auto w-28 sm:w-32 drop-shadow-lg"
                 priority
               />
-              <span className="font-extrabold text-4xl sm:text-5xl tracking-wide text-brand-300">
+              <span
+                className="font-display font-light text-nv-teal-pale"
+                style={{
+                  fontSize: 'clamp(32px, 4.4vw, 47px)',
+                  lineHeight: 0.98,
+                  letterSpacing: '-0.005em',
+                }}
+              >
                 Salud Mental<br />Costa Rica
               </span>
             </Link>
 
-            <h1 className="text-3xl font-bold leading-tight sm:text-4xl text-brand-100">
+            <h1
+              className="font-display font-semibold text-nv-cream-hi"
+              style={{
+                fontSize: 'clamp(28px, 3.6vw, 38px)',
+                lineHeight: 1.12,
+                letterSpacing: '-0.005em',
+              }}
+            >
               Bienestar con profesionales validados
             </h1>
 
-            <p className="mt-3 text-white/90">
+            {/* Sans a propósito: Cormorant es exclusivamente display. */}
+            <p
+              className="mt-3"
+              style={{
+                fontSize: '14.5px',
+                lineHeight: 1.6,
+                maxWidth: '52ch',
+                color: 'rgba(246,239,223,.86)',
+              }}
+            >
               Informate y acompañate con los profesionales que aportan al cuidado de la salud mental.
             </p>
 
