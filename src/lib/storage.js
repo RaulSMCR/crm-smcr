@@ -112,6 +112,40 @@ function isBucketNotFound(error) {
   return String(error?.message || "").toLowerCase().includes("bucket not found");
 }
 
+// Garantiza que el bucket exista Y sea público. Es idempotente y se llama antes
+// de cada subida pública.
+//
+// El bug que corrige: la versión anterior solo pasaba `public: true` al CREAR el
+// bucket. Si el bucket ya existía en privado, la subida igual tenía éxito (subir
+// funciona en buckets privados), pero la URL pública devolvía 400 "Bucket not
+// found" y toda imagen caía al mismo fallback local — todos los artículos con la
+// misma portada equivocada. Al volver público un bucket, sus objetos ya subidos
+// también pasan a ser accesibles, de modo que esto recupera las portadas
+// existentes además de arreglar las nuevas.
+async function ensurePublicBucket(bucket, { fileSizeLimit, allowedMimeTypes } = {}) {
+  const supabaseAdmin = getSupabaseAdmin();
+  const options = {
+    public: true,
+    ...(fileSizeLimit ? { fileSizeLimit } : {}),
+    ...(allowedMimeTypes ? { allowedMimeTypes } : {}),
+  };
+
+  const { error: updateError } = await supabaseAdmin.storage.updateBucket(bucket, options);
+  if (!updateError) return;
+
+  // No existe todavía: crearlo público. Cualquier otro error (permisos, red) se
+  // propaga para no enmascarar un fallo real de subida.
+  if (isBucketNotFound(updateError)) {
+    const { error: createError } = await supabaseAdmin.storage.createBucket(bucket, options);
+    if (createError && !String(createError.message || "").toLowerCase().includes("already exists")) {
+      throw createError;
+    }
+    return;
+  }
+
+  throw updateError;
+}
+
 export async function uploadPublicImage(bucket, path, buffer, {
   contentType,
   upsert = true,
@@ -121,23 +155,13 @@ export async function uploadPublicImage(bucket, path, buffer, {
 } = {}) {
   const supabaseAdmin = getSupabaseAdmin();
   const uploadOptions = { upsert, contentType, cacheControl };
-  let { error } = await supabaseAdmin.storage.from(bucket).upload(path, buffer, uploadOptions);
 
-  if (isBucketNotFound(error)) {
-    const { error: bucketError } = await supabaseAdmin.storage.createBucket(bucket, {
-      public: true,
-      ...(fileSizeLimit ? { fileSizeLimit } : {}),
-      allowedMimeTypes,
-    });
+  // Antes de subir, asegura que el bucket exista y sea PÚBLICO. Sin esto, un
+  // bucket privado preexistente aceptaba la subida pero servía 400 en la URL
+  // pública (ver ensurePublicBucket).
+  await ensurePublicBucket(bucket, { fileSizeLimit, allowedMimeTypes });
 
-    if (bucketError && !String(bucketError.message || "").toLowerCase().includes("already exists")) {
-      throw bucketError;
-    }
-
-    const retry = await supabaseAdmin.storage.from(bucket).upload(path, buffer, uploadOptions);
-    error = retry.error;
-  }
-
+  const { error } = await supabaseAdmin.storage.from(bucket).upload(path, buffer, uploadOptions);
   if (error) throw error;
 
   const { data } = supabaseAdmin.storage.from(bucket).getPublicUrl(path);
