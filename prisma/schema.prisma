@@ -646,6 +646,18 @@ model Post {
   authorId String
   author   ProfessionalProfile @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
+  // Taxonomía de biblioteca (ver models Discipline/Topic/Series abajo).
+  // seriesId/seriesOrder son opcionales: un artículo puede no pertenecer a
+  // ninguna serie. Las disciplinas y temas van por tablas de unión con estado
+  // SUGERIDA/APROBADA (el profesional sugiere, el admin aprueba).
+  seriesId       String?
+  series         Series? @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  seriesOrder    Int?
+  seriesApproved Boolean @default(false)
+
+  disciplines PostDiscipline[]
+  topics      PostTopic[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -654,6 +666,7 @@ model Post {
 
   @@index([status])
   @@index([authorId])
+  @@index([seriesId])
 }
 
 model HomeCarouselItem {
@@ -969,4 +982,104 @@ model CarouselApprovalEvent {
 
   @@index([carouselId, slideId, createdAt])
   @@index([versionId])
+}
+
+// ─── Taxonomía de la biblioteca del blog ─────────────────────────────────────
+// Vocabularios controlados que administra el admin. La cara pública solo muestra
+// etiquetas con estado APPROVED; el profesional las crea como SUGGESTED.
+
+enum TagStatus {
+  SUGGESTED
+  APPROVED
+}
+
+model Discipline {
+  id       String  @id @default(cuid())
+  name     String  @unique
+  slug     String  @unique
+  order    Int     @default(0)
+  isActive Boolean @default(true)
+
+  posts PostDiscipline[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, order])
+}
+
+model Topic {
+  id       String  @id @default(cuid())
+  name     String  @unique
+  slug     String  @unique
+  order    Int     @default(0)
+  isActive Boolean @default(true)
+
+  posts PostTopic[]
+
+  // Temas complementarios (relación curada por el admin, no simétrica en la
+  // tabla pero se consulta en ambos sentidos). "ansiedad" complementa "sueño".
+  complementsFrom TopicComplement[] @relation("complementFrom")
+  complementsTo   TopicComplement[] @relation("complementTo")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, order])
+}
+
+model TopicComplement {
+  id     String @id @default(cuid())
+  fromId String
+  toId   String
+  from   Topic  @relation("complementFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  to     Topic  @relation("complementTo", fields: [toId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([fromId, toId])
+  @@index([toId])
+}
+
+model Series {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  slug        String  @unique
+  description String? @db.Text
+  isActive    Boolean @default(true)
+
+  posts Post[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+}
+
+model PostDiscipline {
+  postId       String
+  disciplineId String
+  status       TagStatus @default(SUGGESTED)
+
+  post       Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  discipline Discipline @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([postId, disciplineId])
+  @@index([disciplineId, status])
+}
+
+model PostTopic {
+  postId  String
+  topicId String
+  status  TagStatus @default(SUGGESTED)
+
+  post  Post  @relation(fields: [postId], references: [id], onDelete: Cascade)
+  topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([postId, topicId])
+  @@index([topicId, status])
 }
