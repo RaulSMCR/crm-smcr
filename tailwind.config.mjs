@@ -86,6 +86,20 @@ export default {
         violet: accentScale,
         lime: accentScale,
 
+        // Paleta Nouveau. Va bajo el prefijo `nv-` a propósito: los alias
+        // utilitarios de arriba (teal, orange, …) tienen overrides !important
+        // en globals.css que capturarían `bg-teal-pale` y lo pisarían.
+        nv: {
+          'teal-deep': '#1E4F52',
+          'teal':      '#2B7073',
+          'teal-mid':  '#3E8384',
+          'teal-pale': '#8FBDBB',
+          'cream':     '#F6EFDF',
+          'cream-hi':  '#F4EFE2',
+          'coral':     '#FB7A62',
+          'coral-ink': '#40160E',
+        },
+
         appbg: 'rgb(var(--app-bg) / <alpha-value>)',
         success: 'rgb(var(--success-600) / <alpha-value>)',
         warning: 'rgb(var(--warning-600) / <alpha-value>)',
@@ -106,6 +120,13 @@ export default {
           'Segoe UI Emoji',
           'Segoe UI Symbol',
         ],
+        display: [
+          'var(--font-cormorant)',
+          'Georgia',
+          'Iowan Old Style',
+          'Times New Roman',
+          'serif',
+        ],
       },
       container: {
         center: true,
@@ -114,6 +135,8 @@ export default {
       },
       borderRadius: {
         '2xl': '1rem',
+        // Esquina viva Nouveau: tres radios y una esquina en ángulo.
+        nv: '22px 22px 22px 3px',
       },
       boxShadow: {
         card: '0 8px 24px rgba(0,0,0,0.08)',

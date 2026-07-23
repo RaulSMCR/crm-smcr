@@ -45,6 +45,22 @@
   --neutral-900: 47 49 51;
   --neutral-950: 26 27 28;
 
+  /* ── Tokens Nouveau ───────────────────────────────────────────────────────
+     teal-deep/teal/teal-mid y cream/coral ya existían como brand-800/600/500,
+     app-bg y accent-600; se declaran acá en hex para el degradado y el
+     ornamento, que necesitan color literal. teal-pale y coral-ink son nuevos. */
+  --teal-deep: #1E4F52;
+  --teal:      #2B7073;
+  --teal-mid:  #3E8384;
+  --teal-pale: #8FBDBB;
+  --cream:     #F6EFDF;
+  --cream-hi:  #F4EFE2;
+  --coral:     #FB7A62;
+  --coral-ink: #40160E;
+
+  --font-display: var(--font-cormorant), Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+  --radius-nv: 22px 22px 22px 3px;
+
   --ratio-neutral: 60;
   --ratio-brand: 30;
   --ratio-accent: 10;

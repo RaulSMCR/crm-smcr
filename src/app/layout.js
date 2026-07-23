@@ -1,6 +1,7 @@
 // src/app/layout.js
 import './globals.css';
 import Script from 'next/script';
+import { Cormorant_Garamond } from 'next/font/google';
 import Header from '@/components/PublicHeader';
 import Footer from '@/components/Footer';
 import JsonLd from '@/components/JsonLd';
@@ -8,6 +9,17 @@ import ConsentBanner from '@/components/ConsentBanner';
 import AnalyticsLoader from '@/components/AnalyticsLoader';
 import MarketingAttributionCapture from '@/components/MarketingAttributionCapture';
 import { SITE_URL, siteUrl } from '@/lib/site-url';
+
+// Tipografía display (Art Nouveau contenido). Solo para titulares: el cuerpo
+// sigue en la sans del sistema. El fallback es serif a propósito, para que si
+// Cormorant no carga el contraste tipográfico no desaparezca.
+const cormorant = Cormorant_Garamond({
+  subsets: ['latin', 'latin-ext'],
+  weight: ['300', '400', '600'],
+  style: ['normal', 'italic'],
+  display: 'swap',
+  variable: '--font-cormorant',
+});
 
 const ORGANIZATION_SCHEMA = {
   '@context': 'https://schema.org',
@@ -76,7 +88,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="es">
+    <html lang="es" className={cormorant.variable}>
       {/* Google Consent Mode v2: por defecto TODO denegado, antes de cargar
           cualquier script de analítica. GA/Pixel se cargan solo tras aceptar
           (ver AnalyticsLoader) y respetan este estado. */}
