@@ -61,7 +61,7 @@ function normalizeCarouselItems(items = []) {
             focusY: post.coverImageFocusY ?? 50,
             scale: post.coverImageScale ?? 100,
             author: {
-              name: post.author?.user?.name || "Redaccion",
+              name: post.author?.user?.name || "Redacción",
               image: post.author?.user?.image || "",
               specialty: post.author?.specialty || "",
               slug: post.author?.slug || "",

@@ -8,13 +8,6 @@ import Link from "next/link";
 import { trackEvent } from "@/lib/analytics";
 import { trackLead } from "@/lib/meta-pixel";
 import { getMarketingAttributionFields, getMarketingAttributionRaw } from "@/lib/marketing-attribution-client";
-import { Playfair_Display } from "next/font/google";
-
-const playfair = Playfair_Display({
-  subsets: ["latin"],
-  style: ["normal", "italic"],
-  display: "swap",
-});
 
 function isEmailFormatValid(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim().toLowerCase());
@@ -56,10 +49,10 @@ function HeroPanel() {
         </Link>
 
         <div>
-          <p className={`${playfair.className} mb-3 text-base italic text-neutral-300 md:text-lg`}>
+          <p className="font-display mb-3 text-lg font-light italic text-neutral-300 md:text-xl">
             El bienestar empieza por buscarlo
           </p>
-          <h2 className={`${playfair.className} text-2xl font-bold text-white md:text-3xl`}>
+          <h2 className="font-display text-3xl font-semibold text-white md:text-4xl">
             Registro de paciente
           </h2>
           <p className="mt-2 text-sm text-neutral-400">

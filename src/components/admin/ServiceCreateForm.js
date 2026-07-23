@@ -59,7 +59,7 @@ export default function ServiceCreateForm({ taxes = [] }) {
           </select>
         </label>
         <label className="text-sm text-slate-700">
-          <span className="mb-1 block font-medium">Titulo *</span>
+          <span className="mb-1 block font-medium">Título *</span>
           <input
             name="title"
             placeholder="ej: Consulta de 60 minutos"
@@ -96,7 +96,7 @@ export default function ServiceCreateForm({ taxes = [] }) {
         </label>
 
         <label className="text-sm text-slate-700">
-          <span className="mb-1 block font-medium">Orden de presentacion *</span>
+          <span className="mb-1 block font-medium">Orden de presentación *</span>
           <input
             name="displayOrder"
             type="number"

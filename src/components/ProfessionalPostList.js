@@ -42,7 +42,7 @@ export default function ProfessionalPostList() {
 
   return (
     <div className="bg-white p-8 rounded-lg shadow-md border w-full">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">Articulos publicados</h2>
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">Artículos publicados</h2>
       {message && <p className="text-sm text-center text-gray-600 mb-4">{message}</p>}
       {posts.length > 0 ? (
         <div className="space-y-4">

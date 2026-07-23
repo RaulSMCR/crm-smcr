@@ -13,7 +13,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 const CAMPAIGN_TEMPLATES = [
   {
-    label: "Pacientes - busqueda",
+    label: "Pacientes - búsqueda",
     path: "/servicios",
     source: "google",
     medium: "cpc",
@@ -287,7 +287,7 @@ export default async function AdminMarketingPage() {
   const postOptions = posts.map((post) => ({
     id: post.id,
     title: post.title,
-    authorName: post.author?.user?.name || "Redaccion",
+    authorName: post.author?.user?.name || "Redacción",
   }));
 
   const professionalOptions = professionals.map((professional) => ({
@@ -318,7 +318,7 @@ export default async function AdminMarketingPage() {
         id: post.id,
         title: post.title,
         slug: post.slug,
-        authorName: post.author?.user?.name || "Redaccion",
+        authorName: post.author?.user?.name || "Redacción",
         views,
         reads,
         linked,
@@ -560,7 +560,7 @@ export default async function AdminMarketingPage() {
             <table className="min-w-full text-left text-sm">
               <thead className="border-b border-neutral-200 text-xs uppercase tracking-[0.12em] text-neutral-500">
                 <tr>
-                  <th className="py-3 pr-4">Articulo</th>
+                  <th className="py-3 pr-4">Artículo</th>
                   <th className="py-3 pr-4 text-right">Visitas</th>
                   <th className="py-3 pr-4 text-right">Lecturas</th>
                   <th className="py-3 pr-4 text-right">Registro</th>

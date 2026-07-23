@@ -142,7 +142,7 @@ export default function AdminPostEditor({ post }) {
       setError(result.error);
       return false;
     }
-    setNotice("Articulo guardado.");
+    setNotice("Artículo guardado.");
     startTransition(() => router.refresh());
     return true;
   }
@@ -155,7 +155,7 @@ export default function AdminPostEditor({ post }) {
       setError(result.error);
       return;
     }
-    setNotice("Articulo guardado y publicado.");
+    setNotice("Artículo guardado y publicado.");
     startTransition(() => router.refresh());
   }
 
@@ -167,7 +167,7 @@ export default function AdminPostEditor({ post }) {
       setError(result.error);
       return;
     }
-    setNotice(isPublished ? "Articulo despublicado." : "Articulo publicado.");
+    setNotice(isPublished ? "Artículo despublicado." : "Artículo publicado.");
     startTransition(() => router.refresh());
   }
 
@@ -229,7 +229,7 @@ export default function AdminPostEditor({ post }) {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <div className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Edicion editorial</div>
-            <h1 className="mt-1 text-2xl font-bold text-slate-900">Revisar articulo</h1>
+            <h1 className="mt-1 text-2xl font-bold text-slate-900">Revisar artículo</h1>
             <p className="mt-1 text-sm text-slate-600">
               Autor: <span className="font-semibold">{post.author?.user?.name || "Desconocido"}</span>
             </p>
@@ -243,7 +243,7 @@ export default function AdminPostEditor({ post }) {
         {notice ? <div className="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{notice}</div> : null}
 
         <div>
-          <label className="mb-1 block text-sm font-semibold text-slate-700">Titulo</label>
+          <label className="mb-1 block text-sm font-semibold text-slate-700">Título</label>
           <input
             value={form.title}
             onChange={(event) => updateField("title", event.target.value)}
@@ -331,7 +331,7 @@ export default function AdminPostEditor({ post }) {
 
       <aside className="space-y-5">
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-bold text-slate-900">Portada y credito</h2>
+          <h2 className="text-sm font-bold text-slate-900">Portada y crédito</h2>
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
@@ -382,7 +382,7 @@ export default function AdminPostEditor({ post }) {
                 focusY={form.coverImageFocusY}
                 scale={form.coverImageScale}
                 title="Vista publica desktop"
-                subtitle="Hero del articulo"
+                subtitle="Hero del artículo"
                 heightClass="aspect-[16/7] w-full"
                 onPickPosition={(nextX, nextY) => {
                   updateField("coverImageFocusX", nextX);
@@ -460,7 +460,7 @@ export default function AdminPostEditor({ post }) {
               value={form.coverImageTitle}
               onChange={(event) => updateField("coverImageTitle", event.target.value)}
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
-              placeholder="Titulo de la imagen u obra"
+              placeholder="Título de la imagen u obra"
             />
             <input
               value={form.coverImageAuthor}
@@ -473,7 +473,7 @@ export default function AdminPostEditor({ post }) {
               onChange={(event) => updateField("coverImageNote", event.target.value)}
               rows={4}
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
-              placeholder="Descripcion, fuente o permiso de uso"
+              placeholder="Descripción, fuente o permiso de uso"
             />
           </div>
         </section>

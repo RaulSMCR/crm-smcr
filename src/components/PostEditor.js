@@ -46,7 +46,7 @@ export default function PostEditor({ initial = null }) {
   const isWorking = busy || isPending || uploadingImage;
 
   function validate() {
-    if (!title || title.trim().length < 4) return "El titulo debe tener al menos 4 caracteres.";
+    if (!title || title.trim().length < 4) return "El título debe tener al menos 4 caracteres.";
     if (!content || content.trim().length < 20) return "El contenido debe tener al menos 20 caracteres.";
     if (uploadingImage) return "Espera a que termine de subir la imagen.";
     return null;
@@ -157,7 +157,7 @@ export default function PostEditor({ initial = null }) {
 
   async function onDelete() {
     if (!isEdit) return;
-    if (!confirm("Eliminar este articulo? Esta accion no se puede deshacer.")) return;
+    if (!confirm("¿Eliminar este artículo? Esta acción no se puede deshacer.")) return;
 
     try {
       setBusy(true);
@@ -182,7 +182,7 @@ export default function PostEditor({ initial = null }) {
   return (
     <form onSubmit={onSubmit} className="space-y-5">
       <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold">{isEdit ? "Editar articulo" : "Nuevo articulo"}</h1>
+        <h1 className="text-2xl font-bold">{isEdit ? "Editar artículo" : "Nuevo artículo"}</h1>
         <div className="text-sm text-gray-500">
           Slug (previa): <span className="font-mono">{slugPreview}</span>
         </div>
@@ -191,13 +191,13 @@ export default function PostEditor({ initial = null }) {
       {error ? <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
 
       <div>
-        <label className="mb-1 block text-sm font-medium">Titulo *</label>
+        <label className="mb-1 block text-sm font-medium">Título *</label>
         <input
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="w-full rounded border px-3 py-2"
-          placeholder="Escribe un titulo descriptivo"
+          placeholder="Escribe un título descriptivo"
           required
         />
       </div>
@@ -208,7 +208,7 @@ export default function PostEditor({ initial = null }) {
           value={content}
           onChange={setContent}
           rows={14}
-          placeholder="Escribe el contenido del articulo. Usa los botones de formato (título, negrita, lista…)."
+          placeholder="Escribe el contenido del artículo. Usa los botones de formato (título, negrita, lista…)."
         />
       </div>
 
@@ -283,7 +283,7 @@ export default function PostEditor({ initial = null }) {
 
         <div className="grid gap-3 md:grid-cols-2">
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Titulo de la imagen u obra</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Título de la imagen u obra</label>
             <input
               value={coverImageTitle}
               onChange={(e) => setCoverImageTitle(e.target.value)}
@@ -301,7 +301,7 @@ export default function PostEditor({ initial = null }) {
             />
           </div>
           <div className="md:col-span-2">
-            <label className="mb-1 block text-sm font-medium text-slate-700">Descripcion o credito</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Descripción o crédito</label>
             <textarea
               value={coverImageNote}
               onChange={(e) => setCoverImageNote(e.target.value)}

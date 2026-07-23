@@ -11,9 +11,9 @@ import {
 import Toast from "@/components/ui/Toast";
 
 const KIND_OPTIONS = [
-  { value: "ARTICLE_NEW", label: "Articulo nuevo", target: "article" },
+  { value: "ARTICLE_NEW", label: "Artículo nuevo", target: "article" },
   { value: "PROFESSIONAL_NEW", label: "Profesional nuevo", target: "professional" },
-  { value: "ARTICLE_FEATURED", label: "Articulo destacado", target: "article" },
+  { value: "ARTICLE_FEATURED", label: "Artículo destacado", target: "article" },
   { value: "PROFESSIONAL_FEATURED", label: "Profesional destacado", target: "professional" },
 ];
 
@@ -49,7 +49,7 @@ function TargetSelects({ kind, posts, professionals, defaultPostId = "", default
           required
           className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-950"
         >
-          <option value="">Seleccione articulo</option>
+          <option value="">Seleccione artículo</option>
           {posts.map((post) => (
             <option key={post.id} value={post.id}>
               {post.title} - {post.authorName}
@@ -171,7 +171,7 @@ export default function HomeCarouselManager({ initialItems = [], posts = [], pro
 
         <div className="grid gap-4 lg:grid-cols-[1.1fr_1.5fr_1fr_0.7fr_auto]">
           <label className="space-y-1">
-            <span className="text-xs font-bold uppercase text-neutral-600">Categoria</span>
+            <span className="text-xs font-bold uppercase text-neutral-600">Categoría</span>
             <select
               name="kind"
               value={createKind}
@@ -188,7 +188,7 @@ export default function HomeCarouselManager({ initialItems = [], posts = [], pro
 
           <label className="space-y-1">
             <span className="text-xs font-bold uppercase text-neutral-600">
-              {isArticleKind(createKind) ? "Articulo" : "Profesional"}
+              {isArticleKind(createKind) ? "Artículo" : "Profesional"}
             </span>
             <TargetSelects kind={createKind} posts={posts} professionals={professionals} />
           </label>
@@ -233,7 +233,7 @@ export default function HomeCarouselManager({ initialItems = [], posts = [], pro
         {!canCreateArticle || !canCreateProfessional ? (
           <p className="mt-3 text-xs text-neutral-600">
             {[
-              !canCreateArticle ? "No hay articulos publicados para seleccionar." : null,
+              !canCreateArticle ? "No hay artículos publicados para seleccionar." : null,
               !canCreateProfessional ? "No hay profesionales aprobados para seleccionar." : null,
             ]
               .filter(Boolean)
@@ -260,7 +260,7 @@ export default function HomeCarouselManager({ initialItems = [], posts = [], pro
                 className="grid gap-4 p-5 lg:grid-cols-[1.1fr_1.5fr_1fr_0.55fr_auto]"
               >
                 <label className="space-y-1">
-                  <span className="text-xs font-bold uppercase text-neutral-600">Categoria</span>
+                  <span className="text-xs font-bold uppercase text-neutral-600">Categoría</span>
                   <select
                     name="kind"
                     value={kind}
@@ -285,7 +285,7 @@ export default function HomeCarouselManager({ initialItems = [], posts = [], pro
 
                 <label className="space-y-1">
                   <span className="text-xs font-bold uppercase text-neutral-600">
-                    {isArticleKind(kind) ? "Articulo visible" : "Profesional visible"}
+                    {isArticleKind(kind) ? "Artículo visible" : "Profesional visible"}
                   </span>
                   <TargetSelects
                     kind={kind}

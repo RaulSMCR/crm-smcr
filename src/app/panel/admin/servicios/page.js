@@ -83,7 +83,7 @@ export default async function AdminServiciosPage() {
             <thead className="border-b border-slate-200 bg-slate-50">
               <tr className="text-sm text-slate-600">
                 <th className="px-4 py-3 font-semibold">Orden</th>
-                <th className="px-4 py-3 font-semibold">Titulo</th>
+                <th className="px-4 py-3 font-semibold">Título</th>
                 <th className="px-4 py-3 font-semibold">Estado</th>
                 <th className="px-4 py-3 font-semibold">Duración</th>
                 <th className="px-4 py-3 font-semibold">Precio</th>

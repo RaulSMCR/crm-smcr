@@ -67,7 +67,7 @@ export default function PatientProfileEditorCard({ user }) {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-6">
       <h2 className="text-xl font-bold text-slate-900">Mi perfil</h2>
-      <p className="text-sm text-slate-600 mt-1">Actualice sus datos personales para mantener una atencion segura.</p>
+      <p className="text-sm text-slate-600 mt-1">Actualice sus datos personales para mantener una atención segura.</p>
 
       <form onSubmit={onSubmit} className="mt-5 space-y-4">
         <div>

@@ -6,13 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { login } from "@/actions/auth-actions";
 import AuthTurnstile, { CAPTCHA_ENABLED } from "@/components/AuthTurnstile";
 import Link from "next/link";
-import { Playfair_Display } from "next/font/google";
-
-const playfair = Playfair_Display({
-  subsets: ["latin"],
-  style: ["normal", "italic"],
-  display: "swap",
-});
 
 function safeNextPath(nextValue) {
   const next = String(nextValue || "");
@@ -121,7 +114,7 @@ function PanelForm({ panelKey, onBack, registered }) {
       </motion.button>
 
       {/* Titular */}
-      <h2 className={`${playfair.className} text-3xl font-bold text-white mb-1`}>
+      <h2 className="font-display text-4xl font-semibold text-white mb-1">
         {config.headline}
       </h2>
       <p className="text-sm text-neutral-300 mb-7">{config.subline}</p>
@@ -313,7 +306,7 @@ export default function LoginClient() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 8, transition: { duration: 0.18 } }}
                         transition={{ duration: 0.28, ease: EASE }}
-                        className={`${playfair.className} mb-3 max-w-[22ch] text-base italic leading-snug text-neutral-200 md:text-lg`}
+                        className="font-display mb-3 max-w-[22ch] text-lg font-light italic leading-snug text-neutral-200 md:text-xl"
                       >
                         {isReturn ? config.narrativeReturn : config.narrativeNew}
                       </motion.p>
@@ -323,7 +316,7 @@ export default function LoginClient() {
                   <motion.h2
                     animate={{ scale: isHov ? 1.04 : 1 }}
                     transition={{ duration: 0.35, ease: EASE }}
-                    className={`${playfair.className} text-2xl font-bold text-white md:text-3xl`}
+                    className="font-display text-3xl font-semibold text-white md:text-4xl"
                   >
                     {config.headline}
                   </motion.h2>

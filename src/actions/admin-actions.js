@@ -153,8 +153,8 @@ export async function updateAdminPost(postInput) {
     const focusKeyword = String(postInput?.focusKeyword || "").trim() || null;
     const noindex = Boolean(postInput?.noindex);
 
-    if (!id) return { error: "ID de articulo requerido." };
-    if (title.length < 4) return { error: "El titulo debe tener al menos 4 caracteres." };
+    if (!id) return { error: "ID de artículo requerido." };
+    if (title.length < 4) return { error: "El título debe tener al menos 4 caracteres." };
     if (content.length < 20) return { error: "El contenido debe tener al menos 20 caracteres." };
     if (!slug) return { error: "El slug no puede quedar vacio." };
 
@@ -164,7 +164,7 @@ export async function updateAdminPost(postInput) {
     });
 
     if (existingSlug && existingSlug.id !== id) {
-      return { error: "Ya existe otro articulo con ese slug." };
+      return { error: "Ya existe otro artículo con ese slug." };
     }
 
     const post = await prisma.post.update({
@@ -199,6 +199,6 @@ export async function updateAdminPost(postInput) {
     return { success: true };
   } catch (error) {
     console.error("Error editando post admin:", error);
-    return { error: "No se pudo guardar el articulo." };
+    return { error: "No se pudo guardar el artículo." };
   }
 }

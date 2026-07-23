@@ -20,7 +20,7 @@ export default function BlogPostCard({ post }) {
       <div className="relative aspect-[16/9]">
         <SafeImage
           src={cover}
-          alt={title || "Articulo"}
+          alt={title || "Artículo"}
           fallbackSrc=""
           className="absolute inset-0 h-full w-full object-cover"
         />

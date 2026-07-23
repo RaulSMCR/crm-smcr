@@ -68,7 +68,7 @@ export async function cobrarCita(appointmentId) {
     }
 
     const id = String(appointmentId || "");
-    if (!id) return { success: false, error: "ID de cita invalido." };
+    if (!id) return { success: false, error: "ID de cita inválido." };
 
     const appointment = await prisma.appointment.findUnique({
       where: { id },

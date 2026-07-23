@@ -1,7 +1,8 @@
 // src/app/panel/layout.js
-// Único propósito: marcar el panel como UI funcional (`nv-ui`) para que los
-// títulos NO usen la display serif. La dirección Nouveau es para la cara
-// pública; acá los h1/h2 son etiquetas de interfaz.
+// El panel comparte la dirección Nouveau con la cara pública: los títulos de
+// pantalla usan la display serif igual que el resto de la plataforma. Lo que
+// vuelve a la sans son las etiquetas de interfaz (versalitas con tracking),
+// por la regla `h1/h2[class*="uppercase"]` de globals.css.
 export default function PanelLayout({ children }) {
-  return <div className="nv-ui">{children}</div>;
+  return children;
 }

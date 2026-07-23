@@ -7,19 +7,10 @@ export default function HeroSection() {
   return (
     <section className="relative overflow-hidden">
       {/* Banda de marca */}
-      <div
-        className="relative isolate mx-auto mt-6 overflow-hidden rounded-2xl border border-brand-800/40 text-white shadow-card"
-        style={{ background: 'linear-gradient(112deg, #1E4F52 0%, #2B7073 52%, #3E8384 100%)' }}
-      >
-        {/* Neblina coral: capa de textura, por debajo del contenido. */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-[1]"
-          style={{
-            background:
-              'radial-gradient(ellipse 70% 90% at 92% 4%, rgba(251,122,98,.30), transparent 62%)',
-          }}
-        />
+      <div className="nv-hero relative isolate mx-auto mt-6 overflow-hidden rounded-2xl border border-brand-800/40 text-white shadow-card">
+        {/* Neblina coral: capa de textura, por debajo del contenido.
+            Solo desde 820px; ver .nv-hero-mist en globals.css. */}
+        <div aria-hidden="true" className="nv-hero-mist pointer-events-none absolute inset-0 z-[1]" />
 
         {/* Ornamento latigazo: en la esquina opuesta al logo, nunca lo toca.
             Oculto bajo 820px: en móvil el hero no tiene aire para sostenerlo. */}

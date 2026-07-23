@@ -74,11 +74,11 @@ export async function createService(formData) {
     const fiscal = await resolveServiceTax(formData);
     if (fiscal.error) return { error: fiscal.error };
 
-    if (!title) return { error: "El titulo es obligatorio." };
-    if (!Number.isFinite(price) || price < 0) return { error: "Precio invalido." };
+    if (!title) return { error: "El título es obligatorio." };
+    if (!Number.isFinite(price) || price < 0) return { error: "Precio inválido." };
     if (!Number.isFinite(durationMin) || durationMin <= 0) return { error: "Duración inválida." };
     if (!Number.isFinite(displayOrder) || displayOrder < 0) {
-      return { error: "Orden de presentacion invalido." };
+      return { error: "Orden de presentación inválido." };
     }
 
     const newService = await prisma.service.create({
@@ -134,11 +134,11 @@ export async function updateServiceDetails(serviceId, formData) {
     if (fiscal.error) return { error: fiscal.error };
 
     if (!serviceId) return { error: "ID requerido." };
-    if (!title) return { error: "El titulo es obligatorio." };
-    if (!Number.isFinite(price) || price < 0) return { error: "Precio invalido." };
+    if (!title) return { error: "El título es obligatorio." };
+    if (!Number.isFinite(price) || price < 0) return { error: "Precio inválido." };
     if (!Number.isFinite(durationMin) || durationMin <= 0) return { error: "Duración inválida." };
     if (!Number.isFinite(displayOrder) || displayOrder < 0) {
-      return { error: "Orden de presentacion invalido." };
+      return { error: "Orden de presentación inválido." };
     }
 
     await prisma.service.update({
@@ -181,7 +181,7 @@ export async function syncServiceAssignments(serviceId, professionalIds = []) {
     requireAdmin(session);
 
     const sid = String(serviceId || "");
-    if (!sid) return { error: "ID de servicio invalido." };
+    if (!sid) return { error: "ID de servicio inválido." };
 
     const requestedIds = [...new Set((professionalIds || []).map((id) => String(id).trim()))].filter(
       Boolean
@@ -254,7 +254,7 @@ export async function reviewServiceAssignment(serviceId, professionalId, payload
         : Number(approvedPriceRaw);
 
     if (approvedPrice !== null && (!Number.isFinite(approvedPrice) || approvedPrice < 0)) {
-      return { error: "Precio aprobado invalido." };
+      return { error: "Precio aprobado inválido." };
     }
 
     const note = String(payload?.adminReviewNote || "").trim();
@@ -323,7 +323,7 @@ export async function bulkReviewServiceAssignments(serviceId, assignmentUpdates 
     requireAdmin(session);
 
     const sid = String(serviceId || "");
-    if (!sid) return { error: "Servicio invalido." };
+    if (!sid) return { error: "Servicio inválido." };
     if (!Array.isArray(assignmentUpdates) || assignmentUpdates.length === 0) {
       return { error: "No hay solicitudes para procesar." };
     }

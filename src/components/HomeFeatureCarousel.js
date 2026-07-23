@@ -10,7 +10,7 @@ const FALLBACK_ARTICLE_IMAGE =
 
 const KIND_META = {
   ARTICLE_NEW: {
-    title: "Articulo nuevo",
+    title: "Artículo nuevo",
     badge: "bg-brand-100 text-brand-950 border-brand-200",
   },
   PROFESSIONAL_NEW: {
@@ -18,7 +18,7 @@ const KIND_META = {
     badge: "bg-accent-100 text-accent-950 border-accent-200",
   },
   ARTICLE_FEATURED: {
-    title: "Articulo destacado",
+    title: "Artículo destacado",
     badge: "bg-neutral-950 text-white border-neutral-950",
   },
   PROFESSIONAL_FEATURED: {
@@ -55,7 +55,7 @@ function ArticleImage({ article }) {
     <div className="relative min-h-[260px] overflow-hidden bg-neutral-100 md:min-h-[420px]">
       <SafeImage
         src={src}
-        alt={article?.title || "Articulo"}
+        alt={article?.title || "Artículo"}
         fallbackSrc={IMAGE_FALLBACKS.article}
         className="h-full min-h-[260px] w-full object-cover md:min-h-[420px]"
         style={{
@@ -93,7 +93,7 @@ function ArticleSlide({ item, meta }) {
             )}
           </div>
           <div>
-            <p className="text-sm font-semibold text-neutral-950">{author.name || "Redaccion"}</p>
+            <p className="text-sm font-semibold text-neutral-950">{author.name || "Redacción"}</p>
             {author.specialty ? <p className="text-xs text-neutral-600">{author.specialty}</p> : null}
           </div>
         </div>
@@ -109,14 +109,14 @@ function ArticleSlide({ item, meta }) {
             href={`/blog/${article?.slug}`}
             className="inline-flex items-center justify-center rounded-lg bg-brand-800 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-900"
           >
-            Leer articulo
+            Leer artículo
           </Link>
           {author.slug ? (
             <Link
               href={`/blog?autor=${author.slug}`}
               className="inline-flex items-center justify-center rounded-lg border border-neutral-300 bg-white px-5 py-2.5 text-sm font-semibold text-neutral-900 transition hover:bg-neutral-100"
             >
-              Mas del autor
+              Más del autor
             </Link>
           ) : null}
         </div>
@@ -147,7 +147,7 @@ function ProfessionalSlide({ item, meta }) {
         <div className="space-y-3">
           {professional?.licenseNumber ? (
             <p className="text-sm text-neutral-700">
-              <span className="font-semibold text-neutral-950">Matricula profesional:</span>{" "}
+              <span className="font-semibold text-neutral-950">Matrícula profesional:</span>{" "}
               {professional.licenseNumber}
             </p>
           ) : null}

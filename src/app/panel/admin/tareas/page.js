@@ -12,22 +12,22 @@ const AREAS = [
     id: "blog",
     title: "Contenido de blog",
     cadence: "Diario",
-    description: "Revisar, aprobar y convertir articulos en piezas reutilizables.",
+    description: "Revisar, aprobar y convertir artículos en piezas reutilizables.",
     tasks: [
       {
         id: "blog-review-drafts",
-        label: "Revisar articulos en borrador",
+        label: "Revisar artículos en borrador",
         detail: "Validar calidad editorial, fuentes, tono clinico y pertinencia para publicar.",
       },
       {
         id: "blog-plan-derivatives",
         label: "Definir piezas derivadas",
-        detail: "Elegir que articulos pasan a carrusel, reel, pauta, newsletter o SEO interno.",
+        detail: "Elegir que artículos pasan a carrusel, reel, pauta, newsletter o SEO interno.",
       },
       {
         id: "blog-update-library",
         label: "Actualizar inventario editorial",
-        detail: "Registrar tema, autor, estado, proxima accion y fecha objetivo.",
+        detail: "Registrar tema, autor, estado, próxima acción y fecha objetivo.",
       },
     ],
     links: [
@@ -54,7 +54,7 @@ const AREAS = [
       {
         id: "finance-follow-up",
         label: "Programar seguimiento financiero",
-        detail: "Definir cobros, notas de credito, pagos a profesionales y cierres diarios.",
+        detail: "Definir cobros, notas de crédito, pagos a profesionales y cierres diarios.",
       },
     ],
     links: [
@@ -66,13 +66,13 @@ const AREAS = [
     id: "ads",
     title: "Sistema publicitario",
     cadence: "Diario",
-    description: "Coordinar articulos, carruseles, reels, pauta y aprendizajes de campanas.",
+    description: "Coordinar artículos, carruseles, reels, pauta y aprendizajes de campañas.",
     tasks: [
       {
         id: "ads-new-articles",
         kind: "decision",
-        label: "¿Hay articulos nuevos para crear?",
-        detail: "Marca 'No hay' si hoy no toca, o 'Completado' cuando el o los articulos queden creados.",
+        label: "¿Hay artículos nuevos para crear?",
+        detail: "Marca 'No hay' si hoy no toca, o 'Completado' cuando el o los artículos queden creados.",
       },
       {
         id: "ads-new-carousels",
@@ -83,7 +83,7 @@ const AREAS = [
       {
         id: "ads-select-assets",
         label: "Seleccionar activos del dia",
-        detail: "Elegir articulo, tema, imagen, enfoque emocional y llamada a la accion.",
+        detail: "Elegir artículo, tema, imagen, enfoque emocional y llamada a la acción.",
       },
       {
         id: "ads-map-formats",
@@ -93,7 +93,7 @@ const AREAS = [
       {
         id: "ads-check-performance",
         label: "Revisar rendimiento",
-        detail: "Registrar campanas activas, costo, consultas generadas y ajustes para la siguiente iteracion.",
+        detail: "Registrar campañas activas, costo, consultas generadas y ajustes para la siguiente iteracion.",
       },
     ],
     links: [
@@ -106,7 +106,7 @@ const AREAS = [
     id: "seo",
     title: "SEO y crecimiento organico",
     cadence: "Diario",
-    description: "Asegurar que cada pieza publicada sume busqueda, autoridad y conversion.",
+    description: "Asegurar que cada pieza publicada sume búsqueda, autoridad y conversion.",
     tasks: [
       {
         id: "seo-review-indexable",
@@ -116,12 +116,12 @@ const AREAS = [
       {
         id: "seo-link-content",
         label: "Agregar enlaces internos",
-        detail: "Conectar articulos con servicios, perfiles profesionales y rutas de agendamiento.",
+        detail: "Conectar artículos con servicios, perfiles profesionales y rutas de agendamiento.",
       },
       {
         id: "seo-maintain-map",
         label: "Actualizar mapa SEO",
-        detail: "Registrar keywords, intención de busqueda, articulo asociado y siguiente mejora.",
+        detail: "Registrar keywords, intención de búsqueda, artículo asociado y siguiente mejora.",
       },
     ],
     links: [
@@ -179,7 +179,7 @@ export default async function AdminTasksPage() {
   ]);
 
   const metrics = [
-    { label: "Borradores", value: draftPosts, help: "Articulos por revisar" },
+    { label: "Borradores", value: draftPosts, help: "Artículos por revisar" },
     { label: "Publicados hoy", value: publishedToday, help: "Actualizados como publicados" },
     { label: "Facturas abiertas", value: openInvoices, help: "DRAFT u OPEN" },
     { label: "Citas activas", value: activeAppointments, help: "Pendientes o confirmadas" },

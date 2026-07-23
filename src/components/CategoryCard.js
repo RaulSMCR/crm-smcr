@@ -19,7 +19,7 @@ export default function CategoryCard({ category }) {
       <div className="relative aspect-[16/9] text-brand-600">
         <SafeImage
           src={imageUrl}
-          alt={name || "Categoria"}
+          alt={name || "Categoría"}
           fallbackSrc={IMAGE_FALLBACKS.service}
           className="absolute inset-0 h-full w-full object-cover"
         />

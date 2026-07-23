@@ -312,18 +312,79 @@
     font-weight: 600;
   }
 
-  /* Opt-out para UI funcional (paneles): ahí los títulos son etiquetas de
-     interfaz, no display. Se aplica desde los layouts de /panel y /mi. */
-  .nv-ui h1,
-  .nv-ui h2 {
+  /* Excepción única y transversal: los headings que son ETIQUETAS de interfaz
+     —versalitas chicas con tracking— vuelven a la sans. La serif en versalitas
+     de 11-12px pierde legibilidad y delata la dirección. Se detecta por la
+     utilidad `uppercase`, que es lo que marca a una etiqueta frente a un
+     título, y aplica igual en la cara pública y en los paneles.
+     Reemplaza al viejo opt-out `.nv-ui`, que apagaba la serif en TODO el panel
+     y rompía la uniformidad entre el sitio y la plataforma. */
+  h1[class*='uppercase'],
+  h2[class*='uppercase'] {
+    font-family: theme('fontFamily.sans');
+    font-weight: 700;
+  }
+
+  /* Mismo criterio para los headings de UI que se declaran explícitamente
+     funcionales (mensajes de estado inline, cabeceras de tabla). */
+  .nv-ui-label,
+  h1.nv-ui-label,
+  h2.nv-ui-label {
     font-family: theme('fontFamily.sans');
     font-weight: 700;
   }
 }
 
+/* ── Peso de los titulares display ──────────────────────────────────────────
+   Va FUERA de @layer a propósito: las utilidades de Tailwind viven en la capa
+   `utilities`, que gana a `base` por orden de capas y no por especificidad, así
+   que un `font-bold` heredado dejaba los titulares en Cormorant 700. La serif
+   se empasta en ese peso —el brief pide subir el tamaño, nunca el peso—, de
+   modo que los headings que arrastran font-bold/extrabold de utilidades se
+   normalizan al peso display.
+   No toca los que declaran un peso display deliberado (font-light,
+   font-semibold: el claim del hero es h1 semibold y debe seguir siéndolo),
+   ni los headings-etiqueta en versalitas, que son sans y conservan su 700. */
+h1[class*='font-bold']:not([class*='uppercase']),
+h1[class*='font-extrabold']:not([class*='uppercase']) {
+  font-weight: 300;
+}
+
+h2[class*='font-bold']:not([class*='uppercase']),
+h2[class*='font-extrabold']:not([class*='uppercase']) {
+  font-weight: 600;
+}
+
 @layer components {
   .card {
     @apply rounded-2xl border bg-white shadow-card;
+  }
+
+  /* ── Hero Nouveau ──────────────────────────────────────────────────────────
+     Mismos tres teales del degradado original; lo que cambia es el reparto.
+     El wordmark vive en la esquina superior izquierda, así que el teal profundo
+     se sostiene hasta el 22% antes de abrir hacia el teal medio: sin eso el
+     texto cae sobre el tramo claro y el contraste no alcanza.
+     En móvil el contenedor es angosto y alto, el degradado corre casi vertical
+     y el problema se agrava: ahí se inclina el ángulo y se retira la neblina
+     coral, que en ese ancho no aporta profundidad y sí resta legibilidad. */
+  .nv-hero {
+    background: linear-gradient(168deg, #1E4F52 0%, #1E4F52 42%, #2B7073 78%, #3E8384 100%);
+  }
+
+  .nv-hero-mist {
+    display: none;
+  }
+
+  @media (min-width: 820px) {
+    .nv-hero {
+      background: linear-gradient(112deg, #1E4F52 0%, #1E4F52 22%, #2B7073 58%, #3E8384 100%);
+    }
+
+    .nv-hero-mist {
+      display: block;
+      background: radial-gradient(ellipse 70% 90% at 92% 4%, rgba(251, 122, 98, 0.22), transparent 62%);
+    }
   }
 
   .btn {

@@ -39,19 +39,19 @@ function revalidateCarouselPaths() {
 
 async function validateTarget(kind, postId, professionalId) {
   if (!ALL_KINDS.has(kind)) {
-    return { error: "Seleccione una categoria valida para el carrusel." };
+    return { error: "Seleccione una categoría valida para el carrusel." };
   }
 
   if (ARTICLE_KINDS.has(kind)) {
-    if (!postId) return { error: "Seleccione un articulo publicado." };
+    if (!postId) return { error: "Seleccione un artículo publicado." };
 
     const post = await prisma.post.findUnique({
       where: { id: postId },
       select: { id: true, status: true },
     });
 
-    if (!post) return { error: "Articulo no encontrado." };
-    if (post.status !== "PUBLISHED") return { error: "Solo se pueden mostrar articulos publicados." };
+    if (!post) return { error: "Artículo no encontrado." };
+    if (post.status !== "PUBLISHED") return { error: "Solo se pueden mostrar artículos publicados." };
     return { postId, professionalId: null };
   }
 

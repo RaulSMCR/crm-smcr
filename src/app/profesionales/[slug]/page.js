@@ -213,7 +213,7 @@ export default async function ProfessionalPublicProfilePage({ params, searchPara
 
             {professional.posts.length > 0 ? (
               <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
-                <h2 className="text-xl font-bold text-slate-950">Articulos publicados</h2>
+                <h2 className="text-xl font-bold text-slate-950">Artículos publicados</h2>
                 <div className="mt-4 grid gap-3">
                   {professional.posts.map((post) => (
                     <Link

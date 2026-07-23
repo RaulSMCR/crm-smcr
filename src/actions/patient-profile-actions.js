@@ -70,7 +70,7 @@ export async function updatePatientProfile(formData) {
     return { success: true };
   } catch (e) {
     console.error("updatePatientProfile error:", e);
-    return { error: "No se pudo guardar la informacion. Por favor, intentelo nuevamente." };
+    return { error: "No se pudo guardar la información. Por favor, inténtelo nuevamente." };
   }
 }
 

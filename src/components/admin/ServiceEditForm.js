@@ -64,7 +64,7 @@ export default function ServiceEditForm({ service, taxes = [] }) {
             </select>
           </label>
           <label className="text-sm text-slate-700">
-            <span className="mb-1 block font-medium">Titulo</span>
+            <span className="mb-1 block font-medium">Título</span>
             <input
               name="title"
               defaultValue={service.title || ""}
@@ -100,7 +100,7 @@ export default function ServiceEditForm({ service, taxes = [] }) {
           </label>
 
           <label className="text-sm text-slate-700">
-            <span className="mb-1 block font-medium">Orden de presentacion</span>
+            <span className="mb-1 block font-medium">Orden de presentación</span>
             <input
               name="displayOrder"
               type="number"

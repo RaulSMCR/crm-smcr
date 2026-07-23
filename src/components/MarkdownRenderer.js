@@ -12,7 +12,7 @@ const MarkdownImage = ({ src, alt }) => {
     <span className="relative my-8 block h-[300px] w-full overflow-hidden rounded-lg bg-gray-100 shadow-sm md:h-[450px]">
       <SafeImage
         src={src}
-        alt={alt || "Imagen del articulo"}
+        alt={alt || "Imagen del artículo"}
         fallbackSrc={IMAGE_FALLBACKS.article}
         className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-in-out hover:scale-105"
       />

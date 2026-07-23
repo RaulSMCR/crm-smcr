@@ -6,13 +6,6 @@ import { registerProfessional } from "@/actions/auth-actions";
 import AuthTurnstile, { CAPTCHA_ENABLED } from "@/components/AuthTurnstile";
 import Link from "next/link";
 import { getMarketingAttributionFields, getMarketingAttributionRaw } from "@/lib/marketing-attribution-client";
-import { Playfair_Display } from "next/font/google";
-
-const playfair = Playfair_Display({
-  subsets: ["latin"],
-  style: ["normal", "italic"],
-  display: "swap",
-});
 
 function isEmailFormatValid(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim().toLowerCase());
@@ -54,10 +47,10 @@ function HeroPanel() {
         </Link>
 
         <div>
-          <p className={`${playfair.className} mb-3 text-base italic text-neutral-300 md:text-lg`}>
+          <p className="font-display mb-3 text-lg font-light italic text-neutral-300 md:text-xl">
             Amplía tu alcance y tu impacto
           </p>
-          <h2 className={`${playfair.className} text-2xl font-bold text-white md:text-3xl`}>
+          <h2 className="font-display text-3xl font-semibold text-white md:text-4xl">
             Registro profesional
           </h2>
           <p className="mt-2 text-sm text-neutral-400">
@@ -205,7 +198,7 @@ export default function RegistroProfesionalPage() {
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-brand-100 text-3xl">
             🎉
           </div>
-          <h2 className={`${playfair.className} mb-2 text-2xl font-bold text-neutral-950`}>
+          <h2 className="font-display mb-2 text-3xl font-semibold text-neutral-950">
             Solicitud recibida
           </h2>
           <p className="mb-6 text-sm text-neutral-600">{successMsg}</p>

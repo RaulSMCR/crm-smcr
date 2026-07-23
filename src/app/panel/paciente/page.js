@@ -91,7 +91,7 @@ export default async function PacientePanelPage({ searchParams }) {
       <div className="flex items-start justify-between gap-6">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Panel del paciente</h1>
-          <p className="mt-2 text-slate-600">Citas e informacion personal.</p>
+          <p className="mt-2 text-slate-600">Citas e información personal.</p>
         </div>
 
         <Link
