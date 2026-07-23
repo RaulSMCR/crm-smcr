@@ -123,7 +123,7 @@ export default function VerifyEmailClient() {
             type="button"
             onClick={resend}
             disabled={resendPending}
-            className="mt-3 w-full px-4 py-2 rounded bg-neutral-800 text-white hover:bg-neutral-900 disabled:opacity-70"
+            className="btn btn-accent mt-3 w-full disabled:opacity-70"
           >
             {resendPending ? "Enviando..." : "Reenviar enlace"}
           </button>

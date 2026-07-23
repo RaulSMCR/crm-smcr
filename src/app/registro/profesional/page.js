@@ -264,7 +264,7 @@ export default function RegistroProfesionalPage() {
                     <input name="password" type={showPassword ? "text" : "password"} required
                       className={`${inputClass} pr-16`} value={form.password} onChange={handleChange} />
                     <button type="button" onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-3 flex items-center text-xs font-bold text-neutral-400 hover:text-neutral-700">
+                      className="absolute inset-y-0 right-3 flex items-center text-xs font-bold text-neutral-600 hover:text-neutral-900">
                       {showPassword ? "OCULTAR" : "VER"}
                     </button>
                   </div>

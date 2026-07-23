@@ -71,19 +71,19 @@ export default function ProfessionalProfileCard({ professional }) {
           <div className="grid grid-cols-1 gap-2">
             <Link
               href={publicHref}
-              className="inline-block w-full rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800"
+              className="btn btn-accent w-full"
             >
               Ver perfil
             </Link>
             <Link
               href={`/agendar/${professional.id}`}
-              className="inline-block w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50"
+              className="btn btn-outline w-full"
             >
               Agendar cita
             </Link>
             <Link
               href={`/blog?autor=${professional.slug}`}
-              className="inline-block w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-50"
+              className="btn btn-outline w-full"
             >
               Ver artículos publicados
             </Link>

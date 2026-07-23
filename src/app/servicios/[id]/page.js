@@ -244,7 +244,7 @@ export default async function ServiceDetailPage({ params }) {
 
                 <Link
                   href={`/agendar/${professional.id}?serviceId=${service.id}`}
-                  className="mt-4 inline-block rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700"
+                  className="btn btn-accent mt-4"
                 >
                   Agendar cita
                 </Link>

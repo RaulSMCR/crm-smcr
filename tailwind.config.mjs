@@ -146,6 +146,16 @@ export default {
       typography: ({ theme }) => ({
         DEFAULT: {
           css: {
+            // Dirección Nouveau dentro del contenido: los títulos del artículo
+            // usan la display serif igual que el resto del sitio. El cuerpo y
+            // los h3 en adelante se quedan en la sans: la serif en párrafos
+            // largos y en jerarquías bajas pierde legibilidad.
+            'h1, h2': {
+              fontFamily: 'var(--font-display)',
+            },
+            h1: { fontWeight: '300' },
+            h2: { fontWeight: '600' },
+
             // Elimina las comillas invertidas (backticks) en el código inline
             'code::before': {
               content: '""',

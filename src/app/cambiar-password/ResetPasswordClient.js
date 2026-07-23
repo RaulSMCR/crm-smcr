@@ -109,7 +109,7 @@ export default function ResetPasswordClient() {
           <button
             type="submit"
             disabled={pending || tokenMissing}
-            className="w-full px-4 py-2 rounded bg-neutral-900 text-white hover:bg-neutral-950 disabled:opacity-70"
+            className="btn btn-accent w-full disabled:opacity-70"
           >
             {pending ? "Actualizando de forma segura..." : "Actualizar contraseña y continuar"}
           </button>

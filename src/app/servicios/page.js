@@ -210,7 +210,7 @@ export default async function ServiciosPage() {
 
                 <Link
                   href={`/servicios/${service.id}`}
-                  className="inline-flex w-full items-center justify-center whitespace-nowrap rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700 sm:w-auto"
+                  className="btn btn-accent w-full whitespace-nowrap sm:w-auto"
                 >
                   Ver detalles
                 </Link>

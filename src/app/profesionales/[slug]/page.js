@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { siteUrl } from "@/lib/site-url";
 import { resolveSeo, buildMetadata } from "@/lib/seo";
 import { SafeAvatar } from "@/components/SafeImage";
+import WhiplashCorner from "@/components/ornaments/WhiplashCorner";
 
 export const revalidate = 3600;
 
@@ -134,38 +135,48 @@ export default async function ProfessionalPublicProfilePage({ params, searchPara
         </Link>
 
         <section className="grid gap-8 lg:grid-cols-[360px_1fr]">
-          <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
-            <div className="mx-auto h-44 w-44 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
+          <aside className="nv-panel h-fit overflow-hidden rounded-2xl border border-brand-800/40 p-6 shadow-card">
+            {/* Ornamento latigazo, en la esquina opuesta al retrato y a menor
+                escala que en el hero. Oculto en pantallas chicas, donde la
+                ficha no tiene aire para sostenerlo. */}
+            <div
+              className="pointer-events-none absolute z-0 hidden [@media(min-width:640px)]:block"
+              style={{ top: '-24px', right: '-32px', width: '190px', opacity: 0.22, color: '#F6EFDF' }}
+            >
+              <WhiplashCorner className="h-full w-full" />
+            </div>
+
+            <div className="mx-auto h-44 w-44 overflow-hidden rounded-full border border-nv-cream/25 bg-brand-900/40">
               {professional.user?.image ? (
                 <SafeAvatar src={professional.user.image} name={name} className="h-full w-full object-cover" />
               ) : (
-                <div className="grid h-full w-full place-items-center text-5xl font-bold text-slate-500">
+                <div className="grid h-full w-full place-items-center text-5xl font-bold text-nv-teal-pale">
                   {name.charAt(0)}
                 </div>
               )}
             </div>
 
             <div className="mt-5 text-center">
-              <h1 className="text-2xl font-bold text-slate-950">{name}</h1>
-              <p className="mt-1 text-sm font-semibold text-brand-800">
+              <h1 className="text-3xl font-light text-nv-cream-hi">{name}</h1>
+              <p className="mt-1 text-sm font-semibold text-nv-teal-pale">
                 {professional.specialty || "Profesional de salud"}
               </p>
               {professional.licenseNumber ? (
-                <p className="mt-2 text-xs text-slate-600">Licencia: {professional.licenseNumber}</p>
+                <p className="mt-2 text-xs text-nv-cream/75">Licencia: {professional.licenseNumber}</p>
               ) : null}
             </div>
 
             {firstService ? (
               <Link
                 href={`/agendar/${professional.id}?serviceId=${firstService.id}`}
-                className="mt-6 flex w-full items-center justify-center rounded-xl bg-brand-700 px-4 py-3 text-sm font-bold text-white hover:bg-brand-800"
+                className="btn btn-accent mt-6 w-full"
               >
                 Agendar cita
               </Link>
             ) : (
               <Link
                 href="/servicios"
-                className="mt-6 flex w-full items-center justify-center rounded-xl bg-brand-700 px-4 py-3 text-sm font-bold text-white hover:bg-brand-800"
+                className="btn btn-accent mt-6 w-full"
               >
                 Ver servicios
               </Link>
@@ -174,12 +185,12 @@ export default async function ProfessionalPublicProfilePage({ params, searchPara
 
           <div className="space-y-6">
             <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
-              <h2 className="text-xl font-bold text-slate-950">Resena profesional</h2>
+              <h2 className="text-2xl font-semibold text-slate-950">Reseña profesional</h2>
               {review ? (
                 <p className="mt-4 whitespace-pre-line text-justify leading-7 text-slate-700">{review}</p>
               ) : (
                 <p className="mt-4 text-slate-700">
-                  Este profesional esta preparando su resena publica. Mientras tanto, puede revisar sus servicios disponibles.
+                  Este profesional está preparando su reseña pública. Mientras tanto, puede revisar sus servicios disponibles.
                 </p>
               )}
             </section>

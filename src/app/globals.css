@@ -376,6 +376,33 @@ h2[class*='font-extrabold']:not([class*='uppercase']) {
     display: none;
   }
 
+  /* ── Superficie Nouveau ────────────────────────────────────────────────────
+     El mismo lenguaje del hero para los marcos destacados del sitio (fichas de
+     profesional, cabeceras de sección). El degradado recorre menos que el del
+     hero porque el contenedor es mucho más chico, y la neblina va apenas
+     insinuada (.12): a esta escala cualquier cosa por encima se lee como
+     mancha, no como textura. */
+  .nv-panel {
+    position: relative;
+    isolation: isolate;
+    background: linear-gradient(150deg, #1E4F52 0%, #1E4F52 38%, #2B7073 100%);
+    color: var(--cream);
+  }
+
+  .nv-panel::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse 80% 70% at 88% 6%, rgba(251, 122, 98, 0.12), transparent 60%);
+  }
+
+  .nv-panel > * {
+    position: relative;
+    z-index: 1;
+  }
+
   @media (min-width: 820px) {
     .nv-hero {
       background: linear-gradient(112deg, #1E4F52 0%, #1E4F52 22%, #2B7073 58%, #3E8384 100%);
@@ -515,14 +542,35 @@ h2[class*='font-extrabold']:not([class*='uppercase']) {
     color: rgb(var(--on-brand) / 1) !important;
   }
 
-  /* Legibilidad estricta: nunca blanco sobre neutros claros */
-  [class*="bg-white"][class*="text-white"],
-  [class*="bg-slate-"][class*="text-white"],
-  [class*="bg-gray-"][class*="text-white"],
+  /* Legibilidad estricta: nunca blanco sobre neutros claros.
+     bg-white/slate/gray quedan FUERA a propósito: la regla de arriba ya los
+     reemplaza por brand-600, que es oscuro y por lo tanto pide texto claro.
+     Incluirlos acá les ponía texto casi negro sobre teal (2.89:1). */
   [class*="bg-zinc-"][class*="text-white"],
   [class*="bg-stone-"][class*="text-white"],
   [class*="bg-neutral-"][class*="text-white"] {
     color: rgb(var(--brand-950) / 1) !important;
+  }
+
+  /* Contra-excepción para los tonos oscuros (700–950). El selector por
+     substring de la regla anterior no distingue el tono, así que un
+     `bg-neutral-900 text-white` terminaba con texto casi negro sobre fondo
+     casi negro: 1.27:1, ilegible. Sobre fondo oscuro se contrasta con un
+     neutro claro, nunca con un tono de brand. */
+  [class*="bg-neutral-700"][class*="text-white"],
+  [class*="bg-neutral-800"][class*="text-white"],
+  [class*="bg-neutral-900"][class*="text-white"],
+  [class*="bg-neutral-950"][class*="text-white"],
+  [class*="bg-zinc-700"][class*="text-white"],
+  [class*="bg-zinc-800"][class*="text-white"],
+  [class*="bg-zinc-900"][class*="text-white"],
+  [class*="bg-zinc-950"][class*="text-white"],
+  [class*="bg-stone-700"][class*="text-white"],
+  [class*="bg-stone-800"][class*="text-white"],
+  [class*="bg-stone-900"][class*="text-white"],
+  [class*="bg-stone-950"][class*="text-white"],
+  [class*="bg-black"][class*="text-white"] {
+    color: rgb(var(--on-brand) / 1) !important;
   }
 
   /* Legibilidad estricta: fondos brand/accent claros siempre usan texto oscuro. */

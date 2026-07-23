@@ -89,7 +89,7 @@ export default function RecuperarPage() {
           <button
             type="submit"
             disabled={pending || (CAPTCHA_ENABLED && !captchaToken)}
-            className="w-full px-4 py-2 rounded bg-neutral-900 text-white hover:bg-neutral-950 disabled:opacity-70"
+            className="btn btn-accent w-full disabled:opacity-70"
           >
             {pending ? "Enviando enlace seguro..." : "Enviar enlace y continuar"}
           </button>

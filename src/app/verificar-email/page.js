@@ -40,7 +40,7 @@ export default async function VerificarEmailPage({ searchParams }) {
             </p>
             <Link
               href="/ingresar"
-              className="block w-full bg-blue-900 text-white font-bold py-3 rounded-lg hover:bg-black transition"
+              className="btn btn-accent block w-full py-3 text-center"
             >
               Ingresar
             </Link>
