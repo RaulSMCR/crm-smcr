@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { siteUrl } from "@/lib/site-url";
 import SafeImage, { SafeAvatar } from "@/components/SafeImage";
+import LibraryBar from "@/components/blog/LibraryBar";
+import { parseLibraryParams, buildLibraryWhere, buildLibraryOrderBy } from "@/lib/blog-taxonomy";
 
 export const metadata = {
   title: 'Blog de salud mental y bienestar',
@@ -29,68 +31,90 @@ export const revalidate = 300;
 
 export default async function BlogPage({ searchParams }) {
   const sp = await searchParams;
-  const selectedAuthor = typeof sp?.autor === 'string' ? sp.autor : null;
+  const params = parseLibraryParams(sp);
 
-  const posts = await prisma.post.findMany({
-    where: {
-      status: 'PUBLISHED',
-      ...(selectedAuthor ? { author: { slug: selectedAuthor } } : {}),
-    },
-    orderBy: { createdAt: 'desc' },
-    take: 20,
-    select: {
-      id: true,
-      slug: true,
-      title: true,
-      coverImage: true,
-      coverImageFocusX: true,
-      coverImageFocusY: true,
-      coverImageScale: true,
-      excerpt: true,
-      createdAt: true,
-      author: {
-        select: {
-          slug: true,
-          specialty: true,
-          user: {
-            select: {
-              name: true,
-              image: true,
-            },
-          },
-        },
+  // Sólo mostramos filtros que tienen contenido publicado detrás (nada de
+  // disciplinas o temas vacíos). El vocabulario público exige estado APPROVED.
+  const publishedApproved = { some: { status: "APPROVED", post: { status: "PUBLISHED" } } };
+  const [posts, disciplines, topics, series, authors] = await Promise.all([
+    prisma.post.findMany({
+      where: buildLibraryWhere(params),
+      orderBy: buildLibraryOrderBy(params),
+      take: 24,
+      select: {
+        id: true, slug: true, title: true,
+        coverImage: true, coverImageFocusX: true, coverImageFocusY: true, coverImageScale: true,
+        excerpt: true, createdAt: true,
+        series: { select: { name: true, slug: true } },
+        seriesOrder: true, seriesApproved: true,
+        disciplines: { where: { status: "APPROVED" }, select: { discipline: { select: { name: true, slug: true } } } },
+        topics: { where: { status: "APPROVED" }, select: { topic: { select: { name: true, slug: true } } } },
+        author: { select: { slug: true, specialty: true, user: { select: { name: true, image: true } } } },
       },
-    },
-  });
+    }),
+    prisma.discipline.findMany({ where: { isActive: true, posts: publishedApproved }, orderBy: [{ order: "asc" }, { name: "asc" }], select: { name: true, slug: true } }),
+    prisma.topic.findMany({ where: { isActive: true, posts: publishedApproved }, orderBy: [{ order: "asc" }, { name: "asc" }], select: { name: true, slug: true } }),
+    prisma.series.findMany({ where: { isActive: true, posts: { some: { status: "PUBLISHED", seriesApproved: true } } }, orderBy: { name: "asc" }, select: { name: true, slug: true } }),
+    prisma.professionalProfile.findMany({ where: { posts: { some: { status: "PUBLISHED" } } }, orderBy: { user: { name: "asc" } }, select: { slug: true, user: { select: { name: true } } } }),
+  ]);
 
-  const authorName = selectedAuthor && posts[0]?.author?.user?.name ? posts[0].author.user.name : null;
+  // Temas complementarios del tema seleccionado (curados por el admin, en
+  // ambos sentidos de la relación).
+  let complementary = [];
+  if (params.tema) {
+    const current = await prisma.topic.findUnique({
+      where: { slug: params.tema },
+      select: {
+        complementsFrom: { select: { to: { select: { name: true, slug: true } } } },
+        complementsTo: { select: { from: { select: { name: true, slug: true } } } },
+      },
+    });
+    if (current) {
+      const seen = new Set();
+      for (const c of current.complementsFrom) {
+        if (!seen.has(c.to.slug)) { seen.add(c.to.slug); complementary.push(c.to); }
+      }
+      for (const c of current.complementsTo) {
+        if (!seen.has(c.from.slug)) { seen.add(c.from.slug); complementary.push(c.from); }
+      }
+    }
+  }
+
+  const authorList = authors.map((a) => ({ slug: a.slug, name: a.user?.name || "Profesional" }));
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-12">
-      <header className="mb-10 text-center">
+      <header className="mb-8 text-center">
         <h1 className="text-5xl font-light text-gray-900 tracking-tight">Nuestro Blog</h1>
         <p className="text-lg text-gray-600 mt-3 max-w-2xl mx-auto">
           Artículos, novedades y consejos de nuestros profesionales.
         </p>
-        {selectedAuthor && (
-          <div className="mt-4">
-            <p className="text-sm text-gray-600">
-              Mostrando artículos de {authorName || 'este profesional'}.
-            </p>
-            <Link href="/blog" className="text-sm text-blue-600 hover:underline">
-              Ver todos los artículos
-            </Link>
-          </div>
-        )}
       </header>
+
+      <LibraryBar
+        params={params}
+        vocab={{ disciplines, topics, series }}
+        authors={authorList}
+        complementary={complementary}
+      />
 
       {posts.length === 0 ? (
         <div className="py-16 text-center bg-gray-50 rounded-2xl border border-gray-100">
           <div className="text-gray-400 mb-4">
             <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"></path></svg>
           </div>
-          <h3 className="text-lg font-medium text-gray-900">Aún no hay publicaciones</h3>
-          <p className="text-gray-500 mt-1">Vuelve pronto para leer nuestro contenido.</p>
+          <h3 className="text-lg font-medium text-gray-900">
+            {params.q || params.autor || params.disciplina || params.tema || params.serie
+              ? "No hay artículos para esta combinación"
+              : "Aún no hay publicaciones"}
+          </h3>
+          <p className="text-gray-500 mt-1">
+            {params.q || params.autor || params.disciplina || params.tema || params.serie ? (
+              <Link href="/blog" className="text-brand-700 hover:underline">Quitar los filtros y ver todo</Link>
+            ) : (
+              "Vuelve pronto para leer nuestro contenido."
+            )}
+          </p>
         </div>
       ) : (
         <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
@@ -117,10 +141,20 @@ export default async function BlogPage({ searchParams }) {
               </Link>
 
               <div className="p-6 flex flex-col flex-grow">
-                <div className="flex items-center gap-2 text-xs font-medium text-blue-600 mb-3">
-                  <time dateTime={p.createdAt.toISOString()} className="bg-blue-50 px-2 py-1 rounded">
+                <div className="flex flex-wrap items-center gap-2 text-xs font-medium mb-3">
+                  <time dateTime={p.createdAt.toISOString()} className="bg-blue-50 text-blue-600 px-2 py-1 rounded">
                     {formatDate(p.createdAt)}
                   </time>
+                  {p.seriesApproved && p.series ? (
+                    <span className="rounded bg-brand-100 px-2 py-1 text-brand-800">
+                      {p.series.name}{p.seriesOrder ? ` · ${p.seriesOrder}` : ""}
+                    </span>
+                  ) : null}
+                  {p.disciplines.slice(0, 2).map((d) => (
+                    <span key={d.discipline.slug} className="rounded bg-slate-100 px-2 py-1 text-slate-600">
+                      {d.discipline.name}
+                    </span>
+                  ))}
                 </div>
 
                 <Link href={`/blog/${p.slug}`} className="block mb-3">
