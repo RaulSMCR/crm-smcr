@@ -1,6 +1,6 @@
 // PATH: src/components/Header.js
 import Link from "next/link";
-import Image from "next/image";
+import LogoTile from "@/components/brand/LogoTile";
 import LogoutButton from "@/components/LogoutButton";
 import { getSession } from "@/lib/auth";
 
@@ -37,14 +37,7 @@ export default async function Header() {
       <div className="container flex h-20 items-center justify-between">
         {/* LOGO */}
         <Link href="/" className="flex items-center">
-          <Image
-            src="/logo.svg"
-            alt="Logo Salud Mental Costa Rica"
-            width={80}
-            height={80}
-            className="h-14 w-auto md:h-16"
-            priority
-          />
+          <LogoTile size={56} />
         </Link>
 
         {/* NAVEGACIÓN (Desktop) */}

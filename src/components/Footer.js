@@ -1,5 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
+import LogoTile from "@/components/brand/LogoTile";
 
 export default function Footer() {
   return (
@@ -7,16 +7,9 @@ export default function Footer() {
       <div className="container grid gap-8 py-10 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <div className="flex items-center gap-3">
-            <div className="relative h-12 w-12 sm:h-14 sm:w-14">
-              <Image
-                src="/logo.svg"
-                alt="Logo Salud Mental Costa Rica"
-                fill
-                sizes="56px"
-                className="object-contain drop-shadow-lg"
-                priority={false}
-              />
-            </div>
+            {/* Corte compacto: a 56px "Costa Rica" se cae. El tile va crema
+                también sobre este fondo oscuro, por spec de marca. */}
+            <LogoTile size={56} className="drop-shadow-lg" />
 
             <span className="text-base font-bold tracking-wide text-white sm:text-lg">
               Salud Mental

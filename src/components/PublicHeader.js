@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
+import LogoTile from "@/components/brand/LogoTile";
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import LogoutButton from "@/components/LogoutButton";
@@ -74,7 +74,8 @@ export default function PublicHeader() {
       ) : null}
       <div className="container flex min-h-20 flex-wrap items-center justify-between gap-3 py-2">
         <Link href="/">
-          <Image src="/logo.svg" alt="Logo Salud Mental Costa Rica" width={80} height={80} className="h-14 w-auto md:h-16" priority />
+          {/* Corte compacto: a la altura del header "Costa Rica" no resiste. */}
+          <LogoTile size={56} />
         </Link>
         {!isPatient ? (
           <nav className="hidden gap-6 font-display text-[16px] font-normal text-neutral-600 md:flex">

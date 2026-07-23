@@ -1,6 +1,6 @@
 // src/components/HeroSection.js
 import Link from 'next/link';
-import Image from 'next/image';
+import LogoTile from "@/components/brand/LogoTile";
 import WhiplashCorner from '@/components/ornaments/WhiplashCorner';
 
 export default function HeroSection() {
@@ -26,14 +26,8 @@ export default function HeroSection() {
 
             {/* ⭐ Logo + Marca con color destacado */}
             <Link href="/" className="mb-10 flex items-center gap-5">
-              <Image
-                src="/logo.svg"
-                alt="Logo Salud Mental Costa Rica"
-                width={120}
-                height={120}
-                className="h-auto w-28 sm:w-32 drop-shadow-lg"
-                priority
-              />
+              {/* Corte completo: a 128px entran las tres líneas y el filete. */}
+              <LogoTile size={128} className="drop-shadow-lg" />
               <span
                 className="font-display font-light text-nv-teal-pale"
                 style={{

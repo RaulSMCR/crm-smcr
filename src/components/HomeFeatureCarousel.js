@@ -131,10 +131,12 @@ function ProfessionalSlide({ item, meta }) {
 
   return (
     <article className="grid overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 shadow-card md:grid-cols-[0.8fr_1.2fr]">
-      <div className="flex flex-col items-center justify-center bg-gradient-to-br from-brand-700 via-brand-600 to-accent-700 px-6 py-10 text-center text-white">
+      {/* Misma superficie Nouveau que la ficha de /profesionales: el degradado
+          del hero, no el teal→coral genérico que traía antes. */}
+      <div className="nv-panel flex flex-col items-center justify-center px-6 py-10 text-center">
         <ProfessionalAvatar professional={professional} />
-        <h3 className="mt-6 text-2xl font-bold">{professional?.name}</h3>
-        <p className="mt-2 text-sm font-semibold uppercase tracking-wide text-white/85">
+        <h3 className="font-display mt-6 text-3xl font-light text-nv-cream-hi">{professional?.name}</h3>
+        <p className="mt-2 text-sm font-semibold uppercase tracking-wide text-nv-teal-pale">
           {professional?.specialty || "Profesional de salud"}
         </p>
       </div>
