@@ -124,13 +124,13 @@ export default async function ServiciosPage() {
     <div className="mx-auto max-w-6xl space-y-8 p-6 md:p-10">
       <JsonLd data={FAQ_SCHEMA} />
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">Nuestros Servicios</h1>
+        <h1 className="text-4xl font-light text-slate-900">Nuestros Servicios</h1>
         <p className="mt-2 text-slate-600">Encuentra el apoyo profesional que necesitas hoy.</p>
       </div>
 
       {dbUnavailable ? (
         <div className="rounded-2xl border border-accent-300 bg-accent-50 p-6">
-          <h2 className="text-xl font-bold text-brand-950">Servicios temporalmente no disponibles</h2>
+          <h2 className="text-2xl font-semibold text-brand-950">Servicios temporalmente no disponibles</h2>
           <p className="mt-2 text-neutral-900">
             No pudimos conectarnos a la base de datos en este momento. Intenta nuevamente en unos minutos.
           </p>
@@ -194,7 +194,7 @@ export default async function ServiciosPage() {
                 ) : null}
 
                 <div className="image-overlay-strong absolute inset-x-0 bottom-0 p-6 transition-opacity duration-300 group-hover:opacity-0">
-                  <h2 className="contrast-on-image text-xl font-bold">{service.title}</h2>
+                  <h2 className="contrast-on-image text-2xl font-semibold">{service.title}</h2>
                   <div className="contrast-on-image-muted mt-2 text-sm">
                     {priceLabel} · {service.durationMin} min
                   </div>

@@ -159,7 +159,7 @@ export default function FaqPage() {
           <span className="inline-block mb-4 rounded-full bg-brand-100 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-brand-700">
             Centro de ayuda
           </span>
-          <h1 className="text-4xl font-bold tracking-tight text-neutral-900 sm:text-5xl">
+          <h1 className="text-5xl font-light tracking-tight text-neutral-900 sm:text-6xl">
             Preguntas Frecuentes
           </h1>
           <p className="mt-4 text-lg leading-relaxed text-neutral-600">
@@ -188,7 +188,8 @@ export default function FaqPage() {
                   </span>
                   <h2
                     id={`section-heading-${section.id}`}
-                    className={`text-sm font-semibold uppercase tracking-wide ${section.titleColor}`}
+                    /* font-sans explícito: es una etiqueta de sección, no display. */
+                    className={`font-sans text-sm font-semibold uppercase tracking-wide ${section.titleColor}`}
                   >
                     {section.title}
                   </h2>

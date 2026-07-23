@@ -112,7 +112,7 @@ export default async function ServiceDetailPage({ params }) {
           Volver a Servicios
         </Link>
         <div className="rounded-2xl border border-accent-300 bg-accent-50 p-6">
-          <h1 className="text-2xl font-bold text-brand-950">Servicio temporalmente no disponible</h1>
+          <h1 className="text-3xl font-light text-brand-950">Servicio temporalmente no disponible</h1>
           <p className="mt-2 text-neutral-900">
             No pudimos conectarnos a la base de datos para cargar este servicio. Intenta nuevamente en unos minutos.
           </p>
@@ -186,7 +186,7 @@ export default async function ServiceDetailPage({ params }) {
             </div>
           ) : null}
           <div className="absolute inset-x-0 bottom-0 p-6 transition-opacity duration-300 group-hover:opacity-0 md:p-8">
-            <h1 className="contrast-on-image text-3xl font-bold md:text-4xl">{service.title}</h1>
+            <h1 className="contrast-on-image text-4xl font-light md:text-5xl">{service.title}</h1>
             <div className="contrast-on-image-muted mt-3 text-sm">
               {service.durationMin} min · {priceLabel}
             </div>
@@ -195,14 +195,14 @@ export default async function ServiceDetailPage({ params }) {
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-6">
-        <h2 className="text-xl font-bold text-slate-900">Descripción</h2>
+        <h2 className="text-2xl font-semibold text-slate-900">Descripción</h2>
         <p className="mt-3 text-justify text-slate-700">
           {service.description || "No hay descripcion disponible para este servicio."}
         </p>
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-6">
-        <h2 className="text-xl font-bold text-slate-900">Profesionales disponibles</h2>
+        <h2 className="text-2xl font-semibold text-slate-900">Profesionales disponibles</h2>
 
         {professionals.length === 0 ? (
           <p className="mt-3 text-slate-700">Actualmente no hay profesionales asignados a este servicio.</p>

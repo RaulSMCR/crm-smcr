@@ -66,6 +66,17 @@
   --ratio-accent: 10;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* ── Carousel slide fade-in ─────────────────────────────────────────────────*/
 @keyframes carousel-fade-in {
   from { opacity: 0; }
@@ -284,6 +295,29 @@
   h5,
   h6 {
     @apply text-neutral-900;
+  }
+
+  /* Display Nouveau solo en h1/h2. h3 y menores se quedan en la sans: la
+     serif en jerarquías bajas ensucia. */
+  h1,
+  h2 {
+    font-family: var(--font-display);
+  }
+
+  h1 {
+    font-weight: 300;
+  }
+
+  h2 {
+    font-weight: 600;
+  }
+
+  /* Opt-out para UI funcional (paneles): ahí los títulos son etiquetas de
+     interfaz, no display. Se aplica desde los layouts de /panel y /mi. */
+  .nv-ui h1,
+  .nv-ui h2 {
+    font-family: theme('fontFamily.sans');
+    font-weight: 700;
   }
 }
 

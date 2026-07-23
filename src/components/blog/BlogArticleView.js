@@ -80,7 +80,7 @@ export default function BlogArticleView({ post, slug, preview = false }) {
               Blog
             </span>
           </div>
-          <h1 className="contrast-on-image mb-4 text-3xl font-extrabold leading-tight md:text-5xl">{post.title}</h1>
+          <h1 className="contrast-on-image mb-4 text-4xl font-light leading-tight md:text-6xl">{post.title}</h1>
           <p className="contrast-on-image-muted text-lg">{formatDate(post.createdAt)}</p>
         </div>
       </header>

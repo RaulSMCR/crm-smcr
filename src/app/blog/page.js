@@ -68,7 +68,7 @@ export default async function BlogPage({ searchParams }) {
   return (
     <main className="max-w-6xl mx-auto px-4 py-12">
       <header className="mb-10 text-center">
-        <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">Nuestro Blog</h1>
+        <h1 className="text-5xl font-light text-gray-900 tracking-tight">Nuestro Blog</h1>
         <p className="text-lg text-gray-600 mt-3 max-w-2xl mx-auto">
           Artículos, novedades y consejos de nuestros profesionales.
         </p>
@@ -124,12 +124,13 @@ export default async function BlogPage({ searchParams }) {
                 </div>
 
                 <Link href={`/blog/${p.slug}`} className="block mb-3">
-                  <h2 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2 leading-tight">
+                  <h2 className="text-2xl font-semibold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2 leading-tight">
                     {p.title}
                   </h2>
                 </Link>
 
-                {p.excerpt && <p className="text-gray-600 text-sm line-clamp-3 mb-4 flex-grow">{p.excerpt}</p>}
+                {/* Bajada: único lugar donde la itálica de Cormorant suma. */}
+                {p.excerpt && <p className="font-display font-light italic text-gray-600 text-base line-clamp-3 mb-4 flex-grow">{p.excerpt}</p>}
 
                 <div className="mt-auto pt-4 border-t border-gray-100 flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-bold uppercase overflow-hidden">

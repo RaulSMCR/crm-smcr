@@ -62,7 +62,7 @@ export default async function NosotrosPage() {
   return (
     <main className="max-w-7xl mx-auto px-4 py-12">
       <div className="text-center mb-16">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">Nuestro Equipo</h1>
+        <h1 className="text-5xl font-light text-gray-900 mb-4">Nuestro Equipo</h1>
         <p className="text-lg text-gray-600 max-w-2xl mx-auto">
           Profesionales dedicados al bienestar emocional y mental, altamente calificados.
         </p>

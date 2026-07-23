@@ -20,7 +20,7 @@ export default async function ContactoPage() {
     <div className="bg-surface py-12">
       <div className="container mx-auto px-6">
         <div className="mx-auto max-w-3xl text-center">
-          <h1 className="mb-4 text-4xl font-bold text-brand-900">Contáctanos</h1>
+          <h1 className="mb-4 text-5xl font-light text-brand-900">Contáctanos</h1>
           <p className="mb-10 text-lg text-neutral-800">
             Estamos aquí para ayudarle. Escríbanos un correo, un mensaje o utilice el
             formulario a continuación.

@@ -50,7 +50,8 @@ export default async function MiLayout({ children }) {
       />
       <ServiceWorkerRegister />
 
-      <div className="min-h-[100dvh] bg-[rgb(var(--app-bg))] text-neutral-900">
+      {/* nv-ui: los títulos de la PWA son UI funcional, no display. */}
+      <div className="nv-ui min-h-[100dvh] bg-[rgb(var(--app-bg))] text-neutral-900">
         <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col">
           <main className="flex-1 px-4 pb-24 pt-5">
           <InstallPrompt />
