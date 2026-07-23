@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { notFound } from 'next/navigation';
 import { resolveSeo, buildMetadata } from "@/lib/seo";
 import BlogArticleView from "@/components/blog/BlogArticleView";
+import ArticleTaxonomy from "@/components/blog/ArticleTaxonomy";
 
 export const revalidate = 3600;
 
@@ -55,5 +56,12 @@ export default async function BlogPostPage({ params }) {
 
   if (!post) notFound();
 
-  return <BlogArticleView post={post} slug={slug} />;
+  return (
+    <>
+      <BlogArticleView post={post} slug={slug} />
+      <ArticleTaxonomy
+        post={{ id: post.id, seriesId: post.seriesId, seriesApproved: post.seriesApproved }}
+      />
+    </>
+  );
 }
