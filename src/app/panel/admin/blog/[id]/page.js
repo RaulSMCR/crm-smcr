@@ -3,6 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/actions/auth-actions";
 import AdminPostEditor from "@/components/admin/AdminPostEditor";
+import TaxonomyPicker from "@/components/blog/TaxonomyPicker";
+import { listActiveVocab, getPostTaxonomy } from "@/lib/blog-taxonomy-queries";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -18,6 +20,8 @@ export default async function AdminBlogEditPage({ params }) {
   });
 
   if (!post) notFound();
+
+  const [vocab, taxonomy] = await Promise.all([listActiveVocab(), getPostTaxonomy(post.id)]);
 
   return (
     <main className="min-h-screen bg-slate-50 p-6">
@@ -36,6 +40,15 @@ export default async function AdminBlogEditPage({ params }) {
           </Link>
         </div>
         <AdminPostEditor post={post} />
+
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <TaxonomyPicker
+            postId={post.id}
+            mode="approve"
+            vocab={vocab}
+            initial={taxonomy || undefined}
+          />
+        </section>
       </div>
     </main>
   );

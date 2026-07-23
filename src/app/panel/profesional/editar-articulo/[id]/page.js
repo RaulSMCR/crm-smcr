@@ -3,6 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession, professionalProfileWhere } from "@/lib/auth";
 import PostEditor from "@/components/PostEditor";
+import TaxonomyPicker from "@/components/blog/TaxonomyPicker";
+import { listActiveVocab, getPostTaxonomy } from "@/lib/blog-taxonomy-queries";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +34,7 @@ export default async function EditarArticuloPage({ params }) {
 
   const profile = await prisma.professionalProfile.findUnique({
     where: professionalProfileWhere(session),
-    select: { id: true },
+    select: { id: true, specialty: true },
   });
 
   if (!profile?.id) redirect("/panel/profesional/perfil");
@@ -42,6 +44,11 @@ export default async function EditarArticuloPage({ params }) {
 
   const post = await getPostOrNull(idParam, profile.id);
   if (idParam !== "new" && !post) notFound();
+
+  // Taxonomía: solo sobre un artículo ya guardado (necesita id).
+  const [vocab, taxonomy] = post
+    ? await Promise.all([listActiveVocab(), getPostTaxonomy(post.id)])
+    : [null, null];
 
   return (
     <main className="max-w-3xl mx-auto px-4 py-10">
@@ -62,6 +69,22 @@ export default async function EditarArticuloPage({ params }) {
       </div>
 
       <PostEditor initial={post} />
+
+      {post ? (
+        <section className="mt-8 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <TaxonomyPicker
+            postId={post.id}
+            mode="suggest"
+            vocab={vocab}
+            initial={taxonomy || undefined}
+            specialtyHint={profile.specialty || ""}
+          />
+        </section>
+      ) : (
+        <p className="mt-6 text-sm text-slate-500">
+          Guardá el artículo primero para poder clasificarlo por disciplina, tema y serie.
+        </p>
+      )}
     </main>
   );
 }
