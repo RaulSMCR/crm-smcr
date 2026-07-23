@@ -1,13 +1,36 @@
 // src/components/HeroSection.js
 import Link from 'next/link';
 import Image from 'next/image';
+import WhiplashCorner from '@/components/ornaments/WhiplashCorner';
 
 export default function HeroSection() {
   return (
     <section className="relative overflow-hidden">
       {/* Banda de marca */}
-      <div className="mx-auto mt-6 rounded-2xl border border-brand-800/40 bg-gradient-to-br from-brand-700 via-brand-600 to-brand-700 text-white shadow-card">
-        <div className="px-6 py-12 sm:px-10 sm:py-16 lg:px-16">
+      <div
+        className="relative isolate mx-auto mt-6 overflow-hidden rounded-2xl border border-brand-800/40 text-white shadow-card"
+        style={{ background: 'linear-gradient(112deg, #1E4F52 0%, #2B7073 52%, #3E8384 100%)' }}
+      >
+        {/* Neblina coral: capa de textura, por debajo del contenido. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-[1]"
+          style={{
+            background:
+              'radial-gradient(ellipse 70% 90% at 92% 4%, rgba(251,122,98,.30), transparent 62%)',
+          }}
+        />
+
+        {/* Ornamento latigazo: en la esquina opuesta al logo, nunca lo toca.
+            Oculto bajo 820px: en móvil el hero no tiene aire para sostenerlo. */}
+        <div
+          className="pointer-events-none absolute z-[2] hidden [@media(min-width:820px)]:block"
+          style={{ top: '-30px', right: '-40px', width: '300px', opacity: 0.34, color: '#F6EFDF' }}
+        >
+          <WhiplashCorner className="h-full w-full" />
+        </div>
+
+        <div className="relative z-[3] px-6 py-12 sm:px-10 sm:py-16 lg:px-16">
           <div className="max-w-3xl">
 
             {/* ⭐ Logo + Marca con color destacado */}
@@ -67,9 +90,6 @@ export default function HeroSection() {
           </div>
         </div>
 
-        {/* Detalles decorativos */}
-        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-accent-600/30 blur-2xl" />
-        <div className="pointer-events-none absolute -bottom-12 -left-12 h-56 w-56 rounded-full bg-accent-600/20 blur-3xl" />
       </div>
     </section>
   );
