@@ -60,7 +60,7 @@ export default function HeroSection() {
               <Link href="/servicios" className="btn btn-accent">
                 Ver servicios
               </Link>
-              <Link href="/blog" className="btn btn-accent">
+              <Link href="/blog" className="btn btn-outline-dark">
                 Explorar blog
               </Link>
             </div>

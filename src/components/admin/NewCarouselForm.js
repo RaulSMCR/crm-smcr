@@ -66,8 +66,13 @@ export default function NewCarouselForm({ isAdmin = false, authorOptions = [], b
         setSourceError(data.message || "No se pudo cargar el artículo del blog.");
         return;
       }
+      setTitle(data.title || "");
+      if (isAdmin) {
+        const matchingAuthor = authorOptions.find((author) => author.id === data.authorId);
+        setAuthorId(matchingAuthor ? data.authorId : "");
+      }
       setArticleText(data.text || "");
-      setSourceNote(`Desde el blog: ${data.title}`);
+      setSourceNote(`Desde el blog: ${data.title}${data.status === "PUBLISHED" ? " · publicado" : ""}`);
     } catch (err) {
       setSourceError(String(err));
     }

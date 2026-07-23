@@ -293,19 +293,43 @@
   }
 
   .btn {
-    @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition;
+    @apply inline-flex items-center justify-center px-4 py-2 text-sm font-medium transition;
+    border-radius: var(--radius-nv);
   }
 
   .btn-primary {
     @apply btn bg-brand-600 text-white hover:bg-brand-700 focus:ring-2 focus:ring-brand-300;
   }
 
+  /* CTA coral: el primario de la cara pública. */
   .btn-accent {
-    @apply btn bg-accent-700 text-white hover:bg-accent-800 focus:ring-2 focus:ring-accent-300;
+    @apply btn;
+    background: var(--coral);
+    color: var(--coral-ink);
+    font-weight: 500;
+    padding: 11px 22px;
+    font-size: 13.5px;
+  }
+
+  .btn-accent:hover {
+    background: #E7705A; /* coral oscurecido ~8% */
+  }
+
+  /* Secundario sobre fondo oscuro. */
+  .btn-outline-dark {
+    @apply btn;
+    background: transparent;
+    border: 1px solid rgba(246, 239, 223, 0.55);
+    color: var(--cream);
+    font-weight: 500;
+    padding: 11px 22px;
+    font-size: 13.5px;
   }
 
   .btn-outline {
-    @apply btn border border-brand-600 text-brand-700 hover:bg-brand-50;
+    @apply btn hover:bg-brand-50;
+    border: 1px solid rgba(30, 79, 82, 0.45);
+    color: var(--teal-deep);
   }
 
   .btn-ghost {
@@ -313,7 +337,41 @@
   }
 
   .input {
-    @apply block w-full rounded-lg border-neutral-300 focus:border-brand-500 focus:ring-brand-500;
+    @apply block w-full border-neutral-300 focus:border-brand-500 focus:ring-brand-500;
+    border-radius: var(--radius-nv);
+  }
+
+  /* ── Esquina viva Nouveau ──────────────────────────────────────────────────
+     El radio se aplica a botones, CTAs y controles de formulario en todo el
+     sitio. Cards y contenedores quedan como están a propósito: el acento se
+     agota si se repite en todo. Se excluyen los circulares (rounded-full) y
+     cualquier cosa marcada .nv-keep-radius. */
+  button:not([class*="rounded-full"]):not(.nv-keep-radius),
+  input[type="submit"],
+  input[type="button"],
+  input[type="reset"],
+  a.btn,
+  a[class*="bg-brand-"]:not([class*="rounded-full"]),
+  a[class*="bg-accent-"]:not([class*="rounded-full"]),
+  [role="button"]:not([class*="rounded-full"]):not(.nv-keep-radius) {
+    border-radius: var(--radius-nv) !important;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]):not([type="reset"]),
+  select,
+  textarea {
+    border-radius: var(--radius-nv) !important;
+  }
+
+  /* Focus visible: nunca reemplazado por sombra. */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [role="button"]:focus-visible {
+    outline: 2px solid var(--teal-deep);
+    outline-offset: 2px;
   }
 
   .label {

@@ -31,14 +31,20 @@ export async function GET(req) {
   if (id) {
     const post = await prisma.post.findUnique({
       where: { id },
-      select: { id: true, title: true, content: true, authorId: true },
+      select: { id: true, title: true, content: true, status: true, authorId: true },
     });
     if (!post) return NextResponse.json({ message: "Artículo no encontrado" }, { status: 404 });
     // Profesional solo puede tomar contenido de sus propios artículos.
     if (!actor.isAdmin && post.authorId !== actor.profileId) {
       return NextResponse.json({ message: "Artículo no encontrado" }, { status: 404 });
     }
-    return NextResponse.json({ id: post.id, title: post.title, text: stripHtml(post.content) });
+    return NextResponse.json({
+      id: post.id,
+      title: post.title,
+      status: post.status,
+      authorId: post.authorId,
+      text: stripHtml(post.content),
+    });
   }
 
   // Admin ve todos los artículos; profesional solo los propios.
