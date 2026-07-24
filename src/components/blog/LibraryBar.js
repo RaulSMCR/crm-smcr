@@ -7,11 +7,18 @@ import Link from "next/link";
 import { LIBRARY_SORTS, libraryHref } from "@/lib/blog-taxonomy";
 
 function ChipLink({ href, active, children }) {
+  // El fondo del chip inactivo va por estilo inline a propósito: una regla
+  // global de marca en globals.css repinta a teal cualquier <a> con clase
+  // `bg-white`, lo que hacía que activo e inactivo se vieran iguales.
   const cls = active
     ? "border-brand-600 bg-brand-600 text-white"
-    : "border-slate-300 bg-white text-slate-700 hover:border-brand-400";
+    : "border-slate-300 text-slate-700 hover:border-brand-400";
   return (
-    <Link href={href} className={`rounded-nv border px-3 py-1.5 text-sm transition ${cls}`}>
+    <Link
+      href={href}
+      className={`rounded-nv border px-3 py-1.5 text-sm transition ${cls}`}
+      style={active ? undefined : { backgroundColor: "#fff" }}
+    >
       {children}
     </Link>
   );

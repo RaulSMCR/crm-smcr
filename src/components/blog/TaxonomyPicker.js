@@ -11,12 +11,19 @@ const norm = (s) =>
     .trim();
 
 function Chip({ label, active, status, onClick }) {
+  // Fondo inactivo por estilo inline: una regla global de marca repinta a teal
+  // cualquier <button> con clase `bg-white` (ver LibraryBar).
   const base = "rounded-nv border px-3 py-1.5 text-sm transition select-none";
   const cls = active
     ? "border-brand-600 bg-brand-600 text-white"
-    : "border-slate-300 bg-white text-slate-700 hover:border-brand-400";
+    : "border-slate-300 text-slate-700 hover:border-brand-400";
   return (
-    <button type="button" onClick={onClick} className={`${base} ${cls}`}>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`${base} ${cls}`}
+      style={active ? undefined : { backgroundColor: "#fff" }}
+    >
       {label}
       {active && status === "SUGGESTED" ? <span className="ml-1 opacity-80" title="Sugerida, falta aprobar">·</span> : null}
     </button>

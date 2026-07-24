@@ -126,7 +126,7 @@ export default async function ArticleTaxonomy({ post }) {
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Disciplina</span>
               {disciplines.map((d) => (
-                <Link key={d.slug} href={`/blog?disciplina=${d.slug}`} className="rounded-nv border border-slate-300 bg-white px-3 py-1 text-sm text-slate-700 hover:border-brand-400">
+                <Link key={d.slug} href={`/blog?disciplina=${d.slug}`} style={{ backgroundColor: "#fff" }} className="rounded-nv border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:border-brand-400">
                   {d.name}
                 </Link>
               ))}
@@ -136,7 +136,7 @@ export default async function ArticleTaxonomy({ post }) {
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Temas</span>
               {topics.map((t) => (
-                <Link key={t.slug} href={`/blog?tema=${t.slug}`} className="rounded-nv border border-slate-300 bg-white px-3 py-1 text-sm text-slate-700 hover:border-brand-400">
+                <Link key={t.slug} href={`/blog?tema=${t.slug}`} style={{ backgroundColor: "#fff" }} className="rounded-nv border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:border-brand-400">
                   {t.name}
                 </Link>
               ))}
@@ -151,7 +151,7 @@ export default async function ArticleTaxonomy({ post }) {
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Temas complementarios</span>
             {complementary.map((t) => (
-              <Link key={t.slug} href={`/blog?tema=${t.slug}`} className="rounded-nv border border-slate-300 bg-white px-3 py-1 text-sm text-slate-700 hover:border-brand-400">
+              <Link key={t.slug} href={`/blog?tema=${t.slug}`} style={{ backgroundColor: "#fff" }} className="rounded-nv border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:border-brand-400">
                 {t.name}
               </Link>
             ))}
