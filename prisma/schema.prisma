@@ -655,6 +655,11 @@ model Post {
   seriesOrder    Int?
   seriesApproved Boolean @default(false)
 
+  // Estado que el profesional SUGIERE (borrador / listo para publicar /
+  // archivar). El admin lo ve y decide el `status` real. No gatea nada por sí
+  // solo; es una señal editorial.
+  suggestedStatus SuggestedStatus?
+
   disciplines PostDiscipline[]
   topics      PostTopic[]
 
@@ -993,6 +998,30 @@ enum TagStatus {
   APPROVED
 }
 
+// Estado de publicación que sugiere el profesional; el admin decide el real.
+enum SuggestedStatus {
+  DRAFT
+  READY
+  ARCHIVE
+}
+
+// Fase: nivel por encima de la serie (Fase > Serie > Parte). Una fase agrupa
+// varias series. Vocabulario controlado, como disciplinas y temas.
+model Phase {
+  id       String  @id @default(cuid())
+  name     String  @unique
+  slug     String  @unique
+  order    Int     @default(0)
+  isActive Boolean @default(true)
+
+  series Series[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, order])
+}
+
 model Discipline {
   id       String  @id @default(cuid())
   name     String  @unique
@@ -1048,12 +1077,17 @@ model Series {
   description String? @db.Text
   isActive    Boolean @default(true)
 
+  // Fase a la que pertenece la serie (opcional). Fase > Serie > Parte.
+  phaseId String?
+  phase   Phase?  @relation(fields: [phaseId], references: [id], onDelete: SetNull)
+
   posts Post[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([isActive])
+  @@index([phaseId])
 }
 
 model PostDiscipline {
