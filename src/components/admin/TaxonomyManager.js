@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   createDiscipline, updateDiscipline, deleteDiscipline,
   createTopic, updateTopic, deleteTopic,
+  createPhase, updatePhase, deletePhase,
   createSeries, updateSeries, deleteSeries,
   linkComplementaryTopics, unlinkComplementaryTopics,
 } from "@/actions/taxonomy-actions";
@@ -24,8 +25,8 @@ function useAction() {
   return { pending, error, run };
 }
 
-// Sección genérica para disciplinas y temas (mismo shape).
-function TermSection({ title, terms, onCreate, onRename, onToggle, onDelete }) {
+// Sección genérica para disciplinas, temas y fases (mismo shape).
+function TermSection({ title, terms, onCreate, onRename, onToggle, onDelete, count = (t) => t._count.posts, unit = "art." }) {
   const { pending, error, run } = useAction();
   const [name, setName] = useState("");
 
@@ -55,7 +56,7 @@ function TermSection({ title, terms, onCreate, onRename, onToggle, onDelete }) {
               onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== t.name) run(() => onRename(t.id, { name: v })); }}
               className="min-w-0 flex-1 rounded border border-transparent px-2 py-1 text-sm hover:border-slate-200 focus:border-brand-400 focus:outline-none"
             />
-            <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">{t._count.posts} art.</span>
+            <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">{count(t)} {unit}</span>
             <button
               type="button"
               onClick={() => run(() => onToggle(t.id, { isActive: !t.isActive }))}
@@ -79,7 +80,7 @@ function TermSection({ title, terms, onCreate, onRename, onToggle, onDelete }) {
   );
 }
 
-function SeriesSection({ series }) {
+function SeriesSection({ series, phases }) {
   const { pending, error, run } = useAction();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -107,6 +108,15 @@ function SeriesSection({ series }) {
               onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== s.name) run(() => updateSeries(s.id, { name: v })); }}
               className="min-w-0 flex-1 rounded border border-transparent px-2 py-1 text-sm hover:border-slate-200 focus:border-brand-400 focus:outline-none"
             />
+            <select
+              value={s.phaseId || ""}
+              onChange={(e) => run(() => updateSeries(s.id, { phaseId: e.target.value || null }))}
+              className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-600"
+              title="Fase a la que pertenece"
+            >
+              <option value="">Sin fase</option>
+              {phases.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
             <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">{s._count.posts} art.</span>
             <button
               type="button"
@@ -170,12 +180,13 @@ function ComplementSection({ topics, complements }) {
   );
 }
 
-export default function TaxonomyManager({ disciplines, topics, series, complements }) {
+export default function TaxonomyManager({ disciplines, topics, phases, series, complements }) {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <TermSection title="Disciplinas" terms={disciplines} onCreate={createDiscipline} onRename={updateDiscipline} onToggle={updateDiscipline} onDelete={deleteDiscipline} />
       <TermSection title="Temas" terms={topics} onCreate={createTopic} onRename={updateTopic} onToggle={updateTopic} onDelete={deleteTopic} />
-      <SeriesSection series={series} />
+      <TermSection title="Fases" terms={phases} onCreate={createPhase} onRename={updatePhase} onToggle={updatePhase} onDelete={deletePhase} count={(p) => p._count.series} unit="series" />
+      <SeriesSection series={series} phases={phases} />
       <ComplementSection topics={topics} complements={complements} />
     </div>
   );

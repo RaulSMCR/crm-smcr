@@ -20,12 +20,17 @@ export async function listActiveVocab() {
     orderBy: [{ order: "asc" }, { name: "asc" }],
     select: { id: true, name: true, slug: true },
   });
+  const phases = await prisma.phase.findMany({
+    where: { isActive: true },
+    orderBy: [{ order: "asc" }, { name: "asc" }],
+    select: { id: true, name: true, slug: true },
+  });
   const series = await prisma.series.findMany({
     where: { isActive: true },
     orderBy: { name: "asc" },
-    select: { id: true, name: true, slug: true },
+    select: { id: true, name: true, slug: true, phaseId: true },
   });
-  return { disciplines, topics, series };
+  return { disciplines, topics, phases, series };
 }
 
 // Taxonomía actual de un artículo, para precargar el editor. Devuelve los ids
@@ -37,6 +42,10 @@ export async function getPostTaxonomy(postId) {
       seriesId: true,
       seriesOrder: true,
       seriesApproved: true,
+      suggestedStatus: true,
+      metaTitle: true,
+      metaDescription: true,
+      focusKeyword: true,
       disciplines: { select: { disciplineId: true, status: true } },
       topics: { select: { topicId: true, status: true } },
     },
@@ -46,6 +55,10 @@ export async function getPostTaxonomy(postId) {
     seriesId: post.seriesId,
     seriesOrder: post.seriesOrder,
     seriesApproved: post.seriesApproved,
+    suggestedStatus: post.suggestedStatus,
+    metaTitle: post.metaTitle || "",
+    metaDescription: post.metaDescription || "",
+    focusKeyword: post.focusKeyword || "",
     disciplines: post.disciplines.map((d) => ({ id: d.disciplineId, status: d.status })),
     topics: post.topics.map((t) => ({ id: t.topicId, status: t.status })),
   };

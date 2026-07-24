@@ -56,6 +56,23 @@ export async function createTopic(name) {
   return createVocabTerm("topic", name);
 }
 
+export async function createPhase(name) {
+  requireAdmin(await getSession());
+  return createVocabTerm("phase", name);
+}
+
+export async function updatePhase(id, patch) {
+  requireAdmin(await getSession());
+  return updateVocabTerm("phase", id, patch);
+}
+
+export async function deletePhase(id) {
+  requireAdmin(await getSession());
+  await prisma.phase.delete({ where: { id: String(id) } });
+  revalidateLibrary();
+  return { success: true };
+}
+
 export async function createSeries(name, description) {
   requireAdmin(await getSession());
   const clean = String(name || "").trim();
@@ -107,7 +124,7 @@ export async function updateTopic(id, patch) {
   return updateVocabTerm("topic", id, patch);
 }
 
-export async function updateSeries(id, { name, description, isActive }) {
+export async function updateSeries(id, { name, description, isActive, phaseId }) {
   requireAdmin(await getSession());
   const data = {};
   if (typeof name === "string" && name.trim()) {
@@ -116,6 +133,7 @@ export async function updateSeries(id, { name, description, isActive }) {
   }
   if (typeof description === "string") data.description = description.trim() || null;
   if (typeof isActive === "boolean") data.isActive = isActive;
+  if (phaseId !== undefined) data.phaseId = phaseId ? String(phaseId) : null;
   if (!Object.keys(data).length) return { success: true };
   if (data.name) {
     const clash = await prisma.series.findFirst({
@@ -257,29 +275,84 @@ export async function suggestPostTaxonomy(postId, payload = {}) {
   const id = String(postId || "");
   const post = await prisma.post.findFirst({
     where: { id, authorId: professionalId },
-    select: { id: true, slug: true, seriesId: true },
+    select: { id: true, slug: true },
   });
   if (!post) return { error: "Artículo no encontrado." };
 
-  const series = normalizeSeries(payload.seriesId, payload.seriesOrder);
-
+  // Solo disciplinas y temas. La serie/parte vive en savePostCrmMeta.
   try {
     await prisma.$transaction(async (tx) => {
       await setPostTags(tx, id, payload, { approve: false });
-      // Si cambia la serie propuesta, su aprobación se resetea.
-      const seriesApproved = series.id && series.id === post.seriesId ? undefined : false;
-      await tx.post.update({
-        where: { id },
-        data: {
-          seriesId: series.id,
-          seriesOrder: series.order,
-          ...(seriesApproved === false ? { seriesApproved: false } : {}),
-        },
-      });
     });
   } catch (error) {
     console.error("Error sugiriendo taxonomía:", error);
     return { error: "No se pudo guardar la clasificación." };
+  }
+
+  revalidateLibrary(post.slug);
+  return { success: true };
+}
+
+// ─── Metadatos CRM (SEO + fase/serie/parte + estado sugerido) ────────────────
+//
+// Bloque separado de la clasificación (disciplinas/temas). Guarda:
+//   - SEO: metaTitle, metaDescription, focusKeyword (no van por aprobación:
+//     son metadatos, no clasificación pública)
+//   - Serie + parte (con la misma lógica de aprobación que la taxonomía)
+//   - Estado sugerido por el profesional
+// Solo actualiza los campos presentes en el payload (update parcial), para que
+// el editor del admin —que no manda SEO— no borre lo que cargó el profesional.
+
+const SUGGESTED = new Set(["DRAFT", "READY", "ARCHIVE"]);
+
+function crmMetaData(payload, { includeSeo }) {
+  const data = {};
+  if (includeSeo) {
+    if ("metaTitle" in payload) data.metaTitle = String(payload.metaTitle || "").trim() || null;
+    if ("metaDescription" in payload) data.metaDescription = String(payload.metaDescription || "").trim() || null;
+    if ("focusKeyword" in payload) data.focusKeyword = String(payload.focusKeyword || "").trim() || null;
+  }
+  if ("suggestedStatus" in payload) {
+    const s = String(payload.suggestedStatus || "");
+    data.suggestedStatus = SUGGESTED.has(s) ? s : null;
+  }
+  return data;
+}
+
+export async function savePostCrmMeta(postId, payload = {}, { mode = "suggest" } = {}) {
+  const id = String(postId || "");
+  const session = await getSession();
+
+  let post;
+  if (mode === "approve") {
+    requireAdmin(session);
+    post = await prisma.post.findUnique({ where: { id }, select: { id: true, slug: true, seriesId: true } });
+  } else {
+    const professionalId = await getProfessionalId(session);
+    if (!professionalId) return { error: "No autorizado." };
+    post = await prisma.post.findFirst({ where: { id, authorId: professionalId }, select: { id: true, slug: true, seriesId: true } });
+  }
+  if (!post) return { error: "Artículo no encontrado." };
+
+  // El profesional carga su propio SEO; el admin lo gestiona por su fieldset.
+  const includeSeo = mode === "suggest";
+  const data = crmMetaData(payload, { includeSeo });
+
+  const series = normalizeSeries(payload.seriesId, payload.seriesOrder);
+  data.seriesId = series.id;
+  data.seriesOrder = series.order;
+  if (mode === "approve") {
+    data.seriesApproved = Boolean(series.id);
+  } else if (!series.id || series.id !== post.seriesId) {
+    // Cambió (o quitó) la serie propuesta: su aprobación se resetea.
+    data.seriesApproved = false;
+  }
+
+  try {
+    await prisma.post.update({ where: { id }, data });
+  } catch (error) {
+    console.error("Error guardando metadatos CRM:", error);
+    return { error: "No se pudieron guardar los metadatos." };
   }
 
   revalidateLibrary(post.slug);
@@ -293,19 +366,10 @@ export async function approvePostTaxonomy(postId, payload = {}) {
   const post = await prisma.post.findUnique({ where: { id }, select: { id: true, slug: true } });
   if (!post) return { error: "Artículo no encontrado." };
 
-  const series = normalizeSeries(payload.seriesId, payload.seriesOrder);
-
+  // Solo disciplinas y temas. La serie/parte vive en savePostCrmMeta.
   try {
     await prisma.$transaction(async (tx) => {
       await setPostTags(tx, id, payload, { approve: true });
-      await tx.post.update({
-        where: { id },
-        data: {
-          seriesId: series.id,
-          seriesOrder: series.order,
-          seriesApproved: Boolean(series.id),
-        },
-      });
     });
   } catch (error) {
     console.error("Error aprobando taxonomía:", error);

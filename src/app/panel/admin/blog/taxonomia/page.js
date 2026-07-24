@@ -21,9 +21,13 @@ export default async function TaxonomyAdminPage() {
     orderBy: [{ order: "asc" }, { name: "asc" }],
     select: { id: true, name: true, slug: true, isActive: true, _count: { select: { posts: true } } },
   });
+  const phases = await prisma.phase.findMany({
+    orderBy: [{ order: "asc" }, { name: "asc" }],
+    select: { id: true, name: true, slug: true, isActive: true, _count: { select: { series: true } } },
+  });
   const series = await prisma.series.findMany({
     orderBy: { name: "asc" },
-    select: { id: true, name: true, slug: true, isActive: true, description: true, _count: { select: { posts: true } } },
+    select: { id: true, name: true, slug: true, isActive: true, description: true, phaseId: true, _count: { select: { posts: true } } },
   });
   const complements = await prisma.topicComplement.findMany({
     orderBy: { createdAt: "desc" },
@@ -50,6 +54,7 @@ export default async function TaxonomyAdminPage() {
         <TaxonomyManager
           disciplines={disciplines}
           topics={topics}
+          phases={phases}
           series={series}
           complements={complements}
         />

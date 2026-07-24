@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession, professionalProfileWhere } from "@/lib/auth";
 import PostEditor from "@/components/PostEditor";
 import TaxonomyPicker from "@/components/blog/TaxonomyPicker";
+import CrmMetaPanel from "@/components/blog/CrmMetaPanel";
 import { listActiveVocab, getPostTaxonomy } from "@/lib/blog-taxonomy-queries";
 
 export const dynamic = "force-dynamic";
@@ -71,15 +72,26 @@ export default async function EditarArticuloPage({ params }) {
       <PostEditor initial={post} />
 
       {post ? (
-        <section className="mt-8 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <TaxonomyPicker
-            postId={post.id}
-            mode="suggest"
-            vocab={vocab}
-            initial={taxonomy || undefined}
-            specialtyHint={profile.specialty || ""}
-          />
-        </section>
+        <>
+          <section className="mt-8 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <TaxonomyPicker
+              postId={post.id}
+              mode="suggest"
+              vocab={vocab}
+              initial={taxonomy || undefined}
+              specialtyHint={profile.specialty || ""}
+            />
+          </section>
+          <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <CrmMetaPanel
+              postId={post.id}
+              mode="suggest"
+              includeSeo
+              vocab={vocab}
+              initial={taxonomy || undefined}
+            />
+          </section>
+        </>
       ) : (
         <p className="mt-6 text-sm text-slate-500">
           Guardá el artículo primero para poder clasificarlo por disciplina, tema y serie.

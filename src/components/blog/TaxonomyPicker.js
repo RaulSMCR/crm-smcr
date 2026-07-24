@@ -46,8 +46,6 @@ export default function TaxonomyPicker({
 
   const [disc, setDisc] = useState(() => new Set((initial.disciplines || []).map((d) => d.id)));
   const [topics, setTopics] = useState(() => new Set((initial.topics || []).map((t) => t.id)));
-  const [seriesId, setSeriesId] = useState(initial.seriesId || "");
-  const [seriesOrder, setSeriesOrder] = useState(initial.seriesOrder || "");
   const [pending, startTransition] = useTransition();
   const [notice, setNotice] = useState(null);
   const [error, setError] = useState(null);
@@ -79,8 +77,6 @@ export default function TaxonomyPicker({
     const payload = {
       disciplineIds: [...disc],
       topicIds: [...topics],
-      seriesId: seriesId || null,
-      seriesOrder: seriesId && seriesOrder ? Number(seriesOrder) : null,
     };
     const action = mode === "approve" ? approvePostTaxonomy : suggestPostTaxonomy;
     startTransition(async () => {
@@ -153,35 +149,6 @@ export default function TaxonomyPicker({
         ) : (
           <p className="text-sm text-slate-500">No hay temas cargados todavía.</p>
         )}
-      </div>
-
-      {/* Serie */}
-      <div className="grid gap-3 sm:grid-cols-[1fr_120px]">
-        <label className="block text-sm">
-          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600">Serie</span>
-          <select
-            value={seriesId}
-            onChange={(e) => setSeriesId(e.target.value)}
-            className="input w-full"
-          >
-            <option value="">— Sin serie —</option>
-            {vocab.series.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-        </label>
-        <label className="block text-sm">
-          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600">Posición</span>
-          <input
-            type="number"
-            min="1"
-            value={seriesOrder}
-            onChange={(e) => setSeriesOrder(e.target.value)}
-            disabled={!seriesId}
-            placeholder="—"
-            className="input w-full disabled:opacity-50"
-          />
-        </label>
       </div>
 
       <button

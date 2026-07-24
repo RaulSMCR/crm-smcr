@@ -4,7 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/actions/auth-actions";
 import AdminPostEditor from "@/components/admin/AdminPostEditor";
 import TaxonomyPicker from "@/components/blog/TaxonomyPicker";
+import CrmMetaPanel from "@/components/blog/CrmMetaPanel";
 import { listActiveVocab, getPostTaxonomy } from "@/lib/blog-taxonomy-queries";
+
+const SUGGESTED_LABELS = { DRAFT: "Borrador", READY: "Listo para publicar", ARCHIVE: "Archivar" };
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -41,10 +44,28 @@ export default async function AdminBlogEditPage({ params }) {
         </div>
         <AdminPostEditor post={post} />
 
+        {taxonomy?.suggestedStatus ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            El profesional sugiere dejar este artículo como{" "}
+            <span className="font-bold">{SUGGESTED_LABELS[taxonomy.suggestedStatus] || taxonomy.suggestedStatus}</span>.
+            Usá los botones de estado del editor para aplicarlo.
+          </div>
+        ) : null}
+
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <TaxonomyPicker
             postId={post.id}
             mode="approve"
+            vocab={vocab}
+            initial={taxonomy || undefined}
+          />
+        </section>
+
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <CrmMetaPanel
+            postId={post.id}
+            mode="approve"
+            includeSeo={false}
             vocab={vocab}
             initial={taxonomy || undefined}
           />
