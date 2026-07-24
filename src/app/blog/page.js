@@ -35,28 +35,30 @@ export default async function BlogPage({ searchParams }) {
 
   // Sólo mostramos filtros que tienen contenido publicado detrás (nada de
   // disciplinas o temas vacíos). El vocabulario público exige estado APPROVED.
+  // Las consultas van SECUENCIALES a propósito: el pool de la base es de una
+  // sola conexión (pooler con connection_limit=1), y un Promise.all de varias
+  // consultas se pisa y expira (P2024).
   const publishedApproved = { some: { status: "APPROVED", post: { status: "PUBLISHED" } } };
-  const [posts, disciplines, topics, series, authors] = await Promise.all([
-    prisma.post.findMany({
-      where: buildLibraryWhere(params),
-      orderBy: buildLibraryOrderBy(params),
-      take: 24,
-      select: {
-        id: true, slug: true, title: true,
-        coverImage: true, coverImageFocusX: true, coverImageFocusY: true, coverImageScale: true,
-        excerpt: true, createdAt: true,
-        series: { select: { name: true, slug: true } },
-        seriesOrder: true, seriesApproved: true,
-        disciplines: { where: { status: "APPROVED" }, select: { discipline: { select: { name: true, slug: true } } } },
-        topics: { where: { status: "APPROVED" }, select: { topic: { select: { name: true, slug: true } } } },
-        author: { select: { slug: true, specialty: true, user: { select: { name: true, image: true } } } },
-      },
-    }),
-    prisma.discipline.findMany({ where: { isActive: true, posts: publishedApproved }, orderBy: [{ order: "asc" }, { name: "asc" }], select: { name: true, slug: true } }),
-    prisma.topic.findMany({ where: { isActive: true, posts: publishedApproved }, orderBy: [{ order: "asc" }, { name: "asc" }], select: { name: true, slug: true } }),
-    prisma.series.findMany({ where: { isActive: true, posts: { some: { status: "PUBLISHED", seriesApproved: true } } }, orderBy: { name: "asc" }, select: { name: true, slug: true } }),
-    prisma.professionalProfile.findMany({ where: { posts: { some: { status: "PUBLISHED" } } }, orderBy: { user: { name: "asc" } }, select: { slug: true, user: { select: { name: true } } } }),
-  ]);
+
+  const posts = await prisma.post.findMany({
+    where: buildLibraryWhere(params),
+    orderBy: buildLibraryOrderBy(params),
+    take: 24,
+    select: {
+      id: true, slug: true, title: true,
+      coverImage: true, coverImageFocusX: true, coverImageFocusY: true, coverImageScale: true,
+      excerpt: true, createdAt: true,
+      series: { select: { name: true, slug: true } },
+      seriesOrder: true, seriesApproved: true,
+      disciplines: { where: { status: "APPROVED" }, select: { discipline: { select: { name: true, slug: true } } } },
+      topics: { where: { status: "APPROVED" }, select: { topic: { select: { name: true, slug: true } } } },
+      author: { select: { slug: true, specialty: true, user: { select: { name: true, image: true } } } },
+    },
+  });
+  const disciplines = await prisma.discipline.findMany({ where: { isActive: true, posts: publishedApproved }, orderBy: [{ order: "asc" }, { name: "asc" }], select: { name: true, slug: true } });
+  const topics = await prisma.topic.findMany({ where: { isActive: true, posts: publishedApproved }, orderBy: [{ order: "asc" }, { name: "asc" }], select: { name: true, slug: true } });
+  const series = await prisma.series.findMany({ where: { isActive: true, posts: { some: { status: "PUBLISHED", seriesApproved: true } } }, orderBy: { name: "asc" }, select: { name: true, slug: true } });
+  const authors = await prisma.professionalProfile.findMany({ where: { posts: { some: { status: "PUBLISHED" } } }, orderBy: { user: { name: "asc" } }, select: { slug: true, user: { select: { name: true } } } });
 
   // Temas complementarios del tema seleccionado (curados por el admin, en
   // ambos sentidos de la relación).

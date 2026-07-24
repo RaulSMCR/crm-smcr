@@ -7,16 +7,16 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 
 async function getData(post) {
-  const [disciplines, topics] = await Promise.all([
-    prisma.postDiscipline.findMany({
-      where: { postId: post.id, status: "APPROVED" },
-      select: { discipline: { select: { name: true, slug: true } } },
-    }),
-    prisma.postTopic.findMany({
-      where: { postId: post.id, status: "APPROVED" },
-      select: { topic: { select: { id: true, name: true, slug: true } } },
-    }),
-  ]);
+  // Secuencial: el pool de la base es de una sola conexión (connection_limit=1),
+  // y varias consultas en paralelo se pisan y expiran (P2024).
+  const disciplines = await prisma.postDiscipline.findMany({
+    where: { postId: post.id, status: "APPROVED" },
+    select: { discipline: { select: { name: true, slug: true } } },
+  });
+  const topics = await prisma.postTopic.findMany({
+    where: { postId: post.id, status: "APPROVED" },
+    select: { topic: { select: { id: true, name: true, slug: true } } },
+  });
 
   // Navegación de serie (solo si la serie está aprobada para este post).
   let series = null;

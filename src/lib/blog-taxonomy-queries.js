@@ -7,24 +7,24 @@
 import { prisma } from "@/lib/prisma";
 
 // Vocabulario activo para los selectores del editor y del panel.
+// Secuencial: el pool de la base es de una sola conexión (connection_limit=1) y
+// las consultas en paralelo se pisan y expiran (P2024).
 export async function listActiveVocab() {
-  const [disciplines, topics, series] = await Promise.all([
-    prisma.discipline.findMany({
-      where: { isActive: true },
-      orderBy: [{ order: "asc" }, { name: "asc" }],
-      select: { id: true, name: true, slug: true },
-    }),
-    prisma.topic.findMany({
-      where: { isActive: true },
-      orderBy: [{ order: "asc" }, { name: "asc" }],
-      select: { id: true, name: true, slug: true },
-    }),
-    prisma.series.findMany({
-      where: { isActive: true },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true, slug: true },
-    }),
-  ]);
+  const disciplines = await prisma.discipline.findMany({
+    where: { isActive: true },
+    orderBy: [{ order: "asc" }, { name: "asc" }],
+    select: { id: true, name: true, slug: true },
+  });
+  const topics = await prisma.topic.findMany({
+    where: { isActive: true },
+    orderBy: [{ order: "asc" }, { name: "asc" }],
+    select: { id: true, name: true, slug: true },
+  });
+  const series = await prisma.series.findMany({
+    where: { isActive: true },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, slug: true },
+  });
   return { disciplines, topics, series };
 }
 
