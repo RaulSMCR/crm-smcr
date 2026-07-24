@@ -3,6 +3,14 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 
+function slugify(text) {
+  return String(text)
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
 /**
  * El blog y la home son ISR: sin esto, un artículo editado (que vuelve a DRAFT)
  * o eliminado seguiría publicado hasta que expire la ventana de revalidación.
@@ -37,6 +45,7 @@ export async function PATCH(request, { params }) {
     const body = await request.json().catch(() => ({}));
     const title = String(body?.title || "").trim();
     const content = String(body?.content || "").trim();
+    const requestedSlug = String(body?.slug || "").trim();
     const coverImage = String(body?.coverImage || "").trim() || null;
     const coverImageTitle = String(body?.coverImageTitle || "").trim() || null;
     const coverImageAuthor = String(body?.coverImageAuthor || "").trim() || null;
@@ -53,13 +62,37 @@ export async function PATCH(request, { params }) {
 
     if (!existing) return NextResponse.json({ message: "Artículo no encontrado" }, { status: 404 });
 
+    const nextSlug = requestedSlug ? slugify(requestedSlug) : existing.slug;
+    if (!nextSlug) return NextResponse.json({ message: "Slug invalido" }, { status: 400 });
+    const duplicate = await prisma.post.findFirst({
+      where: { slug: nextSlug, id: { not: id } },
+      select: { id: true },
+    });
+    if (duplicate) return NextResponse.json({ message: "Ya existe otro articulo con ese slug" }, { status: 409 });
+
+    const metadata = {};
+    if ("metaTitle" in body) metadata.metaTitle = String(body.metaTitle || "").trim() || null;
+    if ("metaDescription" in body) metadata.metaDescription = String(body.metaDescription || "").trim() || null;
+    if ("focusKeyword" in body) metadata.focusKeyword = String(body.focusKeyword || "").trim() || null;
+
     const updated = await prisma.post.update({
       where: { id },
-      data: { title, content, coverImage, coverImageTitle, coverImageAuthor, coverImageNote, status: "DRAFT" },
+      data: {
+        title,
+        content,
+        slug: nextSlug,
+        coverImage,
+        coverImageTitle,
+        coverImageAuthor,
+        coverImageNote,
+        status: "DRAFT",
+        ...metadata,
+      },
       select: { id: true, title: true, status: true, updatedAt: true },
     });
 
     revalidatePublicPost(existing.slug);
+    if (nextSlug !== existing.slug) revalidatePublicPost(nextSlug);
 
     return NextResponse.json(updated);
   } catch (error) {

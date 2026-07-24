@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import SafeImage from "@/components/SafeImage";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import { IMAGE_FALLBACKS, PUBLIC_IMAGE_ACCEPT, SUPPORTED_PUBLIC_IMAGE_TYPES } from "@/lib/images";
+import { extractCrmMetadata } from "@/lib/editorial-metadata";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const IMAGE_FORMAT_ERROR = "Formato no soportado. Usa JPG, PNG, WEBP, GIF o AVIF.";
@@ -30,6 +31,10 @@ export default function PostEditor({ initial = null }) {
 
   const [title, setTitle] = useState(initial?.title ?? "");
   const [content, setContent] = useState(initial?.content ?? "");
+  const [slug, setSlug] = useState(initial?.slug ?? "");
+  const [metaTitle, setMetaTitle] = useState(initial?.metaTitle ?? "");
+  const [metaDescription, setMetaDescription] = useState(initial?.metaDescription ?? "");
+  const [focusKeyword, setFocusKeyword] = useState(initial?.focusKeyword ?? "");
   const [coverImage, setCoverImage] = useState(initial?.coverImage ?? "");
   const [coverImageTitle, setCoverImageTitle] = useState(initial?.coverImageTitle ?? "");
   const [coverImageAuthor, setCoverImageAuthor] = useState(initial?.coverImageAuthor ?? "");
@@ -40,10 +45,27 @@ export default function PostEditor({ initial = null }) {
   const [uploadingImage, setUploadingImage] = useState(false);
 
   const [error, setError] = useState(null);
+  const [notice, setNotice] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  const slugPreview = useMemo(() => (title ? slugify(title) : "-"), [title]);
+  const slugPreview = useMemo(() => slug || (title ? slugify(title) : "-"), [slug, title]);
   const isWorking = busy || isPending || uploadingImage;
+
+  function handleContentChange(value) {
+    const imported = extractCrmMetadata(value);
+    if (!imported.found) {
+      setContent(value);
+      return;
+    }
+
+    setContent(imported.content);
+    if (imported.metadata.slug) setSlug(imported.metadata.slug);
+    if (imported.metadata.metaTitle) setMetaTitle(imported.metadata.metaTitle);
+    if (imported.metadata.metaDescription) setMetaDescription(imported.metadata.metaDescription);
+    if (imported.metadata.focusKeyword) setFocusKeyword(imported.metadata.focusKeyword);
+    window.dispatchEvent(new CustomEvent("crm:editorial-metadata", { detail: imported.metadata }));
+    setNotice("Metadatos CRM detectados. Revisá y guardá los cambios.");
+  }
 
   function validate() {
     if (!title || title.trim().length < 4) return "El título debe tener al menos 4 caracteres.";
@@ -123,6 +145,10 @@ export default function PostEditor({ initial = null }) {
     const body = {
       title,
       content,
+      slug: slug || null,
+      metaTitle: metaTitle || null,
+      metaDescription: metaDescription || null,
+      focusKeyword: focusKeyword || null,
       coverImage: coverImage || null,
       coverImageTitle: coverImageTitle || null,
       coverImageAuthor: coverImageAuthor || null,
@@ -189,6 +215,7 @@ export default function PostEditor({ initial = null }) {
       </div>
 
       {error ? <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
+      {notice ? <div className="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{notice}</div> : null}
 
       <div>
         <label className="mb-1 block text-sm font-medium">Título *</label>
@@ -206,7 +233,7 @@ export default function PostEditor({ initial = null }) {
         <label className="mb-1 block text-sm font-medium">Contenido *</label>
         <MarkdownEditor
           value={content}
-          onChange={setContent}
+          onChange={handleContentChange}
           rows={14}
           placeholder="Escribe el contenido del artículo. Usa los botones de formato (título, negrita, lista…)."
         />

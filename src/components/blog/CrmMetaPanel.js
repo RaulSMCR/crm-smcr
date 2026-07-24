@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { savePostCrmMeta } from "@/actions/taxonomy-actions";
 
 const SUGGESTED_LABELS = {
@@ -9,6 +9,16 @@ const SUGGESTED_LABELS = {
   READY: "Listo para publicar",
   ARCHIVE: "Archivar",
 };
+
+function normalizeTerm(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/[«».,:;]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 export default function CrmMetaPanel({
   postId,
@@ -30,9 +40,67 @@ export default function CrmMetaPanel({
   const [phaseId, setPhaseId] = useState(() => (initial.seriesId && seriesById[initial.seriesId]?.phaseId) || "");
   const [seriesOrder, setSeriesOrder] = useState(initial.seriesOrder || "");
   const [suggestedStatus, setSuggestedStatus] = useState(initial.suggestedStatus || "");
+  const [importedLinks, setImportedLinks] = useState([]);
+  const [importedParts, setImportedParts] = useState("");
   const [pending, startTransition] = useTransition();
   const [notice, setNotice] = useState(null);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    function onEditorialMetadata(event) {
+      const imported = event.detail || {};
+      if (Array.isArray(imported.internalLinks)) setImportedLinks(imported.internalLinks);
+      if (imported.parts) setImportedParts(imported.parts);
+      if (includeSeo) {
+        if (imported.metaTitle) setMetaTitle(imported.metaTitle);
+        if (imported.metaDescription) setMetaDescription(imported.metaDescription);
+        if (imported.focusKeyword) setFocusKeyword(imported.focusKeyword);
+      }
+
+      const importedPhase = normalizeTerm(imported.phase);
+      const importedSeries = normalizeTerm(imported.series);
+      const phase = importedPhase
+        ? vocab.phases.find((item) => {
+            const name = normalizeTerm(item.name);
+            const slug = normalizeTerm(item.slug);
+            return name === importedPhase || slug === importedPhase || importedPhase.startsWith(`${name} `);
+          })
+        : null;
+      const series = importedSeries
+        ? vocab.series.find((item) => {
+            const name = normalizeTerm(item.name);
+            const slug = normalizeTerm(item.slug);
+            return name === importedSeries || slug === importedSeries;
+          })
+        : null;
+
+      if (phase) setPhaseId(phase.id);
+      if (series) {
+        setSeriesId(series.id);
+        setPhaseId(series.phaseId || phase?.id || "");
+      }
+      if (Number.isInteger(imported.partNumber) && imported.partNumber > 0) {
+        setSeriesOrder(String(imported.partNumber));
+      }
+
+      const importedFields = [
+        includeSeo && imported.metaTitle,
+        includeSeo && imported.metaDescription,
+        includeSeo && imported.focusKeyword,
+        phase,
+        series,
+        imported.partNumber,
+        imported.internalLinks?.length,
+        imported.parts,
+      ].filter(Boolean).length;
+      if (importedFields) {
+        setNotice("Metadatos CRM detectados. Revisá y guardá los cambios.");
+      }
+    }
+
+    window.addEventListener("crm:editorial-metadata", onEditorialMetadata);
+    return () => window.removeEventListener("crm:editorial-metadata", onEditorialMetadata);
+  }, [includeSeo, vocab.phases, vocab.series]);
 
   // La fase filtra las series disponibles (Fase > Serie > Parte).
   const seriesOptions = useMemo(
@@ -99,6 +167,22 @@ export default function CrmMetaPanel({
       ) : null}
 
       {/* Fase → Serie → Parte */}
+      {importedLinks.length || importedParts ? (
+        <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-3 text-sm text-slate-700">
+          <div className="font-semibold text-slate-800">Orientación editorial detectada</div>
+          {importedParts ? <p className="mt-1">Partes: {importedParts}</p> : null}
+          {importedLinks.length ? (
+            <>
+              <p className="mt-2 font-semibold">Enlaces internos sugeridos:</p>
+              <ul className="mt-1 list-disc space-y-1 pl-5">
+                {importedLinks.map((link, index) => <li key={`${link}-${index}`}>{link}</li>)}
+              </ul>
+            </>
+          ) : null}
+          <p className="mt-2 text-xs text-slate-500">Usá estas sugerencias para revisar el artículo; no modifican enlaces automáticamente.</p>
+        </div>
+      ) : null}
+
       <div className="grid gap-3 sm:grid-cols-3">
         <label className="block text-sm">
           <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600">Fase</span>

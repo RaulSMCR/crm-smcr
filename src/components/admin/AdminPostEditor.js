@@ -9,6 +9,7 @@ import SeoFieldset from "@/components/admin/SeoFieldset";
 import SafeImage from "@/components/SafeImage";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import { IMAGE_FALLBACKS, PUBLIC_IMAGE_ACCEPT, SUPPORTED_PUBLIC_IMAGE_TYPES } from "@/lib/images";
+import { extractCrmMetadata } from "@/lib/editorial-metadata";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const IMAGE_FORMAT_ERROR = "Formato no soportado. Usa JPG, PNG, WEBP, GIF o AVIF.";
@@ -132,6 +133,22 @@ export default function AdminPostEditor({ post }) {
 
   function updateField(name, value) {
     setForm((current) => ({ ...current, [name]: value }));
+  }
+
+  function handleContentChange(value) {
+    const imported = extractCrmMetadata(value);
+    if (!imported.found) {
+      updateField("content", value);
+      return;
+    }
+
+    updateField("content", imported.content);
+    if (imported.metadata.slug) updateField("slug", imported.metadata.slug);
+    if (imported.metadata.metaTitle) updateField("metaTitle", imported.metadata.metaTitle);
+    if (imported.metadata.metaDescription) updateField("metaDescription", imported.metadata.metaDescription);
+    if (imported.metadata.focusKeyword) updateField("focusKeyword", imported.metadata.focusKeyword);
+    window.dispatchEvent(new CustomEvent("crm:editorial-metadata", { detail: imported.metadata }));
+    setNotice("Metadatos CRM detectados. Revisá y guardá los cambios.");
   }
 
   async function save() {
@@ -274,7 +291,7 @@ export default function AdminPostEditor({ post }) {
           <label className="mb-1 block text-sm font-semibold text-slate-700">Contenido</label>
           <MarkdownEditor
             value={form.content}
-            onChange={(v) => updateField("content", v)}
+            onChange={handleContentChange}
             rows={18}
             placeholder="Contenido del artículo. Usa los botones de formato (título, negrita, lista…)."
           />

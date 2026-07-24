@@ -24,6 +24,9 @@ async function getPostOrNull(idParam, authorId) {
       coverImageNote: true,
       status: true,
       slug: true,
+      metaTitle: true,
+      metaDescription: true,
+      focusKeyword: true,
       createdAt: true,
     },
   });

@@ -40,6 +40,10 @@ export async function POST(request) {
     const body = await request.json().catch(() => ({}));
     const title = String(body?.title || "").trim();
     const content = String(body?.content || "").trim();
+    const requestedSlug = String(body?.slug || "").trim();
+    const metaTitle = String(body?.metaTitle || "").trim() || null;
+    const metaDescription = String(body?.metaDescription || "").trim() || null;
+    const focusKeyword = String(body?.focusKeyword || "").trim() || null;
     const coverImage = String(body?.coverImage || body?.imageUrl || "").trim() || null;
     const excerpt = String(body?.excerpt || "").trim() || null;
     const coverImageTitle = String(body?.coverImageTitle || "").trim() || null;
@@ -50,7 +54,7 @@ export async function POST(request) {
       return NextResponse.json({ message: "Titulo y contenido son requeridos" }, { status: 400 });
     }
 
-    let slug = slugify(title);
+    let slug = slugify(requestedSlug || title);
     if (!slug) slug = `post-${Date.now()}`;
 
     const exists = await prisma.post.findUnique({ where: { slug }, select: { id: true } });
@@ -61,6 +65,9 @@ export async function POST(request) {
         title,
         slug,
         content,
+        metaTitle,
+        metaDescription,
+        focusKeyword,
         excerpt,
         coverImage,
         coverImageTitle,
