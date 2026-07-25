@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/actions/auth-actions";
 import PendingProfessionalsList from "@/components/admin/PendingProfessionalsList";
+import { ventanasActivas } from "@/lib/psychosocial-calendar";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -88,6 +89,10 @@ export default async function AdminDashboard() {
     }),
   ]);
 
+  // Cuántas ventanas de pauta están abiertas hoy. Es cálculo puro sobre el
+  // calendario, sin base de datos.
+  const ventanasAbiertas = ventanasActivas().length;
+
   return (
     <div className="min-h-screen bg-surface p-6">
       <div className="mx-auto max-w-7xl space-y-8">
@@ -108,6 +113,12 @@ export default async function AdminDashboard() {
             description="Rutina operativa de contenido, finanzas, publicidad, SEO y mantenimiento."
             count={postsPendingCount + activeAppointmentsCount + openInvoicesCount + pendingCount}
             tone="accent"
+          />
+          <DashboardCard
+            href="/panel/admin/calendario"
+            title="Calendario psicosocial"
+            description="Momentos intensos del año costarricense y qué toca pautar en cada ventana."
+            count={ventanasAbiertas || undefined}
           />
           <DashboardCard
             href="/panel/admin/servicios"

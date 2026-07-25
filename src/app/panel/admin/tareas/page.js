@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/actions/auth-actions";
 import DailyAdminTasks from "@/components/admin/DailyAdminTasks";
+import PsychosocialBriefing from "@/components/admin/PsychosocialBriefing";
+import { momentoActual, tareasDelCalendario } from "@/lib/psychosocial-calendar";
+import { coberturaDeTemas } from "@/lib/psychosocial-calendar-queries";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -178,6 +181,32 @@ export default async function AdminTasksPage() {
     }),
   ]);
 
+  // Capa crono-psicosocial: dónde está el año hoy y qué ventanas están abiertas.
+  // Va después del Promise.all de arriba, no dentro: la cobertura editorial son
+  // consultas secuenciales y no conviene sumarlas a esa ráfaga (pool de una sola
+  // conexión, P2024).
+  const momento = momentoActual();
+  const slugsActivos = momento.ventanasActivas.flatMap(({ marca }) => marca.temas || []);
+  const cobertura = await coberturaDeTemas(slugsActivos);
+
+  const tareasCalendario = tareasDelCalendario(momento);
+  const areaCalendario = tareasCalendario.length
+    ? {
+        id: "calendario",
+        title: "Calendario psicosocial",
+        cadence: "Según ventana",
+        description:
+          "Lo que hay que preparar, publicar o dar seguimiento según el momento del año.",
+        tasks: tareasCalendario,
+        links: [
+          { href: "/panel/admin/calendario", label: "Calendario del año" },
+          { href: "/panel/admin/carousels", label: "Carruseles" },
+        ],
+      }
+    : null;
+
+  const areas = areaCalendario ? [areaCalendario, ...AREAS] : AREAS;
+
   const metrics = [
     { label: "Borradores", value: draftPosts, help: "Artículos por revisar" },
     { label: "Publicados hoy", value: publishedToday, help: "Actualizados como publicados" },
@@ -199,7 +228,9 @@ export default async function AdminTasksPage() {
           </p>
         </div>
 
-        <DailyAdminTasks areas={AREAS} metrics={metrics} />
+        <PsychosocialBriefing momento={momento} cobertura={cobertura} compacto />
+
+        <DailyAdminTasks areas={areas} metrics={metrics} />
       </div>
     </div>
   );
