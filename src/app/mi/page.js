@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { formatDateTimeInTZ } from "@/lib/timezone";
 import { getFraseDelDia } from "@/lib/mi/frases";
+import { fraseAMostrar } from "@/lib/frases-usuario";
 import { Card, Pill } from "@/components/mi/ui";
 import LogoutButton from "@/components/LogoutButton";
 
@@ -113,6 +114,9 @@ function PagoPendienteBanner() {
 }
 
 function FraseDelDia({ frase }) {
+  // El admin puede decidir que un día no se publica frase para una audiencia.
+  if (!frase) return null;
+
   return (
     <section>
       <div className="rounded-2xl border border-neutral-200 bg-appbg p-5 shadow-card">
@@ -122,7 +126,12 @@ function FraseDelDia({ frase }) {
             «{frase.texto}»
           </p>
           {frase.autor ? (
-            <footer className="mt-2 text-sm font-semibold text-brand-700">— {frase.autor}</footer>
+            <footer className="mt-2 text-sm font-semibold text-brand-700">
+              — {frase.autor}
+              {frase.obra ? (
+                <span className="font-normal text-neutral-600"> · {frase.obra}</span>
+              ) : null}
+            </footer>
           ) : null}
         </blockquote>
       </div>
@@ -137,7 +146,11 @@ export default async function MiInicioPage() {
   const patientId = String(session.userId || session.sub);
   const now = new Date();
 
-  const [proximaCita, pagoPendiente] = await Promise.all([
+  const [usuario, proximaCita, pagoPendiente] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: patientId },
+      select: { id: true, gender: true, birthDate: true },
+    }),
     prisma.appointment.findFirst({
       where: { patientId, date: { gt: now }, status: { in: UPCOMING_STATUSES } },
       orderBy: { date: "asc" },
@@ -161,7 +174,10 @@ export default async function MiInicioPage() {
     }),
   ]);
 
-  const frase = getFraseDelDia();
+  // Frase del corpus para la audiencia de esta persona. Si la fecha cae fuera
+  // de la ventana del corpus se usa el placeholder heredado; si el admin marcó
+  // "no publicar" para su audiencia, `frase` es null y no se pinta la tarjeta.
+  const frase = await fraseAMostrar(usuario, getFraseDelDia);
   const primerNombre = session.name ? String(session.name).split(/\s+/)[0] : null;
 
   return (
