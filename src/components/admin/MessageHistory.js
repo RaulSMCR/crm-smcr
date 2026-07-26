@@ -51,6 +51,12 @@ export default function MessageHistory({ mensajes }) {
                 </span>
               </div>
 
+              {m.filtro ? (
+                <p className="mt-2 inline-block rounded-md bg-brand-50 px-2 py-1 text-[11px] font-semibold text-brand-900">
+                  {m.filtro}
+                </p>
+              ) : null}
+
               <div className="mt-3 flex flex-wrap items-center gap-3 text-[11px] text-neutral-600">
                 <span>{formatearFecha(m.enviadoEl)}</span>
                 <span className="font-semibold text-neutral-800">

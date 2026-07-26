@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/actions/auth-actions";
 import MessageComposer from "@/components/admin/MessageComposer";
 import MessageHistory from "@/components/admin/MessageHistory";
-import { deserializarAudiencias } from "@/lib/mensajes";
+import { deserializarAudiencias, opcionesDeSegmentacion } from "@/lib/mensajes";
+import { describirFiltro } from "@/lib/mensajes-filtro";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -23,6 +24,12 @@ export default async function AdminMessagesPage() {
       body: true,
       targetKind: true,
       targetAudiences: true,
+      targetProfessionals: true,
+      targetServices: true,
+      targetWindow: true,
+      targetWindowDays: true,
+      targetIncludeCancelled: true,
+      targetNegate: true,
       sentAt: true,
       recipientCount: true,
       pushSent: true,
@@ -42,6 +49,12 @@ export default async function AdminMessagesPage() {
     distinct: ["userId"],
   });
 
+  const opciones = await opcionesDeSegmentacion();
+  const nombres = {
+    profesionales: Object.fromEntries(opciones.profesionales.map((p) => [p.id, p.nombre])),
+    servicios: Object.fromEntries(opciones.servicios.map((s) => [s.id, s.nombre])),
+  };
+
   const historial = mensajes.map((m) => ({
     id: m.id,
     titulo: m.title,
@@ -50,6 +63,17 @@ export default async function AdminMessagesPage() {
       m.targetKind === "ALL"
         ? "Todos"
         : deserializarAudiencias(m.targetAudiences).join(", ") || "—",
+    filtro: describirFiltro(
+      {
+        profesionales: m.targetProfessionals,
+        servicios: m.targetServices,
+        ventana: m.targetWindow,
+        ventanaDias: m.targetWindowDays,
+        incluirCanceladas: m.targetIncludeCancelled,
+        negar: m.targetNegate,
+      },
+      nombres,
+    ),
     enviadoEl: m.sentAt ? m.sentAt.toISOString() : null,
     destinatarios: m.recipientCount,
     pushSent: m.pushSent,
@@ -99,7 +123,7 @@ export default async function AdminMessagesPage() {
           </p>
         ) : null}
 
-        <MessageComposer />
+        <MessageComposer opciones={opciones} />
 
         <MessageHistory mensajes={historial} />
       </div>

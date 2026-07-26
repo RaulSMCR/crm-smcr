@@ -1213,11 +1213,29 @@ model AdminMessage {
   title String
   body  String @db.Text
 
-  // Segmentación. `targetAudiences` es una lista separada por comas y no un
-  // array de Postgres, para no ser el único modelo del schema con arrays
-  // escalares. Solo se usa cuando targetKind = AUDIENCE.
+  // Segmentación por intersección de filtros opcionales. Las listas van como
+  // texto separado por comas y no como arrays de Postgres, para no ser el
+  // único modelo del schema con arrays escalares.
+  //
+  //   conjunto base   = todos los activos, o los de las audiencias elegidas
+  //   ∩ filtro de citas (profesional / servicio / ventana temporal)
+  //   [negable: "los que NO cumplen el filtro de citas"]
   targetKind      MessageTargetKind @default(ALL)
   targetAudiences String?
+
+  // Filtro por citas. Se activa si hay profesionales, servicios o ventana.
+  targetProfessionals String?
+  targetServices      String?
+  // "UPCOMING" (citas futuras activas) | "PAST" (ya ocurridas) | "ANY".
+  targetWindow        String?
+  // Para UPCOMING: cuántos días hacia adelante mirar. Null = sin tope.
+  targetWindowDays    Int?
+  // Si las citas canceladas cuentan como "agendó". Para un aviso de servicio
+  // suelen contar; para una promoción a clientes, no.
+  targetIncludeCancelled Boolean @default(false)
+  // Invierte el filtro de citas: "los que NO agendaron esto". Es lo que sirve
+  // para captación, que suele ser lo que una promoción realmente quiere.
+  targetNegate           Boolean @default(false)
 
   status MessageStatus @default(DRAFT)
   sentAt DateTime?
