@@ -28,9 +28,10 @@ function revalidarFrases() {
 const IDS_AUDIENCIA = new Set(AUDIENCIAS.map((a) => a.id));
 
 /**
- * Elige la frase de un día. `audiencia` y `slot` son opcionales: van cuando la
- * frase salió de las 16 candidatas de esa fecha, y quedan vacíos cuando se
- * sustituyó por otra del corpus.
+ * Elige la frase de una audiencia concreta para un día. `audiencia` es
+ * obligatoria: las 8 audiencias deciden por separado, y la clave de guardado es
+ * (fecha, audiencia) — no la fecha sola, que pisaría las otras 7 elecciones del
+ * mismo día.
  *
  * Se guarda una copia del texto, el autor y la obra además del índice. Es
  * deliberado: lo que se publicó tiene que poder reconstruirse aunque el corpus
@@ -45,13 +46,15 @@ export async function elegirFraseDelDia({ fecha, indice, audiencia, slot, nota, 
     return { error: "Esa fecha está fuera del calendario de frases." };
   }
 
+  if (!audiencia || !IDS_AUDIENCIA.has(audiencia)) {
+    return { error: "Hay que indicar para cuál audiencia es esta frase." };
+  }
+
   const i = Number(indice);
   if (!Number.isInteger(i) || i < 0 || i >= totalFrases()) {
     return { error: "Frase inexistente." };
   }
   const frase = fraseDeIndice(i);
-
-  const audienciaLimpia = audiencia && IDS_AUDIENCIA.has(audiencia) ? audiencia : null;
   const slotLimpio = slot === 1 || slot === 2 ? slot : null;
 
   const datos = {
@@ -61,16 +64,15 @@ export async function elegirFraseDelDia({ fecha, indice, audiencia, slot, nota, 
     work: frase.obra,
     sourceKey: frase.claveFuente,
     corpusVersion: VERSION_CORPUS,
-    audience: audienciaLimpia,
     slot: slotLimpio,
-    status: sustituida || !audienciaLimpia ? "SUBSTITUTED" : "APPROVED",
+    status: sustituida || !slotLimpio ? "SUBSTITUTED" : "APPROVED",
     note: nota ? String(nota).slice(0, 2000) : null,
     decidedBy: String(session.sub),
   };
 
   await prisma.dailyPhrasePick.upsert({
-    where: { date },
-    create: { date, ...datos },
+    where: { date_audience: { date, audience: audiencia } },
+    create: { date, audience: audiencia, ...datos },
     update: datos,
   });
 
@@ -104,13 +106,18 @@ export async function buscarEnCorpus(filtros = {}) {
   };
 }
 
-/** Marca un día como sin publicación. */
-export async function omitirDia({ fecha, nota }) {
+/**
+ * Marca un día sin publicación. Si `audiencia` viene, omite solo esa audiencia;
+ * si no viene, omite las 8 (el botón "no publicar nada hoy").
+ */
+export async function omitirDia({ fecha, audiencia, nota }) {
   const session = await getSession();
   requireAdmin(session);
 
   const date = String(fecha || "");
   if (!existeDia(date)) return { error: "Esa fecha está fuera del calendario de frases." };
+
+  const audiencias = audiencia && IDS_AUDIENCIA.has(audiencia) ? [audiencia] : AUDIENCIAS.map((a) => a.id);
 
   const datos = {
     phraseIndex: -1,
@@ -119,28 +126,36 @@ export async function omitirDia({ fecha, nota }) {
     work: "",
     sourceKey: "",
     corpusVersion: VERSION_CORPUS,
-    audience: null,
     slot: null,
     status: "SKIPPED",
     note: nota ? String(nota).slice(0, 2000) : null,
     decidedBy: String(session.sub),
   };
 
-  await prisma.dailyPhrasePick.upsert({
-    where: { date },
-    create: { date, ...datos },
-    update: datos,
-  });
+  // Secuencial y no Promise.all: el pool de Supabase es de una sola conexión
+  // (connection_limit=1) y las escrituras en paralelo expiran con P2024.
+  for (const aud of audiencias) {
+    await prisma.dailyPhrasePick.upsert({
+      where: { date_audience: { date, audience: aud } },
+      create: { date, audience: aud, ...datos },
+      update: datos,
+    });
+  }
 
   revalidarFrases();
   return { success: true };
 }
 
-/** Deshace la decisión de un día para volver a revisarlo. */
-export async function reabrirDia(fecha) {
+/**
+ * Deshace la decisión de un día para volver a revisarlo. Si `audiencia` viene,
+ * reabre solo esa; si no, reabre las 8 (equivalente a empezar el día de cero).
+ */
+export async function reabrirDia(fecha, audiencia) {
   requireAdmin(await getSession());
   const date = String(fecha || "");
-  await prisma.dailyPhrasePick.deleteMany({ where: { date } });
+  const where =
+    audiencia && IDS_AUDIENCIA.has(audiencia) ? { date, audience: audiencia } : { date };
+  await prisma.dailyPhrasePick.deleteMany({ where });
   revalidarFrases();
   return { success: true };
 }

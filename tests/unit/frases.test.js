@@ -23,6 +23,39 @@ import {
   existeDia,
 } from "@/lib/frases";
 
+describe("una elección por audiencia, no una por día", () => {
+  it("cada audiencia trae sus 2 candidatas propias y distinguibles", () => {
+    const dia = diaDeFrases("2026-10-10");
+    for (const audiencia of AUDIENCIAS) {
+      const suyas = dia.candidatas.filter((c) => c.audiencia === audiencia.id);
+      expect(suyas, `${audiencia.id} sin candidatas`).toHaveLength(2);
+      // El slot identifica la candidata dentro de la audiencia: es la clave que
+      // usa el radio de la interfaz, y tiene que ser única por audiencia.
+      expect(new Set(suyas.map((c) => c.slot)).size).toBe(2);
+    }
+  });
+
+  it("el par (audiencia, slot) identifica una candidata sin ambigüedad", () => {
+    const dia = diaDeFrases("2026-12-24");
+    const claves = dia.candidatas.map((c) => `${c.audiencia}:${c.slot}`);
+    expect(new Set(claves).size).toBe(16);
+  });
+
+  it("audiencias distintas reciben frases distintas el mismo día", () => {
+    // Si todas las audiencias compartieran frase, elegir por audiencia no
+    // tendría sentido. El corpus las diferencia por tono y perfil.
+    const dia = diaDeFrases("2026-10-10");
+    const indices = new Set(dia.candidatas.map((c) => c.indice));
+    expect(indices.size).toBeGreaterThan(8);
+  });
+
+  it("registrados y no registrados están ambos representados cada día", () => {
+    const dia = diaDeFrases("2027-01-04");
+    expect(dia.candidatas.some((c) => c.registro === true)).toBe(true);
+    expect(dia.candidatas.some((c) => c.registro === false)).toBe(true);
+  });
+});
+
 describe("integridad del dataset", () => {
   it("cubre la ventana completa del corpus", () => {
     expect(PRIMER_DIA).toBe("2026-08-15");

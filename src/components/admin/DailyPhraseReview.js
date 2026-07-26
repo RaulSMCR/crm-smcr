@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { AUDIENCIAS } from "@/lib/frases";
 import { elegirFraseDelDia, omitirDia, reabrirDia } from "@/actions/frases-actions";
 
 // Escala de calor 0–10. Un solo tono, como el mapa térmico: globals.css aplasta
@@ -33,6 +34,40 @@ function BarraCalor({ calor }) {
   );
 }
 
+/**
+ * Ocho chips, una por audiencia, para ver de un vistazo cuáles ya tienen frase
+ * elegida hoy. Cada radio del bloque de abajo pertenece a UNA audiencia: el
+ * bug que reportó Raúl era que las 16 candidatas del día compartían un solo
+ * grupo de radio (y una sola fila en base de datos), así que elegir la de una
+ * audiencia pisaba la de las otras 7.
+ */
+function ProgresoAudiencias({ selecciones }) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {AUDIENCIAS.map((a) => {
+        const pick = selecciones[a.id];
+        const decidida = Boolean(pick);
+        const omitida = pick?.status === "SKIPPED";
+        return (
+          <span
+            key={a.id}
+            title={a.label}
+            className={`rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] ${
+              omitida
+                ? "bg-neutral-200 text-neutral-600"
+                : decidida
+                  ? "bg-brand-700 text-white"
+                  : "border border-neutral-300 bg-white text-neutral-500"
+            }`}
+          >
+            {a.id} {omitida ? "—" : decidida ? "✓" : "·"}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 function Candidata({ candidata, elegida, verificada, onElegir, deshabilitado }) {
   return (
     <label
@@ -45,7 +80,7 @@ function Candidata({ candidata, elegida, verificada, onElegir, deshabilitado }) 
       <div className="flex items-start gap-3">
         <input
           type="radio"
-          name="frase-elegida"
+          name={`frase-${candidata.audiencia}`}
           checked={elegida}
           disabled={deshabilitado}
           onChange={onElegir}
@@ -94,14 +129,95 @@ function Candidata({ candidata, elegida, verificada, onElegir, deshabilitado }) 
   );
 }
 
+function BloqueAudiencia({ fecha, audiencia, candidatas, seleccion, verificaciones, pendiente, onElegir, onReabrir }) {
+  const [abierto, setAbierto] = useState(!seleccion);
+  const indiceElegido = seleccion && seleccion.status !== "SKIPPED" ? seleccion.phraseIndex : null;
+  const omitida = seleccion?.status === "SKIPPED";
+
+  return (
+    <div className="rounded-lg border border-neutral-200 bg-white p-3">
+      <button
+        type="button"
+        onClick={() => setAbierto((v) => !v)}
+        className="flex w-full items-center justify-between gap-2 text-left"
+      >
+        <span className="flex items-center gap-2">
+          <span className="rounded-md bg-neutral-100 px-2 py-1 text-xs font-bold uppercase tracking-[0.08em] text-neutral-800">
+            {audiencia.id}
+          </span>
+          <span className="text-xs text-neutral-600">{audiencia.label}</span>
+        </span>
+        <span className="flex items-center gap-2 text-xs font-semibold">
+          {omitida ? (
+            <span className="text-neutral-500">sin publicación</span>
+          ) : seleccion ? (
+            <span className="text-brand-800">{seleccion.author}</span>
+          ) : (
+            <span className="text-accent-950">sin elegir</span>
+          )}
+          <span className="text-neutral-400">{abierto ? "▲" : "▼"}</span>
+        </span>
+      </button>
+
+      {abierto ? (
+        <div className="mt-3 space-y-2">
+          {omitida ? (
+            <div className="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2">
+              <span className="text-xs text-neutral-700">Esta audiencia quedó sin publicación.</span>
+              <button
+                type="button"
+                onClick={() => onReabrir(audiencia.id)}
+                disabled={pendiente}
+                className="rounded-lg border border-neutral-300 px-2 py-1 text-[11px] font-semibold text-neutral-800 hover:border-brand-300 disabled:opacity-50"
+              >
+                Reabrir
+              </button>
+            </div>
+          ) : (
+            candidatas.map((candidata) => (
+              <Candidata
+                key={candidata.slot}
+                candidata={candidata}
+                elegida={indiceElegido === candidata.indice}
+                verificada={Boolean(verificaciones[candidata.claveFuente])}
+                deshabilitado={pendiente}
+                onElegir={() => onElegir(candidata)}
+              />
+            ))
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={`/panel/admin/frases?fecha=${fecha}&audiencia=${audiencia.id}`}
+              className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-neutral-800 hover:border-brand-300"
+            >
+              Sustituir por otra del corpus
+            </Link>
+            {!omitida ? (
+              <button
+                type="button"
+                onClick={() => onReabrir(audiencia.id)}
+                disabled={pendiente || !seleccion}
+                className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-neutral-700 hover:border-accent-300 disabled:opacity-50 disabled:hover:border-neutral-300"
+              >
+                Quitar elección
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function DiaPendiente({ dia, verificaciones, compacto }) {
   const [pendiente, iniciar] = useTransition();
   const [error, setError] = useState(null);
-  const [verTodas, setVerTodas] = useState(false);
-  const { resumen, candidatas, seleccion } = dia;
+  const { resumen, candidatas, selecciones, decididas, totalAudiencias } = dia;
 
-  const indiceElegido = seleccion?.status === "SKIPPED" ? null : seleccion?.phraseIndex ?? null;
-  const omitido = seleccion?.status === "SKIPPED";
+  const todasOmitidas =
+    decididas === totalAudiencias &&
+    Object.values(selecciones).every((s) => s.status === "SKIPPED");
 
   function elegir(candidata) {
     setError(null);
@@ -116,7 +232,7 @@ function DiaPendiente({ dia, verificaciones, compacto }) {
     });
   }
 
-  function omitir() {
+  function omitirTodo() {
     setError(null);
     iniciar(async () => {
       const r = await omitirDia({ fecha: dia.fecha });
@@ -124,18 +240,19 @@ function DiaPendiente({ dia, verificaciones, compacto }) {
     });
   }
 
-  function reabrir() {
+  function reabrir(audienciaId) {
     setError(null);
     iniciar(async () => {
-      const r = await reabrirDia(dia.fecha);
+      const r = await reabrirDia(dia.fecha, audienciaId);
       if (r?.error) setError(r.error);
     });
   }
 
-  // En días de mucha exposición conviene ver las 16; en el resto, las 6 primeras
-  // alcanzan para decidir sin tener que barrer toda la lista.
-  const limite = verTodas || resumen.calor >= 9 ? candidatas.length : 6;
-  const visibles = candidatas.slice(0, limite);
+  const porAudiencia = new Map();
+  for (const c of candidatas) {
+    if (!porAudiencia.has(c.audiencia)) porAudiencia.set(c.audiencia, []);
+    porAudiencia.get(c.audiencia).push(c);
+  }
 
   return (
     <section className="rounded-lg border border-neutral-200 bg-neutral-50 p-5 shadow-card">
@@ -160,6 +277,9 @@ function DiaPendiente({ dia, verificaciones, compacto }) {
                 ventana sensible
               </span>
             ) : null}
+            <span className="rounded-full border border-neutral-300 px-2 py-0.5 text-[10px] font-bold text-neutral-700">
+              {decididas}/{totalAudiencias} audiencias
+            </span>
           </div>
           {resumen.evento ? (
             <p className="mt-1 text-sm font-semibold text-neutral-800">{resumen.evento}</p>
@@ -172,6 +292,10 @@ function DiaPendiente({ dia, verificaciones, compacto }) {
           ) : null}
         </div>
         <BarraCalor calor={resumen.calor} />
+      </div>
+
+      <div className="mt-3">
+        <ProgresoAudiencias selecciones={selecciones} />
       </div>
 
       {resumen.ventanaSensible ? (
@@ -187,65 +311,47 @@ function DiaPendiente({ dia, verificaciones, compacto }) {
         </p>
       ) : null}
 
-      {omitido ? (
+      {todasOmitidas ? (
         <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-neutral-300 bg-white px-4 py-3">
           <span className="text-sm font-semibold text-neutral-800">
-            Este día quedó marcado sin publicación.
+            Este día quedó marcado sin publicación para las {totalAudiencias} audiencias.
           </span>
           <button
             type="button"
-            onClick={reabrir}
+            onClick={() => reabrir()}
             disabled={pendiente}
             className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-800 hover:border-brand-300 disabled:opacity-50"
           >
-            Reabrir
+            Reabrir todo el día
           </button>
         </div>
       ) : (
         <>
           <div className="mt-4 space-y-2">
-            {visibles.map((candidata) => (
-              <Candidata
-                key={`${candidata.audiencia}-${candidata.slot}`}
-                candidata={candidata}
-                elegida={indiceElegido === candidata.indice}
-                verificada={Boolean(verificaciones[candidata.claveFuente])}
-                deshabilitado={pendiente}
-                onElegir={() => elegir(candidata)}
+            {AUDIENCIAS.map((audiencia) => (
+              <BloqueAudiencia
+                key={audiencia.id}
+                fecha={dia.fecha}
+                audiencia={audiencia}
+                candidatas={porAudiencia.get(audiencia.id) || []}
+                seleccion={selecciones[audiencia.id] || null}
+                verificaciones={verificaciones}
+                pendiente={pendiente}
+                onElegir={elegir}
+                onReabrir={(audId) => reabrir(audId)}
               />
             ))}
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            {limite < candidatas.length ? (
-              <button
-                type="button"
-                onClick={() => setVerTodas(true)}
-                className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-800 hover:border-brand-300"
-              >
-                Ver las {candidatas.length} candidatas
-              </button>
-            ) : null}
-            <Link
-              href={`/panel/admin/frases?fecha=${dia.fecha}`}
-              className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-800 hover:border-brand-300"
-            >
-              Sustituir por otra del corpus
-            </Link>
             <button
               type="button"
-              onClick={omitir}
+              onClick={omitirTodo}
               disabled={pendiente}
               className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:border-accent-300 disabled:opacity-50"
             >
-              No publicar este día
+              No publicar ninguna audiencia hoy
             </button>
-            {seleccion && !omitido ? (
-              <span className="text-xs font-semibold text-brand-800">
-                Elegida: {seleccion.author}
-                {seleccion.status === "SUBSTITUTED" ? " · sustituida" : ""}
-              </span>
-            ) : null}
           </div>
         </>
       )}
@@ -296,7 +402,8 @@ export default function DailyPhraseReview({ sesion, verificaciones, compacto = f
             {sesion.pendientes.length === 1 ? "día por decidir" : "días por decidir"}
           </div>
           <p className="mt-1 text-sm text-neutral-700">
-            Se trabaja con un día de anticipación; el viernes cubre sábado, domingo y lunes.
+            Cada una de las 8 audiencias elige su propia frase. Se trabaja con un día de
+            anticipación; el viernes cubre sábado, domingo y lunes.
             {sesion.atrasadas > 0
               ? ` Hay ${sesion.atrasadas} ${sesion.atrasadas === 1 ? "día atrasado" : "días atrasados"}.`
               : ""}

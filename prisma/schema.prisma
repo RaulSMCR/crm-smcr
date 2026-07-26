@@ -1134,7 +1134,12 @@ model DailyPhrasePick {
   // Fecha de publicación en hora de Costa Rica, 'YYYY-MM-DD'. Texto y no
   // DateTime a propósito: es un día de calendario, no un instante, y así no hay
   // forma de que un servidor en UTC lo corra un día.
-  date String @unique
+  date String
+
+  // Cada una de las 8 audiencias decide su propia frase el mismo día: la
+  // unicidad es (date, audience), no date sola. Con date sola, elegir la
+  // frase de una audiencia pisaba silenciosamente la de las otras 7.
+  audience String
 
   // Índice en el corpus versionado, más una copia de lo aprobado. La copia es
   // deliberada: lo que se publicó tiene que poder reconstruirse aunque el
@@ -1146,9 +1151,9 @@ model DailyPhrasePick {
   sourceKey     String
   corpusVersion String
 
-  // Audiencia y slot de origen cuando la frase venía de las candidatas del día.
-  audience String?
-  slot     Int?
+  // Slot de origen (1 ancla, 2 contrapunto) cuando la frase salió de las
+  // candidatas del día. Null cuando se sustituyó por otra del corpus.
+  slot Int?
 
   status PhrasePickStatus @default(APPROVED)
   note   String?          @db.Text
@@ -1160,6 +1165,7 @@ model DailyPhrasePick {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([date, audience])
   @@index([status])
   @@index([sourceKey])
 }

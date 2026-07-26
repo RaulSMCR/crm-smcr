@@ -3,11 +3,16 @@
 // Estado persistido de la frase diaria. El corpus es estático (frases.js); aquí
 // solo vive lo que cambia: la elección del admin y la verificación de fuentes.
 //
+// Cada una de las 8 audiencias decide su propia frase el mismo día: la unidad
+// de persistencia es (fecha, audiencia), no la fecha sola. Un día queda
+// "resuelto" solo cuando las 8 audiencias tienen pick.
+//
 // Consultas secuenciales: el pool es de una sola conexión (connection_limit=1) y
 // las paralelas se pisan y expiran con P2024.
 
 import { prisma } from "@/lib/prisma";
 import {
+  AUDIENCIAS,
   PRIMER_DIA,
   ULTIMO_DIA,
   diaDeFrases,
@@ -17,27 +22,49 @@ import {
   sesionDelDia,
 } from "@/lib/frases";
 
-/** Elección de una fecha concreta, o null si todavía no se decidió. */
-export async function seleccionDe(fecha) {
-  return prisma.dailyPhrasePick.findUnique({ where: { date: String(fecha) } });
+const TOTAL_AUDIENCIAS = AUDIENCIAS.length;
+
+/** Las hasta-8 elecciones de una fecha, indexadas por audiencia. */
+export async function seleccionesDelDia(fecha) {
+  const filas = await prisma.dailyPhrasePick.findMany({ where: { date: String(fecha) } });
+  return new Map(filas.map((f) => [f.audience, f]));
 }
 
-/** Elecciones de un rango cerrado, indexadas por fecha. */
+/** Elecciones de un rango cerrado, agrupadas por fecha y luego por audiencia. */
 export async function seleccionesEnRango(desde, hasta) {
   const filas = await prisma.dailyPhrasePick.findMany({
     where: { date: { gte: String(desde), lte: String(hasta) } },
-    orderBy: { date: "asc" },
+    orderBy: [{ date: "asc" }, { audience: "asc" }],
   });
-  return new Map(filas.map((f) => [f.date, f]));
+  const porFecha = new Map();
+  for (const fila of filas) {
+    if (!porFecha.has(fila.date)) porFecha.set(fila.date, new Map());
+    porFecha.get(fila.date).set(fila.audience, fila);
+  }
+  return porFecha;
 }
 
-/** Fechas ya resueltas en un rango: es lo que consume `sesionDelDia`. */
-export async function fechasResueltas(desde, hasta) {
-  const filas = await prisma.dailyPhrasePick.findMany({
+/**
+ * Cuántas audiencias tienen pick por fecha, en un rango. Es la base para saber
+ * qué día está completo (8/8), a medio decidir, o intacto.
+ */
+export async function conteoPorFecha(desde, hasta) {
+  const filas = await prisma.dailyPhrasePick.groupBy({
+    by: ["date"],
     where: { date: { gte: String(desde), lte: String(hasta) } },
-    select: { date: true },
+    _count: { _all: true },
   });
-  return new Set(filas.map((f) => f.date));
+  return new Map(filas.map((f) => [f.date, f._count._all]));
+}
+
+/**
+ * Fechas completamente resueltas (las 8 audiencias con pick) en un rango. Es lo
+ * que consume `sesionDelDia`: mientras falte una audiencia, el día sigue
+ * pendiente.
+ */
+export async function fechasResueltas(desde, hasta) {
+  const conteo = await conteoPorFecha(desde, hasta);
+  return new Set([...conteo.entries()].filter(([, n]) => n >= TOTAL_AUDIENCIAS).map(([f]) => f));
 }
 
 /**
@@ -89,18 +116,30 @@ export async function listaDeVerificacion({ soloPendientes = false, limite = 0 }
 
 /**
  * Arma la sesión de revisión completa: qué días hay que decidir, sus 16
- * candidatas resueltas y el estado de verificación de las fuentes implicadas.
+ * candidatas resueltas, las elecciones ya guardadas por audiencia y el estado
+ * de verificación de las fuentes implicadas.
  *
  * Devuelve datos planos y serializables, listos para cruzar a un componente
  * cliente sin arrastrar el corpus al navegador.
  */
 export async function prepararSesion(fecha = fechaHoy(), horizonte = 7) {
-  const resueltas = await fechasResueltas(fecha, sumarISO(fecha, horizonte));
+  const hasta = sumarISO(fecha, horizonte);
+  const resueltas = await fechasResueltas(fecha, hasta);
   const sesion = sesionDelDia(fecha, resueltas, horizonte);
+
+  const seleccionesRango = await seleccionesEnRango(fecha, hasta);
 
   const pendientes = sesion.pendientes.map((p) => {
     const dia = diaDeFrases(p.fecha);
-    return { ...p, candidatas: dia ? dia.candidatas : [], seleccion: null };
+    const porAudiencia = seleccionesRango.get(p.fecha) || new Map();
+    return {
+      ...p,
+      candidatas: dia ? dia.candidatas : [],
+      // Objeto plano (no Map): tiene que cruzar a un componente cliente.
+      selecciones: Object.fromEntries(porAudiencia),
+      decididas: porAudiencia.size,
+      totalAudiencias: TOTAL_AUDIENCIAS,
+    };
   });
 
   const claves = pendientes.flatMap((p) => p.candidatas.map((c) => c.claveFuente));
@@ -138,11 +177,11 @@ function sumarISO(iso, dias) {
 /** Historial reciente, para la página de control. */
 export async function historialDeSelecciones(limite = 30) {
   const filas = await prisma.dailyPhrasePick.findMany({
-    orderBy: { date: "desc" },
+    orderBy: [{ date: "desc" }, { audience: "asc" }],
     take: limite,
   });
   return filas.map((f) => ({
     ...f,
-    frase: fraseDeIndice(f.phraseIndex),
+    frase: f.status === "SKIPPED" ? null : fraseDeIndice(f.phraseIndex),
   }));
 }

@@ -5,6 +5,7 @@ import DailyPhraseReview from "@/components/admin/DailyPhraseReview";
 import PhraseSubstitute from "@/components/admin/PhraseSubstitute";
 import PhraseSourceChecklist from "@/components/admin/PhraseSourceChecklist";
 import {
+  AUDIENCIAS,
   PRIMER_DIA,
   ULTIMO_DIA,
   VERSION_CORPUS,
@@ -20,9 +21,10 @@ import {
   totalFuentes,
 } from "@/lib/frases";
 import {
+  conteoPorFecha,
   historialDeSelecciones,
   listaDeVerificacion,
-  seleccionDe,
+  seleccionesDelDia,
   seleccionesEnRango,
   verificacionDeFuentes,
 } from "@/lib/frases-queries";
@@ -34,6 +36,8 @@ const NOMBRES_MES = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
   "julio", "agosto", "setiembre", "octubre", "noviembre", "diciembre",
 ];
+
+const TOTAL_AUDIENCIAS = AUDIENCIAS.length;
 
 function claseCalor(calor) {
   if (calor >= 9) return "bg-accent-700 text-white";
@@ -61,16 +65,21 @@ export default async function AdminPhrasesPage({ searchParams }) {
   const enVivo = fechaVigente();
   const solicitada = acotarFecha(params?.fecha ? String(params.fecha) : null);
   const fecha = solicitada || acotarFecha(hoy) || PRIMER_DIA;
+  const audienciaFoco =
+    params?.audiencia && AUDIENCIAS.some((a) => a.id === params.audiencia)
+      ? String(params.audiencia)
+      : null;
 
   const dia = diaDeFrases(fecha);
-  const seleccion = await seleccionDe(fecha);
+  const seleccionesPorAudiencia = await seleccionesDelDia(fecha);
+  const decididasDelDia = seleccionesPorAudiencia.size;
 
   // Rejilla del mes de la fecha en foco.
   const mes = fecha.slice(0, 7);
   const desdeMes = `${mes}-01`;
   const hastaMes = `${mes}-31`;
   const diasDelMes = resumenRango(desdeMes, hastaMes);
-  const seleccionesMes = await seleccionesEnRango(desdeMes, hastaMes);
+  const conteoMes = await conteoPorFecha(desdeMes, hastaMes);
 
   const verificadasDelDia = await verificacionDeFuentes(
     dia ? dia.candidatas.map((c) => c.claveFuente) : [],
@@ -80,17 +89,21 @@ export default async function AdminPhrasesPage({ searchParams }) {
   );
 
   const { lista, total, verificadas } = await listaDeVerificacion({ limite: 60 });
-  const historial = await historialDeSelecciones(12);
+  const historial = await historialDeSelecciones(24);
   const facetas = facetasDelCorpus();
 
   const todos = resumenRango(PRIMER_DIA, ULTIMO_DIA);
-  const decididas = await seleccionesEnRango(PRIMER_DIA, ULTIMO_DIA);
+  const conteoTotal = await conteoPorFecha(PRIMER_DIA, ULTIMO_DIA);
+  const diasCompletos = [...conteoTotal.entries()].filter(([, n]) => n >= TOTAL_AUDIENCIAS).length;
   const altaExposicion = diasDeAltaExposicion(hoy, ULTIMO_DIA);
-  const altaSinDecidir = altaExposicion.filter((d) => !decididas.has(d.fecha));
+  const altaSinDecidir = altaExposicion.filter((d) => (conteoTotal.get(d.fecha) || 0) < TOTAL_AUDIENCIAS);
+
+  // Objeto plano (no Map): tiene que cruzar al componente cliente.
+  const selecciones = Object.fromEntries(seleccionesPorAudiencia);
 
   // Se reusa el componente de la revisión diaria dándole una sesión de un solo
-  // día: así la elección, la omisión y la reapertura se comportan igual aquí que
-  // en las acciones diarias.
+  // día: así la elección, la omisión y la reapertura se comportan igual aquí
+  // que en las acciones diarias.
   const sesionDeUnDia = {
     fecha: hoy,
     objetivoDeHoy: [],
@@ -100,7 +113,7 @@ export default async function AdminPhrasesPage({ searchParams }) {
           {
             fecha,
             sesion: sesionDe(fecha),
-            atrasada: sesionDe(fecha) < hoy && !seleccion,
+            atrasada: sesionDe(fecha) < hoy && decididasDelDia < TOTAL_AUDIENCIAS,
             enVivo: fecha <= enVivo,
             resumen: {
               fecha: dia.fecha,
@@ -112,23 +125,19 @@ export default async function AdminPhrasesPage({ searchParams }) {
               vector: dia.vector,
             },
             candidatas: dia.candidatas,
-            seleccion: seleccion
-              ? {
-                  phraseIndex: seleccion.phraseIndex,
-                  status: seleccion.status,
-                  author: seleccion.author,
-                }
-              : null,
+            selecciones,
+            decididas: decididasDelDia,
+            totalAudiencias: TOTAL_AUDIENCIAS,
           },
         ]
       : [],
   };
 
   const metricas = [
-    { label: "Días decididos", value: `${decididas.size}/${todos.length}`, help: "En toda la ventana del corpus" },
+    { label: "Días completos", value: `${diasCompletos}/${todos.length}`, help: "Las 8 audiencias decididas" },
     { label: "Frases del corpus", value: totalFrases(), help: `${totalFuentes()} pares autor–obra` },
     { label: "Fuentes verificadas", value: `${verificadas}/${total}`, help: "Candado de la placa de redes" },
-    { label: "Alta exposición", value: altaSinDecidir.length, help: "Días de calor 9-10 sin decidir" },
+    { label: "Alta exposición", value: altaSinDecidir.length, help: "Días de calor 9-10 sin completar" },
   ];
 
   return (
@@ -160,7 +169,7 @@ export default async function AdminPhrasesPage({ searchParams }) {
         {altaSinDecidir.length ? (
           <section className="rounded-lg border border-accent-300 bg-accent-50 p-5">
             <h2 className="text-sm font-bold uppercase tracking-[0.14em] text-accent-950">
-              Días de máxima exposición sin decidir
+              Días de máxima exposición sin completar
             </h2>
             <p className="mt-1 text-xs text-accent-950">
               El corpus recomienda una pasada humana sobre los días de calor 9–10: son los de mayor
@@ -173,7 +182,8 @@ export default async function AdminPhrasesPage({ searchParams }) {
                   href={`/panel/admin/frases?fecha=${d.fecha}`}
                   className="rounded-full border border-accent-500 bg-white px-3 py-1 text-xs font-semibold text-accent-950 hover:bg-accent-100"
                 >
-                  {d.fecha} · {d.evento || "sin evento"} · {d.calor}/10
+                  {d.fecha} · {d.evento || "sin evento"} · {conteoTotal.get(d.fecha) || 0}/
+                  {TOTAL_AUDIENCIAS} · {d.calor}/10
                 </Link>
               ))}
             </div>
@@ -207,15 +217,14 @@ export default async function AdminPhrasesPage({ searchParams }) {
 
           <div className="mt-4 flex flex-wrap gap-1.5">
             {diasDelMes.map((d) => {
-              const decidida = seleccionesMes.get(d.fecha);
+              const decididas = conteoMes.get(d.fecha) || 0;
+              const completo = decididas >= TOTAL_AUDIENCIAS;
               const esActual = d.fecha === fecha;
               return (
                 <Link
                   key={d.fecha}
                   href={`/panel/admin/frases?fecha=${d.fecha}`}
-                  title={`${d.fecha} · calor ${d.calor}/10${d.evento ? ` · ${d.evento}` : ""}${
-                    decidida ? " · decidida" : " · sin decidir"
-                  }`}
+                  title={`${d.fecha} · calor ${d.calor}/10${d.evento ? ` · ${d.evento}` : ""} · ${decididas}/${TOTAL_AUDIENCIAS} audiencias`}
                   className={`flex w-14 flex-col items-center rounded-md px-1 py-1.5 text-center ${claseCalor(
                     d.calor,
                   )} ${esActual ? "ring-2 ring-brand-900 ring-offset-1" : ""}`}
@@ -225,14 +234,15 @@ export default async function AdminPhrasesPage({ searchParams }) {
                     {d.calor}/10
                   </span>
                   <span className="mt-0.5 text-[10px] font-bold">
-                    {decidida ? (decidida.status === "SKIPPED" ? "—" : "✓") : "·"}
+                    {completo ? "✓" : decididas > 0 ? `${decididas}/${TOTAL_AUDIENCIAS}` : "·"}
                   </span>
                 </Link>
               );
             })}
           </div>
           <p className="mt-3 text-[11px] text-neutral-600">
-            ✓ decidida · — sin publicación · · pendiente. El color es el calor psicosocial del día.
+            ✓ las 8 audiencias decididas · n/8 a medio decidir · · sin empezar. El color es el
+            calor psicosocial del día.
           </p>
         </section>
 
@@ -248,7 +258,8 @@ export default async function AdminPhrasesPage({ searchParams }) {
           <PhraseSubstitute
             fecha={fecha}
             facetas={facetas}
-            elegida={seleccion?.phraseIndex ?? null}
+            selecciones={selecciones}
+            audienciaInicial={audienciaFoco}
           />
         ) : null}
 
@@ -267,6 +278,9 @@ export default async function AdminPhrasesPage({ searchParams }) {
                     >
                       {h.date}
                     </Link>
+                    <span className="rounded-full bg-neutral-200 px-2 py-0.5 font-bold text-neutral-800">
+                      {h.audience}
+                    </span>
                     <span className="rounded-full border border-neutral-300 px-2 py-0.5 font-semibold">
                       {h.status === "SKIPPED"
                         ? "sin publicación"
@@ -274,7 +288,6 @@ export default async function AdminPhrasesPage({ searchParams }) {
                           ? "sustituida"
                           : "elegida"}
                     </span>
-                    {h.audience ? <span>{h.audience}</span> : null}
                   </div>
                   {h.status !== "SKIPPED" ? (
                     <>
