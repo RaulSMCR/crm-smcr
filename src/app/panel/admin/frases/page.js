@@ -11,6 +11,7 @@ import {
   VERSION_CORPUS,
   diaDeFrases,
   diasDeAltaExposicion,
+  estadoDeVigencia,
   existeDia,
   facetasDelCorpus,
   fechaHoy,
@@ -70,6 +71,7 @@ export default async function AdminPhrasesPage({ searchParams }) {
       ? String(params.audiencia)
       : null;
 
+  const vigencia = estadoDeVigencia(hoy);
   const dia = diaDeFrases(fecha);
   const seleccionesPorAudiencia = await seleccionesDelDia(fecha);
   const decididasDelDia = seleccionesPorAudiencia.size;
@@ -165,6 +167,27 @@ export default async function AdminPhrasesPage({ searchParams }) {
             </div>
           ))}
         </div>
+
+        {vigencia.requiereRenovacion ? (
+          <section className="rounded-lg border border-accent-500 bg-accent-50 p-5">
+            <h2 className="text-sm font-bold uppercase tracking-[0.14em] text-accent-950">
+              {vigencia.vencido ? "El corpus se agotó" : "Toca renovar el corpus"}
+            </h2>
+            <p className="mt-1 text-sm text-accent-950">
+              {vigencia.vencido
+                ? `El corpus terminó el ${vigencia.ultimoDia}. Desde entonces la app cae a las frases placeholder heredadas.`
+                : `Quedan ${vigencia.diasRestantes} días de material: el corpus termina el ${vigencia.ultimoDia}. Hay que producir el ciclo siguiente antes de esa fecha.`}
+            </p>
+            <p className="mt-2 text-xs text-accent-950">
+              Con la base de conocimiento nueva en su carpeta, se regenera con{" "}
+              <code className="rounded bg-white/70 px-1 py-0.5 font-mono">
+                node scripts/generar-dataset-frases.mjs &quot;ruta/a/la/carpeta&quot;
+              </code>{" "}
+              y se despliega. El script verifica los 365 días y las 8 audiencias antes de escribir
+              nada.
+            </p>
+          </section>
+        ) : null}
 
         {altaSinDecidir.length ? (
           <section className="rounded-lg border border-accent-300 bg-accent-50 p-5">

@@ -8,6 +8,7 @@ import DailyPhraseReview from "@/components/admin/DailyPhraseReview";
 import { momentoActual, tareasDelCalendario } from "@/lib/psychosocial-calendar";
 import { coberturaDeTemas } from "@/lib/psychosocial-calendar-queries";
 import { prepararSesion } from "@/lib/frases-queries";
+import { estadoDeVigencia } from "@/lib/frases";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -195,7 +196,25 @@ export default async function AdminTasksPage() {
   // fin de semana largo, así que la sesión puede traer uno o tres días.
   const { sesion, verificaciones } = await prepararSesion();
 
+  // Renovación anual del corpus de frases. Aparece sola 45 días antes de que se
+  // agote el material y no se va hasta que se regenere el dataset.
+  const vigencia = estadoDeVigencia();
   const tareasCalendario = tareasDelCalendario(momento);
+  if (vigencia.requiereRenovacion) {
+    tareasCalendario.unshift({
+      id: `cal:renovar-corpus:${vigencia.ultimoDia}`,
+      kind: "decision",
+      label: vigencia.vencido
+        ? "El corpus de frases se agotó: hay que renovarlo"
+        : `Renovar el corpus de frases (quedan ${vigencia.diasRestantes} días)`,
+      detail:
+        `El material termina el ${vigencia.ultimoDia}. Producir la base de conocimiento del ciclo ` +
+        "siguiente y regenerarla con scripts/generar-dataset-frases.mjs.",
+      ventana: "RENOVACION",
+      marcaId: "renovar-corpus",
+    });
+  }
+
   const areaCalendario = tareasCalendario.length
     ? {
         id: "calendario",

@@ -327,6 +327,36 @@ export function buscarFrases({
   return resultados;
 }
 
+// ─── Vigencia del corpus ─────────────────────────────────────────────────────
+// El corpus cubre una ventana cerrada de 365 días. Cuando se agota, la app se
+// queda sin frase: no hay degradación elegante posible más allá del placeholder
+// heredado. La alerta se deriva de la fecha real de fin y no de un día fijo en
+// el calendario, para que siga siendo correcta si la próxima entrega cambia de
+// ventana.
+
+/** Días de aviso antes de que se agote el corpus. */
+export const DIAS_DE_AVISO_DE_RENOVACION = 45;
+
+/**
+ * Estado de vigencia del corpus. `requiereRenovacion` se enciende 45 días antes
+ * del final, que para la ventana actual (termina el 14-ago) cae a fin de junio:
+ * cubre con margen el 1.º de agosto y deja tiempo real para producir las 5.840
+ * asignaciones del ciclo siguiente.
+ */
+export function estadoDeVigencia(fecha = hoyEnCostaRica()) {
+  const diasRestantes = Math.round(
+    (aFecha(ULTIMO_DIA) - aFecha(fecha)) / 86400000,
+  );
+  return {
+    primerDia: PRIMER_DIA,
+    ultimoDia: ULTIMO_DIA,
+    version: VERSION_CORPUS,
+    diasRestantes,
+    vencido: diasRestantes < 0,
+    requiereRenovacion: diasRestantes <= DIAS_DE_AVISO_DE_RENOVACION,
+  };
+}
+
 /** Vocabulario del corpus, para los filtros de la página de control. */
 export function facetasDelCorpus() {
   const temas = new Set();

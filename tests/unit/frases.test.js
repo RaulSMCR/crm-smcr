@@ -63,9 +63,14 @@ describe("integridad del dataset", () => {
     expect(resumenRango(PRIMER_DIA, ULTIMO_DIA)).toHaveLength(365);
   });
 
-  it("conserva el corpus desduplicado", () => {
-    expect(totalFrases()).toBe(1112);
-    expect(totalFuentes()).toBe(486);
+  // Huella del corpus. Estas cifras cambian cuando se regenera el dataset desde
+  // la base de conocimiento; el test es a propósito estricto, para que un
+  // reemplazo silencioso del corpus no pase inadvertido. Al regenerar, se
+  // actualizan acá y solo acá.
+  it("coincide con la huella del corpus vigente", () => {
+    expect(totalFrases()).toBe(1145);
+    expect(totalFuentes()).toBe(494);
+    expect(facetasDelCorpus().autores).toHaveLength(42);
   });
 
   it("da 16 candidatas por día en todos los días del año", () => {
@@ -107,9 +112,9 @@ describe("integridad del dataset", () => {
     expect(madre.vector).toBeTruthy();
   });
 
-  it("conserva las 67 ventanas sensibles y los 30 días de alta exposición", () => {
+  it("conserva las ventanas sensibles y los días de alta exposición", () => {
     const todos = resumenRango(PRIMER_DIA, ULTIMO_DIA);
-    expect(todos.filter((d) => d.ventanaSensible)).toHaveLength(67);
+    expect(todos.filter((d) => d.ventanaSensible)).toHaveLength(68);
     expect(diasDeAltaExposicion(PRIMER_DIA, ULTIMO_DIA)).toHaveLength(30);
   });
 
@@ -258,17 +263,25 @@ describe("búsqueda para sustituir", () => {
 
   it("expone las facetas reales del corpus", () => {
     const f = facetasDelCorpus();
-    expect(f.temas).toHaveLength(19);
-    expect(f.autores).toHaveLength(40);
+    expect(f.temas).toHaveLength(20);
     expect(f.categorias.length).toBeGreaterThan(4);
+  });
+
+  it("incorpora el eje de ejercicio que trajeron Sloterdijk y Ortega", () => {
+    const f = facetasDelCorpus();
+    expect(f.temas).toContain("ejercicio");
+    expect(f.autores).toContain("Peter Sloterdijk");
+    expect(f.autores).toContain("José Ortega y Gasset");
+    // El tema tiene material real detrás, no es una etiqueta huérfana.
+    expect(buscarFrases({ tema: "ejercicio", limite: 5 }).length).toBeGreaterThan(0);
   });
 });
 
 describe("fuentes", () => {
   it("ordena por impacto y suma las 5.840 asignaciones", () => {
     const fuentes = fuentesPorImpacto();
-    expect(fuentes).toHaveLength(486);
-    expect(fuentes[0].usos).toBeGreaterThan(fuentes[485].usos);
+    expect(fuentes).toHaveLength(totalFuentes());
+    expect(fuentes[0].usos).toBeGreaterThan(fuentes[fuentes.length - 1].usos);
     expect(fuentes.reduce((n, f) => n + f.usos, 0)).toBe(5840);
   });
 
