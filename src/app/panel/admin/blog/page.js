@@ -30,11 +30,22 @@ export default async function AdminBlogPage({ searchParams }) {
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-3xl font-bold text-slate-800">Gestión Editorial</h1>
-          <Link href="/panel/admin/blog/taxonomia" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-brand-400">
-            Taxonomía de la biblioteca →
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href={authorId ? `/panel/admin/blog/nuevo?authorId=${authorId}` : "/panel/admin/blog/nuevo"}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+            >
+              + Nuevo artículo
+            </Link>
+            <Link href="/panel/admin/blog/taxonomia" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-brand-400">
+              Taxonomía de la biblioteca →
+            </Link>
+          </div>
         </div>
-        <p className="text-slate-500">Revise y apruebe los artículos de los profesionales para cuidar la calidad de la información.</p>
+        <p className="text-slate-500">
+          Revise y apruebe los artículos de los profesionales, o escriba uno nuevo (también importando un{" "}
+          <span className="font-mono">.md</span>) para cuidar la calidad de la información.
+        </p>
 
         {authorId && (
           <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl p-4">

@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import SafeImage from "@/components/SafeImage";
 import MarkdownEditor from "@/components/MarkdownEditor";
+import MarkdownFileImport from "@/components/blog/MarkdownFileImport";
 import { IMAGE_FALLBACKS, PUBLIC_IMAGE_ACCEPT, SUPPORTED_PUBLIC_IMAGE_TYPES } from "@/lib/images";
 import { extractCrmMetadata } from "@/lib/editorial-metadata";
 
@@ -65,6 +66,20 @@ export default function PostEditor({ initial = null }) {
     if (imported.metadata.focusKeyword) setFocusKeyword(imported.metadata.focusKeyword);
     window.dispatchEvent(new CustomEvent("crm:editorial-metadata", { detail: imported.metadata }));
     setNotice("Metadatos CRM detectados. Revisá y guardá los cambios.");
+  }
+
+  function handleMarkdownImport(parsed) {
+    setError(null);
+    if (parsed.title) setTitle(parsed.title);
+    if (parsed.content) setContent(parsed.content);
+    if (parsed.slug) setSlug(parsed.slug);
+    if (parsed.metaTitle) setMetaTitle(parsed.metaTitle);
+    if (parsed.metaDescription) setMetaDescription(parsed.metaDescription);
+    if (parsed.focusKeyword) setFocusKeyword(parsed.focusKeyword);
+    if (parsed.crmMetadata) {
+      window.dispatchEvent(new CustomEvent("crm:editorial-metadata", { detail: parsed.crmMetadata }));
+    }
+    setNotice("Archivo importado. Revisá el texto antes de guardar.");
   }
 
   function validate() {
@@ -228,6 +243,17 @@ export default function PostEditor({ initial = null }) {
           required
         />
       </div>
+
+      <details className="rounded-lg border border-slate-200 bg-white p-4">
+        <summary className="cursor-pointer text-sm font-semibold text-slate-800">
+          Importar desde un archivo .md
+        </summary>
+        <p className="mt-1 mb-3 text-xs text-slate-600">
+          Si ya lo escribiste fuera del CRM, arrastrá el archivo o buscalo en tu equipo. Se completan el título, el
+          contenido y el SEO que traiga el documento.
+        </p>
+        <MarkdownFileImport onImport={handleMarkdownImport} compact />
+      </details>
 
       <div>
         <label className="mb-1 block text-sm font-medium">Contenido *</label>

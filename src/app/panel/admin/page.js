@@ -147,7 +147,7 @@ export default async function AdminDashboard() {
           <DashboardCard
             href="/panel/admin/blog"
             title="Editorial"
-            description="Revisión de publicaciones profesionales."
+            description="Revisión de publicaciones profesionales y redacción o importación de artículos nuevos."
             count={postsPendingCount}
             tone="accent"
           />

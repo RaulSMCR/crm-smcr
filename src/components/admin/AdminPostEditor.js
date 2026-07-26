@@ -8,6 +8,7 @@ import { notifyPostToReaders } from "@/actions/push-actions";
 import SeoFieldset from "@/components/admin/SeoFieldset";
 import SafeImage from "@/components/SafeImage";
 import MarkdownEditor from "@/components/MarkdownEditor";
+import MarkdownFileImport from "@/components/blog/MarkdownFileImport";
 import { IMAGE_FALLBACKS, PUBLIC_IMAGE_ACCEPT, SUPPORTED_PUBLIC_IMAGE_TYPES } from "@/lib/images";
 import { extractCrmMetadata } from "@/lib/editorial-metadata";
 
@@ -151,6 +152,24 @@ export default function AdminPostEditor({ post }) {
     setNotice("Metadatos CRM detectados. Revisá y guardá los cambios.");
   }
 
+  function handleMarkdownImport(parsed) {
+    setError(null);
+    setForm((current) => ({
+      ...current,
+      title: parsed.title || current.title,
+      content: parsed.content || current.content,
+      slug: parsed.slug || current.slug,
+      excerpt: parsed.excerpt || current.excerpt,
+      metaTitle: parsed.metaTitle || current.metaTitle,
+      metaDescription: parsed.metaDescription || current.metaDescription,
+      focusKeyword: parsed.focusKeyword || current.focusKeyword,
+    }));
+    if (parsed.crmMetadata) {
+      window.dispatchEvent(new CustomEvent("crm:editorial-metadata", { detail: parsed.crmMetadata }));
+    }
+    setNotice("Archivo importado. Revisá el texto y guardá los cambios.");
+  }
+
   async function save() {
     setError(null);
     setNotice(null);
@@ -286,6 +305,17 @@ export default function AdminPostEditor({ post }) {
             className="w-full rounded-lg border border-slate-300 px-3 py-2"
           />
         </div>
+
+        <details className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <summary className="cursor-pointer text-sm font-semibold text-slate-800">
+            Reemplazar el contenido con un archivo .md
+          </summary>
+          <p className="mt-1 mb-3 text-xs text-slate-600">
+            Arrastrá el archivo o buscalo en tu equipo. Se completan el título, el contenido y el SEO que traiga; nada
+            se guarda hasta que uses &ldquo;Guardar edicion&rdquo;.
+          </p>
+          <MarkdownFileImport onImport={handleMarkdownImport} compact />
+        </details>
 
         <div>
           <label className="mb-1 block text-sm font-semibold text-slate-700">Contenido</label>

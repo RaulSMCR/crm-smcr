@@ -38,6 +38,7 @@ const AREAS = [
     ],
     links: [
       { href: "/panel/admin/blog", label: "Gestion editorial" },
+      { href: "/panel/admin/blog/nuevo", label: "Nuevo artículo" },
       { href: "/blog", label: "Blog publico" },
     ],
   },

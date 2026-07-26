@@ -202,3 +202,62 @@ export async function updateAdminPost(postInput) {
     return { error: "No se pudo guardar el artículo." };
   }
 }
+
+/**
+ * Crea un artículo desde el panel admin. Nace como BORRADOR y con un autor
+ * profesional asignado (Post.authorId es obligatorio en el schema y el blog
+ * público firma cada artículo con ese profesional). El resto de la edición
+ * —SEO, portada, taxonomía, publicación— ocurre en /panel/admin/blog/[id].
+ */
+export async function createAdminPost(input) {
+  try {
+    const session = await getSession();
+    requireAdmin(session);
+
+    const authorId = String(input?.authorId || "").trim();
+    const title = String(input?.title || "").trim();
+    const content = String(input?.content || "").trim();
+    const excerpt = String(input?.excerpt || "").trim() || null;
+    const metaTitle = String(input?.metaTitle || "").trim() || null;
+    const metaDescription = String(input?.metaDescription || "").trim() || null;
+    const focusKeyword = String(input?.focusKeyword || "").trim() || null;
+
+    if (!authorId) return { error: "Elegí el profesional que firma el artículo." };
+    if (title.length < 4) return { error: "El título debe tener al menos 4 caracteres." };
+    if (content.length < 20) return { error: "El contenido debe tener al menos 20 caracteres." };
+
+    const author = await prisma.professionalProfile.findUnique({
+      where: { id: authorId },
+      select: { id: true },
+    });
+    if (!author) return { error: "El profesional elegido ya no existe." };
+
+    let slug = slugify(input?.slug || title);
+    if (!slug) slug = `articulo-${Date.now()}`;
+
+    const taken = await prisma.post.findUnique({ where: { slug }, select: { id: true } });
+    if (taken) slug = `${slug}-${Math.random().toString(36).slice(2, 7)}`;
+
+    const post = await prisma.post.create({
+      data: {
+        title,
+        slug,
+        content,
+        excerpt,
+        metaTitle,
+        metaDescription,
+        focusKeyword,
+        status: "DRAFT",
+        authorId: author.id,
+      },
+      select: { id: true },
+    });
+
+    revalidatePath("/panel/admin/blog");
+    return { success: true, id: post.id };
+  } catch (error) {
+    if (error?.code === "P2002") return { error: "Ya existe un artículo con ese slug." };
+    console.error("Error creando post admin:", error);
+    return { error: "No se pudo crear el artículo." };
+  }
+}
