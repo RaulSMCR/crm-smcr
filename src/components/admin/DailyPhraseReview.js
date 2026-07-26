@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { AUDIENCIAS } from "@/lib/frases";
+// Desde frases-audiencia y no desde frases: este último importa los 300 KB del
+// corpus y los arrastraría al bundle del navegador.
+import { AUDIENCIAS } from "@/lib/frases-audiencia";
 import { elegirFraseDelDia, omitirDia, reabrirDia } from "@/actions/frases-actions";
 
 // Escala de calor 0–10. Un solo tono, como el mapa térmico: globals.css aplasta

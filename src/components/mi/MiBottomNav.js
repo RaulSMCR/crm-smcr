@@ -9,6 +9,7 @@ import { usePathname } from "next/navigation";
 const TABS = [
   { href: "/mi", label: "Inicio", icon: "home", exact: true },
   { href: "/mi/agenda", label: "Agenda", icon: "calendar" },
+  { href: "/mi/mensajes", label: "Mensajes", icon: "mail", badge: "sinLeer" },
   { href: "/mi/pagos", label: "Pagos", icon: "card" },
   { href: "/mi/biblioteca", label: "Biblioteca", icon: "book" },
 ];
@@ -58,12 +59,19 @@ function TabIcon({ name }) {
           <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 0 3-3h7z" />
         </svg>
       );
+    case "mail":
+      return (
+        <svg {...common}>
+          <rect width="20" height="16" x="2" y="4" rx="2" />
+          <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+        </svg>
+      );
     default:
       return null;
   }
 }
 
-export default function MiBottomNav() {
+export default function MiBottomNav({ sinLeer = 0 }) {
   const pathname = usePathname();
 
   return (
@@ -83,7 +91,17 @@ export default function MiBottomNav() {
                   active ? "text-brand-600" : "text-neutral-500 hover:text-neutral-700"
                 }`}
               >
-                <TabIcon name={tab.icon} />
+                <span className="relative">
+                  <TabIcon name={tab.icon} />
+                  {tab.badge === "sinLeer" && sinLeer > 0 ? (
+                    <span
+                      aria-label={`${sinLeer} sin leer`}
+                      className="absolute -right-2 -top-1 min-w-[1.1rem] rounded-full bg-accent-700 px-1 text-center text-[10px] font-bold leading-[1.1rem] text-white"
+                    >
+                      {sinLeer > 9 ? "9+" : sinLeer}
+                    </span>
+                  ) : null}
+                </span>
                 <span>{tab.label}</span>
               </Link>
             </li>

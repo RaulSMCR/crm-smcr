@@ -28,6 +28,29 @@
 
 import { DEFAULT_TZ } from "@/lib/timezone";
 
+// ─── Catálogo de audiencias ──────────────────────────────────────────────────
+// Vive acá y no en frases.js a propósito: frases.js importa los 300 KB del
+// corpus, así que cualquier componente cliente que necesitara solo las
+// etiquetas se llevaba el corpus entero al navegador. Este módulo no importa
+// ningún JSON.
+//
+// Matriz 2 géneros × 2 franjas × 2 estados de registro. El registro gobierna el
+// tono: registrado recibe homeostasis (reflexión y eustrés), no registrado
+// recibe interpelación (imperativo, segunda persona, conversión).
+
+export const AUDIENCIAS = [
+  { id: "MR26", label: "Mujeres registradas 26+", genero: "F", franja: "26+", registro: true, tono: "Homeostasis · reflexión amable" },
+  { id: "HR26", label: "Hombres registrados 26+", genero: "M", franja: "26+", registro: true, tono: "Homeostasis · reflexión amable" },
+  { id: "MN26", label: "Mujeres no registradas 26+", genero: "F", franja: "26+", registro: false, tono: "Interpelación · llamado a la acción" },
+  { id: "HN26", label: "Hombres no registrados 26+", genero: "M", franja: "26+", registro: false, tono: "Interpelación · llamado a la acción" },
+  { id: "MRJ", label: "Mujeres registradas −26", genero: "F", franja: "−26", registro: true, tono: "Homeostasis · lenguaje llano" },
+  { id: "HRJ", label: "Hombres registrados −26", genero: "M", franja: "−26", registro: true, tono: "Homeostasis · lenguaje llano" },
+  { id: "MNJ", label: "Mujeres no registradas −26", genero: "F", franja: "−26", registro: false, tono: "Interpelación · llamado a la acción" },
+  { id: "HNJ", label: "Hombres no registrados −26", genero: "M", franja: "−26", registro: false, tono: "Interpelación · llamado a la acción" },
+];
+
+export const ROLES = { 1: "ancla", 2: "contrapunto" };
+
 /** Las 4 audiencias que aplican a alguien que ya está registrado. */
 export const AUDIENCIAS_REGISTRADAS = ["MR26", "HR26", "MRJ", "HRJ"];
 

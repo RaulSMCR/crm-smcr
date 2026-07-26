@@ -6,6 +6,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import MiBottomNav from "@/components/mi/MiBottomNav";
+import { sinLeerDe } from "@/lib/mensajes";
 import ServiceWorkerRegister from "@/components/mi/ServiceWorkerRegister";
 import InstallPrompt from "@/components/mi/InstallPrompt";
 
@@ -34,6 +35,8 @@ export default async function MiLayout({ children }) {
   if (!session) redirect("/ingresar?next=/mi");
   if (session.role !== "USER") redirect("/panel");
 
+  const sinLeer = await sinLeerDe(session.sub);
+
   return (
     <>
       {/*
@@ -59,7 +62,7 @@ export default async function MiLayout({ children }) {
           {children}
         </main>
         </div>
-        <MiBottomNav />
+        <MiBottomNav sinLeer={sinLeer} />
       </div>
     </>
   );

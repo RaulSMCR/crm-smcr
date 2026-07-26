@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { AUDIENCIAS } from "@/lib/frases";
+// Desde frases-audiencia y no desde frases: este último importa los 300 KB del
+// corpus y los arrastraría al bundle del navegador.
+import { AUDIENCIAS } from "@/lib/frases-audiencia";
 import { buscarEnCorpus, elegirFraseDelDia } from "@/actions/frases-actions";
 
 /**

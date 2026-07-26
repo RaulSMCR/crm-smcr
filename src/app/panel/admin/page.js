@@ -121,6 +121,11 @@ export default async function AdminDashboard() {
             tone="accent"
           />
           <DashboardCard
+            href="/panel/admin/mensajes"
+            title="Casilla de mensajes"
+            description="Comunicados a los usuarios, por audiencia o a todos, con acuse de lectura."
+          />
+          <DashboardCard
             href="/panel/admin/frases"
             title="Frase diaria"
             description="Revisión y elección de la frase del día, con un día de anticipación."

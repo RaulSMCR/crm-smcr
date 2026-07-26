@@ -25,22 +25,15 @@ export const VERSION_CORPUS = corpus.version;
 export const HORA_DE_CAMBIO = 6; // 6:00 en Costa Rica
 
 // ─── Audiencias ──────────────────────────────────────────────────────────────
-// Matriz 2 géneros × 2 franjas × 2 estados de registro. El registro gobierna el
-// tono: registrado recibe homeostasis (reflexión y eustrés), no registrado
-// recibe interpelación (imperativo, segunda persona, conversión).
+// El catálogo vive en frases-audiencia.js, que no importa ningún JSON. Se
+// reexporta acá por comodidad de los consumidores de servidor, pero un
+// componente CLIENTE debe importarlo de allá: importarlo de este módulo se
+// lleva los 300 KB del corpus al navegador.
 
-export const AUDIENCIAS = [
-  { id: "MR26", label: "Mujeres registradas 26+", genero: "F", franja: "26+", registro: true, tono: "Homeostasis · reflexión amable" },
-  { id: "HR26", label: "Hombres registrados 26+", genero: "M", franja: "26+", registro: true, tono: "Homeostasis · reflexión amable" },
-  { id: "MN26", label: "Mujeres no registradas 26+", genero: "F", franja: "26+", registro: false, tono: "Interpelación · llamado a la acción" },
-  { id: "HN26", label: "Hombres no registrados 26+", genero: "M", franja: "26+", registro: false, tono: "Interpelación · llamado a la acción" },
-  { id: "MRJ", label: "Mujeres registradas −26", genero: "F", franja: "−26", registro: true, tono: "Homeostasis · lenguaje llano" },
-  { id: "HRJ", label: "Hombres registrados −26", genero: "M", franja: "−26", registro: true, tono: "Homeostasis · lenguaje llano" },
-  { id: "MNJ", label: "Mujeres no registradas −26", genero: "F", franja: "−26", registro: false, tono: "Interpelación · llamado a la acción" },
-  { id: "HNJ", label: "Hombres no registrados −26", genero: "M", franja: "−26", registro: false, tono: "Interpelación · llamado a la acción" },
-];
+export { AUDIENCIAS, ROLES } from "@/lib/frases-audiencia";
+import { AUDIENCIAS } from "@/lib/frases-audiencia";
 
-export const ROLES = { 1: "ancla", 2: "contrapunto" };
+const ROLES_INTERNOS = { 1: "ancla", 2: "contrapunto" };
 
 const AUDIENCIA_POR_ID = new Map(AUDIENCIAS.map((a) => [a.id, a]));
 const DIA_POR_FECHA = new Map(calendario.dias.map((d) => [d.d, d]));
@@ -206,7 +199,7 @@ export function diaDeFrases(fecha) {
         genero: audiencia.genero,
         tono: audiencia.tono,
         slot: i + 1,
-        rol: ROLES[i + 1],
+        rol: ROLES_INTERNOS[i + 1],
       });
     });
   }
