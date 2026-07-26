@@ -149,6 +149,46 @@ export function totalFrases() {
   return corpus.frases.length;
 }
 
+// Índice inverso texto → posición. Se construye una vez por proceso.
+const INDICE_POR_TEXTO = new Map(corpus.frases.map((f, i) => [f.t, i]));
+
+/** Posición actual de una frase por su texto, o -1 si ya no está en el corpus. */
+export function indiceDeTexto(texto) {
+  const i = INDICE_POR_TEXTO.get(String(texto || ""));
+  return i === undefined ? -1 : i;
+}
+
+/**
+ * Reconcilia una elección guardada con el corpus vigente.
+ *
+ * Los índices se mueven cuando se regenera el dataset: el corpus se ordena
+ * alfabéticamente, así que agregar autores desplaza posiciones. La elección
+ * guarda una copia del texto justamente para esto, y acá se usa para recuperar
+ * el índice correcto. Sin esto, el panel muestra "sin elegir" una elección que
+ * sí está guardada.
+ *
+ * @returns {{phraseIndex: number, desfasada: boolean, huerfana: boolean}}
+ */
+export function reconciliarIndice(pick) {
+  if (!pick || pick.status === "SKIPPED") {
+    return { phraseIndex: -1, desfasada: false, huerfana: false };
+  }
+
+  const actual = corpus.frases[pick.phraseIndex];
+  if (actual && actual.t === pick.phraseText) {
+    return { phraseIndex: pick.phraseIndex, desfasada: false, huerfana: false };
+  }
+
+  const encontrado = indiceDeTexto(pick.phraseText);
+  return {
+    phraseIndex: encontrado,
+    desfasada: encontrado !== -1,
+    // La frase salió del corpus en la última regeneración: se conserva lo
+    // guardado, pero ya no hay candidata que la respalde.
+    huerfana: encontrado === -1,
+  };
+}
+
 export function totalFuentes() {
   return corpus.fuentes.length;
 }

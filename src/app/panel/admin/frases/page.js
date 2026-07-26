@@ -101,7 +101,27 @@ export default async function AdminPhrasesPage({ searchParams }) {
   const altaSinDecidir = altaExposicion.filter((d) => (conteoTotal.get(d.fecha) || 0) < TOTAL_AUDIENCIAS);
 
   // Objeto plano (no Map): tiene que cruzar al componente cliente.
-  const selecciones = Object.fromEntries(seleccionesPorAudiencia);
+  // Datos planos y serializables para el componente cliente, con la fecha de
+  // guardado ya formateada en hora de Costa Rica.
+  const formatoGuardado = new Intl.DateTimeFormat("es-CR", {
+    timeZone: "America/Costa_Rica",
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  const selecciones = Object.fromEntries(
+    [...seleccionesPorAudiencia.entries()].map(([aud, pick]) => [
+      aud,
+      {
+        phraseIndex: pick.phraseIndex,
+        status: pick.status,
+        author: pick.author,
+        fraseHuerfana: pick.fraseHuerfana,
+        guardadaEl: pick.updatedAt ? formatoGuardado.format(pick.updatedAt) : null,
+      },
+    ]),
+  );
 
   // Se reusa el componente de la revisión diaria dándole una sesión de un solo
   // día: así la elección, la omisión y la reapertura se comportan igual aquí

@@ -153,9 +153,16 @@ function BloqueAudiencia({ fecha, audiencia, candidatas, seleccion, verificacion
           {omitida ? (
             <span className="text-neutral-500">sin publicación</span>
           ) : seleccion ? (
-            <span className="text-brand-800">{seleccion.author}</span>
+            <span className="flex items-center gap-1.5">
+              <span className="rounded-full bg-brand-700 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                ✓ guardada
+              </span>
+              <span className="text-brand-800">{seleccion.author}</span>
+            </span>
           ) : (
-            <span className="text-accent-950">sin elegir</span>
+            <span className="rounded-full border border-accent-400 px-2 py-0.5 text-accent-950">
+              sin elegir
+            </span>
           )}
           <span className="text-neutral-400">{abierto ? "▲" : "▼"}</span>
         </span>
@@ -163,6 +170,18 @@ function BloqueAudiencia({ fecha, audiencia, candidatas, seleccion, verificacion
 
       {abierto ? (
         <div className="mt-3 space-y-2">
+          {seleccion && !omitida ? (
+            <p className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-[11px] text-brand-900">
+              <strong>Guardada</strong>
+              {seleccion.guardadaEl ? ` el ${seleccion.guardadaEl}` : ""}
+              {seleccion.status === "SUBSTITUTED" ? " · traída del corpus" : " · de las candidatas del día"}
+              . Elegir otra la reemplaza; no hace falta confirmar nada más.
+              {seleccion.fraseHuerfana
+                ? " Ojo: esta frase ya no existe en el corpus vigente, se conserva el texto guardado."
+                : ""}
+            </p>
+          ) : null}
+
           {omitida ? (
             <div className="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2">
               <span className="text-xs text-neutral-700">Esta audiencia quedó sin publicación.</span>

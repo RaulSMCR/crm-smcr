@@ -19,15 +19,27 @@ import {
   fechaHoy,
   fraseDeIndice,
   fuentesPorImpacto,
+  reconciliarIndice,
   sesionDelDia,
 } from "@/lib/frases";
+
+/**
+ * Devuelve la elección con su índice al día de hoy. El texto guardado manda
+ * sobre el índice: si el corpus se regeneró y las posiciones se movieron, el
+ * índice se recupera por texto. Ver `reconciliarIndice`.
+ */
+export function reconciliarSeleccion(pick) {
+  if (!pick) return null;
+  const { phraseIndex, desfasada, huerfana } = reconciliarIndice(pick);
+  return { ...pick, phraseIndex, indiceDesfasado: desfasada, fraseHuerfana: huerfana };
+}
 
 const TOTAL_AUDIENCIAS = AUDIENCIAS.length;
 
 /** Las hasta-8 elecciones de una fecha, indexadas por audiencia. */
 export async function seleccionesDelDia(fecha) {
   const filas = await prisma.dailyPhrasePick.findMany({ where: { date: String(fecha) } });
-  return new Map(filas.map((f) => [f.audience, f]));
+  return new Map(filas.map((f) => [f.audience, reconciliarSeleccion(f)]));
 }
 
 /** Elecciones de un rango cerrado, agrupadas por fecha y luego por audiencia. */
@@ -39,7 +51,7 @@ export async function seleccionesEnRango(desde, hasta) {
   const porFecha = new Map();
   for (const fila of filas) {
     if (!porFecha.has(fila.date)) porFecha.set(fila.date, new Map());
-    porFecha.get(fila.date).set(fila.audience, fila);
+    porFecha.get(fila.date).set(fila.audience, reconciliarSeleccion(fila));
   }
   return porFecha;
 }
