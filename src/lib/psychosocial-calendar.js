@@ -221,7 +221,21 @@ function blackFriday(anio) {
   return `${anio}-11-${String(cuartoJueves + 1).padStart(2, "0")}`;
 }
 
+/** El lunes siguiente a una fecha; la misma fecha si ya es lunes. */
+export function lunesSiguiente(iso) {
+  const dia = aFecha(iso).getUTCDay();
+  return dia === 1 ? iso : sumarDias(iso, (8 - dia) % 7);
+}
+
+/** Tercer lunes de enero (Blue Monday). */
+function blueMonday(anio) {
+  const primero = new Date(Date.UTC(anio, 0, 1, 12));
+  const desplazamiento = (1 - primero.getUTCDay() + 7) % 7; // 1 = lunes
+  return `${anio}-01-${String(1 + desplazamiento + 14).padStart(2, "0")}`;
+}
+
 const REGLAS_MOVILES = {
+  "blue-monday": (anio) => blueMonday(anio),
   "jueves-santo": (anio) => sumarDias(domingoDePascua(anio), -3),
   "viernes-santo": (anio) => sumarDias(domingoDePascua(anio), -2),
   "semana-santa": (anio) => ({
@@ -511,6 +525,73 @@ export const MARCAS = [
     prioridad: "ALTA",
   },
 
+  {
+    id: "difuntos",
+    titulo: "Día de los Difuntos",
+    tipo: "SOCIAL",
+    recurrencia: "ANUAL",
+    mesDia: "11-02",
+    precision: PRECISIONES.DIA,
+    ejes: { familiar: 3 },
+    publico: ["Personas en duelo", "Familias"],
+    vector:
+      "Duelo culturalmente autorizado: la única fecha del año con permiso social explícito para nombrar la pérdida.",
+    foco: "Duelo, memoria y rituales de despedida.",
+    temas: ["duelo"],
+    disciplinas: ["psicologia-clinica"],
+    fuente: "anexo §6",
+  },
+  {
+    id: "marchamo",
+    titulo: "Marchamo",
+    tipo: "ESTRUCTURAL",
+    recurrencia: "ANUAL",
+    mesDia: "11-01",
+    mesDiaFin: "12-31",
+    precision: PRECISIONES.MES,
+    ejes: { financiero: 4 },
+    publico: ["Hogares de clase media con vehículo", "Parejas"],
+    vector:
+      "Gasto anual obligatorio que colisiona con el aguinaldo y es detonante conocido de conflicto conyugal. La matriz original no lo contemplaba.",
+    foco: "Dinero y pareja: decidir juntos sin que el gasto se vuelva reproche.",
+    temas: ["estres-financiero", "vinculos"],
+    disciplinas: [],
+    fuente: "anexo §6",
+    prioridad: "ALTA",
+  },
+  {
+    id: "dia-internacional-hombre",
+    titulo: "Día Internacional del Hombre y Movember",
+    tipo: "EFEMERIDE",
+    recurrencia: "ANUAL",
+    mesDia: "11-19",
+    precision: PRECISIONES.DIA,
+    ejes: { familiar: 2, institucional: 2 },
+    publico: ["Hombres adultos", "Hombres jóvenes"],
+    vector:
+      "Junto al Día del Padre, la única fecha del año con permiso cultural para hablarle a un hombre costarricense de su salud mental sin activar la defensa.",
+    foco: "Salud mental masculina, consulta evitada y soledad no nombrada.",
+    temas: ["salud-mental-masculina", "soledad"],
+    disciplinas: ["psicologia-clinica"],
+    fuente: "anexo §6 y §7.3",
+    prioridad: "ALTA",
+  },
+  {
+    id: "violencia-contra-la-mujer",
+    titulo: "Día de la Eliminación de la Violencia contra la Mujer",
+    tipo: "EFEMERIDE",
+    recurrencia: "ANUAL",
+    mesDia: "11-25",
+    precision: PRECISIONES.DIA,
+    ejes: { institucional: 2, familiar: 2 },
+    publico: ["Mujeres", "Población general"],
+    vector: "Alta exposición pública y activación de vivencias personales de violencia.",
+    foco: "Violencia, límites y rutas de ayuda.",
+    temas: ["violencia", "vinculos"],
+    disciplinas: ["psicologia-clinica"],
+    fuente: "anexo §6",
+  },
+
   // ── Diciembre ─────────────────────────────────────────────────────────────
   {
     id: "abolicion-ejercito",
@@ -650,6 +731,41 @@ export const MARCAS = [
     fuente: "§3.6",
   },
 
+  {
+    id: "salario-escolar",
+    titulo: "Salario escolar",
+    tipo: "ESTRUCTURAL",
+    recurrencia: "ANUAL",
+    mesDia: "01-15",
+    mesDiaFin: "01-22",
+    precision: PRECISIONES.SEMANA,
+    ejes: { financiero: 2 },
+    publico: ["Hogares del sector público"],
+    vector:
+      "Ingreso extraordinario destinado a útiles: alivio condicionado y culpa por desviarlo a otra deuda.",
+    foco: "Decidir sobre un dinero que llega con destino asignado.",
+    temas: ["estres-financiero"],
+    disciplinas: [],
+    fuente: "anexo §6",
+  },
+  {
+    id: "blue-monday",
+    titulo: "Blue Monday",
+    tipo: "COMERCIAL",
+    recurrencia: "MOVIL",
+    regla: "blue-monday",
+    precision: PRECISIONES.DIA,
+    ejes: { familiar: 2 },
+    publico: ["Población general"],
+    vector:
+      "Constructo de marketing sin sustento clínico, pero coincide con el piso real de ánimo y liquidez del año.",
+    foco: "Desmontar el mito y hablar del bajón real de enero.",
+    temas: ["depresion", "estres-financiero"],
+    disciplinas: ["psicologia-clinica"],
+    fuente: "anexo §6",
+    nota: "Usar con distancia crítica: es una campaña publicitaria de origen, no una categoría clínica.",
+  },
+
   // ── Febrero ───────────────────────────────────────────────────────────────
   {
     id: "inicio-curso-mep",
@@ -721,6 +837,38 @@ export const MARCAS = [
     fuente: "§3.8",
   },
   {
+    id: "dia-de-la-mujer",
+    titulo: "Día Internacional de la Mujer",
+    tipo: "EFEMERIDE",
+    recurrencia: "ANUAL",
+    mesDia: "03-08",
+    precision: PRECISIONES.DIA,
+    ejes: { institucional: 3, laboral: 2 },
+    publico: ["Mujeres", "Empresas"],
+    vector: "Alta exposición institucional y saturación de mensajes corporativos vacíos.",
+    foco: "Carga mental, techo de cristal y salud mental de las mujeres.",
+    temas: ["carga-mental", "salud-mental"],
+    disciplinas: ["psicologia-clinica"],
+    fuente: "anexo §6",
+  },
+  {
+    id: "renta-d101",
+    titulo: "Declaración de renta D-101",
+    tipo: "ESTRUCTURAL",
+    recurrencia: "ANUAL",
+    mesDia: "03-01",
+    mesDiaFin: "03-31",
+    precision: PRECISIONES.MES,
+    ejes: { financiero: 3, laboral: 3 },
+    publico: ["Trabajadores independientes", "Profesionales liberales"],
+    vector:
+      "Estrés administrativo del trabajador independiente y del profesional liberal, segmento nuclear del público meta.",
+    foco: "Ansiedad administrativa y postergación.",
+    temas: ["estres-financiero", "ansiedad"],
+    disciplinas: [],
+    fuente: "anexo §6",
+  },
+  {
     id: "parciales-1q-privadas",
     titulo: "Parciales I cuatrimestre (universidades privadas)",
     tipo: "ACADEMICO",
@@ -744,14 +892,16 @@ export const MARCAS = [
     tipo: "FERIADO",
     recurrencia: "ANUAL",
     mesDia: "04-11",
+    trasladoLunes: true,
     precision: PRECISIONES.DIA,
     ejes: {},
     publico: ["Población general"],
-    vector: "Feriado de pago obligatorio.",
+    vector: "Feriado de pago obligatorio; el asueto se corre al lunes cuando la fecha no cae en lunes.",
     foco: "—",
     temas: [],
     disciplinas: [],
-    fuente: "§3.9",
+    fuente: "§3.9 y anexo §6",
+    nota: "En 2027 el 11 de abril cae domingo y el feriado se traslada al lunes 12 por Ley 9803. El fin de semana largo real es del 10 al 12.",
   },
   {
     id: "finales-1q-privadas",
@@ -1022,9 +1172,22 @@ export function matrizAnual(anioInicio, mesInicio = 1, meses = 12) {
 export function resolverMarca(marca, anio) {
   if (marca.recurrencia === "ANUAL") {
     const inicio = `${anio}-${marca.mesDia}`;
-    const fin = marca.mesDiaFin ? `${anio}-${marca.mesDiaFin}` : inicio;
-    const pico = marca.mesDiaPico ? `${anio}-${marca.mesDiaPico}` : inicio;
-    return { ...marca, inicio, fin, pico };
+    let fin = marca.mesDiaFin ? `${anio}-${marca.mesDiaFin}` : inicio;
+    let pico = marca.mesDiaPico ? `${anio}-${marca.mesDiaPico}` : inicio;
+
+    // Feriados que se trasladan al lunes siguiente. Lo que importa para la carga
+    // psicosocial es el día libre, no la fecha conmemorada: el 11 de abril de
+    // 2027 cae domingo y el asueto real es el lunes 12.
+    if (marca.trasladoLunes) {
+      const observado = lunesSiguiente(inicio);
+      if (observado !== inicio) {
+        fin = observado;
+        pico = observado;
+        return { ...marca, inicio, fin, pico, observado, trasladado: true };
+      }
+    }
+
+    return { ...marca, inicio, fin, pico, observado: pico, trasladado: false };
   }
 
   if (marca.recurrencia === "MOVIL") {

@@ -4,8 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/actions/auth-actions";
 import DailyAdminTasks from "@/components/admin/DailyAdminTasks";
 import PsychosocialBriefing from "@/components/admin/PsychosocialBriefing";
+import DailyPhraseReview from "@/components/admin/DailyPhraseReview";
 import { momentoActual, tareasDelCalendario } from "@/lib/psychosocial-calendar";
 import { coberturaDeTemas } from "@/lib/psychosocial-calendar-queries";
+import { prepararSesion } from "@/lib/frases-queries";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -189,6 +191,10 @@ export default async function AdminTasksPage() {
   const slugsActivos = momento.ventanasActivas.flatMap(({ marca }) => marca.temas || []);
   const cobertura = await coberturaDeTemas(slugsActivos);
 
+  // Frase diaria: se decide con un día de anticipación y el viernes cubre el
+  // fin de semana largo, así que la sesión puede traer uno o tres días.
+  const { sesion, verificaciones } = await prepararSesion();
+
   const tareasCalendario = tareasDelCalendario(momento);
   const areaCalendario = tareasCalendario.length
     ? {
@@ -229,6 +235,8 @@ export default async function AdminTasksPage() {
         </div>
 
         <PsychosocialBriefing momento={momento} cobertura={cobertura} compacto />
+
+        <DailyPhraseReview sesion={sesion} verificaciones={verificaciones} compacto />
 
         <DailyAdminTasks areas={areas} metrics={metrics} />
       </div>

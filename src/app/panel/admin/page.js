@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/actions/auth-actions";
 import PendingProfessionalsList from "@/components/admin/PendingProfessionalsList";
 import { ventanasActivas } from "@/lib/psychosocial-calendar";
+import { prepararSesion } from "@/lib/frases-queries";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -93,6 +94,11 @@ export default async function AdminDashboard() {
   // calendario, sin base de datos.
   const ventanasAbiertas = ventanasActivas().length;
 
+  // Días de frase que exigen decisión. Va después del Promise.all: la consulta
+  // es secuencial y no conviene sumarla a esa ráfaga.
+  const { sesion: sesionDeFrases } = await prepararSesion();
+  const frasesPorDecidir = sesionDeFrases.pendientes.length;
+
   return (
     <div className="min-h-screen bg-surface p-6">
       <div className="mx-auto max-w-7xl space-y-8">
@@ -112,6 +118,13 @@ export default async function AdminDashboard() {
             title="Inventario diario"
             description="Rutina operativa de contenido, finanzas, publicidad, SEO y mantenimiento."
             count={postsPendingCount + activeAppointmentsCount + openInvoicesCount + pendingCount}
+            tone="accent"
+          />
+          <DashboardCard
+            href="/panel/admin/frases"
+            title="Frase diaria"
+            description="Revisión y elección de la frase del día, con un día de anticipación."
+            count={frasesPorDecidir || undefined}
             tone="accent"
           />
           <DashboardCard

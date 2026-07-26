@@ -1117,3 +1117,69 @@ model PostTopic {
   @@id([postId, topicId])
   @@index([topicId, status])
 }
+
+// ─── Frase diaria ────────────────────────────────────────────────────────────
+// El corpus (1.112 frases, 486 fuentes, 5.840 asignaciones) es material
+// editorial cerrado y vive versionado en src/data/frases/. Aquí solo persiste lo
+// que cambia: qué eligió el admin cada día y qué fuentes ya se verificaron.
+
+enum PhrasePickStatus {
+  APPROVED    // elegida entre las candidatas del día
+  SUBSTITUTED // traída de otro punto del corpus porque ninguna candidata servía
+  SKIPPED     // ese día no se publica frase
+}
+
+model DailyPhrasePick {
+  id   String @id @default(cuid())
+  // Fecha de publicación en hora de Costa Rica, 'YYYY-MM-DD'. Texto y no
+  // DateTime a propósito: es un día de calendario, no un instante, y así no hay
+  // forma de que un servidor en UTC lo corra un día.
+  date String @unique
+
+  // Índice en el corpus versionado, más una copia de lo aprobado. La copia es
+  // deliberada: lo que se publicó tiene que poder reconstruirse aunque el
+  // corpus se regenere y los índices se muevan.
+  phraseIndex   Int
+  phraseText    String @db.Text
+  author        String
+  work          String
+  sourceKey     String
+  corpusVersion String
+
+  // Audiencia y slot de origen cuando la frase venía de las candidatas del día.
+  audience String?
+  slot     Int?
+
+  status PhrasePickStatus @default(APPROVED)
+  note   String?          @db.Text
+
+  // Id del User admin que decidió. Plano por diseño, como en Carousel: evita
+  // añadir back-relations al modelo User.
+  decidedBy String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([sourceKey])
+}
+
+// Estado de la lista de verificación del Anexo A. El propio corpus advierte que
+// hay referencias a obras inexistentes y glosas presentadas como citas
+// literales: sin fuente verificada no se genera placa para redes.
+model PhraseSourceCheck {
+  id        String  @id @default(cuid())
+  sourceKey String  @unique
+  author    String
+  work      String
+  verified  Boolean @default(false)
+  note      String? @db.Text
+
+  verifiedBy String?
+  verifiedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([verified])
+}

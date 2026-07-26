@@ -8,6 +8,7 @@ import {
   sumarDias,
   diferenciaDias,
   diaSemanaDe,
+  lunesSiguiente,
   contarDiasSemana,
   estructuraDelMes,
   domingoDePascua,
@@ -120,6 +121,70 @@ describe("fechas móviles", () => {
     const bf = MARCAS.find((m) => m.id === "black-friday");
     expect(resolverMarca(bf, 2026).pico).toBe("2026-11-27");
     expect(diaSemanaDe(resolverMarca(bf, 2027).pico)).toBe("viernes");
+  });
+});
+
+describe("traslado de feriados al lunes", () => {
+  const juanSantamaria = () => MARCAS.find((m) => m.id === "juan-santamaria");
+
+  it("corre Juan Santamaría al lunes 12 en 2027, que es cuando cae el asueto", () => {
+    const r = resolverMarca(juanSantamaria(), 2027);
+    expect(diaSemanaDe("2027-04-11")).toBe("domingo");
+    expect(r.inicio).toBe("2027-04-11"); // la fecha conmemorada no se mueve
+    expect(r.pico).toBe("2027-04-12"); // el día libre sí
+    expect(diaSemanaDe(r.pico)).toBe("lunes");
+    expect(r.trasladado).toBe(true);
+  });
+
+  it("no mueve nada cuando la fecha ya cae lunes", () => {
+    // 11 de abril de 2033 es lunes.
+    const r = resolverMarca(juanSantamaria(), 2033);
+    expect(diaSemanaDe("2033-04-11")).toBe("lunes");
+    expect(r.pico).toBe("2033-04-11");
+    expect(r.trasladado).toBe(false);
+  });
+
+  it("el traslado siempre aterriza en lunes, sea cual sea el año", () => {
+    for (let anio = 2026; anio <= 2040; anio += 1) {
+      expect(diaSemanaDe(resolverMarca(juanSantamaria(), anio).pico)).toBe("lunes");
+    }
+  });
+
+  it("lunesSiguiente es idempotente sobre un lunes", () => {
+    expect(lunesSiguiente("2027-04-12")).toBe("2027-04-12");
+    expect(lunesSiguiente(lunesSiguiente("2027-04-11"))).toBe("2027-04-12");
+  });
+
+  it("no traslada los feriados que la fuente no declara trasladables", () => {
+    const nicoya = resolverMarca(MARCAS.find((m) => m.id === "anexion-nicoya"), 2027);
+    expect(diaSemanaDe("2027-07-25")).toBe("domingo");
+    expect(nicoya.pico).toBe("2027-07-25");
+  });
+});
+
+describe("marcas incorporadas desde el anexo", () => {
+  it("incluye el marchamo, que la matriz original no contemplaba", () => {
+    const marchamo = resolverMarca(MARCAS.find((m) => m.id === "marchamo"), 2026);
+    expect(marchamo.inicio).toBe("2026-11-01");
+    expect(marchamo.fin).toBe("2026-12-31");
+    expect(marchamo.ejes.financiero).toBe(4);
+  });
+
+  it("incluye las dos fechas del eje masculino", () => {
+    const ids = MARCAS.filter((m) => m.prioridad === "ALTA").map((m) => m.id);
+    expect(ids).toContain("dia-internacional-hombre");
+    expect(ids).toContain("dia-del-padre");
+  });
+
+  it("calcula Blue Monday como tercer lunes de enero", () => {
+    const bm = MARCAS.find((m) => m.id === "blue-monday");
+    expect(resolverMarca(bm, 2027).pico).toBe("2027-01-18");
+    expect(diaSemanaDe(resolverMarca(bm, 2027).pico)).toBe("lunes");
+    expect(diaSemanaDe(resolverMarca(bm, 2028).pico)).toBe("lunes");
+  });
+
+  it("marca Blue Monday con la advertencia de que no es categoría clínica", () => {
+    expect(MARCAS.find((m) => m.id === "blue-monday").nota).toMatch(/publicitaria|marketing/i);
   });
 });
 

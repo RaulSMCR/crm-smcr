@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/actions/auth-actions";
 import PsychosocialBriefing from "@/components/admin/PsychosocialBriefing";
 import PsychosocialHeatmap from "@/components/admin/PsychosocialHeatmap";
+import PsychosocialHeatCurve from "@/components/admin/PsychosocialHeatCurve";
+import { calorDelMes, fechaHoy } from "@/lib/frases";
 import {
   momentoActual,
   matrizAnual,
@@ -52,6 +54,12 @@ export default async function AdminCalendarPage() {
   ];
   const cobertura = await coberturaDeTemas(slugs);
 
+  // Curva diaria de calor del corpus de frases, en los meses del horizonte que
+  // el corpus alcanza a cubrir. Es la resolución fina bajo la matriz de ejes.
+  const curva = columnas
+    .map((c) => calorDelMes(c.anio, c.mes))
+    .filter(Boolean);
+
   const porMes = new Map();
   for (const marca of marcas) {
     const clave = marca.inicio.slice(0, 7);
@@ -80,6 +88,8 @@ export default async function AdminCalendarPage() {
           mesActual={momento.mes}
           anioActual={momento.anio}
         />
+
+        <PsychosocialHeatCurve meses={curva} hoy={fechaHoy()} />
 
         <section className="rounded-lg border border-neutral-200 bg-neutral-50 p-5 shadow-card">
           <h2 className="text-lg font-bold text-brand-900">Las ventanas de pauta</h2>
