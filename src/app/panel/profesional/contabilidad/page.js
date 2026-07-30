@@ -119,7 +119,19 @@ export default async function ProfesionalContabilidadPage({ searchParams }) {
   const settlementsForClient = settlements.map((row) => ({
     id: row.id, periodStart: row.periodStart.toISOString(), periodEnd: row.periodEnd.toISOString(),
     grossAmount: Number(row.grossAmount), commissionAmt: Number(row.commissionAmt), processingFeeAmt: Number(row.processingFeeAmt), netAmount: Number(row.netAmount), status: row.status,
-    invoiceId: row.invoiceId, items: row.items.map((item) => ({ date: item.transaction.appointment?.date?.toISOString(), patientName: item.transaction.appointment?.patient?.name || "Paciente", amount: Number(item.amount), commissionAmt: Number(item.commissionAmt), processingFeeAmt: Number(item.processingFeeAmt), netAmount: Number(item.netAmount) })),
+    invoiceId: row.invoiceId, items: row.items.map((item) => ({
+      id: item.id,
+      date: item.transaction.appointment?.date?.toISOString(),
+      patientName: item.transaction.appointment?.patient?.name || "Paciente",
+      paymentType: item.transaction.type,
+      consultationNumber: item.consultationNumber,
+      commissionPlanVersion: item.commissionPlanVersion,
+      commissionPct: item.commissionPct,
+      amount: Number(item.amount),
+      commissionAmt: Number(item.commissionAmt),
+      processingFeeAmt: Number(item.processingFeeAmt),
+      netAmount: Number(item.netAmount),
+    })),
   }));
 
   return (
@@ -139,4 +151,3 @@ export default async function ProfesionalContabilidadPage({ searchParams }) {
     </div>
   );
 }
-

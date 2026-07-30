@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import {
+  COMMISSION_PLAN_VERSION,
+  buildConsultationNumberMap,
   calculateProfessionalSettlementItem,
   cents,
   estimateOnvoFeeCents,
@@ -41,20 +43,77 @@ export async function generateSettlementPeriod({ periodStart, periodEnd }) {
   const transactions = await prisma.paymentTransaction.findMany({
     where: {
       status: "APPROVED",
-      paidAt: { gte: periodStart, lte: periodEnd },
       settlementItem: null,
+      appointment: { status: "COMPLETED" },
+      OR: [
+        {
+          type: { in: ["BALANCE_50", "FULL_100"] },
+          paidAt: { gte: periodStart, lte: periodEnd },
+        },
+        {
+          type: "DEPOSIT_50",
+          appointment: {
+            paymentTransactions: {
+              some: {
+                type: "BALANCE_50",
+                status: "APPROVED",
+                paidAt: { gte: periodStart, lte: periodEnd },
+              },
+            },
+          },
+        },
+      ],
     },
     select: {
       id: true,
       professionalId: true,
+      patientId: true,
+      type: true,
       amount: true,
       taxRate: true,
       processingFee: true,
       paidAt: true,
-      appointment: { select: { id: true, commissionFee: true } },
+      appointment: {
+        select: {
+          id: true,
+          date: true,
+          patientId: true,
+          professionalId: true,
+          isFirstWithProfessional: true,
+        },
+      },
     },
     orderBy: [{ professionalId: "asc" }, { paidAt: "asc" }, { id: "asc" }],
   });
+
+  if (transactions.length === 0) {
+    return { success: true, settlementsCreated: 0, items: 0 };
+  }
+
+  const relationshipFilters = Array.from(
+    new Map(
+      transactions.map((transaction) => [
+        `${transaction.patientId}:${transaction.professionalId}`,
+        {
+          patientId: transaction.patientId,
+          professionalId: transaction.professionalId,
+        },
+      ])
+    ).values()
+  );
+  const completedAppointments = await prisma.appointment.findMany({
+    where: {
+      status: "COMPLETED",
+      OR: relationshipFilters,
+    },
+    select: {
+      id: true,
+      patientId: true,
+      professionalId: true,
+      date: true,
+    },
+  });
+  const consultationNumbers = buildConsultationNumberMap(completedAppointments);
 
   const grouped = new Map();
   for (const transaction of transactions) {
@@ -73,15 +132,20 @@ export async function generateSettlementPeriod({ periodStart, periodEnd }) {
   let settlementsCreated = 0;
   let itemsCreated = 0;
   for (const [professionalId, group] of grouped) {
-    let cumulativeBaseCents = 0;
     const calculatedItems = group.transactions.map((transaction) => {
+      const consultationNumber = consultationNumbers.get(transaction.appointment.id);
+      if (!consultationNumber) {
+        throw new Error(
+          `No se pudo determinar la secuencia de la cita ${transaction.appointment.id}.`
+        );
+      }
       const result = calculateProfessionalSettlementItem({
         grossCents: cents(transaction.amount),
         taxRatePct: transaction.taxRate || 4,
         processingFeeCents: transactionProcessingFeeCents(transaction),
-        cumulativeBeforeCents: cumulativeBaseCents,
+        consultationNumber,
+        paymentType: transaction.type,
       });
-      cumulativeBaseCents = result.cumulativeAfterCents;
       group.grossCents += result.grossCents;
       group.baseCents += result.baseCents;
       group.commissionCents += result.commissionCents;
@@ -123,28 +187,45 @@ export async function generateSettlementPeriod({ periodStart, periodEnd }) {
       });
 
       for (const { transaction, result } of calculatedItems) {
-        await tx.appointment.update({
-          where: { id: transaction.appointment.id },
-          data: { commissionFee: result.commissionCents / 100 },
-        });
-        await tx.paymentTransaction.update({
-          where: { id: transaction.id },
-          data: { processingFee: result.processingFeeCents / 100 },
-        });
-        await tx.settlementItem.create({
-          data: {
-            settlementId: settlement.id,
-            transactionId: transaction.id,
-            amount: transaction.amount,
-            commissionAmt: result.commissionCents / 100,
-            commissionPct: Math.round(result.effectiveRatePct),
-            processingFeeAmt: result.processingFeeCents / 100,
-            netAmount: result.professionalInvoiceCents / 100,
-          },
-        }).catch((error) => {
+        let itemCreated = false;
+        try {
+          await tx.settlementItem.create({
+            data: {
+              settlementId: settlement.id,
+              transactionId: transaction.id,
+              amount: transaction.amount,
+              commissionAmt: result.commissionCents / 100,
+              commissionPct: result.ratePct,
+              consultationNumber: result.consultationNumber,
+              commissionPlanVersion: COMMISSION_PLAN_VERSION,
+              processingFeeAmt: result.processingFeeCents / 100,
+              netAmount: result.professionalInvoiceCents / 100,
+            },
+          });
+          itemCreated = true;
+        } catch (error) {
           if (error?.code !== "P2002") throw error;
-        });
-        itemsCreated += 1;
+        }
+
+        if (itemCreated) {
+          await tx.paymentTransaction.update({
+            where: { id: transaction.id },
+            data: { processingFee: result.processingFeeCents / 100 },
+          });
+          const appointmentCommission = await tx.settlementItem.aggregate({
+            where: {
+              transaction: { appointmentId: transaction.appointment.id },
+            },
+            _sum: { commissionAmt: true },
+          });
+          await tx.appointment.update({
+            where: { id: transaction.appointment.id },
+            data: {
+              commissionFee: Number(appointmentCommission._sum.commissionAmt || 0),
+            },
+          });
+          itemsCreated += 1;
+        }
       }
       settlementsCreated += 1;
     });

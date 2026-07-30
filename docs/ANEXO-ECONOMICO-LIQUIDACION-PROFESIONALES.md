@@ -1,5 +1,7 @@
 # Anexo [__] - Esquema economico, liquidacion y pago de honorarios profesionales
 
+> **Estado histórico.** Este esquema progresivo por volumen fue sustituido en la implementación por el plan `patient-retention-2026-07`. Para nuevas contrataciones y liquidaciones, consultar `ANEXO-ECONOMICO-LIQUIDACION-PROFESIONALES-PROPUESTO.md`. Se conserva este archivo únicamente como antecedente y no debe firmarse sin revisión.
+
 > Documento de trabajo para incorporacion al contrato de prestacion de servicios profesionales. Debe ser revisado y ajustado por el profesional en Derecho y la persona profesional en contaduria de LAS PARTES antes de su firma. Los campos entre corchetes son editables.
 
 Entre **[NOMBRE DE LA SOCIEDAD]**, cedula juridica numero **[__]**, en adelante, la **"CONTRATANTE"**, y **[NOMBRE DEL PROFESIONAL]**, cedula numero **[__]**, en adelante, el **"PROFESIONAL"**, se acuerda el presente Anexo, que forma parte integral del Contrato de Prestacion de Servicios Profesionales suscrito entre LAS PARTES.
@@ -118,4 +120,3 @@ Firmado en **[lugar]**, el **[fecha]**, en dos ejemplares de igual tenor.
 | Nombre: [__] | Nombre: [__] |
 | Cargo: [__] | Cedula: [__] |
 | Firma: [__] | Firma: [__] |
-

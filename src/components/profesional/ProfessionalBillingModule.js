@@ -267,6 +267,16 @@ export default function ProfessionalBillingModule({
               <div className="flex flex-wrap justify-between gap-2"><span>{fmtDate(settlement.periodStart)} - {fmtDate(settlement.periodEnd)}</span><span className="font-semibold">{settlement.status}</span></div>
               <p className="mt-2 text-sm text-slate-600">Bruto {fmt(settlement.grossAmount)} · Comisión {fmt(settlement.commissionAmt)} · ONVO {fmt(settlement.processingFeeAmt)} · <strong>Neto {fmt(settlement.netAmount)}</strong></p>
               <p className="mt-1 text-xs text-slate-500">{settlement.items.length} cobro(s). La presentación de la factura se valida contra este neto exacto.</p>
+              <details className="mt-2 text-xs text-slate-600">
+                <summary className="cursor-pointer font-semibold text-slate-700">Ver cálculo por consulta</summary>
+                <div className="mt-2 space-y-1">
+                  {settlement.items.map((item) => (
+                    <p key={item.id}>
+                      {fmtDate(item.date)} · {item.patientName} · Consulta {item.consultationNumber || "legado"} · {TYPE_LABELS[item.paymentType] || item.paymentType} · {item.commissionPct}% = {fmt(item.commissionAmt)}
+                    </p>
+                  ))}
+                </div>
+              </details>
               {settlement.status === "OPEN" ? <button type="button" onClick={() => { setSelectedSettlement(settlement.id); setInvoiceAmount(String(settlement.netAmount)); window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }); }} className="mt-3 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white">Presentar factura por {fmt(settlement.netAmount)}</button> : null}
             </div>
           )) : <p className="text-sm text-slate-500">Todavía no hay liquidaciones generadas.</p>}

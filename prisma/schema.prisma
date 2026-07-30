@@ -592,12 +592,14 @@ model Settlement {
 }
 
 model SettlementItem {
-  id            String  @id @default(cuid())
-  settlementId  String
-  transactionId String  @unique
-  amount        Decimal @db.Decimal(10, 2)
-  commissionAmt Decimal @db.Decimal(10, 2)
-  commissionPct Int     @default(0)
+  id                    String  @id @default(cuid())
+  settlementId          String
+  transactionId         String  @unique
+  amount                Decimal @db.Decimal(10, 2)
+  commissionAmt         Decimal @db.Decimal(10, 2)
+  commissionPct         Int     @default(0)
+  consultationNumber    Int?
+  commissionPlanVersion String?
   processingFeeAmt Decimal @default(0) @db.Decimal(10, 2)
   netAmount     Decimal @default(0) @db.Decimal(10, 2)
 
