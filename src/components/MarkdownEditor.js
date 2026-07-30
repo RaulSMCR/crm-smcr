@@ -3,6 +3,18 @@
 import { useRef, useState } from "react";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 
+const Btn = ({ onClick, title, children }) => (
+  <button
+    type="button"
+    onMouseDown={(ev) => ev.preventDefault()}
+    onClick={onClick}
+    title={title}
+    className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+  >
+    {children}
+  </button>
+);
+
 /**
  * Editor de texto con barra de formato (markdown) y vista previa.
  * Guarda markdown (compatible con el resto del blog); los botones evitan
@@ -53,18 +65,6 @@ export default function MarkdownEditor({ value, onChange, rows = 16, placeholder
     const pos = s + (cursorOffset ?? snippet.length);
     restore(pos, pos);
   }
-
-  const Btn = ({ onClick, title, children }) => (
-    <button
-      type="button"
-      onMouseDown={(ev) => ev.preventDefault()}
-      onClick={onClick}
-      title={title}
-      className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
-    >
-      {children}
-    </button>
-  );
 
   return (
     <div className="rounded-lg border border-slate-300 bg-white">
