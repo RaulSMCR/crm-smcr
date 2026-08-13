@@ -70,9 +70,10 @@ export function buildLibraryOrderBy(params) {
       // Las entregas aprobadas van juntas y los artículos sin serie quedan al
       // final, para que la lectura 1 → 2 → 3 no se interrumpa.
       { seriesApproved: "desc" },
-      { series: { name: "asc" } },
+      { seriesId: { sort: "asc", nulls: "last" } },
       { seriesOrder: { sort: "asc", nulls: "last" } },
       { createdAt: "asc" },
+      { id: "asc" },
     ];
   }
   return [{ createdAt: "desc" }];

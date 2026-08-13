@@ -79,6 +79,22 @@ export default async function EditarArticuloPage({ params }) {
 
       {post ? (
         <>
+          <section id="serie-articulo" className="mt-8 rounded-xl border border-blue-200 bg-blue-50/40 p-5 shadow-sm">
+            <div className="mb-4">
+              <h2 className="text-base font-bold text-slate-900">Orden de lectura por series</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Seleccioná la serie y escribí el número de parte de este artículo. No hace falta ingresar ningún ID técnico.
+                El administrador deberá aprobarlo antes de mostrarlo públicamente.
+              </p>
+            </div>
+            <CrmMetaPanel
+              postId={post.id}
+              mode="suggest"
+              includeSeo
+              vocab={vocab}
+              initial={taxonomy || undefined}
+            />
+          </section>
           <section className="mt-8 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <TaxonomyPicker
               postId={post.id}
@@ -88,20 +104,15 @@ export default async function EditarArticuloPage({ params }) {
               specialtyHint={profile.specialty || ""}
             />
           </section>
-          <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <CrmMetaPanel
-              postId={post.id}
-              mode="suggest"
-              includeSeo
-              vocab={vocab}
-              initial={taxonomy || undefined}
-            />
-          </section>
         </>
       ) : (
-        <p className="mt-6 text-sm text-slate-500">
-          Guardá el artículo primero para poder clasificarlo por disciplina, tema y serie.
-        </p>
+        <section className="mt-6 rounded-xl border border-blue-200 bg-blue-50/50 p-5 text-sm text-slate-700">
+          <h2 className="font-bold text-slate-900">¿Dónde se asigna la serie?</h2>
+          <p className="mt-1">
+            Guardá este artículo primero. Después de guardarlo aparecerá aquí el bloque <strong>Orden de lectura por series</strong>,
+            con los campos Serie y Número de parte.
+          </p>
+        </section>
       )}
     </main>
   );

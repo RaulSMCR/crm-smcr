@@ -104,8 +104,8 @@ export default function AdminPostCreator({ authors = [], defaultAuthorId = "" })
           <div className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Edición editorial</div>
           <h1 className="mt-1 text-2xl font-bold text-slate-900">Nuevo artículo</h1>
           <p className="mt-1 text-sm text-slate-600">
-            Escribilo aquí o importá un archivo <span className="font-mono">.md</span>. Se guarda como borrador; la
-            portada, el SEO fino y la taxonomía se completan en el siguiente paso.
+            Escribilo aquí o importá un archivo <span className="font-mono">.md</span>. Se guarda como borrador; después,
+            en la pantalla de edición, aparecerá el bloque <strong>Orden de lectura por series</strong> para elegir la serie y el número de parte.
           </p>
         </div>
 

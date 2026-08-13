@@ -15,9 +15,10 @@ describe("orden de la biblioteca del blog", () => {
   it("agrupa las series y ordena sus partes antes de los artículos sueltos", () => {
     expect(buildLibraryOrderBy({ sort: "series" })).toEqual([
       { seriesApproved: "desc" },
-      { series: { name: "asc" } },
+      { seriesId: { sort: "asc", nulls: "last" } },
       { seriesOrder: { sort: "asc", nulls: "last" } },
       { createdAt: "asc" },
+      { id: "asc" },
     ]);
   });
 

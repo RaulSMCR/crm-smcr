@@ -61,7 +61,14 @@ export default async function AdminBlogEditPage({ params }) {
           />
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section id="serie-articulo" className="rounded-xl border border-brand-200 bg-brand-50/40 p-5 shadow-sm">
+          <div className="mb-4">
+            <h2 className="text-base font-bold text-slate-900">Orden de lectura por series</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Seleccioná la serie y escribí el número de parte de este artículo. No hace falta ingresar ningún ID técnico.
+              Al guardarlo, queda aprobado para el ordenamiento público.
+            </p>
+          </div>
           <CrmMetaPanel
             postId={post.id}
             mode="approve"
@@ -70,6 +77,7 @@ export default async function AdminBlogEditPage({ params }) {
             initial={taxonomy || undefined}
           />
         </section>
+
       </div>
     </main>
   );

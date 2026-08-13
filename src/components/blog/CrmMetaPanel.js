@@ -140,7 +140,9 @@ export default function CrmMetaPanel({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold text-slate-900">Metadatos CRM</h3>
+        <h3 className="text-sm font-bold text-slate-900">
+          {includeSeo ? "SEO, serie y parte" : "Serie y parte del artículo"}
+        </h3>
         {mode === "suggest" ? (
           <span className="text-xs text-slate-500">La serie queda pendiente de aprobación</span>
         ) : null}
@@ -203,7 +205,7 @@ export default function CrmMetaPanel({
           </select>
         </label>
         <label className="block text-sm">
-          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600">Parte</span>
+          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600">NÃºmero de parte</span>
           <input type="number" min="1" value={seriesOrder} onChange={(e) => setSeriesOrder(e.target.value)} disabled={!seriesId} placeholder="—" className="input w-full disabled:opacity-50" />
         </label>
       </div>
