@@ -15,6 +15,7 @@ export const LIBRARY_SORTS = {
   recientes: "Más recientes",
   antiguos: "Más antiguos",
   leidos: "Más leídos",
+  series: "Por series",
 };
 
 export const DEFAULT_SORT = "recientes";
@@ -64,6 +65,16 @@ export function buildLibraryWhere(params) {
 export function buildLibraryOrderBy(params) {
   if (params.sort === "leidos") return [{ viewEvents: { _count: "desc" } }, { createdAt: "desc" }];
   if (params.sort === "antiguos") return [{ createdAt: "asc" }];
+  if (params.sort === "series") {
+    return [
+      // Las entregas aprobadas van juntas y los artículos sin serie quedan al
+      // final, para que la lectura 1 → 2 → 3 no se interrumpa.
+      { seriesApproved: "desc" },
+      { series: { name: "asc" } },
+      { seriesOrder: { sort: "asc", nulls: "last" } },
+      { createdAt: "asc" },
+    ];
+  }
   return [{ createdAt: "desc" }];
 }
 
