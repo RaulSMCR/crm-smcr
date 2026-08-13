@@ -1,13 +1,27 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createAppointmentForPatient } from "@/actions/patient-booking-actions";
+import {
+  createAppointmentForPatient,
+  getSlotOptionsForPatient,
+} from "@/actions/patient-booking-actions";
 import { buildSlots } from "@/lib/appointment-slots";
 import { RECURRENCE_RULES } from "@/lib/appointment-recurrence";
 import RecurrenceFields from "@/components/appointments/RecurrenceFields";
+import BookingConfirmationToast from "@/components/booking/BookingConfirmationToast";
 import { SafeAvatar } from "@/components/SafeImage";
+import { modalityLabel } from "@/lib/rates";
+
+function formatCRC(value) {
+  if (value === null || value === undefined) return "—";
+  return new Intl.NumberFormat("es-CR", {
+    style: "currency",
+    currency: "CRC",
+    maximumFractionDigits: 0,
+  }).format(Number(value));
+}
 
 export default function ProfessionalCalendarBooking({
   serviceId,
@@ -26,13 +40,55 @@ export default function ProfessionalCalendarBooking({
   const [msg, setMsg] = useState({ type: "", text: "" });
   const [isPending, startTransition] = useTransition();
 
+  // Modalidades y precios del horario elegido. Se piden al servidor porque el
+  // precio depende del lugar y de la franja, no solo del servicio.
+  const [options, setOptions] = useState([]);
+  const [loadingOptions, setLoadingOptions] = useState(false);
+  const [locationId, setLocationId] = useState(null);
+  const [confirmation, setConfirmation] = useState(null);
+
   const days = useMemo(
     () => buildSlots({ availability, durationMin, booked, daysAhead: 14 }),
     [availability, durationMin, booked]
   );
 
+  useEffect(() => {
+    if (!selectedISO) {
+      setOptions([]);
+      setLocationId(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+    setLoadingOptions(true);
+
+    getSlotOptionsForPatient({ professionalId, serviceId, startISO: selectedISO })
+      .then((res) => {
+        if (cancelled) return;
+        const list = res?.options || [];
+        setOptions(list);
+        // Con una sola opción no hay nada que elegir: se preselecciona.
+        const bookable = list.filter((option) => option.bookable);
+        setLocationId(bookable.length === 1 ? bookable[0].locationId : null);
+      })
+      .catch(() => {
+        if (!cancelled) setOptions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingOptions(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedISO, professionalId, serviceId]);
+
+  const selectedOption = options.find((option) => option.locationId === locationId) || null;
+  const hasChoice = options.length > 1;
+  const needsChoice = hasChoice && !selectedOption;
+
   const onConfirm = () => {
-    if (!selectedISO) return;
+    if (!selectedISO || needsChoice) return;
     setMsg({ type: "", text: "" });
 
     startTransition(async () => {
@@ -42,11 +98,17 @@ export default function ProfessionalCalendarBooking({
         startISO: selectedISO,
         recurrenceRule,
         recurrenceCount,
+        locationId,
       });
 
       if (res?.success) {
-        router.push(`/panel/paciente?created=1&series=${res.createdCount || 1}`);
-        router.refresh();
+        // Se muestra la confirmación un instante antes de navegar, para que el
+        // paciente vea el detalle de lo que aceptó.
+        setConfirmation(res.confirmation || null);
+        setTimeout(() => {
+          router.push(`/panel/paciente?created=1&series=${res.createdCount || 1}`);
+          router.refresh();
+        }, 2500);
       } else {
         setMsg({ type: "error", text: res?.error || "No pudimos agendar en este intento. Revisá el horario e intentá de nuevo." });
       }
@@ -141,6 +203,59 @@ export default function ProfessionalCalendarBooking({
           <b>{selectedISO ? new Date(selectedISO).toLocaleString("es-CR") : "—"}</b>
         </div>
 
+        {selectedISO && (
+          <div className="mt-4">
+            <div className="text-sm font-medium text-slate-800">
+              {hasChoice ? "¿Dónde desea ser atendido?" : "Modalidad"}
+            </div>
+
+            {loadingOptions ? (
+              <p className="mt-2 text-sm text-slate-500">Consultando modalidades...</p>
+            ) : options.length === 0 ? (
+              <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                Este profesional aún no tiene un precio aprobado para ese horario.
+              </p>
+            ) : (
+              <div className="mt-2 space-y-2">
+                {options.map((option) => {
+                  const isSelected = option.locationId === locationId;
+
+                  return (
+                    <button
+                      key={option.locationId || "default"}
+                      type="button"
+                      disabled={!option.bookable}
+                      onClick={() => setLocationId(option.locationId)}
+                      className={`w-full rounded-xl border px-3 py-2.5 text-left transition ${
+                        isSelected
+                          ? "border-blue-600 bg-blue-50"
+                          : "border-slate-200 hover:bg-slate-50"
+                      } ${option.bookable ? "" : "cursor-not-allowed opacity-60"}`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="font-semibold text-slate-900">{option.name}</div>
+                          {option.modality && (
+                            <div className="text-xs text-slate-600">{modalityLabel(option.modality)}</div>
+                          )}
+                          {option.address && <div className="text-xs text-slate-500">{option.address}</div>}
+                        </div>
+                        <div className="shrink-0 text-right">
+                          {option.bookable ? (
+                            <span className="font-bold text-slate-900">{formatCRC(option.price)}</span>
+                          ) : (
+                            <span className="text-xs text-amber-700">Sin precio aprobado</span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         <RecurrenceFields
           recurrenceRule={recurrenceRule}
           recurrenceCount={recurrenceCount}
@@ -150,17 +265,23 @@ export default function ProfessionalCalendarBooking({
 
         <button
           type="button"
-          disabled={!selectedISO || isPending}
+          disabled={!selectedISO || isPending || needsChoice || (selectedISO && options.length === 0)}
           onClick={onConfirm}
           className="mt-5 w-full rounded-xl bg-blue-600 px-4 py-2.5 font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
         >
           {isPending ? "Agendando..." : "Confirmar cita"}
         </button>
 
+        {needsChoice && (
+          <p className="mt-2 text-xs text-amber-700">Elija una modalidad para continuar.</p>
+        )}
+
         <p className="mt-3 text-xs text-slate-500">
           Si activas recurrencia, se crearán varias citas iguales dentro de la serie.
         </p>
       </div>
+
+      <BookingConfirmationToast confirmation={confirmation} onDismiss={() => setConfirmation(null)} />
     </div>
   );
 }

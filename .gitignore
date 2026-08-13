@@ -49,3 +49,7 @@ build-output.txt
 next-env.d.ts
 
 /src/generated/prisma
+
+# Comprobantes de referencia para depurar la firma electronica.
+# Llevan datos reales de pacientes (nombre, cedula, correo): nunca se versionan.
+tmp/

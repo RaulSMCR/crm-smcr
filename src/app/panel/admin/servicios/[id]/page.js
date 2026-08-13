@@ -129,6 +129,9 @@ export default async function AdminServicioDetallePage({ params }) {
           <div className="mt-5">
             <ServiceAssignmentsReviewPanel
               serviceId={service.id}
+              taxes={taxes.map((tax) => ({ ...tax, rate: tax.rate?.toString?.() ?? String(tax.rate) }))}
+              cabysCode={service.cabysCode || ""}
+              taxId={service.taxId || ""}
               assignments={service.professionalAssignments.map((a) => ({
                 ...a,
                 proposedSessionPrice: a.proposedSessionPrice?.toString?.() ?? null,

@@ -1,39 +1,36 @@
 // src/lib/onvo/webhook.js
-// Verificación de firma para webhooks de ONVO Pay.
+// Verificación de origen para webhooks de ONVO Pay.
 //
-// ONVO utiliza HMAC-SHA256 para firmar las notificaciones.
-// El secreto se obtiene del dashboard de ONVO (sección Webhooks).
-// La firma viene en el header: onvo-signature: v1={hex_digest}
+// ONVO **no firma** las notificaciones con HMAC. Manda el secreto tal cual en el
+// header `X-Webhook-Secret`, y el receptor lo compara contra el valor guardado:
 //
-// Referencia: https://docs.onvopay.com/webhooks
+//   X-Webhook-Secret: webhook_secret_...
+//
+// Referencia: https://docs.onvopay.com/en/webhooks
+//
+// La implementación anterior calculaba un HMAC-SHA256 sobre el cuerpo y leía un
+// header `onvo-signature` que ONVO nunca envía: rechazaba el 100% de los eventos
+// reales, así que ningún pago llegaba a acreditarse.
 
 import crypto from "crypto";
 
 /**
- * Verifica la firma HMAC-SHA256 de un webhook de ONVO.
+ * Verifica que el webhook venga de ONVO comparando el secreto compartido.
+ * Comparación en tiempo constante para no filtrar el secreto por temporización.
  *
- * @param {string} rawBody       – Cuerpo de la petición como string (antes de JSON.parse)
- * @param {string} signatureHeader – Valor del header "onvo-signature" (ej. "v1=abc123...")
- * @param {string} webhookSecret – Secreto de webhook configurado en ONVO
+ * @param {string} headerValue   – Valor del header "x-webhook-secret"
+ * @param {string} webhookSecret – Secreto configurado en el dashboard de ONVO
  * @returns {boolean}
  */
-export function verifyOnvoWebhook(rawBody, signatureHeader, webhookSecret) {
-  if (!webhookSecret || !signatureHeader || !rawBody) return false;
+export function verifyOnvoWebhookSecret(headerValue, webhookSecret) {
+  if (!webhookSecret || !headerValue) return false;
 
-  const expected = crypto
-    .createHmac("sha256", webhookSecret)
-    .update(rawBody)
-    .digest("hex");
-
-  const provided = signatureHeader.replace(/^v1=/, "").trim();
-
-  if (expected.length !== provided.length) return false;
+  const a = Buffer.from(String(headerValue).trim(), "utf8");
+  const b = Buffer.from(String(webhookSecret).trim(), "utf8");
+  if (a.length !== b.length) return false;
 
   try {
-    return crypto.timingSafeEqual(
-      Buffer.from(expected, "hex"),
-      Buffer.from(provided, "hex")
-    );
+    return crypto.timingSafeEqual(a, b);
   } catch {
     return false;
   }

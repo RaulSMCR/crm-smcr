@@ -51,7 +51,19 @@ vi.mock("@/lib/appointments", () => ({
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("@/lib/onvo/client", () => ({ buildPaymentLinkUrl: vi.fn(() => "https://checkout.onvopay.com/pay/link1") }));
+vi.mock("@/lib/onvo/client", () => ({
+  buildPaymentLinkUrl: vi.fn((id) => `https://buy.onvopay.com/${id}`),
+  // El enlace se crea por cita: cada cobro obtiene su propio ID de ONVO.
+  createPaymentLink: vi.fn(async () => ({
+    id: "test_link_generado",
+    url: "https://buy.onvopay.com/test_link_generado",
+  })),
+}));
+vi.mock("@/lib/booking-rates", () => ({
+  resolveBookingSelection: vi.fn(async () => ({
+    data: { pricePaid: 40000, rateId: "rate1", timeBandName: null, locationId: null, modality: null, locationName: null, locationAddress: null },
+  })),
+}));
 vi.mock("@/lib/qstash", () => ({ scheduleReminder: vi.fn() }));
 vi.mock("@/lib/appointment-recurrence", () => ({
   buildRecurringStarts: (start) => [start],

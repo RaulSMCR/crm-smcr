@@ -29,10 +29,19 @@ function overlaps(a, b) {
 export async function getAvailability() {
   try {
     const professionalId = await requireProfessionalProfileId();
-    const data = await prisma.availability.findMany({
+    const rows = await prisma.availability.findMany({
       where: { professionalId },
       orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
+      include: { locations: { select: { locationId: true } } },
     });
+
+    // `locationIds` vacío significa "todos mis lugares activos", que es el caso
+    // de quien atiende siempre en el mismo sitio y no configuró nada.
+    const data = rows.map(({ locations, ...block }) => ({
+      ...block,
+      locationIds: locations.map((link) => link.locationId),
+    }));
+
     return { success: true, data };
   } catch (err) {
     console.error("Error getting availability:", err);
@@ -75,7 +84,24 @@ export async function updateAvailability(payload) {
         dayOfWeek: v.dayOfWeek,
         startTime: v.startTime,
         endTime: v.endTime,
+        locationIds: Array.isArray(b.locationIds)
+          ? [...new Set(b.locationIds.map((id) => String(id)).filter(Boolean))]
+          : [],
       });
+    }
+
+    // Solo se aceptan lugares propios: así un bloque no puede quedar apuntando
+    // al consultorio de otro profesional.
+    const requestedLocationIds = [...new Set(normalized.flatMap((b) => b.locationIds))];
+    if (requestedLocationIds.length > 0) {
+      const owned = await prisma.practiceLocation.findMany({
+        where: { id: { in: requestedLocationIds }, professionalId },
+        select: { id: true },
+      });
+      const ownedIds = new Set(owned.map((loc) => loc.id));
+      if (requestedLocationIds.some((id) => !ownedIds.has(id))) {
+        return { success: false, error: "Uno de los lugares seleccionados no le pertenece." };
+      }
     }
 
     // 2) Validar solapamientos por día
@@ -101,10 +127,18 @@ export async function updateAvailability(payload) {
 
     await prisma.$transaction(async (tx) => {
       await tx.availability.deleteMany({ where: { professionalId } });
-      await tx.availability.createMany({
-        data: normalized,
-        skipDuplicates: true,
-      });
+
+      // Se crean uno por uno en vez de con createMany: hace falta el id de cada
+      // bloque para colgarle sus lugares, y createMany no los devuelve.
+      for (const { locationIds, ...block } of normalized) {
+        const created = await tx.availability.create({ data: block, select: { id: true } });
+        if (locationIds.length > 0) {
+          await tx.availabilityLocation.createMany({
+            data: locationIds.map((locationId) => ({ availabilityId: created.id, locationId })),
+            skipDuplicates: true,
+          });
+        }
+      }
     });
 
     return { success: true };

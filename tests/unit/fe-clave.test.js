@@ -120,9 +120,16 @@ describe("extractConsecutivo", () => {
     expect(extractConsecutivo("0123")).toBe(123);
   });
 
-  it("cae en 1 ante entradas vacías o no numéricas", () => {
-    expect(extractConsecutivo("")).toBe(1);
-    expect(extractConsecutivo(null)).toBe(1);
-    expect(extractConsecutivo("SIN-NUMERO")).toBe(1);
+  it("falla ante entradas vacías o no numéricas en vez de asumir 1", () => {
+    // Asumir 1 en silencio hacía que Hacienda respondiera "la numeración
+    // consecutiva ya existe", un motivo que no apunta a la causa real. El
+    // `AUTO-<timestamp>` provisorio de createAutoInvoice caía justo acá.
+    for (const entrada of ["", null, undefined, "SIN-NUMERO", "AUTO-1755000000000"]) {
+      expect(() => extractConsecutivo(entrada)).toThrow(/no utilizable como consecutivo/);
+    }
+  });
+
+  it("rechaza el consecutivo cero", () => {
+    expect(() => extractConsecutivo("0")).toThrow(/mayor que cero/);
   });
 });

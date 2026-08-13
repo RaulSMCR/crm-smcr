@@ -19,6 +19,7 @@ import {
   formatConflictDate,
 } from "@/lib/booking-conflicts";
 import { createPaymentRequestForAppointment } from "@/lib/payment-requests";
+import { getBookingOptions, resolveBookingSelection } from "@/lib/booking-rates";
 
 function describeRecurringConflict(conflict) {
   if (!conflict) return null;
@@ -73,6 +74,7 @@ export async function createAppointmentForPatient({
   startISO,
   recurrenceRule,
   recurrenceCount,
+  locationId = null,
 }) {
   try {
     const session = await getSession();
@@ -104,7 +106,7 @@ export async function createAppointmentForPatient({
       }),
       prisma.serviceAssignment.findUnique({
         where: { professionalId_serviceId: { professionalId: pid, serviceId: sid } },
-        select: { status: true, approvedSessionPrice: true, onvoPaymentLinkId: true },
+        select: { status: true },
       }),
     ]);
 
@@ -112,9 +114,20 @@ export async function createAppointmentForPatient({
     if (!professional || !professional.isApproved || !professional.user?.isActive) {
       return { success: false, error: "Profesional no disponible." };
     }
-    if (!assignment || assignment.status !== "APPROVED" || assignment.approvedSessionPrice == null) {
+    if (!assignment || assignment.status !== "APPROVED") {
       return { success: false, error: "Este profesional no está habilitado para este servicio." };
     }
+
+    // Precio según el lugar elegido y la franja de la hora reservada. Se congela
+    // en la cita, así que un cambio de tarifa posterior no la afecta.
+    const selection = await resolveBookingSelection({
+      professionalId: pid,
+      serviceId: sid,
+      startsAt: start,
+      locationId,
+    });
+    if (selection.error) return { success: false, error: selection.error };
+    const booking = selection.data;
 
     const starts = buildRecurringStarts(start, rule, count);
     const ends = buildOccurrenceEnds(starts, service.durationMin);
@@ -137,13 +150,9 @@ export async function createAppointmentForPatient({
       },
     });
     const isFirstWithProfessional = previousCount === 0;
-    if (isFirstWithProfessional && !assignment.onvoPaymentLinkId) {
-      return {
-        success: false,
-        error:
-          "No es posible agendar la primera cita porque el profesional no tiene enlace de pago ONVO configurado.",
-      };
-    }
+
+    // El enlace ONVO ya no se preconfigura: se crea por cita al momento de cobrar,
+    // con el monto congelado de esa cita.
 
     const createdAppointments = await prisma.$transaction(
       starts.map((occurrence, index) =>
@@ -156,7 +165,13 @@ export async function createAppointmentForPatient({
             endDate: ends[index],
             status: "PENDING",
             paymentStatus: "UNPAID",
-            pricePaid: assignment.approvedSessionPrice,
+            pricePaid: booking.pricePaid,
+            rateId: booking.rateId,
+            locationId: booking.locationId,
+            modality: booking.modality,
+            locationName: booking.locationName,
+            locationAddress: booking.locationAddress,
+            timeBandName: booking.timeBandName,
             isFirstWithProfessional: isFirstWithProfessional && index === 0,
           },
           select: { id: true },
@@ -182,6 +197,16 @@ export async function createAppointmentForPatient({
       success: true,
       appointmentId: hydratedAppointments[0]?.id || null,
       createdCount: hydratedAppointments.length,
+      // Lo que el paciente aceptó, para confirmárselo en pantalla.
+      confirmation: {
+        startsAt: starts[0].toISOString(),
+        durationMin: service.durationMin,
+        price: booking.pricePaid,
+        locationName: booking.locationName,
+        locationAddress: booking.locationAddress,
+        modality: booking.modality,
+        timeBandName: booking.timeBandName,
+      },
     };
   } catch (error) {
     console.error("createAppointmentForPatient error:", error);
@@ -464,3 +489,35 @@ export async function confirmCurrentAppointmentByPatient(appointmentId) {
 
 
 
+
+/**
+ * Modalidades disponibles y su precio para un horario concreto.
+ * Solo para mostrar: al crear la cita el precio se vuelve a resolver en el
+ * servidor, así que un cliente manipulado no puede fijar su propio monto.
+ */
+export async function getSlotOptionsForPatient({ professionalId, serviceId, startISO }) {
+  try {
+    const session = await getSession();
+    if (!session) return { success: false, options: [], error: "Debe iniciar sesión." };
+
+    const start = new Date(String(startISO || ""));
+    if (!professionalId || !serviceId || Number.isNaN(start.getTime())) {
+      return { success: true, options: [], timeBand: null };
+    }
+
+    const { options, timeBand } = await getBookingOptions({
+      professionalId: String(professionalId),
+      serviceId: String(serviceId),
+      startsAt: start,
+    });
+
+    return {
+      success: true,
+      options,
+      timeBand: timeBand ? { id: timeBand.id, name: timeBand.name } : null,
+    };
+  } catch (error) {
+    console.error("getSlotOptionsForPatient error:", error);
+    return { success: false, options: [], timeBand: null, error: "No se pudieron cargar las modalidades." };
+  }
+}

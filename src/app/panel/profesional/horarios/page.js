@@ -2,6 +2,7 @@
 import { redirect } from "next/navigation";
 import { getSession, professionalProfileWhere } from "@/lib/auth";
 import { getAvailability } from "@/actions/availability-actions";
+import { listPracticeLocations } from "@/actions/practice-actions";
 import AvailabilityForm from "@/components/AvailabilityForm";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -27,6 +28,11 @@ export default async function HorariosPage() {
     console.error("⚠️ Error cargando horarios:", error);
   }
 
+  // Los lugares activos permiten decir en qué turno atiende dónde. Si no marca
+  // ninguno en un bloque, se ofrecen todos.
+  const locationsRes = await listPracticeLocations();
+  const locations = (locationsRes?.data || []).filter((location) => location.isActive);
+
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-6">
       <div>
@@ -50,7 +56,17 @@ export default async function HorariosPage() {
         )}
       </div>
 
-      <AvailabilityForm initialData={availabilityData} />
+      {locations.length === 0 && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          Todavía no cargó dónde atiende.{" "}
+          <Link href="/panel/profesional/tarifas" className="font-semibold underline">
+            Agregue sus lugares y tarifas
+          </Link>{" "}
+          para poder cobrar distinto según la modalidad.
+        </div>
+      )}
+
+      <AvailabilityForm initialData={availabilityData} locations={locations} />
     </div>
   );
 }

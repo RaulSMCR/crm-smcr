@@ -4,6 +4,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { updateAvailability } from "@/actions/availability-actions";
 import Toast from "@/components/ui/Toast";
+import { modalityLabel } from "@/lib/rates";
 
 const DAYS = [
   { id: 1, label: "Lunes" },
@@ -36,7 +37,7 @@ function addMinutes(time, minutes) {
   return `${H}:${M}`;
 }
 
-export default function AvailabilityForm({ initialData = [] }) {
+export default function AvailabilityForm({ initialData = [], locations = [] }) {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
   const dismissToast = useCallback(() => setToast(null), []);
@@ -46,7 +47,7 @@ export default function AvailabilityForm({ initialData = [] }) {
     for (const d of DAYS) {
       map[d.id] = (initialData || [])
         .filter((it) => it.dayOfWeek === d.id)
-        .map((it) => ({ start: it.startTime, end: it.endTime }))
+        .map((it) => ({ start: it.startTime, end: it.endTime, locationIds: it.locationIds || [] }))
         .sort((a, b) => a.start.localeCompare(b.start));
     }
     return map;
@@ -80,7 +81,7 @@ export default function AvailabilityForm({ initialData = [] }) {
       // Evitar duplicado exacto por defecto
       const key = `${start}|${end}`;
       const exists = blocks.some((b) => `${b.start}|${b.end}` === key);
-      blocks.push(exists ? { start: "14:00", end: "18:00" } : { start, end });
+      blocks.push(exists ? { start: "14:00", end: "18:00", locationIds: [] } : { start, end, locationIds: [] });
 
       return { ...prev, [dayId]: blocks };
     });
@@ -121,6 +122,7 @@ export default function AvailabilityForm({ initialData = [] }) {
             dayOfWeek: Number(dayId),
             startTime: block.start,
             endTime: block.end,
+            locationIds: block.locationIds || [],
           });
         }
       }
@@ -216,6 +218,54 @@ export default function AvailabilityForm({ initialData = [] }) {
                         <span className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded">
                           ⚠️ Hora inválida
                         </span>
+                      )}
+
+                      {locations.length > 0 && (
+                        <div className="w-full border-t border-slate-200 pt-2">
+                          <div className="text-xs font-medium text-slate-600">
+                            Atiende en este turno:
+                            {(block.locationIds || []).length === 0 && (
+                              <span className="ml-1 font-normal text-slate-500">
+                                todos sus lugares activos
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="mt-1.5 flex flex-wrap gap-2">
+                            {locations.map((location) => {
+                              const checked = (block.locationIds || []).includes(location.id);
+
+                              return (
+                                <label
+                                  key={location.id}
+                                  className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2 py-1 text-xs ${
+                                    checked
+                                      ? "border-blue-600 bg-blue-50 text-blue-900"
+                                      : "border-slate-200 bg-white text-slate-700"
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() =>
+                                      updateBlock(
+                                        day.id,
+                                        index,
+                                        "locationIds",
+                                        checked
+                                          ? (block.locationIds || []).filter((id) => id !== location.id)
+                                          : [...(block.locationIds || []), location.id]
+                                      )
+                                    }
+                                    className="h-3.5 w-3.5"
+                                  />
+                                  {location.name}
+                                  <span className="text-slate-500">({modalityLabel(location.modality)})</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
                       )}
                     </div>
                   ))}

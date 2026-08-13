@@ -69,6 +69,7 @@ export default async function AdminDashboard() {
     openInvoicesCount,
     insurancePendingCount,
     newLeadsCount,
+    pendingRatesCount,
     pendingUsers,
   ] = await Promise.all([
     prisma.user.count({ where: wherePendingProsUsers }),
@@ -83,6 +84,7 @@ export default async function AdminDashboard() {
     prisma.invoice.count({ where: { status: { in: ["DRAFT", "OPEN"] } } }),
     prisma.insuranceClaim.count({ where: { status: "PENDING_SIGNED_FORM" } }),
     prisma.lead.count({ where: { status: "NEW" } }),
+    prisma.professionalRate.count({ where: { status: "PENDING" } }),
     prisma.user.findMany({
       where: wherePendingProsUsers,
       include: { professionalProfile: true },
@@ -156,6 +158,13 @@ export default async function AdminDashboard() {
             title="Personal"
             description="Directorio de profesionales y vínculos."
             count={professionalsCount + profileReviewsPendingCount}
+          />
+          <DashboardCard
+            href="/panel/admin/tarifas"
+            title="Tarifas"
+            description="Precios propuestos por los profesionales según lugar y franja horaria."
+            count={pendingRatesCount || undefined}
+            tone="accent"
           />
           <DashboardCard
             href="/panel/admin/contabilidad"

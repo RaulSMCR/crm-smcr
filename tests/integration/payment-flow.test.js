@@ -4,8 +4,7 @@
 // Usa mocks de Prisma para no necesitar DB real.
 //
 import { describe, it, expect, vi } from "vitest";
-import crypto from "node:crypto";
-import { verifyOnvoWebhook } from "../../src/lib/onvo/webhook.js";
+import { verifyOnvoWebhookSecret } from "../../src/lib/onvo/webhook.js";
 import { buildPaymentLinkUrl } from "../../src/lib/onvo/client.js";
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
@@ -40,52 +39,29 @@ vi.mock("../../src/lib/resend.js", () => ({
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const WEBHOOK_SECRET = "test_onvo_webhook_secret";
-
-function makeOnvoSignature(body) {
-  return "v1=" + crypto.createHmac("sha256", WEBHOOK_SECRET).update(body).digest("hex");
-}
+const WEBHOOK_SECRET = "webhook_secret_test_onvo";
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe("verifyOnvoWebhook", () => {
-  const payload = JSON.stringify({
-    id: "evt_test_001",
-    type: "payment.completed",
-    data: { payment_link_id: "live_testlink123", status: "approved", amount: 45500 },
+describe("verifyOnvoWebhookSecret", () => {
+  it("acepta el secreto compartido que ONVO manda en X-Webhook-Secret", () => {
+    expect(verifyOnvoWebhookSecret(WEBHOOK_SECRET, WEBHOOK_SECRET)).toBe(true);
   });
 
-  it("verifica correctamente una firma ONVO válida", () => {
-    const sig = makeOnvoSignature(payload);
-    expect(verifyOnvoWebhook(payload, sig, WEBHOOK_SECRET)).toBe(true);
+  it("rechaza un secreto incorrecto", () => {
+    expect(verifyOnvoWebhookSecret("webhook_secret_otro_val", WEBHOOK_SECRET)).toBe(false);
   });
 
-  it("rechaza firma inválida", () => {
-    expect(verifyOnvoWebhook(payload, "v1=invalidsig", WEBHOOK_SECRET)).toBe(false);
-  });
-
-  it("rechaza body alterado", () => {
-    const sig = makeOnvoSignature(payload);
-    expect(verifyOnvoWebhook(payload + " ", sig, WEBHOOK_SECRET)).toBe(false);
-  });
-
-  it("rechaza secreto incorrecto", () => {
-    const sig = makeOnvoSignature(payload);
-    expect(verifyOnvoWebhook(payload, sig, "wrong_secret")).toBe(false);
-  });
-
-  it("retorna false si faltan parámetros", () => {
-    const sig = makeOnvoSignature(payload);
-    expect(verifyOnvoWebhook("", sig, WEBHOOK_SECRET)).toBe(false);
-    expect(verifyOnvoWebhook(payload, "", WEBHOOK_SECRET)).toBe(false);
-    expect(verifyOnvoWebhook(payload, sig, "")).toBe(false);
+  it("retorna false si faltan parametros", () => {
+    expect(verifyOnvoWebhookSecret("", WEBHOOK_SECRET)).toBe(false);
+    expect(verifyOnvoWebhookSecret(WEBHOOK_SECRET, "")).toBe(false);
   });
 });
 
 describe("buildPaymentLinkUrl", () => {
   it("construye la URL desde el ID de enlace ONVO", () => {
-    const url = buildPaymentLinkUrl("live_P35LcuWqpsttLAhsJj0Q2urFSzs");
-    expect(url).toBe("https://checkout.onvopay.com/pay/live_P35LcuWqpsttLAhsJj0Q2urFSzs");
+    const url = buildPaymentLinkUrl("test_amhNGWevAahXl42GYZ-z3LOKCDU");
+    expect(url).toBe("https://buy.onvopay.com/test_amhNGWevAahXl42GYZ-z3LOKCDU");
   });
 
   it("lanza error si no se provee linkId", () => {

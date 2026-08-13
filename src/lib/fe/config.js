@@ -1,6 +1,8 @@
 // src/lib/fe/config.js
 // Configuración del emisor y URLs de la API de Factura Electrónica de Hacienda CR.
 
+import { assertAmbientesCoherentes } from "@/lib/fiscal-environment";
+
 const env = (name) => String(process.env[name] || "").trim();
 
 export function assertFeConfig() {
@@ -17,10 +19,19 @@ export function assertFeConfig() {
   if (missing.length) throw new Error(`Configuración FE incompleta: faltan ${missing.join(", ")}.`);
   if (!/^\d+$/.test(FE_EMISOR.identificacion)) throw new Error("FE_EMISOR_IDENTIFICACION debe ser numérica.");
   if (!/^(01|02)$/.test(FE_EMISOR.ambiente)) throw new Error("FE_AMBIENTE debe ser 01 o 02.");
-  if (!/^\d{5,6}$/.test(FE_EMISOR.actividadEconomica)) throw new Error("FE_EMISOR_ACTIVIDAD debe tener 5 o 6 dígitos.");
+  // La 4.4 declara la actividad como NNNN.N (ej. 8690.9). Se admite tambien el
+  // formato viejo de 5 o 6 digitos: formatCodigoActividad() le pone el punto.
+  if (!/^\d{4,6}(\.\d)?$/.test(FE_EMISOR.actividadEconomica)) {
+    throw new Error("FE_EMISOR_ACTIVIDAD debe ser NNNN.N (ej. 8690.9) o de 5 a 6 dígitos.");
+  }
+  if (!/^\d+$/.test(FE_EMISOR.proveedorSistemas)) {
+    throw new Error("FE_PROVEEDOR_SISTEMAS debe ser numérica.");
+  }
   if (FE_EMISOR.ambiente === "01" && process.env.NODE_ENV !== "production") {
     throw new Error("No se permite ambiente fiscal de producción fuera de producción.");
   }
+  assertAmbientesCoherentes({ feAmbiente: FE_EMISOR.ambiente });
+
   if (!FE_API.tokenUrl || !FE_API.recepcionUrl || !FE_API.clientId || !FE_API.username || !FE_API.password || !FE_API.p12Base64 || !FE_API.p12Pin) {
     throw new Error("Configuración FE_API incompleta: revise URLs, credenciales y certificado.");
   }
@@ -40,9 +51,15 @@ export const FE_EMISOR = {
     provincia:   env("FE_EMISOR_PROVINCIA"),
     canton:      env("FE_EMISOR_CANTON"),
     distrito:    env("FE_EMISOR_DISTRITO"),
+    barrio:      env("FE_EMISOR_BARRIO"),
     otrasSenas:  env("FE_EMISOR_OTRAS_SENAS"),
   },
   actividadEconomica: env("FE_EMISOR_ACTIVIDAD"),
+
+  /// Cedula de quien desarrolla el sistema emisor. Campo nuevo y obligatorio en
+  /// la version 4.4. Al emitir con software propio es la cedula del propio
+  /// emisor, asi que ese es el valor por defecto.
+  proveedorSistemas: env("FE_PROVEEDOR_SISTEMAS") || env("FE_EMISOR_IDENTIFICACION"),
   sucursal:  env("FE_EMISOR_SUCURSAL"),
   terminal:  env("FE_EMISOR_TERMINAL"),
   ambiente: env("FE_AMBIENTE"),
@@ -86,12 +103,12 @@ export const MEDIO_PAGO_MAP = {
 
 // Namespace del XML según tipo de documento
 export const NS_MAP = {
-  "01": "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/facturaElectronica",
-  "03": "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/notaCreditoElectronica",
-  "02": "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/notaDebitoElectronica",
-  "04": "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/tiqueteElectronico",
-  "08": "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/facturaElectronicaCompra",
-  "09": "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/facturaElectronicaExportacion",
+  "01": "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/facturaElectronica",
+  "03": "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/notaCreditoElectronica",
+  "02": "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/notaDebitoElectronica",
+  "04": "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/tiqueteElectronico",
+  "08": "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/facturaElectronicaCompra",
+  "09": "https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/facturaElectronicaExportacion",
 };
 
 // Elemento raíz según tipo de documento

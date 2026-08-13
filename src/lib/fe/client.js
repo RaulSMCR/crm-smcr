@@ -81,15 +81,53 @@ export async function submitToHacienda(invoice, lines) {
 
   // 7. Polling del estado
   const result = await pollStatus(feClave, token);
+  const estado = estadoDe(result);
 
   return {
     feNumber,
     feClave,
-    feStatus:       result.ind_estado === "aceptado" ? "ACCEPTED" : "REJECTED",
-    feErrorMessage: result.ind_estado !== "aceptado"
-      ? (result.respuesta_xml || result.mensaje || "Rechazado por Hacienda")
-      : null,
+    feStatus:       estado === "aceptado" ? "ACCEPTED" : "REJECTED",
+    feErrorMessage: estado !== "aceptado" ? describirRechazo(result) : null,
   };
+}
+
+/**
+ * Estado del comprobante. Hacienda responde con `ind-estado` (con guion); se
+ * acepta también la variante con guion bajo por si cambia la API.
+ *
+ * Leerlo mal es silencioso y caro: la factura queda REJECTED aunque Hacienda la
+ * haya aceptado, y el polling agota todos sus intentos en cada envío.
+ */
+function estadoDe(result) {
+  return String(result?.["ind-estado"] ?? result?.ind_estado ?? "").toLowerCase();
+}
+
+/**
+ * Motivo legible del rechazo. Hacienda manda `respuesta-xml` en base64 con el
+ * detalle adentro; sin decodificarlo el admin solo veía "Rechazado por Hacienda"
+ * y no tenía forma de saber qué corregir.
+ */
+function describirRechazo(result) {
+  const b64 = result?.["respuesta-xml"] || result?.respuesta_xml;
+
+  if (b64) {
+    try {
+      const xml = Buffer.from(b64, "base64").toString("utf8");
+      const detalle = /<DetalleMensaje>([\s\S]*?)<\/DetalleMensaje>/.exec(xml);
+      if (detalle?.[1]) {
+        return detalle[1]
+          .replace(/&#13;/g, "")
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 900);
+      }
+      return xml.slice(0, 900);
+    } catch {
+      // Si no se puede decodificar, se sigue de largo al mensaje genérico.
+    }
+  }
+
+  return result?.mensaje || "Rechazado por Hacienda";
 }
 
 /**
@@ -122,7 +160,7 @@ export async function pollStatus(clave, existingToken = null) {
     }
 
     const data = await res.json();
-    const estado = (data.ind_estado || "").toLowerCase();
+    const estado = estadoDe(data);
 
     if (estado === "procesando" || estado === "") {
       if (attempt < POLL_MAX_ATTEMPTS) {

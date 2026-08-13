@@ -28,7 +28,7 @@ afterAll(() => {
 const baseInvoice = {
   invoiceNumber: "0012",
   invoiceType: "CUSTOMER_INVOICE",
-  invoiceDate: new Date(2026, 6, 15, 10, 30, 0),
+  invoiceDate: new Date("2026-07-15T16:30:00Z"), // 10:30 en Costa Rica
   paymentMethod: "transferencia",
   currency: "CRC",
   contactName: "Ana Rodríguez",
@@ -50,7 +50,7 @@ describe("generateFeXml — estructura", () => {
   it("emite la raíz y el namespace de FacturaElectronica", () => {
     const { xml } = generateFeXml(baseInvoice, baseLines);
     expect(xml).toContain("<FacturaElectronica");
-    expect(xml).toContain('xmlns="https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/facturaElectronica"');
+    expect(xml).toContain('xmlns="https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/facturaElectronica"');
   });
 
   it("coloca la clave y el consecutivo derivados del invoiceNumber", () => {
@@ -61,15 +61,19 @@ describe("generateFeXml — estructura", () => {
     expect(textOf(xml, "Clave")).toBe(feClave);
   });
 
-  it("emite la fecha en hora de Costa Rica", () => {
+  it("emite la fecha en hora de Costa Rica, sin importar la zona del servidor", () => {
+    // La fecha se declara en UTC a propósito: si el generador usara la hora local
+    // del proceso (como hacía antes), este test fallaría en cualquier máquina que
+    // no estuviera en Costa Rica, y en Vercel —que corre en UTC— saldrían todas
+    // las facturas 6 horas corridas. Hacienda lo rechaza con el error -53.
     const { xml } = generateFeXml(baseInvoice, baseLines);
     expect(textOf(xml, "FechaEmision")).toBe("2026-07-15T10:30:00-06:00");
   });
 
   it("usa la actividad económica de la factura por encima de la del emisor", () => {
     const { xml } = generateFeXml({ ...baseInvoice, economicActivity: "851203" }, baseLines);
-    expect(textOf(xml, "CodigoActividad")).toBe("851203");
-    expect(textOf(generateFeXml(baseInvoice, baseLines).xml, "CodigoActividad")).toBe("869093");
+    expect(textOf(xml, "CodigoActividadEmisor")).toBe("85120.3");
+    expect(textOf(generateFeXml(baseInvoice, baseLines).xml, "CodigoActividadEmisor")).toBe("86909.3");
   });
 });
 
@@ -113,23 +117,23 @@ describe("generateFeXml — condición de venta y medio de pago", () => {
   });
 
   it("traduce el medio de pago y cae en transferencia ante uno desconocido", () => {
-    expect(textOf(generateFeXml({ ...baseInvoice, paymentMethod: "efectivo" }, baseLines).xml, "MedioPago")).toBe("01");
-    expect(textOf(generateFeXml({ ...baseInvoice, paymentMethod: "tarjeta" }, baseLines).xml, "MedioPago")).toBe("02");
-    expect(textOf(generateFeXml({ ...baseInvoice, paymentMethod: "cripto" }, baseLines).xml, "MedioPago")).toBe("04");
+    expect(textOf(generateFeXml({ ...baseInvoice, paymentMethod: "efectivo" }, baseLines).xml, "TipoMedioPago")).toBe("01");
+    expect(textOf(generateFeXml({ ...baseInvoice, paymentMethod: "tarjeta" }, baseLines).xml, "TipoMedioPago")).toBe("02");
+    expect(textOf(generateFeXml({ ...baseInvoice, paymentMethod: "cripto" }, baseLines).xml, "TipoMedioPago")).toBe("04");
   });
 });
 
 describe("generateFeXml — líneas e IVA", () => {
   it("mapea la tarifa de IVA de salud (4%) al código 04", () => {
     const { xml } = generateFeXml(baseInvoice, baseLines);
-    expect(xml).toContain("<Impuesto><Codigo>01</Codigo><CodigoTarifa>04</CodigoTarifa><Tarifa>4.00</Tarifa><Monto>2000.00</Monto></Impuesto>");
+    expect(xml).toContain("<Impuesto><Codigo>01</Codigo><CodigoTarifaIVA>04</CodigoTarifaIVA><Tarifa>4.00</Tarifa><Monto>2000.00</Monto></Impuesto>");
     expect(textOf(xml, "ImpuestoNeto")).toBe("2000.00");
   });
 
   it("mapea la tarifa general (13%) al código 06", () => {
     const lines = [{ quantity: 1, unitPrice: 10000, taxRate: 13, taxAmount: 1300, product: { name: "Material" } }];
     const { xml } = generateFeXml({ ...baseInvoice, subtotal: 10000, taxAmount: 1300, total: 11300 }, lines);
-    expect(xml).toContain("<CodigoTarifa>06</CodigoTarifa>");
+    expect(xml).toContain("<CodigoTarifaIVA>06</CodigoTarifaIVA>");
   });
 
   it("trata la línea sin impuesto como exenta", () => {
@@ -137,17 +141,19 @@ describe("generateFeXml — líneas e IVA", () => {
     const { xml } = generateFeXml({ ...baseInvoice, subtotal: 10000, taxAmount: 0, total: 10000 }, lines);
     expect(xml).not.toContain("<Impuesto>");
     expect(textOf(xml, "ImpuestoNeto")).toBe("0.00");
-    expect(textOf(xml, "TotalServExentos")).toBe("10000.00");
-    expect(textOf(xml, "TotalServGravados")).toBe("0.00");
+    expect(textOf(xml, "TotalServExentos")).toBe("10000.00000");
+    // Los totales opcionales en cero se omiten, igual que en el comprobante real
+    // aceptado por Hacienda: no se emite TotalServGravados si no hay gravados.
+    expect(xml).not.toContain("<TotalServGravados>");
   });
 
   it("emite el descuento por línea y lo acumula", () => {
     const lines = [{ quantity: 2, unitPrice: 25000, discountPercent: 10, taxRate: 4, taxAmount: 1800, product: { name: "Consulta" } }];
     const { xml } = generateFeXml({ ...baseInvoice, discountAmount: 5000, subtotal: 50000, taxAmount: 1800, total: 46800 }, lines);
-    expect(textOf(xml, "MontoTotal")).toBe("50000.00");
-    expect(textOf(xml, "MontoDescuento")).toBe("5000.00");
-    expect(textOf(xml, "SubTotal")).toBe("45000.00");
-    expect(textOf(xml, "MontoTotalLinea")).toBe("46800.00");
+    expect(textOf(xml, "MontoTotal")).toBe("50000.00000");
+    expect(textOf(xml, "MontoDescuento")).toBe("5000.00000");
+    expect(textOf(xml, "SubTotal")).toBe("45000.00000");
+    expect(textOf(xml, "MontoTotalLinea")).toBe("46800.00000");
   });
 
   it("numera las líneas y usa CABYS y unidad de medida por defecto", () => {
@@ -158,7 +164,7 @@ describe("generateFeXml — líneas e IVA", () => {
     const { xml } = generateFeXml(baseInvoice, lines);
     expect(xml).toContain("<NumeroLinea>1</NumeroLinea>");
     expect(xml).toContain("<NumeroLinea>2</NumeroLinea>");
-    expect(xml).toContain("<CodigoHacienda><Tipo>04</Tipo><Codigo>111</Codigo></CodigoHacienda>");
+    expect(xml).toContain("<CodigoCABYS>111</CodigoCABYS>");
     expect(xml).toContain("<UnidadMedida>Sp</UnidadMedida>");
     expect(xml).toContain("<Detalle>Dos</Detalle>");
   });
@@ -168,9 +174,9 @@ describe("generateFeXml — resumen y notas de crédito", () => {
   it("cuadra el resumen con los totales de la factura", () => {
     const { xml } = generateFeXml(baseInvoice, baseLines);
     expect(textOf(xml, "CodigoMoneda")).toBe("CRC");
-    expect(textOf(xml, "TotalVenta")).toBe("50000.00");
-    expect(textOf(xml, "TotalDescuentos")).toBe("0.00");
-    expect(textOf(xml, "TotalVentaNeta")).toBe("50000.00");
+    expect(textOf(xml, "TotalVenta")).toBe("50000.00000");
+    expect(textOf(xml, "TotalDescuentos")).toBe("0.00000");
+    expect(textOf(xml, "TotalVentaNeta")).toBe("50000.00000");
     expect(textOf(xml, "TotalImpuesto")).toBe("2000.00");
     expect(textOf(xml, "TotalComprobante")).toBe("52000.00");
   });
@@ -180,7 +186,7 @@ describe("generateFeXml — resumen y notas de crédito", () => {
       ...baseInvoice,
       invoiceType: "CUSTOMER_CREDIT_NOTE",
       originDocument: "00100001010000000011",
-      originInvoice: { invoiceDate: new Date(2026, 6, 1, 9, 0, 0) },
+      originInvoice: { invoiceDate: new Date("2026-07-01T15:00:00Z") }, // 09:00 en CR
       notes: "Cita cancelada por el profesional.",
     };
     const { xml } = generateFeXml(invoice, baseLines);

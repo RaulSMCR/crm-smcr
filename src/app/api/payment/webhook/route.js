@@ -25,7 +25,8 @@
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyOnvoWebhook } from "@/lib/onvo/webhook";
+import { verifyOnvoWebhookSecret } from "@/lib/onvo/webhook";
+import { buildPaymentLinkUrl } from "@/lib/onvo/client";
 import { matchTransaction } from "@/lib/onvo/match-payment";
 import { resend } from "@/lib/resend";
 import { submitInvoiceToFe } from "@/lib/fe/submit";
@@ -63,19 +64,27 @@ export async function POST(request) {
     request.headers.get("x-real-ip") ||
     "unknown";
 
-  const signatureHeader = request.headers.get("onvo-signature") || "";
+  const secretHeader = request.headers.get("x-webhook-secret") || "";
 
-  console.log("[ONVO webhook] Recibido desde IP:", ip, "| evento:", payload?.id, "| tipo:", payload?.type);
+  console.log("[ONVO webhook] Recibido desde IP:", ip, "| tipo:", payload?.type);
 
-  // ── 1. Verificar firma ───────────────────────────────────────────────────
+  // ── 0. INSTRUMENTACIÓN TEMPORAL ──────────────────────────────────────────
+  // El mapeo de campos de abajo se escribió contra un contrato supuesto que no
+  // coincide con el real. Volcamos el evento crudo para poder reescribirlo con
+  // datos ciertos. Buscar "ONVO RAW" en los logs de Vercel.
+  // QUITAR una vez confirmada la estructura real del payload.
+  console.log("[ONVO RAW] headers:", JSON.stringify(Object.fromEntries(request.headers)));
+  console.log("[ONVO RAW] body:", rawBody);
+
+  // ── 1. Verificar origen (secreto compartido) ─────────────────────────────
   if (!ONVO_WEBHOOK_SECRET) {
     console.error("[ONVO webhook] ONVO_WEBHOOK_SECRET no configurada.");
     return NextResponse.json({ ok: false }, { status: 200 });
   }
 
-  const isValid = verifyOnvoWebhook(rawBody, signatureHeader, ONVO_WEBHOOK_SECRET);
+  const isValid = verifyOnvoWebhookSecret(secretHeader, ONVO_WEBHOOK_SECRET);
   if (!isValid) {
-    console.error("[ONVO webhook] Firma inválida. Descartando notificación.");
+    console.error("[ONVO webhook] Secreto inválido. Descartando notificación.");
     // Alertar al admin, pero NO persistir: el payload no es confiable (PAY-01).
     await sendAdminPaymentAlert({
       subject: "⚠ Webhook ONVO con firma inválida",
@@ -517,7 +526,7 @@ async function sendPaymentFailedEmail(transaction) {
 
   const onvoLinkId = transaction.onvoPaymentLinkId;
   const retryUrl = onvoLinkId
-    ? `https://checkout.onvopay.com/pay/${onvoLinkId}`
+    ? buildPaymentLinkUrl(onvoLinkId)
     : process.env.APP_URL || "http://localhost:3000";
 
   const html = `

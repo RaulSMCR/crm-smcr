@@ -23,6 +23,8 @@ import {
   formatConflictDate,
 } from "@/lib/booking-conflicts";
 import { createPaymentRequestForAppointment } from "@/lib/payment-requests";
+import { getBookingOptions, resolveBookingSelection } from "@/lib/booking-rates";
+import { snapshotLocation } from "@/lib/rates";
 
 function describeRecurringConflict(conflict) {
   if (!conflict) return null;
@@ -139,7 +141,8 @@ export async function requestAppointment(
   serviceId,
   recurrenceRule,
   recurrenceCount,
-  attribution = {}
+  attribution = {},
+  locationId = null
 ) {
   // Identificadores de atribución publicitaria: solo se persisten en la PRIMERA
   // cita de la serie (es la que genera el adelanto y, por tanto, la conversión).
@@ -153,8 +156,6 @@ export async function requestAppointment(
 
   try {
     let duration = 60;
-    let pricePaid = null;
-    let onvoPaymentLinkId = null;
 
     if (serviceId) {
       const assignment = await prisma.serviceAssignment.findUnique({
@@ -166,8 +167,6 @@ export async function requestAppointment(
         },
         select: {
           status: true,
-          approvedSessionPrice: true,
-          onvoPaymentLinkId: true,
           service: { select: { durationMin: true } },
         },
       });
@@ -177,20 +176,30 @@ export async function requestAppointment(
       }
 
       duration = assignment.service?.durationMin || 60;
-      const approvedPrice = Number(assignment.approvedSessionPrice);
-      if (!Number.isFinite(approvedPrice) || approvedPrice <= 0) {
-        return {
-          error:
-            "Este profesional aún no tiene un valor de consulta aprobado para este servicio.",
-        };
-      }
-      pricePaid = approvedPrice;
-      onvoPaymentLinkId = assignment.onvoPaymentLinkId || null;
     }
 
     const dateTimeString = `${dateString}T${timeString}:00`;
     const localDateTime = parse(dateTimeString, "yyyy-MM-dd'T'HH:mm:ss", new Date());
     const startDateTime = fromZonedTime(localDateTime, 'America/Costa_Rica');
+
+    // El precio depende del lugar elegido y de la franja en la que cae la cita,
+    // así que se resuelve recién acá, con la hora ya calculada. Se congela en la
+    // cita: aunque el profesional cambie su tarifa mañana, este paciente paga lo
+    // que aceptó hoy.
+    let booking = { pricePaid: null, rateId: null, timeBandName: null, ...snapshotLocation(null) };
+
+    if (serviceId) {
+      const selection = await resolveBookingSelection({
+        professionalId,
+        serviceId,
+        startsAt: startDateTime,
+        locationId,
+      });
+      if (selection.error) return { error: selection.error };
+      booking = selection.data;
+    }
+
+    const pricePaid = booking.pricePaid;
     const rule = normalizeRecurrenceRule(recurrenceRule);
     const count = rule === RECURRENCE_RULES.NONE ? 1 : normalizeRecurrenceCount(recurrenceCount);
     const starts = buildRecurringStarts(startDateTime, rule, count);
@@ -224,12 +233,9 @@ export async function requestAppointment(
       },
     });
     const isFirstWithProfessional = previousCount === 0;
-    if (isFirstWithProfessional && pricePaid && !onvoPaymentLinkId) {
-      return {
-        error:
-          "No es posible agendar la primera cita porque el profesional no tiene enlace de pago ONVO configurado.",
-      };
-    }
+
+    // Ya no se exige un enlace ONVO preconfigurado: el enlace se crea por cita,
+    // con el monto congelado, en el momento de cobrar.
 
     const createdAppointments = await prisma.$transaction(
       starts.map((start, index) =>
@@ -242,6 +248,14 @@ export async function requestAppointment(
             professionalId: professionalId,
             serviceId: serviceId || undefined,
             pricePaid,
+            // Copia congelada de lo que el paciente aceptó: lugar, modalidad y
+            // franja quedan en la cita aunque después se editen o se borren.
+            rateId: booking.rateId,
+            locationId: booking.locationId,
+            modality: booking.modality,
+            locationName: booking.locationName,
+            locationAddress: booking.locationAddress,
+            timeBandName: booking.timeBandName,
             isFirstWithProfessional: isFirstWithProfessional && index === 0,
             // Solo la primera cita de la serie lleva los identificadores.
             gaClientId: index === 0 ? gaClientId : null,
@@ -281,6 +295,16 @@ export async function requestAppointment(
       createdCount: hydratedAppointments.length,
       requiresDeposit: Boolean(firstAppointment && pricePaid),
       depositAmount,
+      // Lo que el paciente acaba de aceptar, para confirmárselo en pantalla.
+      confirmation: {
+        startsAt: starts[0].toISOString(),
+        durationMin: duration,
+        price: pricePaid,
+        locationName: booking.locationName,
+        locationAddress: booking.locationAddress,
+        modality: booking.modality,
+        timeBandName: booking.timeBandName,
+      },
     };
 
   } catch (error) {
@@ -291,3 +315,34 @@ export async function requestAppointment(
 }
 
 
+
+/**
+ * Modalidades y precios disponibles para un horario, para que el paciente elija
+ * antes de confirmar. El precio se vuelve a resolver al crear la cita, así que
+ * esto es solo para mostrar: nada de lo que devuelve se persiste tal cual.
+ */
+export async function getSlotOptions(professionalId, dateString, timeString, serviceId) {
+  try {
+    if (!professionalId || !serviceId || !dateString || !timeString) {
+      return { success: true, options: [], timeBand: null };
+    }
+
+    const localDateTime = parse(
+      `${dateString}T${timeString}:00`,
+      "yyyy-MM-dd'T'HH:mm:ss",
+      new Date()
+    );
+    const startsAt = fromZonedTime(localDateTime, "America/Costa_Rica");
+
+    const { options, timeBand } = await getBookingOptions({ professionalId, serviceId, startsAt });
+
+    return {
+      success: true,
+      options,
+      timeBand: timeBand ? { id: timeBand.id, name: timeBand.name } : null,
+    };
+  } catch (error) {
+    console.error("getSlotOptions error:", error);
+    return { success: false, options: [], timeBand: null, error: "No se pudieron cargar las modalidades." };
+  }
+}

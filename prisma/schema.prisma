@@ -53,6 +53,22 @@ enum ServiceAssignmentStatus {
   REJECTED
 }
 
+/// Dónde atiende el profesional. VIRTUAL no lleva dirección; HOME es el domicilio
+/// del paciente, así que la dirección se toma al agendar, no de la ficha.
+enum LocationModality {
+  OFFICE
+  HOME
+  VIRTUAL
+}
+
+/// Toda tarifa la propone el profesional y la aprueba un admin: mientras esté en
+/// PENDING sigue rigiendo la última APPROVED (o no se puede agendar si no hay).
+enum RateStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum InsuranceClaimStatus {
   AWAITING_TEMPLATE
   PENDING_SIGNED_FORM
@@ -219,6 +235,9 @@ model ProfessionalProfile {
 
   availability Availability[]
   posts        Post[]
+
+  practiceLocations PracticeLocation[]
+  timeBands         ProfessionalTimeBand[]
 
   appointments      Appointment[]      @relation("ProAppointments")
   invoices          Invoice[]          @relation("InvoiceProfessional")
@@ -427,11 +446,21 @@ model ServiceAssignment {
   professionalId String
   serviceId      String
 
-  status               ServiceAssignmentStatus @default(PENDING)
-  proposedSessionPrice Decimal?                @db.Decimal(10, 2)
-  approvedSessionPrice Decimal?                @db.Decimal(10, 2)
-  adminReviewNote      String?                 @db.Text
-  onvoPaymentLinkId    String?
+  status ServiceAssignmentStatus @default(PENDING)
+
+  /// OBSOLETOS: el precio pasó a ProfessionalRate, que admite un valor por lugar
+  /// y franja horaria. Se conservan como respaldo de los datos migrados; nadie
+  /// debe leerlos para cobrar. La migración los volcó a una tarifa "cualquiera".
+  proposedSessionPrice Decimal? @db.Decimal(10, 2)
+  approvedSessionPrice Decimal? @db.Decimal(10, 2)
+
+  adminReviewNote String? @db.Text
+
+  /// OBSOLETO: los enlaces ONVO se crean por cita vía API con el precio congelado
+  /// de esa cita, no de forma estática por asignación. Ver src/lib/onvo/client.js.
+  onvoPaymentLinkId String?
+
+  rates ProfessionalRate[]
 
   // ✅ usados por admin/profile-actions
   requestedAt DateTime  @default(now())
@@ -464,8 +493,112 @@ model Availability {
 
   professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
 
+  /// Lugares en los que el profesional puede atender este bloque. El paciente
+  /// elige entre ellos al agendar y el precio se resuelve según su elección.
+  /// Si el bloque no declara ninguno, se ofrecen los lugares activos de la ficha.
+  locations AvailabilityLocation[]
+
   @@unique([professionalId, dayOfWeek, startTime, endTime])
   @@index([professionalId, dayOfWeek])
+}
+
+/// Qué lugares se ofrecen en cada bloque de disponibilidad. El conflicto de agenda
+/// se sigue evaluando por profesional y hora, así que dos pacientes no pueden
+/// tomar el mismo horario aunque elijan modalidades distintas.
+model AvailabilityLocation {
+  availabilityId String
+  locationId     String
+
+  availability Availability     @relation(fields: [availabilityId], references: [id], onDelete: Cascade)
+  location     PracticeLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@id([availabilityId, locationId])
+  @@index([locationId])
+}
+
+/// Un lugar donde el profesional atiende: su consultorio, a domicilio o virtual.
+/// Cada uno puede tener una tarifa distinta (ver ProfessionalRate).
+model PracticeLocation {
+  id             String @id @default(cuid())
+  professionalId String
+
+  name         String /// Rótulo visible al paciente, ej. "Consultorio Escazú"
+  modality     LocationModality
+  address      String?
+  instructions String? @db.Text /// Cómo llegar, piso, timbre, o el enlace de la sala virtual
+  isActive     Boolean @default(true)
+  displayOrder Int     @default(0)
+
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  rates            ProfessionalRate[]
+  availabilityLinks AvailabilityLocation[]
+  appointments     Appointment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([professionalId, name])
+  @@index([professionalId, isActive])
+}
+
+/// Franja horaria propia de cada profesional, ej. "Matutino" 07:00-13:00.
+/// Permite cobrar distinto según la hora sin repetir rangos en cada tarifa.
+model ProfessionalTimeBand {
+  id             String @id @default(cuid())
+  professionalId String
+
+  name         String
+  startTime    String @db.VarChar(5)
+  endTime      String @db.VarChar(5)
+  displayOrder Int    @default(0)
+
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  rates ProfessionalRate[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([professionalId, name])
+  @@index([professionalId])
+}
+
+/// Precio de una consulta para una combinación de servicio, lugar y franja.
+/// `locationId` o `timeBandId` en NULL significan "cualquiera": así un profesional
+/// que cobra siempre igual carga una sola tarifa y solo agrega filas donde difiere.
+/// La resolución en cascada vive en src/lib/rates.js.
+///
+/// La unicidad del alcance NO se puede expresar con @@unique porque en Postgres
+/// dos NULL son distintos entre sí; la migración crea un índice único sobre
+/// COALESCE(locationId,'') y COALESCE(timeBandId,'').
+model ProfessionalRate {
+  id             String  @id @default(cuid())
+  professionalId String
+  serviceId      String
+  locationId     String?
+  timeBandId     String?
+
+  proposedPrice   Decimal?   @db.Decimal(10, 2)
+  approvedPrice   Decimal?   @db.Decimal(10, 2)
+  status          RateStatus @default(PENDING)
+  adminReviewNote String?    @db.Text
+  requestedAt     DateTime   @default(now())
+  reviewedAt      DateTime?
+
+  assignment ServiceAssignment     @relation(fields: [professionalId, serviceId], references: [professionalId, serviceId], onDelete: Cascade)
+  location   PracticeLocation?     @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  timeBand   ProfessionalTimeBand? @relation(fields: [timeBandId], references: [id], onDelete: Cascade)
+
+  appointments Appointment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([professionalId, serviceId])
+  @@index([status])
+  @@index([locationId])
+  @@index([timeBandId])
 }
 
 model Appointment {
@@ -475,9 +608,25 @@ model Appointment {
   endDate DateTime          @db.Timestamptz(6)
   status  AppointmentStatus @default(PENDING)
 
+  /// Precio congelado al agendar: es lo que el paciente aceptó pagar en ese
+  /// momento y no cambia aunque el profesional actualice su tarifa después.
   pricePaid     Decimal?      @db.Decimal(10, 2)
   paymentStatus PaymentStatus @default(UNPAID)
   commissionFee Decimal?      @db.Decimal(10, 2)
+
+  /// Tarifa de la que salió `pricePaid`. Solo para trazabilidad: si se borra la
+  /// tarifa, el precio y la copia del lugar siguen siendo válidos.
+  rateId String?
+  rate   ProfessionalRate? @relation(fields: [rateId], references: [id], onDelete: SetNull)
+
+  /// Lugar elegido por el paciente, con copia congelada de sus datos para que la
+  /// cita y la factura sigan siendo legibles si el profesional lo edita o borra.
+  locationId      String?
+  location        PracticeLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  modality        LocationModality?
+  locationName    String?
+  locationAddress String?
+  timeBandName    String?
 
   gcalEventId String?
   meetLink    String?

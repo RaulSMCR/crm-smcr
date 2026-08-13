@@ -12,6 +12,9 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: ["tests/**/*.test.js"],
+    // Solo puebla el entorno cuando se pide una corrida contra servicios reales
+    // (ver tests/setup-env.js). En una corrida normal no hace nada.
+    setupFiles: ["tests/setup-env.js"],
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov"],

@@ -1,5 +1,17 @@
 // src/lib/fe/xml.js
-// Genera el XML de Factura Electrónica v4.3 para Hacienda CR.
+// Genera el XML de Factura Electrónica v4.4 para Hacienda CR.
+//
+// La estructura sigue campo por campo un comprobante REAL aceptado por Hacienda
+// (ver tmp/referencia-178.xml y tests/unit/fe-xml.test.js). Cuando haya duda
+// sobre orden de elementos, cantidad de decimales o nombres, ese archivo manda:
+// es la única fuente que sabemos que pasa la validación.
+//
+// Diferencias que trajo la 4.4 respecto de la 4.3, por si aparece documentación
+// vieja: `CodigoActividad` pasó a `CodigoActividadEmisor` y ahora va con punto
+// (8690.9); apareció `ProveedorSistemas`; `CodigoTarifa` pasó a `CodigoTarifaIVA`;
+// se agregaron `BaseImponible` e `ImpuestoAsumidoEmisorFabrica` por línea; y
+// `MedioPago` dejó de ser un elemento suelto para vivir dentro de ResumenFactura
+// con su propio monto.
 
 import { create } from "xmlbuilder2";
 import {
@@ -11,18 +23,56 @@ import {
 } from "./config.js";
 
 const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
-const fmt2   = (n) => round2(n).toFixed(2);
+
+/** Importes de venta: la 4.4 los lleva con 5 decimales. */
+const fmt5 = (n) => round2(n).toFixed(5);
+/** Impuestos y totales a pagar: 2 decimales. */
+const fmt2 = (n) => round2(n).toFixed(2);
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-/** Formatea fecha en ISO 8601 con zona horaria CR (-06:00) */
+/**
+ * Formatea una fecha en la hora de Costa Rica con offset -06:00.
+ *
+ * NO se puede usar la hora local del servidor: en Vercel corre en UTC y en una
+ * maquina de desarrollo puede estar en cualquier zona. Tomar los componentes
+ * locales y pegarles "-06:00" produce un timestamp corrido tantas horas como
+ * diferencia haya, y Hacienda lo rechaza con el error -53 ("La hora indicada en
+ * la emision del archivo XML no coincide con la hora oficial").
+ *
+ * Costa Rica no aplica horario de verano, asi que el offset es siempre -06:00.
+ */
 function feCrDate(date) {
-  const d   = date instanceof Date ? date : new Date(date);
-  const pad = (n) => String(n).padStart(2, "0");
-  return (
-    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
-    `T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}-06:00`
-  );
+  const d = date instanceof Date ? date : new Date(date || Date.now());
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Costa_Rica",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(d);
+
+  const parte = (tipo) => partes.find((p) => p.type === tipo).value;
+
+  return `${parte("year")}-${parte("month")}-${parte("day")}` +
+    `T${parte("hour")}:${parte("minute")}:${parte("second")}-06:00`;
+}
+
+/**
+ * Normaliza el código de actividad al formato NNNN.N que pide la 4.4.
+ * Acepta el formato viejo sin punto (86909 → 8690.9) para no obligar a tocar
+ * el entorno de instalaciones que vienen de la 4.3.
+ */
+export function formatCodigoActividad(codigo) {
+  const limpio = String(codigo || "").trim();
+  if (/^\d+\.\d$/.test(limpio)) return limpio;
+
+  const digitos = limpio.replace(/\D/g, "");
+  if (digitos.length < 2) return limpio;
+  return `${digitos.slice(0, -1)}.${digitos.slice(-1)}`;
 }
 
 /**
@@ -64,10 +114,44 @@ export function buildFeNumber(invoiceType, consecutivo) {
   return `${FE_EMISOR.sucursal}${FE_EMISOR.terminal}${tipoDoc}${consec}`;
 }
 
-/** Extrae consecutivo numérico de un invoiceNumber */
+/**
+ * Extrae el consecutivo numérico de un invoiceNumber.
+ *
+ * Falla en vez de asumir 1 cuando el número no es utilizable. La versión previa
+ * devolvía 1 en silencio ante cualquier cosa no numérica —incluido el
+ * `AUTO-<timestamp>` provisorio de createAutoInvoice—, y Hacienda respondía
+ * "la numeración consecutiva ya existe", un motivo que no apunta a la causa.
+ * Es preferible que el envío falle con un mensaje claro a emitir un comprobante
+ * con el consecutivo equivocado.
+ */
 export function extractConsecutivo(invoiceNumber) {
-  const parts = String(invoiceNumber || "1").split("/");
-  return Math.abs(parseInt(parts[parts.length - 1] || "1", 10)) || 1;
+  const ultimo = String(invoiceNumber ?? "").split("/").pop().trim();
+
+  if (!/^\d+$/.test(ultimo)) {
+    throw new Error(
+      `Número de factura no utilizable como consecutivo: "${invoiceNumber}". ` +
+        "Debe ser numérico (admite ceros a la izquierda y prefijos separados por '/')."
+    );
+  }
+
+  const consecutivo = parseInt(ultimo, 10);
+  if (consecutivo < 1) {
+    throw new Error(`El consecutivo debe ser mayor que cero, se recibió "${invoiceNumber}".`);
+  }
+
+  return consecutivo;
+}
+
+/** Devuelve el código de tarifa de IVA según el porcentaje */
+export function ivaTarifaCodigo(rate) {
+  const r = round2(rate);
+  if (r === 0)   return "01"; // Exento
+  if (r === 1)   return "02";
+  if (r === 2)   return "03";
+  if (r === 4)   return "04"; // Servicios de salud
+  if (r === 8)   return "05";
+  if (r === 13)  return "06";
+  return "07"; // Variable
 }
 
 // ─── Generador principal ─────────────────────────────────────────────────────
@@ -111,7 +195,10 @@ export function generateFeXml(invoice, lines) {
     });
 
   root.ele("Clave").txt(feClave);
-  root.ele("CodigoActividad").txt(invoice.economicActivity || FE_EMISOR.actividadEconomica);
+  root.ele("ProveedorSistemas").txt(FE_EMISOR.proveedorSistemas);
+  root.ele("CodigoActividadEmisor").txt(
+    formatCodigoActividad(invoice.economicActivity || FE_EMISOR.actividadEconomica)
+  );
   root.ele("NumeroConsecutivo").txt(feNumber);
   root.ele("FechaEmision").txt(feCrDate(invoiceDate));
 
@@ -125,6 +212,7 @@ export function generateFeXml(invoice, lines) {
   ubEl.ele("Provincia").txt(FE_EMISOR.ubicacion.provincia);
   ubEl.ele("Canton").txt(FE_EMISOR.ubicacion.canton);
   ubEl.ele("Distrito").txt(FE_EMISOR.ubicacion.distrito);
+  if (FE_EMISOR.ubicacion.barrio) ubEl.ele("Barrio").txt(FE_EMISOR.ubicacion.barrio);
   ubEl.ele("OtrasSenas").txt(FE_EMISOR.ubicacion.otrasSenas);
   const telEl = emisorEl.ele("Telefono");
   telEl.ele("CodigoPais").txt(FE_EMISOR.telefono.codigoPais);
@@ -144,7 +232,6 @@ export function generateFeXml(invoice, lines) {
       idRecEl.ele("Tipo").txt(idType);
       idRecEl.ele("Numero").txt(contactIdNum);
     }
-    // CorreoElectronico del receptor (si está disponible en contact)
     if (invoice.contact?.email) {
       recEl.ele("CorreoElectronico").txt(invoice.contact.email);
     }
@@ -155,7 +242,6 @@ export function generateFeXml(invoice, lines) {
     const diffDays = Math.ceil((dueDate - invoiceDate) / (1000 * 60 * 60 * 24));
     root.ele("PlazoCredito").txt(String(diffDays));
   }
-  root.ele("MedioPago").txt(medioPago);
 
   // ─── Detalle de líneas ───────────────────────────────────────────────────
   const detalleEl = root.ele("DetalleServicio");
@@ -164,69 +250,78 @@ export function generateFeXml(invoice, lines) {
   let totalServExentos        = 0;
   let totalMercanciasGravadas = 0;
   let totalMercanciasExentas  = 0;
+  let totalVenta              = 0;
   let totalDescuentos         = 0;
   let totalImpuesto           = 0;
+
+  // Desglose del impuesto por tarifa: la 4.4 lo exige agrupado en el resumen.
+  const desglose = new Map();
 
   lines.forEach((line, idx) => {
     const lineEl = detalleEl.ele("LineaDetalle");
     lineEl.ele("NumeroLinea").txt(String(idx + 1));
 
-    // Código CABYS (prioridad: product.cabysCode)
+    // En 4.4 el CABYS es un elemento propio, ya no va envuelto en CodigoHacienda.
     const cabys = line.product?.cabysCode || line.service?.cabysCode || line.cabysCode || "";
-    if (cabys) {
-      const codEl = lineEl.ele("CodigoHacienda");
-      codEl.ele("Tipo").txt("04"); // 04=CABYS
-      codEl.ele("Codigo").txt(cabys);
-    }
+    if (cabys) lineEl.ele("CodigoCABYS").txt(cabys);
 
     const qty     = round2(line.quantity || 1);
     const uprice  = round2(line.unitPrice || 0);
     const discPct = round2(line.discountPercent || 0);
     const taxRate = round2(line.taxRate || 0);
 
-    const montoTotal  = round2(qty * uprice);
-    const descMonto   = discPct > 0 ? round2(montoTotal * discPct / 100) : 0;
+    const montoTotal   = round2(qty * uprice);
+    const descMonto    = discPct > 0 ? round2(montoTotal * discPct / 100) : 0;
     const subtotalLine = round2(montoTotal - descMonto);
-    const taxMonto    = round2(line.taxAmount || 0);
-    const totalLinea  = round2(subtotalLine + taxMonto);
+    const taxMonto     = round2(line.taxAmount || 0);
+    const totalLinea   = round2(subtotalLine + taxMonto);
 
     // Unidad de medida: default "Sp" (servicios profesionales)
     const uom = line.product?.saleUom || "Sp";
 
-    lineEl.ele("Cantidad").txt(fmt2(qty));
+    lineEl.ele("Cantidad").txt(fmt5(qty));
     lineEl.ele("UnidadMedida").txt(uom);
     lineEl.ele("Detalle").txt(
       (line.product?.name || line.service?.title || line.description || `Servicio ${idx + 1}`).substring(0, 200)
     );
-    lineEl.ele("PrecioUnitario").txt(fmt2(uprice));
-    lineEl.ele("MontoTotal").txt(fmt2(montoTotal));
+    lineEl.ele("PrecioUnitario").txt(fmt5(uprice));
+    lineEl.ele("MontoTotal").txt(fmt5(montoTotal));
 
     if (descMonto > 0) {
       const descEl = lineEl.ele("Descuento");
-      descEl.ele("MontoDescuento").txt(fmt2(descMonto));
-      descEl.ele("NaturalezaDescuento").txt("Descuento comercial");
+      descEl.ele("MontoDescuento").txt(fmt5(descMonto));
+      descEl.ele("CodigoDescuento").txt("07");
+      descEl.ele("NaturalezaDescuento").txt("Descuento Comercial");
       totalDescuentos = round2(totalDescuentos + descMonto);
     }
 
-    lineEl.ele("SubTotal").txt(fmt2(subtotalLine));
+    lineEl.ele("SubTotal").txt(fmt5(subtotalLine));
+    lineEl.ele("BaseImponible").txt(fmt5(subtotalLine));
 
-    // Impuesto IVA
+    totalVenta = round2(totalVenta + montoTotal);
+
     if (taxRate > 0 && taxMonto > 0) {
+      const codigoTarifa = ivaTarifaCodigo(taxRate);
+
       const impEl = lineEl.ele("Impuesto");
       impEl.ele("Codigo").txt("01"); // 01=IVA
-      impEl.ele("CodigoTarifa").txt(ivaTarifaCodigo(taxRate));
+      impEl.ele("CodigoTarifaIVA").txt(codigoTarifa);
       impEl.ele("Tarifa").txt(fmt2(taxRate));
       impEl.ele("Monto").txt(fmt2(taxMonto));
 
+      lineEl.ele("ImpuestoAsumidoEmisorFabrica").txt("0.00");
       lineEl.ele("ImpuestoNeto").txt(fmt2(taxMonto));
+
       totalImpuesto = round2(totalImpuesto + taxMonto);
-      totalServGravados = round2(totalServGravados + subtotalLine);
+      totalServGravados = round2(totalServGravados + montoTotal);
+      desglose.set(codigoTarifa, round2((desglose.get(codigoTarifa) || 0) + taxMonto));
     } else {
+      lineEl.ele("ImpuestoAsumidoEmisorFabrica").txt("0.00");
       lineEl.ele("ImpuestoNeto").txt("0.00");
-      totalServExentos = round2(totalServExentos + subtotalLine);
+      totalServExentos = round2(totalServExentos + montoTotal);
     }
 
-    lineEl.ele("MontoTotalLinea").txt(fmt2(totalLinea));
+    lineEl.ele("MontoTotalLinea").txt(fmt5(totalLinea));
   });
 
   // ─── InformacionReferencia (solo para notas de crédito) ──────────────────
@@ -248,47 +343,46 @@ export function generateFeXml(invoice, lines) {
   }
 
   // ─── Resumen Factura ─────────────────────────────────────────────────────
-  const subtotal        = round2(invoice.subtotal || 0);
-  const taxAmount       = round2(invoice.taxAmount || 0);
-  const discountAmount  = round2(invoice.discountAmount || totalDescuentos);
-  const total           = round2(invoice.total || 0);
-  const ventaNeta       = round2(subtotal - discountAmount);
+  const discountAmount = round2(invoice.discountAmount || totalDescuentos);
+  const total          = round2(invoice.total || 0);
+  const ventaNeta      = round2(totalVenta - discountAmount);
 
   const resumenEl = root.ele("ResumenFactura");
   const monedaEl  = resumenEl.ele("CodigoTipoMoneda");
   monedaEl.ele("CodigoMoneda").txt(currency);
-  monedaEl.ele("TipoCambio").txt("1.00"); // Solo CRC por ahora
+  monedaEl.ele("TipoCambio").txt(fmt5(1)); // Solo CRC por ahora
 
-  resumenEl.ele("TotalServGravados").txt(fmt2(totalServGravados));
-  resumenEl.ele("TotalServExentos").txt(fmt2(totalServExentos));
-  resumenEl.ele("TotalServExonerados").txt("0.00");
-  resumenEl.ele("TotalMercanciasGravadas").txt(fmt2(totalMercanciasGravadas));
-  resumenEl.ele("TotalMercanciasExentas").txt(fmt2(totalMercanciasExentas));
-  resumenEl.ele("TotalMercanciasExoneradas").txt("0.00");
-  resumenEl.ele("TotalGravado").txt(fmt2(round2(totalServGravados + totalMercanciasGravadas)));
-  resumenEl.ele("TotalExento").txt(fmt2(round2(totalServExentos + totalMercanciasExentas)));
-  resumenEl.ele("TotalExonerado").txt("0.00");
-  resumenEl.ele("TotalVenta").txt(fmt2(subtotal));
-  resumenEl.ele("TotalDescuentos").txt(fmt2(discountAmount));
-  resumenEl.ele("TotalVentaNeta").txt(fmt2(ventaNeta));
-  resumenEl.ele("TotalImpuesto").txt(fmt2(taxAmount));
-  resumenEl.ele("TotalIVADevuelto").txt("0.00");
-  resumenEl.ele("TotalOtrosCargos").txt("0.00");
+  // Solo se emiten los totales con contenido: los opcionales en cero se omiten,
+  // igual que en el comprobante de referencia.
+  if (totalServGravados > 0) resumenEl.ele("TotalServGravados").txt(fmt5(totalServGravados));
+  if (totalServExentos > 0)  resumenEl.ele("TotalServExentos").txt(fmt5(totalServExentos));
+  if (totalMercanciasGravadas > 0) resumenEl.ele("TotalMercanciasGravadas").txt(fmt5(totalMercanciasGravadas));
+  if (totalMercanciasExentas > 0)  resumenEl.ele("TotalMercanciasExentas").txt(fmt5(totalMercanciasExentas));
+
+  resumenEl.ele("TotalGravado").txt(fmt5(round2(totalServGravados + totalMercanciasGravadas)));
+  if (totalServExentos + totalMercanciasExentas > 0) {
+    resumenEl.ele("TotalExento").txt(fmt5(round2(totalServExentos + totalMercanciasExentas)));
+  }
+  resumenEl.ele("TotalVenta").txt(fmt5(totalVenta));
+  resumenEl.ele("TotalDescuentos").txt(fmt5(discountAmount));
+  resumenEl.ele("TotalVentaNeta").txt(fmt5(ventaNeta));
+
+  for (const [codigoTarifa, monto] of desglose) {
+    const desgEl = resumenEl.ele("TotalDesgloseImpuesto");
+    desgEl.ele("Codigo").txt("01");
+    desgEl.ele("CodigoTarifaIVA").txt(codigoTarifa);
+    desgEl.ele("TotalMontoImpuesto").txt(fmt2(monto));
+  }
+
+  resumenEl.ele("TotalImpuesto").txt(fmt2(totalImpuesto));
+
+  const medioEl = resumenEl.ele("MedioPago");
+  medioEl.ele("TipoMedioPago").txt(medioPago);
+  medioEl.ele("TotalMedioPago").txt(fmt2(total));
+
   resumenEl.ele("TotalComprobante").txt(fmt2(total));
 
   const xml = root.end({ prettyPrint: false, headless: true });
 
   return { xml, feNumber, feClave };
-}
-
-/** Devuelve el código de tarifa de IVA según el porcentaje */
-function ivaTarifaCodigo(rate) {
-  const r = round2(rate);
-  if (r === 0)   return "01"; // Exento
-  if (r === 1)   return "02";
-  if (r === 2)   return "03";
-  if (r === 4)   return "04";
-  if (r === 8)   return "05";
-  if (r === 13)  return "06";
-  return "07"; // Variable
 }

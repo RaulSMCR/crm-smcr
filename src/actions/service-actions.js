@@ -237,6 +237,54 @@ export async function syncServiceAssignments(serviceId, professionalIds = []) {
   }
 }
 
+/**
+ * Deja el servicio clasificado fiscalmente antes de habilitar a alguien a cobrarlo.
+ *
+ * Acepta los valores que el admin haya escrito en la misma pantalla de revisión;
+ * si el servicio ya los tenía y no se mandan otros, los conserva. Devuelve error
+ * cuando la clasificación sigue faltando, porque a partir de la aprobación toda
+ * factura de ese servicio saldría incompleta.
+ */
+async function applyServiceFiscalData(serviceId, payload = {}) {
+  const service = await prisma.service.findUnique({
+    where: { id: serviceId },
+    select: { cabysCode: true, taxId: true },
+  });
+  if (!service) return { error: "No se encontró el servicio." };
+
+  const rawCabys = payload?.cabysCode;
+  const rawTaxId = payload?.taxId;
+
+  const cabysCode =
+    rawCabys === undefined || rawCabys === null || String(rawCabys).trim() === ""
+      ? service.cabysCode
+      : String(rawCabys).trim();
+  const taxId =
+    rawTaxId === undefined || rawTaxId === null || String(rawTaxId).trim() === ""
+      ? service.taxId
+      : String(rawTaxId).trim();
+
+  if (!cabysCode || !taxId) {
+    return {
+      error:
+        "Antes de aprobar hay que clasificar el servicio: indique el código CABYS y el IVA que le corresponde.",
+    };
+  }
+
+  if (!/^\d{13}$/.test(cabysCode)) {
+    return { error: "El código CABYS debe tener exactamente 13 dígitos." };
+  }
+
+  const tax = await prisma.tax.findUnique({ where: { id: taxId }, select: { id: true } });
+  if (!tax) return { error: "El IVA seleccionado no existe." };
+
+  if (cabysCode !== service.cabysCode || taxId !== service.taxId) {
+    await prisma.service.update({ where: { id: serviceId }, data: { cabysCode, taxId } });
+  }
+
+  return { success: true };
+}
+
 export async function reviewServiceAssignment(serviceId, professionalId, payload = {}) {
   try {
     const session = await getSession();
@@ -265,6 +313,14 @@ export async function reviewServiceAssignment(serviceId, professionalId, payload
     });
 
     if (!current) return { error: "No se encontro la solicitud." };
+
+    // Clasificar fiscalmente el servicio es parte de aprobarlo: aprobar sin CABYS
+    // ni IVA deja al profesional habilitado para cobrar y a cada factura suya
+    // marcada como incompleta ante Hacienda. Se puede resolver en este mismo paso.
+    if (decision === "APPROVED") {
+      const fiscal = await applyServiceFiscalData(sid, payload);
+      if (fiscal.error) return { error: fiscal.error };
+    }
 
     await prisma.serviceAssignment.update({
       where: { professionalId_serviceId: { professionalId: pid, serviceId: sid } },
@@ -328,17 +384,27 @@ export async function bulkReviewServiceAssignments(serviceId, assignmentUpdates 
       return { error: "No hay solicitudes para procesar." };
     }
 
+    // Se recogen los fallos en vez de ignorarlos: si falta la clasificación
+    // fiscal, aprobar en lote no puede terminar diciendo que todo salió bien.
+    const failures = [];
+
     for (const item of assignmentUpdates) {
       const professionalId = String(item?.professionalId || "");
       if (!professionalId) continue;
 
       const decision = item?.decision === "REJECTED" ? "REJECTED" : "APPROVED";
-      await reviewServiceAssignment(sid, professionalId, {
+      const res = await reviewServiceAssignment(sid, professionalId, {
         decision,
         approvedSessionPrice: item?.approvedSessionPrice,
         adminReviewNote: item?.adminReviewNote,
+        cabysCode: item?.cabysCode,
+        taxId: item?.taxId,
       });
+
+      if (res?.error) failures.push(res.error);
     }
+
+    if (failures.length > 0) return { error: failures[0] };
 
     return { success: true };
   } catch (error) {
