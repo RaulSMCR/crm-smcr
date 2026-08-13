@@ -14,6 +14,16 @@ function slugify(text) {
     .replace(/(^-|-$)/g, "");
 }
 
+function slugifySeriesName(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
 async function requireProfessionalApproved(session) {
   if (!session) return { ok: false, status: 401, message: "No autorizado" };
   if (session.role !== "PROFESSIONAL") return { ok: false, status: 403, message: "Accion no permitida" };
@@ -41,11 +51,13 @@ export async function POST(request) {
     const title = String(body?.title || "").trim();
     const content = String(body?.content || "").trim();
     const requestedSlug = String(body?.slug || "").trim();
+    const excerpt = String(body?.excerpt || "").trim() || null;
     const metaTitle = String(body?.metaTitle || "").trim() || null;
     const metaDescription = String(body?.metaDescription || "").trim() || null;
+    const ogImage = String(body?.ogImage || "").trim() || null;
     const focusKeyword = String(body?.focusKeyword || "").trim() || null;
+    const noindex = Boolean(body?.noindex);
     const coverImage = String(body?.coverImage || body?.imageUrl || "").trim() || null;
-    const excerpt = String(body?.excerpt || "").trim() || null;
     const coverImageTitle = String(body?.coverImageTitle || "").trim() || null;
     const coverImageAuthor = String(body?.coverImageAuthor || "").trim() || null;
     const coverImageNote = String(body?.coverImageNote || "").trim() || null;
@@ -60,15 +72,32 @@ export async function POST(request) {
     const exists = await prisma.post.findUnique({ where: { slug }, select: { id: true } });
     if (exists) slug = `${slug}-${Math.random().toString(36).slice(2, 7)}`;
 
+    const seriesName = String(body?.seriesName || "").trim();
+    const seriesOrderValue = Number(body?.seriesOrder);
+    const seriesOrder = Number.isFinite(seriesOrderValue) && seriesOrderValue > 0
+      ? Math.max(1, Math.round(seriesOrderValue))
+      : null;
+    const series = seriesName
+      ? await prisma.series.findFirst({
+          where: { isActive: true, OR: [{ name: seriesName }, { slug: slugifySeriesName(seriesName) }] },
+          select: { id: true },
+        })
+      : null;
+
     const newPost = await prisma.post.create({
       data: {
         title,
         slug,
         content,
+        excerpt,
         metaTitle,
         metaDescription,
+        ogImage,
         focusKeyword,
-        excerpt,
+        noindex,
+        seriesId: series?.id || null,
+        seriesOrder: series?.id ? seriesOrder : null,
+        seriesApproved: false,
         coverImage,
         coverImageTitle,
         coverImageAuthor,

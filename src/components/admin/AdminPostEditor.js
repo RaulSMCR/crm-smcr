@@ -145,9 +145,12 @@ export default function AdminPostEditor({ post }) {
 
     updateField("content", imported.content);
     if (imported.metadata.slug) updateField("slug", imported.metadata.slug);
+    if (imported.metadata.excerpt) updateField("excerpt", imported.metadata.excerpt);
     if (imported.metadata.metaTitle) updateField("metaTitle", imported.metadata.metaTitle);
     if (imported.metadata.metaDescription) updateField("metaDescription", imported.metadata.metaDescription);
+    if (imported.metadata.ogImage) updateField("ogImage", imported.metadata.ogImage);
     if (imported.metadata.focusKeyword) updateField("focusKeyword", imported.metadata.focusKeyword);
+    if (imported.metadata.noindex !== undefined) updateField("noindex", Boolean(imported.metadata.noindex));
     window.dispatchEvent(new CustomEvent("crm:editorial-metadata", { detail: imported.metadata }));
     setNotice("Metadatos CRM detectados. Revisá y guardá los cambios.");
   }
@@ -162,7 +165,9 @@ export default function AdminPostEditor({ post }) {
       excerpt: parsed.excerpt || current.excerpt,
       metaTitle: parsed.metaTitle || current.metaTitle,
       metaDescription: parsed.metaDescription || current.metaDescription,
+      ogImage: parsed.ogImage || current.ogImage,
       focusKeyword: parsed.focusKeyword || current.focusKeyword,
+      noindex: parsed.noindex !== undefined ? Boolean(parsed.noindex) : current.noindex,
     }));
     if (parsed.crmMetadata) {
       window.dispatchEvent(new CustomEvent("crm:editorial-metadata", { detail: parsed.crmMetadata }));
@@ -306,16 +311,14 @@ export default function AdminPostEditor({ post }) {
           />
         </div>
 
-        <details className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-          <summary className="cursor-pointer text-sm font-semibold text-slate-800">
-            Reemplazar el contenido con un archivo .md
-          </summary>
+        <section className="rounded-lg border border-blue-100 bg-blue-50/50 p-4">
+          <h2 className="text-sm font-semibold text-slate-900">Cargar artículo desde un archivo .md</h2>
           <p className="mt-1 mb-3 text-xs text-slate-600">
             Arrastrá el archivo o buscalo en tu equipo. Se completan el título, el contenido y el SEO que traiga; nada
             se guarda hasta que uses &ldquo;Guardar edicion&rdquo;.
           </p>
           <MarkdownFileImport onImport={handleMarkdownImport} compact />
-        </details>
+        </section>
 
         <div>
           <label className="mb-1 block text-sm font-semibold text-slate-700">Contenido</label>

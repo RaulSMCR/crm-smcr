@@ -33,6 +33,22 @@ const FRONT_MATTER_KEYS = new Map([
   ["keyword", "focusKeyword"],
   ["palabra clave", "focusKeyword"],
   ["palabra_clave", "focusKeyword"],
+  ["ogimage", "ogImage"],
+  ["og image", "ogImage"],
+  ["og_image", "ogImage"],
+  ["imagen social", "ogImage"],
+  ["imagen_social", "ogImage"],
+  ["noindex", "noindex"],
+  ["no indexar", "noindex"],
+  ["no_indexar", "noindex"],
+  ["fase", "phase"],
+  ["phase", "phase"],
+  ["serie", "series"],
+  ["series", "series"],
+  ["parte", "part"],
+  ["part", "part"],
+  ["series_order", "part"],
+  ["series order", "part"],
 ]);
 
 const TEXT_EXTENSIONS = [".md", ".markdown", ".mdown", ".mdx", ".txt"];
@@ -52,6 +68,15 @@ function cleanScalar(value) {
   return unquoted.trim();
 }
 
+function parseBoolean(value) {
+  return /^(1|true|yes|si|s[ií])$/i.test(String(value || "").trim());
+}
+
+function parsePartNumber(value) {
+  const match = String(value || "").match(/\b(\d+)\b/);
+  return match ? Number(match[1]) : null;
+}
+
 /** Front matter YAML plano: solo `clave: valor` de una línea. Listas y objetos se ignoran. */
 function parseFrontMatter(source) {
   const match = /^﻿?---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/.exec(source);
@@ -67,7 +92,8 @@ function parseFrontMatter(source) {
     if (!key) continue;
 
     const value = cleanScalar(pair[2]);
-    if (value) data[key] = value;
+    if (!value) continue;
+    data[key] = key === "noindex" ? parseBoolean(value) : value;
   }
 
   return { data, body: source.slice(match[0].length) };
@@ -106,6 +132,8 @@ export function isMarkdownFileName(fileName) {
  * @param {string} [fileName]  nombre del archivo, usado solo como último recurso para el título
  * @returns {{ title: string, content: string, slug: string|null, excerpt: string|null,
  *            metaTitle: string|null, metaDescription: string|null, focusKeyword: string|null,
+ *            ogImage: string|null, noindex: boolean, phase: string|null,
+ *            seriesName: string|null, seriesOrder: number|null,
  *            crmMetadata: object|null, warnings: string[] }}
  */
 export function parseMarkdownDocument(text, fileName = "") {
@@ -129,17 +157,41 @@ export function parseMarkdownDocument(text, fileName = "") {
   const content = heading.body.trim();
   if (!content) warnings.push("El archivo no tiene contenido después del título.");
 
-  const crmMetadata = crm.found ? crm.metadata : null;
+  const frontMatterMetadata = {};
+  for (const key of [
+    "slug",
+    "excerpt",
+    "metaTitle",
+    "metaDescription",
+    "focusKeyword",
+    "ogImage",
+    "noindex",
+    "phase",
+    "series",
+    "part",
+  ]) {
+    if (data[key] !== undefined) frontMatterMetadata[key] = data[key];
+  }
+
+  const crmMetadata = crm.found || Object.keys(frontMatterMetadata).length
+    ? { ...(crm.metadata || {}), ...frontMatterMetadata }
+    : null;
   const pick = (key) => data[key] || crmMetadata?.[key] || null;
+  const partValue = pick("part");
 
   return {
     title: title || "",
     content,
     slug: pick("slug"),
-    excerpt: data.excerpt || null,
+    excerpt: pick("excerpt"),
     metaTitle: pick("metaTitle"),
     metaDescription: pick("metaDescription"),
     focusKeyword: pick("focusKeyword"),
+    ogImage: pick("ogImage"),
+    noindex: data.noindex ?? Boolean(crmMetadata?.noindex),
+    phase: pick("phase"),
+    seriesName: pick("series"),
+    seriesOrder: parsePartNumber(partValue),
     crmMetadata,
     warnings,
   };

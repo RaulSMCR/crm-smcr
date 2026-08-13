@@ -26,6 +26,16 @@ function requireAdmin(session) {
   }
 }
 
+function slugifySeriesName(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
 export async function approveUser(userId) {
   if (!userId) return { error: "ID de usuario requerido" };
 
@@ -220,7 +230,9 @@ export async function createAdminPost(input) {
     const excerpt = String(input?.excerpt || "").trim() || null;
     const metaTitle = String(input?.metaTitle || "").trim() || null;
     const metaDescription = String(input?.metaDescription || "").trim() || null;
+    const ogImage = String(input?.ogImage || "").trim() || null;
     const focusKeyword = String(input?.focusKeyword || "").trim() || null;
+    const noindex = Boolean(input?.noindex);
 
     if (!authorId) return { error: "Elegí el profesional que firma el artículo." };
     if (title.length < 4) return { error: "El título debe tener al menos 4 caracteres." };
@@ -238,6 +250,18 @@ export async function createAdminPost(input) {
     const taken = await prisma.post.findUnique({ where: { slug }, select: { id: true } });
     if (taken) slug = `${slug}-${Math.random().toString(36).slice(2, 7)}`;
 
+    const seriesName = String(input?.seriesName || "").trim();
+    const seriesOrderValue = Number(input?.seriesOrder);
+    const seriesOrder = Number.isFinite(seriesOrderValue) && seriesOrderValue > 0
+      ? Math.max(1, Math.round(seriesOrderValue))
+      : null;
+    const series = seriesName
+      ? await prisma.series.findFirst({
+          where: { isActive: true, OR: [{ name: seriesName }, { slug: slugifySeriesName(seriesName) }] },
+          select: { id: true },
+        })
+      : null;
+
     const post = await prisma.post.create({
       data: {
         title,
@@ -246,7 +270,12 @@ export async function createAdminPost(input) {
         excerpt,
         metaTitle,
         metaDescription,
+        ogImage,
         focusKeyword,
+        noindex,
+        seriesId: series?.id || null,
+        seriesOrder: series?.id ? seriesOrder : null,
+        seriesApproved: false,
         status: "DRAFT",
         authorId: author.id,
       },

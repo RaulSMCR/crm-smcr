@@ -24,5 +24,27 @@ describe("extractCrmMetadata", () => {
     const text = "Texto sin bloque de metadatos.";
     expect(extractCrmMetadata(text)).toEqual({ found: false, content: text, metadata: null });
   });
-});
 
+  it("acepta aliases SEO y noindex en el bloque CRM", () => {
+    const result = extractCrmMetadata([
+      "# Artículo",
+      "",
+      "Texto.",
+      "",
+      "## Metadatos para CRM",
+      "**metatitle:** Título SEO",
+      "**metadescription:** Descripción SEO",
+      "**focuskeyword:** bienestar",
+      "**ogimage:** https://example.com/og.png",
+      "**noindex:** true",
+    ].join("\n"));
+
+    expect(result.metadata).toMatchObject({
+      metaTitle: "Título SEO",
+      metaDescription: "Descripción SEO",
+      focusKeyword: "bienestar",
+      ogImage: "https://example.com/og.png",
+      noindex: true,
+    });
+  });
+});

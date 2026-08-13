@@ -18,6 +18,7 @@ async function getPostOrNull(idParam, authorId) {
       id: true,
       title: true,
       content: true,
+      excerpt: true,
       coverImage: true,
       coverImageTitle: true,
       coverImageAuthor: true,
@@ -26,7 +27,9 @@ async function getPostOrNull(idParam, authorId) {
       slug: true,
       metaTitle: true,
       metaDescription: true,
+      ogImage: true,
       focusKeyword: true,
+      noindex: true,
       createdAt: true,
     },
   });

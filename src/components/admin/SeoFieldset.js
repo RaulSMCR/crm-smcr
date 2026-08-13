@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SEO_LIMITS } from "@/lib/seo";
 
 /**
@@ -29,6 +29,22 @@ export default function SeoFieldset({ initialValues = {}, fallbackTitle = "", fa
     focusKeyword: initialValues.focusKeyword || "",
     noindex: Boolean(initialValues.noindex),
   });
+
+  useEffect(() => {
+    setValues({
+      metaTitle: initialValues.metaTitle || "",
+      metaDescription: initialValues.metaDescription || "",
+      ogImage: initialValues.ogImage || "",
+      focusKeyword: initialValues.focusKeyword || "",
+      noindex: Boolean(initialValues.noindex),
+    });
+  }, [
+    initialValues.metaTitle,
+    initialValues.metaDescription,
+    initialValues.ogImage,
+    initialValues.focusKeyword,
+    initialValues.noindex,
+  ]);
 
   function set(name, value) {
     setValues((current) => ({ ...current, [name]: value }));

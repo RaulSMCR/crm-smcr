@@ -74,6 +74,36 @@ describe("parseMarkdownDocument", () => {
     expect(result.slug).toBeNull();
     expect(result.content).toBe("Texto.");
   });
+
+  it("carga SEO completo y metadatos de serie desde front matter", () => {
+    const file = [
+      "---",
+      "title: Artículo de la serie",
+      "excerpt: Resumen para la biblioteca",
+      "meta_title: Título SEO",
+      "meta_description: Descripción SEO",
+      "focus_keyword: salud mental",
+      "og_image: https://example.com/social.png",
+      "noindex: true",
+      "series: Qué llamamos salud",
+      "part: 3",
+      "---",
+      "",
+      "Texto principal del artículo.",
+    ].join("\n");
+
+    expect(parseMarkdownDocument(file)).toMatchObject({
+      title: "Artículo de la serie",
+      excerpt: "Resumen para la biblioteca",
+      metaTitle: "Título SEO",
+      metaDescription: "Descripción SEO",
+      focusKeyword: "salud mental",
+      ogImage: "https://example.com/social.png",
+      noindex: true,
+      seriesName: "Qué llamamos salud",
+      seriesOrder: 3,
+    });
+  });
 });
 
 describe("isMarkdownFileName", () => {

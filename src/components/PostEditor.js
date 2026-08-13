@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import SafeImage from "@/components/SafeImage";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import MarkdownFileImport from "@/components/blog/MarkdownFileImport";
+import SeoFieldset from "@/components/admin/SeoFieldset";
 import { IMAGE_FALLBACKS, PUBLIC_IMAGE_ACCEPT, SUPPORTED_PUBLIC_IMAGE_TYPES } from "@/lib/images";
 import { extractCrmMetadata } from "@/lib/editorial-metadata";
 
@@ -33,9 +34,15 @@ export default function PostEditor({ initial = null }) {
   const [title, setTitle] = useState(initial?.title ?? "");
   const [content, setContent] = useState(initial?.content ?? "");
   const [slug, setSlug] = useState(initial?.slug ?? "");
+  const [excerpt, setExcerpt] = useState(initial?.excerpt ?? "");
   const [metaTitle, setMetaTitle] = useState(initial?.metaTitle ?? "");
   const [metaDescription, setMetaDescription] = useState(initial?.metaDescription ?? "");
+  const [ogImage, setOgImage] = useState(initial?.ogImage ?? "");
   const [focusKeyword, setFocusKeyword] = useState(initial?.focusKeyword ?? "");
+  const [noindex, setNoindex] = useState(initial?.noindex ?? false);
+  const [seriesName, setSeriesName] = useState("");
+  const [seriesOrder, setSeriesOrder] = useState(null);
+  const [seoRevision, setSeoRevision] = useState(0);
   const [coverImage, setCoverImage] = useState(initial?.coverImage ?? "");
   const [coverImageTitle, setCoverImageTitle] = useState(initial?.coverImageTitle ?? "");
   const [coverImageAuthor, setCoverImageAuthor] = useState(initial?.coverImageAuthor ?? "");
@@ -61,10 +68,16 @@ export default function PostEditor({ initial = null }) {
 
     setContent(imported.content);
     if (imported.metadata.slug) setSlug(imported.metadata.slug);
+    if (imported.metadata.excerpt) setExcerpt(imported.metadata.excerpt);
     if (imported.metadata.metaTitle) setMetaTitle(imported.metadata.metaTitle);
     if (imported.metadata.metaDescription) setMetaDescription(imported.metadata.metaDescription);
+    if (imported.metadata.ogImage) setOgImage(imported.metadata.ogImage);
     if (imported.metadata.focusKeyword) setFocusKeyword(imported.metadata.focusKeyword);
+    if (imported.metadata.noindex !== undefined) setNoindex(Boolean(imported.metadata.noindex));
+    if (imported.metadata.series) setSeriesName(imported.metadata.series);
+    if (Number.isInteger(imported.metadata.partNumber)) setSeriesOrder(imported.metadata.partNumber);
     window.dispatchEvent(new CustomEvent("crm:editorial-metadata", { detail: imported.metadata }));
+    setSeoRevision((revision) => revision + 1);
     setNotice("Metadatos CRM detectados. Revisá y guardá los cambios.");
   }
 
@@ -73,12 +86,18 @@ export default function PostEditor({ initial = null }) {
     if (parsed.title) setTitle(parsed.title);
     if (parsed.content) setContent(parsed.content);
     if (parsed.slug) setSlug(parsed.slug);
+    if (parsed.excerpt) setExcerpt(parsed.excerpt);
     if (parsed.metaTitle) setMetaTitle(parsed.metaTitle);
     if (parsed.metaDescription) setMetaDescription(parsed.metaDescription);
+    if (parsed.ogImage) setOgImage(parsed.ogImage);
     if (parsed.focusKeyword) setFocusKeyword(parsed.focusKeyword);
+    if (parsed.noindex !== undefined) setNoindex(Boolean(parsed.noindex));
+    if (parsed.seriesName) setSeriesName(parsed.seriesName);
+    if (Number.isInteger(parsed.seriesOrder)) setSeriesOrder(parsed.seriesOrder);
     if (parsed.crmMetadata) {
       window.dispatchEvent(new CustomEvent("crm:editorial-metadata", { detail: parsed.crmMetadata }));
     }
+    setSeoRevision((revision) => revision + 1);
     setNotice("Archivo importado. Revisá el texto antes de guardar.");
   }
 
@@ -161,9 +180,13 @@ export default function PostEditor({ initial = null }) {
       title,
       content,
       slug: slug || null,
+      excerpt: excerpt || null,
       metaTitle: metaTitle || null,
       metaDescription: metaDescription || null,
+      ogImage: ogImage || null,
       focusKeyword: focusKeyword || null,
+      noindex,
+      ...(isEdit ? {} : { seriesName: seriesName || null, seriesOrder }),
       coverImage: coverImage || null,
       coverImageTitle: coverImageTitle || null,
       coverImageAuthor: coverImageAuthor || null,
@@ -232,6 +255,14 @@ export default function PostEditor({ initial = null }) {
       {error ? <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
       {notice ? <div className="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{notice}</div> : null}
 
+      <section className="rounded-lg border border-blue-100 bg-blue-50/50 p-4">
+        <h2 className="text-sm font-semibold text-slate-900">Cargar artículo desde un archivo .md</h2>
+        <p className="mt-1 mb-3 text-xs text-slate-600">
+          Está disponible desde el inicio. Completa automáticamente el título, contenido, resumen, SEO y metadatos de serie que encuentre.
+        </p>
+        <MarkdownFileImport onImport={handleMarkdownImport} compact />
+      </section>
+
       <div>
         <label className="mb-1 block text-sm font-medium">Título *</label>
         <input
@@ -244,16 +275,16 @@ export default function PostEditor({ initial = null }) {
         />
       </div>
 
-      <details className="rounded-lg border border-slate-200 bg-white p-4">
-        <summary className="cursor-pointer text-sm font-semibold text-slate-800">
-          Importar desde un archivo .md
-        </summary>
-        <p className="mt-1 mb-3 text-xs text-slate-600">
-          Si ya lo escribiste fuera del CRM, arrastrá el archivo o buscalo en tu equipo. Se completan el título, el
-          contenido y el SEO que traiga el documento.
-        </p>
-        <MarkdownFileImport onImport={handleMarkdownImport} compact />
-      </details>
+      <div>
+        <label className="mb-1 block text-sm font-medium">Resumen</label>
+        <textarea
+          value={excerpt}
+          onChange={(e) => setExcerpt(e.target.value)}
+          rows={3}
+          className="w-full rounded border px-3 py-2"
+          placeholder="Resumen breve para la biblioteca y buscadores"
+        />
+      </div>
 
       <div>
         <label className="mb-1 block text-sm font-medium">Contenido *</label>
@@ -264,6 +295,22 @@ export default function PostEditor({ initial = null }) {
           placeholder="Escribe el contenido del artículo. Usa los botones de formato (título, negrita, lista…)."
         />
       </div>
+
+      {!isEdit ? (
+        <SeoFieldset
+          key={seoRevision}
+          initialValues={{ metaTitle, metaDescription, ogImage, focusKeyword, noindex }}
+          fallbackTitle={title}
+          fallbackDescription={excerpt}
+          onChange={(name, value) => {
+            if (name === "metaTitle") setMetaTitle(value);
+            if (name === "metaDescription") setMetaDescription(value);
+            if (name === "ogImage") setOgImage(value);
+            if (name === "focusKeyword") setFocusKeyword(value);
+            if (name === "noindex") setNoindex(value);
+          }}
+        />
+      ) : null}
 
       <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
         <div>

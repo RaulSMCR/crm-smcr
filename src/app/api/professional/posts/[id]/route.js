@@ -46,6 +46,7 @@ export async function PATCH(request, { params }) {
     const title = String(body?.title || "").trim();
     const content = String(body?.content || "").trim();
     const requestedSlug = String(body?.slug || "").trim();
+    const excerpt = String(body?.excerpt || "").trim() || null;
     const coverImage = String(body?.coverImage || "").trim() || null;
     const coverImageTitle = String(body?.coverImageTitle || "").trim() || null;
     const coverImageAuthor = String(body?.coverImageAuthor || "").trim() || null;
@@ -71,9 +72,12 @@ export async function PATCH(request, { params }) {
     if (duplicate) return NextResponse.json({ message: "Ya existe otro articulo con ese slug" }, { status: 409 });
 
     const metadata = {};
+    if ("excerpt" in body) metadata.excerpt = excerpt;
     if ("metaTitle" in body) metadata.metaTitle = String(body.metaTitle || "").trim() || null;
     if ("metaDescription" in body) metadata.metaDescription = String(body.metaDescription || "").trim() || null;
+    if ("ogImage" in body) metadata.ogImage = String(body.ogImage || "").trim() || null;
     if ("focusKeyword" in body) metadata.focusKeyword = String(body.focusKeyword || "").trim() || null;
+    if ("noindex" in body) metadata.noindex = Boolean(body.noindex);
 
     const updated = await prisma.post.update({
       where: { id },

@@ -1,8 +1,24 @@
 const FIELD_LABELS = new Map([
   ["slug", "slug"],
+  ["excerpt", "excerpt"],
+  ["resumen", "excerpt"],
+  ["summary", "excerpt"],
   ["meta title", "metaTitle"],
+  ["meta_title", "metaTitle"],
+  ["metatitle", "metaTitle"],
   ["meta description", "metaDescription"],
+  ["meta_description", "metaDescription"],
+  ["metadescription", "metaDescription"],
   ["focus keyword", "focusKeyword"],
+  ["focus_keyword", "focusKeyword"],
+  ["focuskeyword", "focusKeyword"],
+  ["og image", "ogImage"],
+  ["og_image", "ogImage"],
+  ["ogimage", "ogImage"],
+  ["imagen social", "ogImage"],
+  ["noindex", "noindex"],
+  ["no indexar", "noindex"],
+  ["no_indexar", "noindex"],
   ["fase", "phase"],
   ["serie", "series"],
   ["parte", "part"],
@@ -30,6 +46,10 @@ function cleanValue(value) {
 function parsePartNumber(value) {
   const match = String(value || "").match(/\b(\d+)\b/);
   return match ? Number(match[1]) : null;
+}
+
+function parseBoolean(value) {
+  return /^(1|true|yes|si|s[ií])$/i.test(String(value || "").trim());
 }
 
 /**
@@ -63,6 +83,8 @@ export function extractCrmMetadata(text) {
       currentList = key === "internalLinks" ? "internalLinks" : null;
       if (key === "internalLinks") {
         if (value) metadata.internalLinks.push(value);
+      } else if (key === "noindex") {
+        metadata[key] = parseBoolean(value);
       } else if (value) {
         metadata[key] = value;
       }

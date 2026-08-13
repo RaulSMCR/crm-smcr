@@ -32,7 +32,11 @@ export default function AdminPostCreator({ authors = [], defaultAuthorId = "" })
     content: "",
     metaTitle: "",
     metaDescription: "",
+    ogImage: "",
     focusKeyword: "",
+    noindex: false,
+    seriesName: "",
+    seriesOrder: null,
   });
 
   const busy = saving || isPending;
@@ -52,7 +56,11 @@ export default function AdminPostCreator({ authors = [], defaultAuthorId = "" })
       excerpt: parsed.excerpt || current.excerpt,
       metaTitle: parsed.metaTitle || current.metaTitle,
       metaDescription: parsed.metaDescription || current.metaDescription,
+      ogImage: parsed.ogImage || current.ogImage,
       focusKeyword: parsed.focusKeyword || current.focusKeyword,
+      noindex: parsed.noindex !== undefined ? Boolean(parsed.noindex) : current.noindex,
+      seriesName: parsed.seriesName || current.seriesName,
+      seriesOrder: Number.isInteger(parsed.seriesOrder) ? parsed.seriesOrder : current.seriesOrder,
     }));
     if (parsed.crmMetadata) {
       window.dispatchEvent(new CustomEvent("crm:editorial-metadata", { detail: parsed.crmMetadata }));
@@ -83,6 +91,14 @@ export default function AdminPostCreator({ authors = [], defaultAuthorId = "" })
 
   return (
     <form onSubmit={onSubmit} className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+      <section className="space-y-3 rounded-xl border border-blue-100 bg-blue-50/50 p-5 xl:col-span-2">
+        <h2 className="text-sm font-bold text-slate-900">Cargar artículo desde un archivo .md</h2>
+        <p className="text-xs text-slate-600">
+          Está disponible desde el inicio. Completa automáticamente los campos que encuentre: título, contenido, resumen, SEO y serie/parte.
+        </p>
+        <MarkdownFileImport onImport={handleImport} />
+      </section>
+
       <section className="space-y-5 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div>
           <div className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Edición editorial</div>
@@ -179,14 +195,6 @@ export default function AdminPostCreator({ authors = [], defaultAuthorId = "" })
       </section>
 
       <aside className="space-y-5">
-        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-bold text-slate-900">Importar desde archivo</h2>
-          <p className="mt-1 mb-3 text-xs text-slate-600">
-            Traé un documento ya escrito. Rellena el título, el contenido y el SEO que venga en el archivo.
-          </p>
-          <MarkdownFileImport onImport={handleImport} />
-        </section>
-
         <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-sm font-bold text-slate-900">SEO inicial</h2>
           <input
@@ -208,6 +216,21 @@ export default function AdminPostCreator({ authors = [], defaultAuthorId = "" })
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
             placeholder="Palabra clave principal"
           />
+          <input
+            value={form.ogImage}
+            onChange={(event) => updateField("ogImage", event.target.value)}
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            placeholder="URL de imagen social (OG)"
+          />
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={form.noindex}
+              onChange={(event) => updateField("noindex", event.target.checked)}
+              className="h-4 w-4 rounded border-slate-300"
+            />
+            No indexar esta página
+          </label>
           <p className="text-xs text-slate-500">
             Opcional: si quedan vacíos, el metadata se deriva del contenido.
           </p>

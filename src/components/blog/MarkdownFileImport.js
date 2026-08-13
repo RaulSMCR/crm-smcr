@@ -41,7 +41,9 @@ export default function MarkdownFileImport({ onImport, compact = false }) {
       const detected = [
         parsed.title ? "título" : null,
         parsed.slug ? "slug" : null,
-        parsed.metaTitle || parsed.metaDescription || parsed.focusKeyword ? "SEO" : null,
+        parsed.metaTitle || parsed.metaDescription || parsed.focusKeyword || parsed.ogImage || parsed.noindex ? "SEO" : null,
+        parsed.excerpt ? "resumen" : null,
+        parsed.seriesName || parsed.seriesOrder ? "serie/parte" : null,
       ].filter(Boolean);
 
       setStatus(
