@@ -6,6 +6,7 @@ import PatientProfileEditorCard from "@/components/paciente/PatientProfileEditor
 import InsurancePatientUploader from "@/components/paciente/InsurancePatientUploader";
 import UserAppointmentsPanel from "@/components/UserAppointmentsPanel";
 import InstallPrompt from "@/components/mi/InstallPrompt";
+import PaymentReceivedToast from "@/components/PaymentReceivedToast";
 import Link from "next/link";
 import { getFraseDelDia } from "@/lib/mi/frases";
 import { fraseAMostrar } from "@/lib/frases-usuario";
@@ -174,6 +175,8 @@ export default async function PacientePanelPage({ searchParams }) {
 
         <PatientProfileEditorCard user={userForClient} />
       </div>
+      {/* Avisa los pagos acreditados mientras el paciente no estaba en la app. */}
+      <PaymentReceivedToast />
     </div>
   );
 }

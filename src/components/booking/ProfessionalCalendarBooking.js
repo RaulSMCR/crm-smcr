@@ -46,6 +46,7 @@ export default function ProfessionalCalendarBooking({
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [locationId, setLocationId] = useState(null);
   const [confirmation, setConfirmation] = useState(null);
+  const [esPrimeraCita, setEsPrimeraCita] = useState(false);
 
   const days = useMemo(
     () => buildSlots({ availability, durationMin, booked, daysAhead: 14 }),
@@ -67,6 +68,7 @@ export default function ProfessionalCalendarBooking({
         if (cancelled) return;
         const list = res?.options || [];
         setOptions(list);
+        setEsPrimeraCita(Boolean(res?.esPrimeraCita));
         // Con una sola opción no hay nada que elegir: se preselecciona.
         const bookable = list.filter((option) => option.bookable);
         setLocationId(bookable.length === 1 ? bookable[0].locationId : null);
@@ -104,7 +106,11 @@ export default function ProfessionalCalendarBooking({
       if (res?.success) {
         // Se muestra la confirmación un instante antes de navegar, para que el
         // paciente vea el detalle de lo que aceptó.
-        setConfirmation(res.confirmation || null);
+        setConfirmation(
+          res.confirmation
+            ? { ...res.confirmation, requiresDeposit: res.requiresDeposit, depositAmount: res.depositAmount }
+            : null
+        );
         setTimeout(() => {
           router.push(`/panel/paciente?created=1&series=${res.createdCount || 1}`);
           router.refresh();
@@ -253,6 +259,21 @@ export default function ProfessionalCalendarBooking({
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {selectedISO && esPrimeraCita && selectedOption?.bookable && (
+          <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <div className="font-semibold">Primera cita con este profesional</div>
+            <p className="mt-1">
+              Para reservarla se cobra por adelantado el <b>50%</b>, es decir{" "}
+              <b>{formatCRC(Math.round(selectedOption.price / 2))}</b>. El resto se cobra al
+              concluir la consulta.
+            </p>
+            <p className="mt-2">
+              Al confirmar le enviaremos a su correo un enlace de pago seguro. La cita queda
+              reservada y se le avisa acá mismo cuando registremos el pago.
+            </p>
           </div>
         )}
 

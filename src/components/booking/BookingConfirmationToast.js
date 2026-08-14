@@ -104,6 +104,14 @@ export default function BookingConfirmationToast({ confirmation, onDismiss, auto
         )}
       </dl>
 
+      {confirmation.requiresDeposit && confirmation.depositAmount ? (
+        <p className="mt-3 rounded-lg bg-white/10 p-3 text-xs">
+          Le enviamos a su correo un enlace para pagar el <b>adelanto del 50%</b> (
+          {formatCRC(confirmation.depositAmount)}). La cita queda reservada; el resto se
+          cobra al concluir la consulta.
+        </p>
+      ) : null}
+
       <p className="mt-3 text-xs text-white/70">
         Este es el precio acordado al reservar y no cambia si el profesional actualiza sus tarifas.
       </p>

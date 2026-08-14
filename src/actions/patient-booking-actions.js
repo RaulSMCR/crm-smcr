@@ -18,7 +18,7 @@ import {
   findRecurringConflict,
   formatConflictDate,
 } from "@/lib/booking-conflicts";
-import { createPaymentRequestForAppointment } from "@/lib/payment-requests";
+import { createPaymentRequestForAppointment, splitFirstAppointmentAmount } from "@/lib/payment-requests";
 import { getBookingOptions, resolveBookingSelection } from "@/lib/booking-rates";
 
 function describeRecurringConflict(conflict) {
@@ -197,7 +197,13 @@ export async function createAppointmentForPatient({
       success: true,
       appointmentId: hydratedAppointments[0]?.id || null,
       createdCount: hydratedAppointments.length,
-      // Lo que el paciente aceptó, para confirmárselo en pantalla.
+      // Lo que el paciente aceptó, para confirmárselo en pantalla. El adelanto
+      // se informa aparte porque cambia lo que tiene que hacer a continuación:
+      // esperar el correo con el enlace de pago.
+      requiresDeposit: Boolean(firstAppointment && booking.pricePaid),
+      depositAmount: firstAppointment && booking.pricePaid
+        ? splitFirstAppointmentAmount(booking.pricePaid).deposit
+        : null,
       confirmation: {
         startsAt: starts[0].toISOString(),
         durationMin: service.durationMin,
@@ -511,10 +517,22 @@ export async function getSlotOptionsForPatient({ professionalId, serviceId, star
       startsAt: start,
     });
 
+    // La primera cita con un profesional se reserva pagando el 50% por
+    // adelantado. El paciente tiene que saberlo ANTES de confirmar, no
+    // enterarse cuando le llega el correo de cobro.
+    const previas = await prisma.appointment.count({
+      where: {
+        patientId: String(session.sub),
+        professionalId: String(professionalId),
+        status: { notIn: CANCELLED_STATUSES },
+      },
+    });
+
     return {
       success: true,
       options,
       timeBand: timeBand ? { id: timeBand.id, name: timeBand.name } : null,
+      esPrimeraCita: previas === 0,
     };
   } catch (error) {
     console.error("getSlotOptionsForPatient error:", error);

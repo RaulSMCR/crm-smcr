@@ -690,6 +690,11 @@ model PaymentTransaction {
 
   type     PaymentTransactionType
   amount   Decimal                @db.Decimal(10, 2)
+
+  /// Cuándo se le avisó al paciente que este pago se acreditó. Queda en NULL
+  /// hasta que efectivamente lo ve: así el aviso lo espera aunque no estuviera
+  /// conectado al momento de pagar, y no se repite una vez mostrado.
+  patientNotifiedAt DateTime?
   currency String                 @default("CRC")
   taxRate  Int                    @default(4)
   processingFee Decimal?          @db.Decimal(10, 2)
