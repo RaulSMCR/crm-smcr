@@ -4,12 +4,22 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { getAvailableSlots, requestAppointment } from "@/actions/booking-actions";
+import { getAvailableSlots, getSlotOptions, requestAppointment } from "@/actions/booking-actions";
 import { RECURRENCE_RULES } from "@/lib/appointment-recurrence";
 import RecurrenceFields from "@/components/appointments/RecurrenceFields";
 import Toast from "@/components/ui/Toast";
 import { trackEvent } from "@/lib/analytics";
 import { trackSchedule } from "@/lib/meta-pixel";
+import { modalityLabel } from "@/lib/rates";
+
+function formatCRC(value) {
+  if (value === null || value === undefined) return "—";
+  return new Intl.NumberFormat("es-CR", {
+    style: "currency",
+    currency: "CRC",
+    maximumFractionDigits: 0,
+  }).format(Number(value));
+}
 import { readGaClientId, readGclid } from "@/lib/analytics/client-identifiers";
 
 export default function BookingInterface({ professionalId, servicePrice, serviceTitle, serviceId, professionalName }) {
@@ -61,6 +71,42 @@ export default function BookingInterface({ professionalId, servicePrice, service
     fetchConflictSlots();
   }, [conflict, professionalId]);
 
+  // Modalidades y precio del horario elegido. Sin esto, un profesional con más
+  // de un lugar de atención hace fallar la reserva: resolveBookingSelection pide
+  // elegir y el paciente no tenía dónde hacerlo.
+  const [options, setOptions] = useState([]);
+  const [locationId, setLocationId] = useState(null);
+  const [esPrimeraCita, setEsPrimeraCita] = useState(false);
+
+  useEffect(() => {
+    if (!selectedDate || !selectedSlot || !serviceId) {
+      setOptions([]);
+      setLocationId(null);
+      return undefined;
+    }
+
+    let cancelado = false;
+    getSlotOptions(professionalId, selectedDate, selectedSlot, serviceId)
+      .then((res) => {
+        if (cancelado) return;
+        const lista = res?.options || [];
+        setOptions(lista);
+        setEsPrimeraCita(Boolean(res?.esPrimeraCita));
+        const reservables = lista.filter((o) => o.bookable);
+        setLocationId(reservables.length === 1 ? reservables[0].locationId : null);
+      })
+      .catch(() => {
+        if (!cancelado) setOptions([]);
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [professionalId, serviceId, selectedDate, selectedSlot]);
+
+  const opcionElegida = options.find((o) => o.locationId === locationId) || null;
+  const hayQueElegir = options.length > 1 && !opcionElegida;
+
   async function submitBooking(timeOverride) {
     setIsBooking(true);
 
@@ -71,7 +117,8 @@ export default function BookingInterface({ professionalId, servicePrice, service
       serviceId,
       recurrenceRule,
       recurrenceCount,
-      { gaClientId: readGaClientId(), gaGclid: readGclid() }
+      { gaClientId: readGaClientId(), gaGclid: readGclid() },
+      locationId
     );
 
     if (result.success) {
@@ -262,9 +309,65 @@ export default function BookingInterface({ professionalId, servicePrice, service
             />
           </div>
 
+          {selectedSlot && options.length > 0 && (
+            <div className="border-t border-neutral-200 pt-4">
+              <div className="text-sm font-semibold text-neutral-800">
+                {options.length > 1 ? "¿Dónde desea ser atendido?" : "Modalidad"}
+              </div>
+              <div className="mt-2 space-y-2">
+                {options.map((opcion) => {
+                  const elegida = opcion.locationId === locationId;
+                  return (
+                    <button
+                      key={opcion.locationId || "default"}
+                      type="button"
+                      disabled={!opcion.bookable}
+                      onClick={() => setLocationId(opcion.locationId)}
+                      className={`w-full rounded-xl border px-3 py-2.5 text-left transition ${
+                        elegida ? "border-brand-700 bg-brand-50" : "border-neutral-200 hover:bg-neutral-50"
+                      } ${opcion.bookable ? "" : "cursor-not-allowed opacity-60"}`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="font-semibold text-neutral-900">{opcion.name}</div>
+                          {opcion.modality && (
+                            <div className="text-xs text-neutral-600">{modalityLabel(opcion.modality)}</div>
+                          )}
+                          {opcion.address && <div className="text-xs text-neutral-500">{opcion.address}</div>}
+                        </div>
+                        <div className="shrink-0 text-right">
+                          {opcion.bookable ? (
+                            <span className="font-bold text-neutral-900">{formatCRC(opcion.price)}</span>
+                          ) : (
+                            <span className="text-xs text-amber-700">Sin precio aprobado</span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {selectedSlot && esPrimeraCita && opcionElegida?.bookable && (
+            <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <div className="font-semibold">Primera cita con este profesional</div>
+              <p className="mt-1">
+                Para reservarla se cobra por adelantado el <b>50%</b>, es decir{" "}
+                <b>{formatCRC(Math.round(opcionElegida.price / 2))}</b>. El resto se cobra al
+                concluir la consulta.
+              </p>
+              <p className="mt-2">
+                Al confirmar le enviaremos a su correo un enlace de pago seguro. La cita queda
+                reservada y le avisamos acá mismo cuando registremos el pago.
+              </p>
+            </div>
+          )}
+
           <div className="border-t border-neutral-200 pt-4">
             <button
-              disabled={!selectedSlot || isBooking || !!conflict}
+              disabled={!selectedSlot || isBooking || !!conflict || hayQueElegir}
               onClick={() => selectedSlot && submitBooking(null)}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-700 py-4 text-lg font-bold text-white shadow-lg transition-all hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -279,6 +382,12 @@ export default function BookingInterface({ professionalId, servicePrice, service
                 "Seleccione un horario"
               )}
             </button>
+
+            {hayQueElegir && (
+              <p className="mt-2 text-center text-xs text-amber-700">
+                Elija una modalidad para continuar.
+              </p>
+            )}
 
             {selectedSlot && !conflict && (
               <p className="mt-3 text-center text-xs text-neutral-700">

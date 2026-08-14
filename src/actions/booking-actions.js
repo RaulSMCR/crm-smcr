@@ -336,10 +336,24 @@ export async function getSlotOptions(professionalId, dateString, timeString, ser
 
     const { options, timeBand } = await getBookingOptions({ professionalId, serviceId, startsAt });
 
+    // Si es su primera cita con este profesional, se le cobra el 50% por
+    // adelantado y tiene que saberlo antes de confirmar.
+    const session = await getSession();
+    const previas = session?.sub
+      ? await prisma.appointment.count({
+          where: {
+            patientId: String(session.sub),
+            professionalId: String(professionalId),
+            status: { notIn: CANCELLED_STATUSES },
+          },
+        })
+      : null;
+
     return {
       success: true,
       options,
       timeBand: timeBand ? { id: timeBand.id, name: timeBand.name } : null,
+      esPrimeraCita: previas === 0,
     };
   } catch (error) {
     console.error("getSlotOptions error:", error);
