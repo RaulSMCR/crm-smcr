@@ -211,5 +211,14 @@ describeE2E("ONVO -> factura -> sandbox de Hacienda", () => {
 
     expect(resultado.feClave).toHaveLength(50);
     expect(resultado.feStatus).toBe("ACCEPTED");
+
+    // El comprobante firmado y el acuse deben volver del envío: son lo que hay
+    // que conservar cinco años y adjuntarle al receptor. Antes se descartaban.
+    expect(resultado.signedXml).toContain("<ds:Signature");
+    expect(resultado.signedXml).toContain(resultado.feClave);
+    expect(resultado.respuestaXml).toContain("<MensajeHacienda");
+    expect(resultado.respuestaXml).toContain("Aceptado");
+
+    if (resultado.avisos) console.log(`[E2E] Avisos de Hacienda: ${resultado.avisos.slice(0, 200)}`);
   }, 180_000);
 });

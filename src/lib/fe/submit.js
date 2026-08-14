@@ -94,15 +94,50 @@ export async function sendFeEmail(invoice) {
       </p>
     </div>`;
 
+  // El XML firmado ES el comprobante: un resumen en HTML no sustituye la entrega.
+  // Se adjunta junto al acuse de Hacienda, que es lo que prueba la aceptación.
+  const adjuntos = [];
+  if (invoice.feXml) {
+    adjuntos.push({
+      filename: `${invoice.feNumber || invoice.invoiceNumber}.xml`,
+      content: Buffer.from(invoice.feXml, "utf8").toString("base64"),
+    });
+  }
+  if (invoice.feRespuestaXml) {
+    adjuntos.push({
+      filename: `Respuesta-${invoice.feNumber || invoice.invoiceNumber}.xml`,
+      content: Buffer.from(invoice.feRespuestaXml, "utf8").toString("base64"),
+    });
+  }
+
+  if (adjuntos.length === 0) {
+    console.warn(
+      `[FE] Factura ${invoice.invoiceNumber} se envía SIN XML adjunto: no quedó guardado. ` +
+        "El receptor no recibe el comprobante con validez legal."
+    );
+  }
+
+  // Copia al administrador: la contabilidad necesita el comprobante, y sirve de
+  // respaldo si el paciente pierde el correo.
+  const copiaAdmin = process.env.ADMIN_ALERT_EMAIL || process.env.EMAIL_FROM;
+  const destinatarios = [patientEmail];
+  if (copiaAdmin && copiaAdmin !== patientEmail) destinatarios.push(copiaAdmin);
+
   const { error } = await resend.emails.send({
     from: FROM_EMAIL,
-    to:   patientEmail,
+    to: destinatarios,
     subject: `Factura electrónica ${invoice.invoiceNumber} — Salud Mental Costa Rica`,
     html,
+    ...(adjuntos.length > 0 ? { attachments: adjuntos } : {}),
   });
 
-  if (error) console.error("[FE] Error enviando email al paciente:", error);
-  else console.log(`[FE] Email de FE enviado a ${patientEmail} para factura ${invoice.invoiceNumber}`);
+  if (error) console.error("[FE] Error enviando email de factura:", error);
+  else {
+    console.log(
+      `[FE] Factura ${invoice.invoiceNumber} enviada a ${destinatarios.join(", ")} ` +
+        `con ${adjuntos.length} adjunto(s).`
+    );
+  }
 }
 
 // ─── Alerta al administrador ─────────────────────────────────────────────────
@@ -226,6 +261,8 @@ export async function submitInvoiceToFe(invoiceId) {
     process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
 
   let feNumber, feClave, feStatus, feErrorMessage;
+  let feXml = null;
+  let feRespuestaXml = null;
   // Solo el envío por la integración real de Hacienda produce un comprobante con
   // validez tributaria. El modo mock JAMÁS debe enviar el correo al paciente.
   let realAcceptance = false;
@@ -240,7 +277,16 @@ export async function submitInvoiceToFe(invoiceId) {
       feClave        = result.feClave;
       feStatus       = result.feStatus;
       feErrorMessage = result.feErrorMessage || null;
+      feXml          = result.signedXml || null;
+      feRespuestaXml = result.respuestaXml || null;
       realAcceptance = feStatus === "ACCEPTED";
+
+      // Hacienda devuelve avisos incluso cuando acepta (p. ej. el -37 de datos
+      // del emisor desactualizados en Tributación). Sin registrarlos, el problema
+      // se repite en cada comprobante sin que nadie lo note.
+      if (realAcceptance && result.avisos) {
+        console.warn(`[FE] Factura ${invoiceId} aceptada CON AVISOS: ${result.avisos}`);
+      }
     } catch (err) {
       console.error(`[FE] submitInvoiceToFe: error enviando factura ${invoiceId} a Hacienda:`, err);
       if (String(err?.message || "").startsWith("Configuración FE") || String(err?.message || "").includes("No se permite ambiente fiscal")) {
@@ -297,7 +343,7 @@ export async function submitInvoiceToFe(invoiceId) {
 
   // Enviar email al paciente SOLO si la aceptación provino de la integración real.
   if (realAcceptance) {
-    const enriched = { ...invoice, feNumber, feClave, feStatus };
+    const enriched = { ...invoice, feNumber, feClave, feStatus, feXml, feRespuestaXml };
     sendFeEmail(enriched).catch((e) => console.error("[FE] Error en sendFeEmail:", e));
   }
 

@@ -88,7 +88,28 @@ export async function submitToHacienda(invoice, lines) {
     feClave,
     feStatus:       estado === "aceptado" ? "ACCEPTED" : "REJECTED",
     feErrorMessage: estado !== "aceptado" ? describirRechazo(result) : null,
+
+    // Se devuelven para conservarlos: son el comprobante con validez legal y el
+    // acuse de Hacienda. Antes se perdian al terminar esta funcion.
+    signedXml,
+    respuestaXml: decodificarRespuesta(result),
+
+    // Los avisos viajan en la respuesta incluso cuando el comprobante fue
+    // aceptado (por ejemplo el -37 de datos del emisor desactualizados). Si no
+    // se leen aca, nadie se entera de que Hacienda esta pidiendo corregir algo.
+    avisos: estado === "aceptado" ? describirRechazo(result) : null,
   };
+}
+
+/** Devuelve el XML de respuesta de Hacienda ya decodificado, o null. */
+function decodificarRespuesta(result) {
+  const b64 = result?.["respuesta-xml"] || result?.respuesta_xml;
+  if (!b64) return null;
+  try {
+    return Buffer.from(b64, "base64").toString("utf8");
+  } catch {
+    return null;
+  }
 }
 
 /**

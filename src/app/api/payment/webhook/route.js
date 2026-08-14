@@ -1,33 +1,24 @@
 // src/app/api/payment/webhook/route.js
-// Webhook de ONVO Pay — ruta pública verificada por firma HMAC-SHA256.
+// Webhook de ONVO Pay — ruta pública verificada por secreto compartido.
 //
-// ONVO envía una notificación POST cuando cambia el estado de un pago.
-// Siempre respondemos 200 para evitar que ONVO reintente la notificación.
+// ONVO envía un POST cuando cambia el estado de un cobro. Siempre respondemos
+// 200 para que no reintente: los problemas se registran y se alertan, no se
+// devuelven como error.
 //
-// Configurar en el dashboard de ONVO:
-//   URL: https://{tu-dominio}/api/payment/webhook
-//   Secret: (generar y guardar en ONVO_WEBHOOK_SECRET)
+// Configuración en el dashboard de ONVO:
+//   URL:     https://{dominio}/api/payment/webhook
+//   Secreto: el mismo valor que ONVO_WEBHOOK_SECRET
 //
-// Payload esperado de ONVO (estructura Stripe-like):
-//   {
-//     "id": "evt_xxx",               ← ID único del evento
-//     "type": "payment.completed",   ← Tipo de evento
-//     "data": {
-//       "payment_link_id": "live_xxx",
-//       "amount": 45500,
-//       "currency": "crc",
-//       "status": "approved",
-//       "customer": { "email": "..." }
-//     }
-//   }
-//
-// Nota: verificar el formato exacto del payload en https://docs.onvopay.com/webhooks
+// El evento llega como { type, data } — sin `id` de nivel superior — y el estado
+// del cobro está en `data.paymentStatus`. La traducción vive en
+// @/lib/onvo/event, validada contra un evento real (ver tests/unit/onvo-event.test.js).
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyOnvoWebhookSecret } from "@/lib/onvo/webhook";
 import { buildPaymentLinkUrl } from "@/lib/onvo/client";
 import { matchTransaction } from "@/lib/onvo/match-payment";
+import { normalizeOnvoEvent } from "@/lib/onvo/event";
 import { resend } from "@/lib/resend";
 import { submitInvoiceToFe } from "@/lib/fe/submit";
 import { sendInsuranceProSignAlert } from "@/lib/insurance-mail";
@@ -68,12 +59,11 @@ export async function POST(request) {
 
   console.log("[ONVO webhook] Recibido desde IP:", ip, "| tipo:", payload?.type);
 
-  // ── 0. INSTRUMENTACIÓN TEMPORAL ──────────────────────────────────────────
-  // El mapeo de campos de abajo se escribió contra un contrato supuesto que no
-  // coincide con el real. Volcamos el evento crudo para poder reescribirlo con
-  // datos ciertos. Buscar "ONVO RAW" en los logs de Vercel.
-  // QUITAR una vez confirmada la estructura real del payload.
-  console.log("[ONVO RAW] headers:", JSON.stringify(Object.fromEntries(request.headers)));
+  // ── 0. Volcado del evento crudo ──────────────────────────────────────────
+  // Se conserva a propósito: ONVO no ofrece forma de consultar un evento pasado
+  // (no hay endpoint que liste pagos), así que este log es la única copia si algo
+  // sale mal. Buscar "ONVO RAW" en los logs. No se vuelcan los headers completos
+  // porque incluyen el secreto compartido.
   console.log("[ONVO RAW] body:", rawBody);
 
   // ── 1. Verificar origen (secreto compartido) ─────────────────────────────
@@ -89,28 +79,32 @@ export async function POST(request) {
     await sendAdminPaymentAlert({
       subject: "⚠ Webhook ONVO con firma inválida",
       reason: "INVALID_SIGNATURE",
-      eventId: payload?.id,
-      onvoLinkId: payload?.data?.payment_link_id,
-      amount: payload?.data?.amount,
+      eventId: payload?.data?.id,
+      onvoLinkId: payload?.data?.paymentLinkId,
+      amount: payload?.data?.amountTotal,
       currency: payload?.data?.currency,
-      email: payload?.data?.customer?.email,
+      email: payload?.data?.customerEmail,
     }).catch((e) => console.error("[ONVO webhook] Error alertando firma inválida:", e));
     return NextResponse.json({ ok: false, message: "Invalid signature" }, { status: 200 });
   }
 
   // ── 2. Extraer datos del evento ──────────────────────────────────────────
-  const eventId = payload?.id;
-  const eventType = payload?.type;
-  const data = payload?.data || {};
-  const onvoLinkId = data?.payment_link_id;
-  const onvoStatus = data?.status || "";
-  const paidAt = data?.paid_at ? new Date(data.paid_at) : new Date();
-  const eventAmount = data?.amount;
-  const eventCurrency = data?.currency || null;
-  const eventCustomerEmail = data?.customer?.email || null;
+  // El mapeo vive en @/lib/onvo/event y está validado contra un evento real:
+  // ONVO no manda un `id` de nivel superior y el estado del pago está en
+  // `data.paymentStatus`, no en `data.status`.
+  const evento = normalizeOnvoEvent(payload);
+  const {
+    eventId,
+    tipo: eventType,
+    onvoLinkId,
+    paidAt,
+    amount: eventAmount,
+    currency: eventCurrency,
+    customerEmail: eventCustomerEmail,
+  } = evento;
 
   if (!eventId) {
-    console.warn("[ONVO webhook] Evento sin ID, ignorando.");
+    console.warn(`[ONVO webhook] Evento "${eventType}" sin identificador de objeto, ignorando.`);
     return NextResponse.json({ ok: true }, { status: 200 });
   }
 
@@ -198,14 +192,10 @@ export async function POST(request) {
   const transaction = matchResult.match;
 
   // ── 5. Mapear estado ONVO → estado interno ───────────────────────────────
-  const statusMap = {
-    approved:  "APPROVED",
-    completed: "APPROVED",
-    rejected:  "REJECTED",
-    failed:    "REJECTED",
-    pending:   "LINK_SENT",
-  };
-  const newStatus = statusMap[onvoStatus.toLowerCase()] || "LINK_SENT";
+  const newStatus =
+    evento.resultado === "aprobado" ? "APPROVED"
+    : evento.resultado === "rechazado" ? "REJECTED"
+    : "LINK_SENT";
 
   // ── 6. Actualizar la transacción ─────────────────────────────────────────
   const updatedTransaction = await prisma.paymentTransaction.update({
@@ -213,7 +203,7 @@ export async function POST(request) {
     data: {
       onvoEventId:   eventId,
       status:        newStatus,
-      statusMessage: `ONVO: ${eventType || onvoStatus}`,
+      statusMessage: `ONVO: ${eventType || evento.resultado}`,
       paidAt:        newStatus === "APPROVED" ? paidAt : null,
       webhookPayload: payload,
       ...(newStatus === "APPROVED"
@@ -221,7 +211,7 @@ export async function POST(request) {
             taxRate: Number(transaction.appointment?.service?.tax?.rate ?? 4),
             processingFee: estimateOnvoFeeCents(
               Math.round(Number(transaction.amount) * 100),
-              data?.payment_method || data?.payment_method_type || "card"
+              evento.paymentMethod
             ) / 100,
           }
         : {}),

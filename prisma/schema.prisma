@@ -354,6 +354,14 @@ model Invoice {
   feClave        String?
   feStatus       FEStatus     @default(PENDING)
   feErrorMessage String?
+
+  /// Comprobante firmado tal cual se envió a Hacienda, y la respuesta que devolvió.
+  /// Antes se descartaban después del envío: Hacienda exige conservarlos cinco
+  /// años y entregarle el XML al receptor, así que sin esto no había ni copia.
+  /// Van en la base y no en Storage porque pesan ~8 KB y evitan depender de
+  /// permisos de buckets.
+  feXml          String? @db.Text
+  feRespuestaXml String? @db.Text
   documentType   DocumentType @default(FACTURA_ELECTRONICA)
 
   contactId       String
