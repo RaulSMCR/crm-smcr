@@ -186,8 +186,19 @@ export async function createAppointmentForPatient({
     const depositPayment = firstAppointment
       ? await createPaymentRequestForAppointment(firstAppointment, "DEPOSIT_50")
       : null;
+
+    // Que el cobro falle en silencio es lo peor que puede pasar acá: el paciente
+    // ve su cita agendada, nunca recibe el enlace, y nadie se entera hasta que
+    // alguien revisa los logs. Se avisa al admin y se le dice al paciente que
+    // el enlace no salió, sin deshacer la cita: el horario ya está reservado.
     if (depositPayment && !depositPayment.success) {
-      console.error("No se pudo generar el adelanto de primera cita:", depositPayment.error);
+      console.error(
+        `[agenda] Cita ${firstAppointment.id} creada SIN cobro de adelanto ` +
+          `(${depositPayment.code || "sin código"}): ${depositPayment.error}`
+      );
+      await alertarCobroNoGenerado(firstAppointment, depositPayment).catch((e) =>
+        console.error("[agenda] Falló también la alerta al admin:", e)
+      );
     }
 
     revalidatePath("/panel/paciente");
@@ -201,6 +212,8 @@ export async function createAppointmentForPatient({
       // se informa aparte porque cambia lo que tiene que hacer a continuación:
       // esperar el correo con el enlace de pago.
       requiresDeposit: Boolean(firstAppointment && booking.pricePaid),
+      depositLinkSent: depositPayment ? Boolean(depositPayment.success) : null,
+      depositError: depositPayment && !depositPayment.success ? depositPayment.error : null,
       depositAmount: firstAppointment && booking.pricePaid
         ? splitFirstAppointmentAmount(booking.pricePaid).deposit
         : null,
@@ -538,4 +551,47 @@ export async function getSlotOptionsForPatient({ professionalId, serviceId, star
     console.error("getSlotOptionsForPatient error:", error);
     return { success: false, options: [], timeBand: null, error: "No se pudieron cargar las modalidades." };
   }
+}
+
+
+/**
+ * Avisa al administrador que una cita quedó agendada sin su orden de cobro.
+ *
+ * Se manda por separado del flujo de la cita para que un fallo del correo no
+ * tumbe la reserva: el horario ya está tomado y perderlo sería peor.
+ */
+async function alertarCobroNoGenerado(appointment, resultado) {
+  const to = process.env.ADMIN_ALERT_EMAIL || process.env.EMAIL_FROM;
+  if (!to || !process.env.RESEND_API_KEY) return;
+
+  const { resend } = await import("@/lib/resend");
+  const cuando = new Intl.DateTimeFormat("es-CR", {
+    timeZone: "America/Costa_Rica",
+    dateStyle: "full",
+    timeStyle: "short",
+  }).format(appointment.date);
+
+  await resend.emails.send({
+    from: process.env.EMAIL_FROM || "Salud Mental Costa Rica <onboarding@resend.dev>",
+    to,
+    subject: "⚠ Cita agendada sin orden de cobro",
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#0f172a;">
+        <h2 style="color:#b91c1c;">Cita sin enlace de pago</h2>
+        <p>Se agendó una cita pero <strong>no se pudo generar el cobro</strong>. El paciente
+           no recibió enlace de pago y la cita quedó reservada igual.</p>
+        <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">
+          <tr><td style="padding:6px 8px;color:#64748b;width:150px;">Paciente</td>
+              <td style="padding:6px 8px;">${appointment.patient?.name || "—"} &lt;${appointment.patient?.email || "—"}&gt;</td></tr>
+          <tr style="background:#f8fafc;"><td style="padding:6px 8px;color:#64748b;">Profesional</td>
+              <td style="padding:6px 8px;">${appointment.professional?.user?.name || "—"}</td></tr>
+          <tr><td style="padding:6px 8px;color:#64748b;">Cita</td>
+              <td style="padding:6px 8px;">${cuando}</td></tr>
+          <tr style="background:#f8fafc;"><td style="padding:6px 8px;color:#64748b;">Motivo</td>
+              <td style="padding:6px 8px;font-weight:600;">${resultado.code || ""} ${resultado.error || ""}</td></tr>
+        </table>
+        <p style="font-size:13px;color:#475569;">Acción: generar el cobro a mano desde el panel,
+           o corregir la configuración y reintentar.</p>
+      </div>`,
+  });
 }
