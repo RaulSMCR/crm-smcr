@@ -12,6 +12,7 @@ import { sendPaymentLinkOnCompletion } from "@/actions/payment-actions";
 import { scheduleReminder } from "@/lib/qstash";
 import { buildSlots } from "@/lib/appointment-slots";
 import { createPaymentRequestForAppointment } from "@/lib/payment-requests";
+import { resolveBookingSelection } from "@/lib/booking-rates";
 import {
   buildRecurringStarts,
   normalizeRecurrenceCount,
@@ -227,6 +228,9 @@ export async function createAppointmentByProfessional({
   startISO,
   recurrenceRule,
   recurrenceCount,
+  // Lugar de atención elegido. Si el profesional no lo indica, resolveBookingSelection
+  // lo deduce cuando hay una sola opción y falla pidiendo elegir si hay varias.
+  locationId = null,
 }) {
   try {
     const professionalId = await requireProfessionalProfileId();
@@ -254,7 +258,7 @@ export async function createAppointmentByProfessional({
       }),
       prisma.serviceAssignment.findUnique({
         where: { professionalId_serviceId: { professionalId, serviceId: sid } },
-        select: { status: true, approvedSessionPrice: true, onvoPaymentLinkId: true },
+        select: { status: true },
       }),
     ]);
 
@@ -264,9 +268,22 @@ export async function createAppointmentByProfessional({
     if (!service || !service.isActive) {
       return { success: false, error: "Servicio no disponible." };
     }
-    if (!assignment || assignment.status !== "APPROVED" || assignment.approvedSessionPrice == null) {
+    if (!assignment || assignment.status !== "APPROVED") {
       return { success: false, error: "Este servicio no esta habilitado para la agenda." };
     }
+
+    // El precio sale de la tarifa aprobada para ese lugar y esa franja, igual que
+    // cuando agenda el paciente. Antes se leía approvedSessionPrice, que quedó
+    // obsoleto al pasar al modelo de tarifas y dejaba esta ruta cobrando de más
+    // o de menos.
+    const seleccion = await resolveBookingSelection({
+      professionalId,
+      serviceId: sid,
+      startsAt: start,
+      locationId,
+    });
+    if (seleccion.error) return { success: false, error: seleccion.error };
+    const booking = seleccion.data;
 
     const starts = buildRecurringStarts(start, rule, count);
     const ends = buildOccurrenceEnds(starts, service.durationMin);
@@ -323,13 +340,8 @@ export async function createAppointmentByProfessional({
       },
     });
     const isFirstWithProfessional = previousCount === 0;
-    if (isFirstWithProfessional && !assignment.onvoPaymentLinkId) {
-      return {
-        success: false,
-        error:
-          "No es posible agendar la primera cita porque falta el enlace de pago ONVO para este servicio.",
-      };
-    }
+    // El enlace de pago ya no se preconfigura por asignación: se crea por cita
+    // con el monto congelado al momento de cobrar.
 
     const createdAppointments = await prisma.$transaction(
       starts.map((occurrence, index) =>
@@ -342,7 +354,13 @@ export async function createAppointmentByProfessional({
             endDate: ends[index],
             status: "PENDING",
             paymentStatus: "UNPAID",
-            pricePaid: assignment.approvedSessionPrice,
+            pricePaid: booking.pricePaid,
+            rateId: booking.rateId,
+            locationId: booking.locationId,
+            modality: booking.modality,
+            locationName: booking.locationName,
+            locationAddress: booking.locationAddress,
+            timeBandName: booking.timeBandName,
             isFirstWithProfessional: isFirstWithProfessional && index === 0,
           },
           select: { id: true },
