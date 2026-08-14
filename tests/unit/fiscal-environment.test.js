@@ -78,9 +78,18 @@ describe("assertAmbientesCoherentes()", () => {
     expect(r).toMatchObject({ ok: true, mixto: true });
   });
 
+  it("aborta si ONVO está en producción y falta FE_AMBIENTE", () => {
+    // Pasó en producción: FE_AMBIENTE no existía en Vercel y el candado quedaba
+    // desactivado en silencio. Con una llave `live` eso sería cobrar sin poder
+    // facturar.
+    expect(() => assertAmbientesCoherentes({ onvoKey: LLAVE_VIVO, feAmbiente: "" })).toThrow(
+      /FE_AMBIENTE no está configurada/
+    );
+  });
+
   it("no opina si falta alguno de los dos datos", () => {
     // De los faltantes ya se encargan assertFeConfig() y createPaymentLink().
     expect(assertAmbientesCoherentes({ onvoKey: "", feAmbiente: "01" }).motivo).toBe("indeterminado");
-    expect(assertAmbientesCoherentes({ onvoKey: LLAVE_VIVO, feAmbiente: "" }).motivo).toBe("indeterminado");
+    expect(assertAmbientesCoherentes({ onvoKey: LLAVE_PRUEBAS, feAmbiente: "" }).motivo).toBe("indeterminado");
   });
 });

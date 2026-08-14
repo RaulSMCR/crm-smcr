@@ -53,6 +53,18 @@ export function assertAmbientesCoherentes({
   const ambienteOnvo = detectarAmbienteOnvo(onvoKey);
   const ambienteFe = detectarAmbienteFe(feAmbiente);
 
+  // Cobrar de verdad sin saber en qué ambiente fiscal se está es el escenario
+  // que hay que impedir sí o sí: significaría cobrar dinero real sin poder
+  // emitir el comprobante. Se detectó en producción que FE_AMBIENTE puede
+  // faltar sin que nada avise, y con una llave `live` eso sería grave.
+  if (ambienteOnvo === "produccion" && !ambienteFe) {
+    throw new Error(
+      "ONVO está en producción pero FE_AMBIENTE no está configurada. Se cobraría " +
+        "dinero real sin poder emitir el comprobante. Defina FE_AMBIENTE (01 producción, " +
+        "02 pruebas) antes de cobrar."
+    );
+  }
+
   if (!ambienteOnvo || !ambienteFe) return { ok: true, motivo: "indeterminado" };
   if (ambienteOnvo === ambienteFe) return { ok: true, ambiente: ambienteOnvo };
 
