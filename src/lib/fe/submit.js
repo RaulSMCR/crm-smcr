@@ -9,6 +9,7 @@
 // Modo mock:  sin FE_API_URL → genera números FE simulados (desarrollo)
 
 import { prisma } from "@/lib/prisma";
+import { FE_EMISOR } from "@/lib/fe/config";
 import { Resend } from "resend";
 import { assertFeConfig } from "@/lib/fe/config.js";
 
@@ -26,6 +27,11 @@ const FE_REAL_API_URL = process.env.FE_API_URL || null;
 export async function sendFeEmail(invoice) {
   const patientEmail = invoice.contact?.email;
   if (!patientEmail || !process.env.RESEND_API_KEY) return;
+
+  // FE_AMBIENTE 02 es el sandbox de Hacienda: los comprobantes emitidos ahí NO
+  // tienen validez tributaria y el correo no puede afirmar lo contrario, menos
+  // aún cuando durante las pruebas llega a personas reales.
+  const esPrueba = FE_EMISOR.ambiente !== "01";
 
   const currency = invoice.currency || "CRC";
   const fmt  = new Intl.NumberFormat("es-CR", { style: "currency", currency, maximumFractionDigits: 0 });
@@ -48,7 +54,7 @@ export async function sendFeEmail(invoice) {
 
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#0f172a;">
-      <h2 style="color:#1e40af;">Factura Electrónica emitida</h2>
+      <h2 style="color:#1e40af;">Factura Electrónica emitida${esPrueba ? " (PRUEBA)" : ""}</h2>
       <p>Estimado/a cliente, adjuntamos los datos de su factura electrónica emitida ante el Ministerio de Hacienda de Costa Rica.</p>
 
       <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">
@@ -88,10 +94,16 @@ export async function sendFeEmail(invoice) {
       </table>
 
       ${invoice.notes ? `<p style="margin-top:16px;font-size:13px;color:#64748b;">Ref: ${invoice.notes}</p>` : ""}
+      ${esPrueba ? `
+      <p style="margin-top:24px;padding:12px;border:2px solid #b91c1c;border-radius:8px;background:#fef2f2;color:#7f1d1d;font-weight:600;">
+        DOCUMENTO DE PRUEBA — SIN VALIDEZ TRIBUTARIA.
+        Emitido contra el ambiente de pruebas del Ministerio de Hacienda.
+        No sirve como respaldo fiscal ni acredita ningún pago real.
+      </p>` : `
       <p style="margin-top:24px;font-size:12px;color:#94a3b8;">
         Este documento tiene validez tributaria conforme a la Ley 9069 de Costa Rica.
         Puede verificarlo en el portal de Hacienda con la clave numérica indicada.
-      </p>
+      </p>`}
     </div>`;
 
   // El XML firmado ES el comprobante: un resumen en HTML no sustituye la entrega.
@@ -126,7 +138,7 @@ export async function sendFeEmail(invoice) {
   const { error } = await resend.emails.send({
     from: FROM_EMAIL,
     to: destinatarios,
-    subject: `Factura electrónica ${invoice.invoiceNumber} — Salud Mental Costa Rica`,
+    subject: `${esPrueba ? "[PRUEBA] " : ""}Factura electrónica ${invoice.invoiceNumber} — Salud Mental Costa Rica`,
     html,
     ...(adjuntos.length > 0 ? { attachments: adjuntos } : {}),
   });
