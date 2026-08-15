@@ -261,9 +261,23 @@ export function generateFeXml(invoice, lines) {
     const lineEl = detalleEl.ele("LineaDetalle");
     lineEl.ele("NumeroLinea").txt(String(idx + 1));
 
-    // En 4.4 el CABYS es un elemento propio, ya no va envuelto en CodigoHacienda.
+    // En 4.4 el CABYS es un elemento propio, ya no va envuelto en CodigoHacienda,
+    // y es OBLIGATORIO: es el primer hijo que el esquema espera dentro de
+    // LineaDetalle. Omitirlo no produce un documento incompleto sino uno
+    // inválido, y Hacienda lo rechaza señalando el elemento siguiente
+    // ("Invalid content was found starting with element ...Cantidad"), que no
+    // dice nada sobre la causa real. Pasó con la factura 0154: ningún servicio
+    // tenía CABYS asignado. Se corta acá, antes de firmar y de gastar un
+    // consecutivo, con un mensaje que nombra el servicio a corregir.
     const cabys = line.product?.cabysCode || line.service?.cabysCode || line.cabysCode || "";
-    if (cabys) lineEl.ele("CodigoCABYS").txt(cabys);
+    if (!cabys) {
+      const queCosa = line.productName || line.description || `línea ${idx + 1}`;
+      throw new Error(
+        `Falta el código CABYS de «${queCosa}». Hacienda lo exige en cada línea. ` +
+          "Asígnelo en el servicio desde el panel de administración antes de facturar."
+      );
+    }
+    lineEl.ele("CodigoCABYS").txt(cabys);
 
     const qty     = round2(line.quantity || 1);
     const uprice  = round2(line.unitPrice || 0);

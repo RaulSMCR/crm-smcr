@@ -131,13 +131,13 @@ describe("generateFeXml — líneas e IVA", () => {
   });
 
   it("mapea la tarifa general (13%) al código 06", () => {
-    const lines = [{ quantity: 1, unitPrice: 10000, taxRate: 13, taxAmount: 1300, product: { name: "Material" } }];
+    const lines = [{ quantity: 1, unitPrice: 10000, taxRate: 13, taxAmount: 1300, product: { name: "Material", cabysCode: "2310100000000" } }];
     const { xml } = generateFeXml({ ...baseInvoice, subtotal: 10000, taxAmount: 1300, total: 11300 }, lines);
     expect(xml).toContain("<CodigoTarifaIVA>06</CodigoTarifaIVA>");
   });
 
   it("trata la línea sin impuesto como exenta", () => {
-    const lines = [{ quantity: 1, unitPrice: 10000, taxRate: 0, taxAmount: 0, product: { name: "Exento" } }];
+    const lines = [{ quantity: 1, unitPrice: 10000, taxRate: 0, taxAmount: 0, product: { name: "Exento", cabysCode: "2310100000000" } }];
     const { xml } = generateFeXml({ ...baseInvoice, subtotal: 10000, taxAmount: 0, total: 10000 }, lines);
     expect(xml).not.toContain("<Impuesto>");
     expect(textOf(xml, "ImpuestoNeto")).toBe("0.00");
@@ -148,7 +148,7 @@ describe("generateFeXml — líneas e IVA", () => {
   });
 
   it("emite el descuento por línea y lo acumula", () => {
-    const lines = [{ quantity: 2, unitPrice: 25000, discountPercent: 10, taxRate: 4, taxAmount: 1800, product: { name: "Consulta" } }];
+    const lines = [{ quantity: 2, unitPrice: 25000, discountPercent: 10, taxRate: 4, taxAmount: 1800, product: { name: "Consulta", cabysCode: "8690900000100" } }];
     const { xml } = generateFeXml({ ...baseInvoice, discountAmount: 5000, subtotal: 50000, taxAmount: 1800, total: 46800 }, lines);
     expect(textOf(xml, "MontoTotal")).toBe("50000.00000");
     expect(textOf(xml, "MontoDescuento")).toBe("5000.00000");
@@ -159,7 +159,7 @@ describe("generateFeXml — líneas e IVA", () => {
   it("numera las líneas y usa CABYS y unidad de medida por defecto", () => {
     const lines = [
       { quantity: 1, unitPrice: 1000, taxRate: 4, taxAmount: 40, product: { name: "Uno", cabysCode: "111" } },
-      { quantity: 1, unitPrice: 2000, taxRate: 4, taxAmount: 80, description: "Dos" },
+      { quantity: 1, unitPrice: 2000, taxRate: 4, taxAmount: 80, description: "Dos", cabysCode: "222" },
     ];
     const { xml } = generateFeXml(baseInvoice, lines);
     expect(xml).toContain("<NumeroLinea>1</NumeroLinea>");
@@ -167,6 +167,15 @@ describe("generateFeXml — líneas e IVA", () => {
     expect(xml).toContain("<CodigoCABYS>111</CodigoCABYS>");
     expect(xml).toContain("<UnidadMedida>Sp</UnidadMedida>");
     expect(xml).toContain("<Detalle>Dos</Detalle>");
+  });
+
+  it("aborta si una línea no tiene CABYS, nombrando el servicio", () => {
+    // El CABYS es el primer hijo obligatorio de LineaDetalle. Omitirlo produce
+    // un XML inválido que Hacienda rechaza señalando el elemento siguiente
+    // ("Invalid content ... Cantidad"), lo que despista por completo. Pasó con
+    // la factura 0154. Cortar acá evita además gastar un consecutivo.
+    const lines = [{ quantity: 1, unitPrice: 1000, taxRate: 4, taxAmount: 40, description: "Psicoterapia" }];
+    expect(() => generateFeXml(baseInvoice, lines)).toThrow(/CABYS.*Psicoterapia|Psicoterapia.*CABYS/s);
   });
 });
 

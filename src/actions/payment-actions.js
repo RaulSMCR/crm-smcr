@@ -12,6 +12,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSession, isPreviewSession, PREVIEW_BLOCKED_MESSAGE } from "@/lib/auth";
 import { requireProfessionalProfileId } from "@/lib/auth-guards";
+import { alertarCobroNoGenerado } from "@/lib/payment-alerts";
 import { revalidatePath } from "next/cache";
 import {
   createPaymentRequestForAppointment,
@@ -159,6 +160,10 @@ export async function sendPaymentLinkOnCompletion(appointmentId) {
       console.error(
         `[payment] sendPaymentLinkOnCompletion: ${paymentErrorMessage(paymentRequest)} cita ${id}.`
       );
+      // La cita ya quedó COMPLETED y el paciente recibió el aviso de cambio de
+      // estado, pero sin enlace para pagar el saldo. Sin este correo el fallo
+      // solo queda en los logs y la plata no se cobra nunca.
+      await alertarCobroNoGenerado(appointment, paymentRequest);
       return null;
     }
 

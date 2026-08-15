@@ -236,8 +236,14 @@ export async function POST(request) {
 
     const invoiceId = invoiceResult.status === "fulfilled" ? invoiceResult.value : null;
     if (invoiceId) {
-      submitInvoiceToFe(invoiceId).catch((e) =>
-        console.error("[ONVO webhook] Error en submitInvoiceToFe:", e)
+      // Va dentro de after(): sin eso la promesa queda suelta y el runtime puede
+      // congelar la función al responderle a ONVO, dejando la factura en
+      // feStatus=PENDING para siempre. Pasó con la 0154 del 14/8: la factura se
+      // creó, el envío a Hacienda nunca ocurrió y nadie recibió el comprobante.
+      after(() =>
+        submitInvoiceToFe(invoiceId).catch((e) =>
+          console.error("[ONVO webhook] Error en submitInvoiceToFe:", e)
+        )
       );
     }
 
