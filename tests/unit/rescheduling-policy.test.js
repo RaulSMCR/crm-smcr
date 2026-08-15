@@ -102,3 +102,35 @@ describe("horasHasta()", () => {
     expect(horasHasta("no es fecha", AHORA)).toBeNull();
   });
 });
+
+describe("mensaje de reinvitación", () => {
+  it("va literal: es texto clínico, no una plantilla", async () => {
+    const { MENSAJE_REINVITACION, enlaceWhatsApp } = await import(
+      "../../src/lib/scheduling-block.js"
+    );
+
+    expect(MENSAJE_REINVITACION).toBe(
+      "tu ausencia tuvo un significado, que no sea el de la resignación, " +
+        "este es el enlace para que no desistas de estar mejor"
+    );
+
+    // Tutea a propósito, mientras el resto del sitio trata de usted. No es un
+    // descuido: al que faltó no se le habla como a un trámite.
+    expect(MENSAJE_REINVITACION).toMatch(/\btu\b/);
+    expect(MENSAJE_REINVITACION).not.toMatch(/usted/i);
+
+    // Y no menciona el cargo ni la política: eso se conversa, no se cobra por
+    // WhatsApp.
+    expect(MENSAJE_REINVITACION).not.toMatch(/50|multa|cargo|cancelaci/i);
+
+    const url = enlaceWhatsApp({ telefono: "88881234", urlAgenda: "https://x.cr/agendar/1" });
+    expect(url).toContain("wa.me/50688881234");
+    expect(decodeURIComponent(url)).toContain(MENSAJE_REINVITACION);
+    expect(decodeURIComponent(url)).toContain("https://x.cr/agendar/1");
+  });
+
+  it("sin teléfono no inventa un enlace", async () => {
+    const { enlaceWhatsApp } = await import("../../src/lib/scheduling-block.js");
+    expect(enlaceWhatsApp({ telefono: "" })).toBeNull();
+  });
+});

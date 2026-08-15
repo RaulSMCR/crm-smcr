@@ -59,12 +59,7 @@ export async function listarAgendasEnPausa() {
         profesional: ultima?.professional?.user?.name || null,
         ultimaCita: ultima?.date || null,
         urlAgenda,
-        whatsapp: enlaceWhatsApp({
-          telefono: p.phone,
-          nombrePaciente: p.name,
-          nombreProfesional: ultima?.professional?.user?.name,
-          urlAgenda,
-        }),
+        whatsapp: enlaceWhatsApp({ telefono: p.phone, urlAgenda }),
       };
     }),
   };

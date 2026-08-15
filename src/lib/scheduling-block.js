@@ -90,19 +90,30 @@ export function estaBloqueado(user) {
 }
 
 /**
+ * Mensaje con el que se vuelve a invitar al paciente.
+ *
+ * Es texto clínico, escrito por Raúl, y va literal. Tutea a propósito, mientras
+ * que el resto del sitio trata de usted: el que falta a una cita no necesita un
+ * aviso administrativo, necesita que alguien le hable de cerca. Tampoco menciona
+ * el cargo ni la política — eso se conversa, no se cobra por WhatsApp.
+ *
+ * No reescribir para "unificar el tono": el tono es la decisión.
+ */
+export const MENSAJE_REINVITACION =
+  "tu ausencia tuvo un significado, que no sea el de la resignación, " +
+  "este es el enlace para que no desistas de estar mejor";
+
+/**
  * Enlace de WhatsApp con el mensaje ya escrito, para que el administrador
  * contacte al paciente sin tener que redactarlo cada vez.
  */
-export function enlaceWhatsApp({ telefono, nombrePaciente, nombreProfesional, urlAgenda }) {
+export function enlaceWhatsApp({ telefono, urlAgenda } = {}) {
   const digitos = String(telefono || "").replace(/\D/g, "");
   if (!digitos) return null;
   // Costa Rica: 8 dígitos locales, se antepone el código de país.
   const numero = digitos.length === 8 ? `506${digitos}` : digitos;
 
-  const texto =
-    `Hola ${nombrePaciente || ""}, le escribimos de Salud Mental Costa Rica. ` +
-    `Ya puede volver a agendar su cita${nombreProfesional ? ` con ${nombreProfesional}` : ""}` +
-    `${urlAgenda ? `: ${urlAgenda}` : "."}`;
+  const texto = urlAgenda ? `${MENSAJE_REINVITACION}: ${urlAgenda}` : MENSAJE_REINVITACION;
 
   return `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`;
 }

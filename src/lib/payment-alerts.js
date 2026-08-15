@@ -31,12 +31,7 @@ export async function alertarAgendaEnPausa(appointment, motivo, sancion = {}) {
 
     const base = process.env.NEXT_PUBLIC_APP_URL || "";
     const urlAgenda = base ? `${base}/agendar/${appointment.professionalId}` : "";
-    const wa = enlaceWhatsApp({
-      telefono: appointment.patient?.phone,
-      nombrePaciente: appointment.patient?.name,
-      nombreProfesional: appointment.professional?.user?.name,
-      urlAgenda,
-    });
+    const wa = enlaceWhatsApp({ telefono: appointment.patient?.phone, urlAgenda });
 
     const fmt = (n) => `₡${Number(n || 0).toLocaleString("es-CR")}`;
     const detalleCobro = sancion.cobrada > 0
