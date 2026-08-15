@@ -71,6 +71,28 @@ describe("la comisión de la pasarela sale del negocio, no del paciente", () => 
       .toBe(PRECIO * 100);
   });
 
+  it("cobra la tarifa real de ONVO: 3.50% + US$0.35", () => {
+    // ₡20.000 con tipo de cambio 510: 700.00 del porcentaje + 178.50 del fijo.
+    const previo = process.env.USD_CRC_RATE;
+    process.env.USD_CRC_RATE = "510";
+    try {
+      expect(estimateOnvoFeeCents(20000 * 100, "card")).toBe(87850);
+    } finally {
+      if (previo === undefined) delete process.env.USD_CRC_RATE;
+      else process.env.USD_CRC_RATE = previo;
+    }
+  });
+
+  it("el fijo en dólares vale colones, no céntimos", () => {
+    // Se sumaba crudo sobre una cifra en céntimos, así que el fijo valía ₡2 y
+    // la liquidación del profesional salía inflada. La diferencia entre dos
+    // montos distintos aísla el porcentaje y deja solo el fijo.
+    const unMil = estimateOnvoFeeCents(1000 * 100, "card");
+    const dosMil = estimateOnvoFeeCents(2000 * 100, "card");
+    const fijoSolo = unMil - (dosMil - unMil);
+    expect(fijoSolo).toBeGreaterThan(10000); // más de ₡100, no ₡2
+  });
+
   it("SINPE cuesta menos que tarjeta, y ninguno cambia lo que paga el paciente", () => {
     expect(estimateOnvoFeeCents(PRECIO * 100, "sinpe_movil")).toBeLessThan(
       estimateOnvoFeeCents(PRECIO * 100, "card")

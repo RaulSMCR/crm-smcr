@@ -27,18 +27,49 @@ export function baseCentsFromGross(grossCents, taxRatePct = 4) {
   return Math.round(gross / (1 + rate / 100));
 }
 
+// Tarifa vigente de ONVO para tarjeta (Visa/MC/AMEX/Google Pay en ecommerce,
+// locales e internacionales): 3.50% + US$0.35. El porcentaje se aplica sobre el
+// monto cobrado; el fijo se cobra EN DÓLARES, así que hay que convertirlo a
+// colones para poder restarlo de un cobro en CRC.
+//
+// Las tarifas de SINPE no vienen confirmadas por ONVO; quedan como estimación
+// hasta tener el dato oficial.
+const ONVO_CARD_RATE_PCT = 3.5;
+const ONVO_CARD_FIXED_USD = 0.35;
+const USD_CRC_FALLBACK = 510;
+
+/**
+ * Costo estimado de la pasarela, en céntimos de colón.
+ *
+ * Es una estimación: el cobro real de ONVO aparece en su liquidación y puede
+ * diferir por el tipo de cambio del día. Se usa para saber cuánto queda después
+ * de la pasarela, nunca para alterar lo que paga el paciente — el precio
+ * publicado es final.
+ */
 export function estimateOnvoFeeCents(grossCents, method = "card") {
   const gross = Math.max(0, Math.round(Number(grossCents) || 0));
   const normalized = String(method || "card").toLowerCase();
+  const esSinpe = normalized.includes("sinpe");
+
   const rate = normalized.includes("sinpe_movil")
     ? Number(process.env.ONVO_SINPE_MOVIL_RATE || 1.5)
-    : normalized.includes("sinpe")
+    : esSinpe
       ? Number(process.env.ONVO_SINPE_RATE || 2.5)
-      : Number(process.env.ONVO_CARD_RATE || 3.9);
-  const fixed = normalized.includes("sinpe")
+      : Number(process.env.ONVO_CARD_RATE || ONVO_CARD_RATE_PCT);
+
+  // El fijo se venía sumando directo sobre una cifra en céntimos, así que los
+  // "₡200" del default valían ₡2. Se convierte explícitamente.
+  const fixedColones = esSinpe
     ? Number(process.env.ONVO_SINPE_FIXED_FEE_CRC || 0)
-    : Number(process.env.ONVO_FIXED_FEE_CRC || 200);
-  return Math.max(0, Math.round(gross * rate / 100 + fixed));
+    : Number(process.env.ONVO_CARD_FIXED_FEE_USD || ONVO_CARD_FIXED_USD) * usdToCrc();
+
+  return Math.max(0, Math.round((gross * rate) / 100 + fixedColones * 100));
+}
+
+/** Tipo de cambio para convertir el fijo en dólares de ONVO. */
+function usdToCrc() {
+  const configurado = Number(process.env.USD_CRC_RATE);
+  return Number.isFinite(configurado) && configurado > 0 ? configurado : USD_CRC_FALLBACK;
 }
 
 function normalizeConsultationNumber(value) {
