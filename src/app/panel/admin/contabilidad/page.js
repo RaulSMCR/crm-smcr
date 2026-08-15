@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import BillingInvoicesManager from "@/components/admin/BillingInvoicesManager";
 import { generateSettlements } from "@/actions/settlement-actions";
 import SettlementQueue from "@/components/admin/SettlementQueue";
+import ExchangeRateCard from "@/components/admin/ExchangeRateCard";
+import { estadoTipoCambio } from "@/actions/exchange-rate-actions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -214,6 +216,10 @@ export default async function AdminAccountingPage({ searchParams }) {
   const supplierTotal = supplierInvoices.reduce((acc, i) => acc + Number(i.total), 0);
   const invoicesPending = invoices.reduce((acc, i) => acc + Number(i.balance), 0);
 
+  // El tipo de cambio del día es un dato contable: decide cuánto se le descuenta
+  // al profesional por la pasarela, y con qué número se cuadra la liquidación.
+  const { vigente, historial } = await estadoTipoCambio();
+
   return (
     <div className="min-h-screen bg-surface p-6">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -416,6 +422,8 @@ export default async function AdminAccountingPage({ searchParams }) {
             />
           </div>
         </div>
+        <ExchangeRateCard vigente={vigente} historial={historial} />
+
         <SettlementQueue settlements={settlements} />
       </div>
     </div>

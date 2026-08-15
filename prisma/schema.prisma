@@ -1474,3 +1474,29 @@ model AdminMessageRecipient {
   @@index([userId, readAt])
   @@index([messageId])
 }
+
+/// Tipo de cambio del dólar, uno por día.
+///
+/// Existe porque ONVO cobra su fijo por transacción en dólares y la liquidación
+/// llega con SU tipo de cambio: sin guardar el que se usó, la diferencia no se
+/// puede explicar. Se guarda la fuente además del valor, porque no es lo mismo
+/// el dato oficial del BCCR que uno cargado a mano o un respaldo de mercado.
+model ExchangeRate {
+  id   String   @id @default(cuid())
+  /// Día al que corresponde, a medianoche en hora de Costa Rica.
+  date DateTime @unique @db.Date
+
+  /// Precio de venta: es el que corresponde a un costo que se paga en dólares.
+  sell Decimal  @db.Decimal(12, 4)
+  /// Precio de compra. Se guarda por completitud contable.
+  buy  Decimal? @db.Decimal(12, 4)
+
+  /// BCCR | HACIENDA | MANUAL | FALLBACK
+  source    String   @db.VarChar(16)
+  /// Quién lo cargó, cuando fue a mano.
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([date])
+}

@@ -25,6 +25,7 @@ import { sendInsuranceProSignAlert } from "@/lib/insurance-mail";
 import { splitTaxIncluded } from "@/lib/invoice-math";
 import { datosFacturacionDe } from "@/lib/fiscal-identity";
 import { estimateOnvoFee } from "@/lib/commission-plan";
+import { obtenerTipoCambio } from "@/lib/exchange-rate";
 import { paymentTypeLabel } from "@/lib/payment-requests";
 import { reportDepositConversion } from "@/lib/analytics/reportDepositConversion";
 import { sendPurchaseMeta } from "@/lib/analytics/meta-events";
@@ -39,8 +40,13 @@ const ONVO_WEBHOOK_SECRET = process.env.ONVO_WEBHOOK_SECRET;
  * El fijo de ONVO se cobra en dólares, así que se conserva en dólares junto al
  * tipo de cambio aplicado; processingFee es la suma estimada en colones.
  */
-function desgloseComision(amount, paymentMethod) {
-  const fee = estimateOnvoFee(Math.round(Number(amount) * 100), paymentMethod);
+async function desgloseComision(amount, paymentMethod) {
+  // El tipo de cambio del día, no uno fijo: es lo que después permite cuadrar
+  // contra la liquidación de ONVO, que llega convertida con la tasa de su día.
+  const { rate } = await obtenerTipoCambio();
+  const fee = estimateOnvoFee(Math.round(Number(amount) * 100), paymentMethod, {
+    usdCrcRate: rate,
+  });
   return {
     processingFee: fee.totalCents / 100,
     processingFeeUsd: fee.fixedUsd,
@@ -237,7 +243,7 @@ export async function POST(request) {
             // moneda en que ONVO lo cobra y el tipo de cambio usado. La
             // liquidación de ONVO va a traer su propio tipo de cambio, y sin
             // esto la diferencia no se podría explicar.
-            ...desgloseComision(transaction.amount, evento.paymentMethod),
+            ...(await desgloseComision(transaction.amount, evento.paymentMethod)),
           }
         : {}),
     },

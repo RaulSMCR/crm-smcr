@@ -60,7 +60,7 @@ export function usdToCrc() {
  * @returns {{percentCents:number, ratePct:number, fixedUsd:number,
  *            usdCrcRate:number, fixedCents:number, totalCents:number}}
  */
-export function estimateOnvoFee(grossCents, method = "card") {
+export function estimateOnvoFee(grossCents, method = "card", { usdCrcRate } = {}) {
   const gross = Math.max(0, Math.round(Number(grossCents) || 0));
   const normalized = String(method || "card").toLowerCase();
   const esSinpe = normalized.includes("sinpe");
@@ -75,10 +75,15 @@ export function estimateOnvoFee(grossCents, method = "card") {
 
   // SINPE no lleva fijo en dólares; si algún día lo lleva, se declara en colones.
   const fixedUsd = esSinpe ? 0 : Number(process.env.ONVO_CARD_FIXED_FEE_USD || ONVO_CARD_FIXED_USD);
-  const usdCrcRate = usdToCrc();
+  // El tipo de cambio del día se resuelve fuera (lib/exchange-rate, que consulta
+  // la base) y se pasa acá. Sin él, se cae a la variable de entorno: este módulo
+  // es síncrono a propósito, para que se pueda calcular en un test sin base.
+  const tipoCambio = Number.isFinite(Number(usdCrcRate)) && Number(usdCrcRate) > 0
+    ? Number(usdCrcRate)
+    : usdToCrc();
   const fixedColones = esSinpe
     ? Number(process.env.ONVO_SINPE_FIXED_FEE_CRC || 0)
-    : fixedUsd * usdCrcRate;
+    : fixedUsd * tipoCambio;
 
   // El fijo se venía sumando crudo sobre una cifra en céntimos, así que los
   // "₡200" del default valían ₡2 y al profesional se le liquidaba de más.
@@ -88,7 +93,7 @@ export function estimateOnvoFee(grossCents, method = "card") {
     percentCents,
     ratePct,
     fixedUsd,
-    usdCrcRate,
+    usdCrcRate: tipoCambio,
     fixedCents,
     totalCents: percentCents + fixedCents,
   };
@@ -102,8 +107,8 @@ export function estimateOnvoFee(grossCents, method = "card") {
  * de la pasarela, nunca para alterar lo que paga el paciente — el precio
  * publicado es final.
  */
-export function estimateOnvoFeeCents(grossCents, method = "card") {
-  return estimateOnvoFee(grossCents, method).totalCents;
+export function estimateOnvoFeeCents(grossCents, method = "card", opciones) {
+  return estimateOnvoFee(grossCents, method, opciones).totalCents;
 }
 
 function normalizeConsultationNumber(value) {
