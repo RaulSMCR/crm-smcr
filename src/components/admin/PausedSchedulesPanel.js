@@ -8,8 +8,20 @@
 // restituir es el secundario, no el principal.
 
 import { useState, useTransition } from "react";
-import { restituirAgendaDePaciente } from "@/actions/scheduling-block-actions";
+import {
+  registrarContactoManual,
+  restituirAgendaDePaciente,
+} from "@/actions/scheduling-block-actions";
 import Toast from "@/components/ui/Toast";
+import {
+  DIAS_ALERTA_SIN_CONTACTO,
+  ETIQUETAS_CANAL,
+  ETIQUETAS_RESULTADO,
+} from "@/lib/reenganche-policy";
+
+// El orden no es alfabético: es el orden real en que se contacta a alguien que
+// faltó.
+const CANALES_MANUALES = ["WHATSAPP", "LLAMADA", "EMAIL", "PRESENCIAL"];
 
 function formatFecha(valor) {
   if (!valor) return null;
@@ -20,6 +32,96 @@ function formatFecha(valor) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(valor));
+}
+
+// Registro de un contacto hecho a mano. Va dentro de la tarjeta de cada
+// paciente porque el momento de anotarlo es justo después de escribirle, no en
+// otra pantalla a la que nadie vuelve.
+function RegistrarContacto({ paciente, onHecho, onError }) {
+  const [abierto, setAbierto] = useState(false);
+  const [canal, setCanal] = useState("WHATSAPP");
+  const [resultado, setResultado] = useState("SIN_RESPUESTA");
+  const [nota, setNota] = useState("");
+  const [isPending, startTransition] = useTransition();
+
+  if (!abierto) {
+    return (
+      <button
+        type="button"
+        onClick={() => setAbierto(true)}
+        className="text-sm font-semibold text-brand-700 underline hover:text-brand-900"
+      >
+        Anotar un contacto
+      </button>
+    );
+  }
+
+  function guardar() {
+    startTransition(async () => {
+      const res = await registrarContactoManual({
+        patientId: paciente.id,
+        canal,
+        resultado,
+        nota,
+      });
+      if (res?.error) onError(res.error);
+      else {
+        setAbierto(false);
+        setNota("");
+        onHecho(paciente);
+      }
+    });
+  }
+
+  const campo = "rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm text-slate-900";
+
+  return (
+    <div className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <div className="flex flex-wrap gap-2">
+        <select value={canal} onChange={(e) => setCanal(e.target.value)} className={campo}>
+          {CANALES_MANUALES.map((valor) => (
+            <option key={valor} value={valor}>
+              {ETIQUETAS_CANAL[valor]}
+            </option>
+          ))}
+        </select>
+
+        <select value={resultado} onChange={(e) => setResultado(e.target.value)} className={campo}>
+          {Object.entries(ETIQUETAS_RESULTADO).map(([valor, etiqueta]) => (
+            <option key={valor} value={valor}>
+              {etiqueta}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <input
+        type="text"
+        value={nota}
+        onChange={(e) => setNota(e.target.value)}
+        placeholder="Nota (opcional)"
+        className={`${campo} mt-2 w-full`}
+      />
+
+      <div className="mt-2 flex gap-2">
+        <button
+          type="button"
+          onClick={guardar}
+          disabled={isPending}
+          className="rounded-lg bg-brand-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-800 disabled:opacity-60"
+        >
+          {isPending ? "Guardando…" : "Guardar"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setAbierto(false)}
+          className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-white"
+        >
+          Cancelar
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export default function PausedSchedulesPanel({ pacientes = [] }) {
@@ -83,8 +185,48 @@ export default function PausedSchedulesPanel({ pacientes = [] }) {
                 )}
                 <div className="mt-1 text-xs text-slate-500">
                   En pausa desde {formatFecha(p.bloqueadoDesde)}
+                  {p.diasEnPausa > 0 ? ` (${p.diasEnPausa} d)` : ""}
                 </div>
+                {p.acuerdoPendiente ? (
+                  <div className="mt-1 text-xs font-medium text-brand-700">
+                    Le falta repasar el acuerdo
+                  </div>
+                ) : null}
               </dl>
+            </div>
+
+            {/* Lo primero que hay que saber al abrir esta lista es si alguien ya
+                habló con esta persona. Va antes que los botones. */}
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              {p.contactos?.length ? (
+                <>
+                  <p
+                    className={`text-xs font-semibold ${
+                      p.diasSinContacto >= DIAS_ALERTA_SIN_CONTACTO
+                        ? "text-accent-800"
+                        : "text-slate-600"
+                    }`}
+                  >
+                    {p.diasSinContacto === 0
+                      ? "Contactado hoy"
+                      : `Sin contactar hace ${p.diasSinContacto} día${p.diasSinContacto === 1 ? "" : "s"}`}
+                  </p>
+                  <ul className="mt-2 space-y-1 text-xs text-slate-600">
+                    {p.contactos.map((c) => (
+                      <li key={c.id}>
+                        {formatFecha(c.createdAt)} · {ETIQUETAS_CANAL[c.canal] || c.canal}
+                        {c.automatico ? " (automático)" : ""}
+                        {c.resultado ? ` · ${ETIQUETAS_RESULTADO[c.resultado] || c.resultado}` : ""}
+                        {c.nota ? ` — ${c.nota}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <p className="text-xs font-semibold text-accent-800">
+                  Nadie lo ha contactado todavía.
+                </p>
+              )}
             </div>
 
             <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -111,6 +253,14 @@ export default function PausedSchedulesPanel({ pacientes = [] }) {
               >
                 {isPending ? "Restituyendo..." : "Restituir el acceso"}
               </button>
+
+              <RegistrarContacto
+                paciente={p}
+                onHecho={(paciente) =>
+                  setToast({ message: `Contacto anotado para ${paciente.name}.`, type: "success" })
+                }
+                onError={(mensaje) => setToast({ message: mensaje, type: "error" })}
+              />
             </div>
           </div>
         ))}

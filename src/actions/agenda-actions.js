@@ -16,6 +16,8 @@ import { resolveBookingSelection } from "@/lib/booking-rates";
 import { MOTIVOS_BLOQUEO } from "@/lib/rescheduling-policy";
 import { aplicarMultaYPausa } from "@/lib/scheduling-block";
 import { alertarAgendaEnPausa } from "@/lib/payment-alerts";
+import { abrirCasoSiNoExiste } from "@/lib/casos";
+import { iniciarReenganche } from "@/lib/reenganche";
 import {
   buildRecurringStarts,
   normalizeRecurrenceCount,
@@ -373,6 +375,11 @@ export async function createAppointmentByProfessional({
 
     const hydratedAppointments = await hydrateAppointments(createdAppointments.map((item) => item.id));
     await notifyAppointments(hydratedAppointments, "El profesional creó una nueva cita en estado pendiente.");
+
+    // También acá se abre el caso: la primera cita puede nacer del profesional y
+    // no del paciente, y el expediente no puede depender de por dónde entró.
+    await abrirCasoSiNoExiste({ patientId: pid, professionalId });
+
     const firstAppointment = hydratedAppointments.find((item) => item.isFirstWithProfessional);
     const depositPayment = firstAppointment
       ? await createPaymentRequestForAppointment(firstAppointment, "DEPOSIT_50")
@@ -701,6 +708,10 @@ export async function updateAppointmentStatus(appointmentId, newStatus) {
       const sancion = await aplicarMultaYPausa(updatedAppointment, MOTIVOS_BLOQUEO.NO_ASISTIO);
       if (sancion.aplicada) {
         await alertarAgendaEnPausa(updatedAppointment, MOTIVOS_BLOQUEO.NO_ASISTIO, sancion);
+        // Y en el mismo movimiento se lo vuelve a invitar. La ventana en que
+        // alguien que faltó todavía puede volver es corta: esperar a que la
+        // administración se acuerde suele ser esperar de más.
+        await iniciarReenganche(updatedAppointment);
       }
     }
 

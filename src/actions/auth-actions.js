@@ -12,6 +12,7 @@ import { signToken, getSession as getLibSession } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { checkRateLimit, recordAttempt } from "@/lib/rate-limit";
 import { verifyTurnstile } from "@/lib/turnstile";
+import { CONTEXTOS, VERSION_ACUERDO } from "@/lib/acuerdo";
 import {
   CV_UPLOAD_BUCKET,
   getCvStoragePathFromPublicUrl,
@@ -422,6 +423,7 @@ export async function registerUser(formData) {
   const interests = String(formData.get("interests") || "").trim() || null;
   const password = String(formData.get("password") || "");
   const confirmPassword = String(formData.get("confirmPassword") || "");
+  const acuerdoVersion = String(formData.get("acuerdoVersion") || "").trim();
 
   const attribution = readMarketingAttribution(formData, {
     acquisitionChannel: "Directo",
@@ -441,6 +443,14 @@ export async function registerUser(formData) {
       error: `No fue posible completar la seguridad de la cuenta. ${userPasswordIssues.join(" ")}`,
     };
   }
+  // Se revalida acá y no solo en la casilla del formulario: el consentimiento
+  // para datos de salud tiene que ser expreso y demostrable (Ley 8968, art. 9),
+  // y una casilla marcada en el navegador no prueba nada por sí sola.
+  if (acuerdoVersion !== VERSION_ACUERDO) {
+    return {
+      error: "Necesitamos que leas y aceptes el acuerdo de atención para crear tu cuenta.",
+    };
+  }
 
   try {
     const existing = await prisma.user.findUnique({ where: { email } });
@@ -449,6 +459,8 @@ export async function registerUser(formData) {
     const hashedPassword = await bcrypt.hash(password, 12);
     const verifyToken = crypto.randomBytes(32).toString("hex");
     const verifyTokenHash = crypto.createHash("sha256").update(verifyToken).digest("hex");
+
+    const userAgent = (await headers()).get("user-agent")?.slice(0, 512) || null;
 
     const createdUser = await prisma.user.create({
       data: {
@@ -465,6 +477,19 @@ export async function registerUser(formData) {
         isActive: true,
         verifyTokenHash,
         verifyTokenExp: ttlToDate(VERIFY_TOKEN_TTL_HOURS),
+        acuerdoVersion: VERSION_ACUERDO,
+        acuerdoAceptadoAt: new Date(),
+        // Escritura anidada: la cuenta y la prueba del consentimiento nacen en la
+        // misma transacción. Una cuenta sin su fila de aceptación sería una
+        // cuenta que nunca aceptó nada.
+        acuerdosAceptados: {
+          create: {
+            version: VERSION_ACUERDO,
+            contexto: CONTEXTOS.REGISTRO,
+            ip: ip === "unknown" ? null : ip,
+            userAgent,
+          },
+        },
         ...attribution,
       },
     });

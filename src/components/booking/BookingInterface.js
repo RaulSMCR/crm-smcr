@@ -9,6 +9,7 @@ import { RECURRENCE_RULES } from "@/lib/appointment-recurrence";
 import RecurrenceFields from "@/components/appointments/RecurrenceFields";
 import Toast from "@/components/ui/Toast";
 import BookingConfirmationToast from "@/components/booking/BookingConfirmationToast";
+import RecordatorioSegundaCita from "@/components/booking/RecordatorioSegundaCita";
 import { trackEvent } from "@/lib/analytics";
 import { trackSchedule } from "@/lib/meta-pixel";
 import { modalityLabel } from "@/lib/rates";
@@ -82,6 +83,8 @@ export default function BookingInterface({ professionalId, servicePrice, service
   const [options, setOptions] = useState([]);
   const [locationId, setLocationId] = useState(null);
   const [esPrimeraCita, setEsPrimeraCita] = useState(false);
+  const [esSegundaCita, setEsSegundaCita] = useState(false);
+  const [entiendeReglas, setEntiendeReglas] = useState(false);
 
   useEffect(() => {
     if (!selectedDate || !selectedSlot || !serviceId) {
@@ -97,6 +100,7 @@ export default function BookingInterface({ professionalId, servicePrice, service
         const lista = res?.options || [];
         setOptions(lista);
         setEsPrimeraCita(Boolean(res?.esPrimeraCita));
+        setEsSegundaCita(Boolean(res?.esSegundaCita));
         const reservables = lista.filter((o) => o.bookable);
         setLocationId(reservables.length === 1 ? reservables[0].locationId : null);
       })
@@ -111,6 +115,7 @@ export default function BookingInterface({ professionalId, servicePrice, service
 
   const opcionElegida = options.find((o) => o.locationId === locationId) || null;
   const hayQueElegir = options.length > 1 && !opcionElegida;
+  const faltaConfirmarReglas = esSegundaCita && !entiendeReglas;
 
   async function submitBooking(timeOverride) {
     setIsBooking(true);
@@ -149,6 +154,10 @@ export default function BookingInterface({ professionalId, servicePrice, service
     } else if (result.errorCode === "UNAUTHENTICATED") {
       const callbackUrl = encodeURIComponent(`/agendar/${professionalId}`);
       router.push(`/ingresar?callbackUrl=${callbackUrl}`);
+    } else if (result.errorCode === "ACUERDO_PENDIENTE") {
+      // Tiene un repaso pendiente: se lo lleva al acuerdo en vez de dejarlo
+      // frente a un error que no explica nada.
+      router.push("/terminos?revisar=1#confirmar");
     } else if (result.conflictInfo) {
       setConflict(result.conflictInfo);
     } else {
@@ -370,6 +379,10 @@ export default function BookingInterface({ professionalId, servicePrice, service
             </div>
           )}
 
+          {selectedSlot && esSegundaCita && opcionElegida?.bookable && (
+            <RecordatorioSegundaCita checked={entiendeReglas} onChange={setEntiendeReglas} />
+          )}
+
           {selectedSlot && esPrimeraCita && opcionElegida?.bookable && (
             <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
               <div className="font-semibold">Primera cita con este profesional</div>
@@ -387,7 +400,7 @@ export default function BookingInterface({ professionalId, servicePrice, service
 
           <div className="border-t border-neutral-200 pt-4">
             <button
-              disabled={!selectedSlot || isBooking || !!conflict || hayQueElegir}
+              disabled={!selectedSlot || isBooking || !!conflict || hayQueElegir || faltaConfirmarReglas}
               onClick={() => selectedSlot && submitBooking(null)}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-700 py-4 text-lg font-bold text-white shadow-lg transition-all hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -406,6 +419,12 @@ export default function BookingInterface({ professionalId, servicePrice, service
             {hayQueElegir && (
               <p className="mt-2 text-center text-xs text-amber-700">
                 Elegí una modalidad para continuar.
+              </p>
+            )}
+
+            {faltaConfirmarReglas && !hayQueElegir && (
+              <p className="mt-2 text-center text-xs text-brand-700">
+                Marcá la casilla de arriba para continuar.
               </p>
             )}
 

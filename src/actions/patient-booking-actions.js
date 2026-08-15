@@ -23,6 +23,11 @@ import { alertarCobroNoGenerado, alertarAgendaEnPausa } from "@/lib/payment-aler
 import { evaluarReagenda, MOTIVOS_BLOQUEO, PORCENTAJE_MULTA } from "@/lib/rescheduling-policy";
 import { aplicarMultaYPausa, estaBloqueado } from "@/lib/scheduling-block";
 import { getBookingOptions, resolveBookingSelection } from "@/lib/booking-rates";
+import {
+  anotarRecordatorioSegundaCita,
+  bloqueoPorAcuerdoPendiente,
+} from "@/lib/acuerdo-server";
+import { abrirCasoSiNoExiste, bloqueoPorCierreEnCurso } from "@/lib/casos";
 
 function describeRecurringConflict(conflict) {
   if (!conflict) return null;
@@ -115,6 +120,14 @@ export async function createAppointmentForPatient({
       };
     }
 
+    // Candado aparte del anterior: el administrador puede haberle devuelto el
+    // acceso y el repaso del acuerdo seguir pendiente.
+    const repasoPendiente = await bloqueoPorAcuerdoPendiente(patientId);
+    if (repasoPendiente) return { success: false, ...repasoPendiente };
+
+    const cierreEnRevision = await bloqueoPorCierreEnCurso(patientId, pid);
+    if (cierreEnRevision) return { success: false, ...cierreEnRevision };
+
     const [service, professional, assignment] = await Promise.all([
       prisma.service.findUnique({
         where: { id: sid },
@@ -201,6 +214,9 @@ export async function createAppointmentForPatient({
 
     const hydratedAppointments = await hydrateAppointments(createdAppointments.map((item) => item.id));
     await notifyAppointments(hydratedAppointments, "Se creó una nueva cita en estado pendiente.");
+
+    await abrirCasoSiNoExiste({ patientId, professionalId: pid });
+    await anotarRecordatorioSegundaCita(patientId, previousCount);
 
     const firstAppointment = hydratedAppointments.find((item) => item.isFirstWithProfessional);
     const depositPayment = firstAppointment
@@ -597,6 +613,8 @@ export async function getSlotOptionsForPatient({ professionalId, serviceId, star
       options,
       timeBand: timeBand ? { id: timeBand.id, name: timeBand.name } : null,
       esPrimeraCita: previas === 0,
+      // En la segunda se le recuerdan las reglas para mover la cita. Ver lib/acuerdo.
+      esSegundaCita: previas === 1,
     };
   } catch (error) {
     console.error("getSlotOptionsForPatient error:", error);

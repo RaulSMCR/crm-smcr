@@ -13,6 +13,8 @@
 import { prisma } from "@/lib/prisma";
 import { createPaymentRequestForAppointment } from "@/lib/payment-requests";
 import { ETIQUETAS_BLOQUEO, montoMulta, saldoDeMulta } from "@/lib/rescheduling-policy";
+import { contextoDeRepaso } from "@/lib/acuerdo";
+import { marcarRepasoPendiente } from "@/lib/acuerdo-server";
 
 /** Suma de lo ya cobrado y aprobado para una cita. */
 async function totalPagado(appointmentId) {
@@ -54,6 +56,11 @@ export async function aplicarMultaYPausa(appointment, motivo) {
         schedulingBlockedAt: new Date(),
         schedulingBlockedReason: motivo,
         schedulingRestoredAt: null,
+        // Y además le toca releer el acuerdo. Son dos candados distintos: el
+        // administrador levanta la pausa después de hablar con la persona, pero
+        // el repaso lo cierra ella misma. Uno es el permiso, el otro es haber
+        // entendido cómo evitarlo la próxima vez.
+        ...marcarRepasoPendiente(contextoDeRepaso(motivo)),
       },
     }),
   ]);

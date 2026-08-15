@@ -12,6 +12,16 @@ import { getFraseDelDia } from "@/lib/mi/frases";
 import { fraseAMostrar } from "@/lib/frases-usuario";
 import { etiquetaBloqueo } from "@/lib/scheduling-block";
 import PausedScheduleNotice from "@/components/paciente/PausedScheduleNotice";
+import AcuerdoPendienteNotice from "@/components/paciente/AcuerdoPendienteNotice";
+import MisProcesos from "@/components/paciente/MisProcesos";
+import {
+  SELECT_ACUERDO,
+  acuerdoDesactualizado,
+  contextoPendiente,
+  invitacionARepasar,
+  necesitaReleerAcuerdo,
+} from "@/lib/acuerdo";
+import { estadoParaPaciente } from "@/lib/casos";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +62,7 @@ export default async function PacientePanelPage({ searchParams }) {
         billingEmail: true,
         schedulingBlockedAt: true,
         schedulingBlockedReason: true,
+        ...SELECT_ACUERDO,
       },
     }),
     prisma.appointment.findMany({
@@ -89,6 +100,49 @@ export default async function PacientePanelPage({ searchParams }) {
       })
     : 0;
 
+  // Los procesos de la persona, con el estado dicho en su idioma. Nunca se le
+  // muestra el tipo de cierre crudo: un alta se nombra como el logro que es y lo
+  // demás se nombra sin adjetivos. Ver lib/casos → estadoParaPaciente.
+  const casos = await prisma.caso.findMany({
+    where: { patientId: userId },
+    orderBy: { abiertoAt: "desc" },
+    select: {
+      id: true,
+      estado: true,
+      resultado: true,
+      abiertoAt: true,
+      cerradoAt: true,
+      professional: { select: { user: { select: { name: true } } } },
+    },
+  });
+
+  const procesos = casos.map((caso) => ({
+    id: caso.id,
+    profesional: caso.professional?.user?.name || "Tu profesional",
+    abiertoAt: caso.abiertoAt.toISOString(),
+    cerradoAt: caso.cerradoAt ? caso.cerradoAt.toISOString() : null,
+    ...estadoParaPaciente(caso),
+  }));
+
+  // Dos situaciones distintas con la misma pantalla de destino:
+  //
+  //   - Le toca repasar el acuerdo después de un tropiezo, y hasta que no lo
+  //     confirme no puede volver a reservar.
+  //   - Su cuenta es anterior al acuerdo (o el texto cambió). Acá no se bloquea
+  //     nada: se le pide y punto. Trancarle la agenda a alguien que no hizo nada
+  //     sería castigarlo por una fecha de registro.
+  const repasoPendiente = necesitaReleerAcuerdo(user)
+    ? { ...invitacionARepasar(contextoPendiente(user)), accion: "Repasar el acuerdo" }
+    : acuerdoDesactualizado(user)
+      ? {
+          titulo: "Falta tu confirmación del acuerdo",
+          cuerpo:
+            "Tu cuenta se creó antes de que este acuerdo existiera. Leelo y confirmalo cuando " +
+            "puedas: explica cómo se sostiene tu espacio y qué hacer si algo se atraviesa.",
+          accion: "Leer el acuerdo",
+        }
+      : null;
+
   const userForClient = { ...user, birthDate: birthDateForInput(user.birthDate) };
   const created = String(searchParams?.created || "") === "1";
   const appointmentAction = String(searchParams?.appointmentAction || "");
@@ -113,6 +167,14 @@ export default async function PacientePanelPage({ searchParams }) {
         <PausedScheduleNotice
           motivo={etiquetaBloqueo(user.schedulingBlockedReason)}
           esPrimeraVez={sancionesPrevias <= 1}
+        />
+      ) : null}
+
+      {repasoPendiente ? (
+        <AcuerdoPendienteNotice
+          titulo={repasoPendiente.titulo}
+          cuerpo={repasoPendiente.cuerpo}
+          accion={repasoPendiente.accion}
         />
       ) : null}
 
@@ -199,6 +261,8 @@ export default async function PacientePanelPage({ searchParams }) {
 
         <PatientProfileEditorCard user={userForClient} />
       </div>
+
+      <MisProcesos procesos={procesos} />
       {/* Avisa los pagos acreditados mientras el paciente no estaba en la app. */}
       <PaymentReceivedToast />
     </div>

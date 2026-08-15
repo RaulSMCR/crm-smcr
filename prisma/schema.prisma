@@ -178,6 +178,29 @@ model User {
   schedulingBlockedReason String?   @db.VarChar(32)
   schedulingRestoredAt    DateTime?
 
+  /// Última versión del acuerdo de atención que la persona aceptó, y cuándo. La
+  /// prueba del consentimiento vive en AceptacionAcuerdo (Ley 8968, art. 9);
+  /// estos dos campos son solo para no consultar esa tabla en cada pantalla.
+  acuerdoVersion    String?   @db.VarChar(16)
+  acuerdoAceptadoAt DateTime?
+
+  /// Se le pidió volver a leer el acuerdo y todavía no lo confirmó. Se pone
+  /// cuando se aplica la política (aviso tarde o inasistencia) y es un candado
+  /// distinto del de la agenda: el administrador puede devolverle el acceso y
+  /// aun así tiene que releer antes de volver a reservar. Ver lib/acuerdo.
+  acuerdoPendienteDesde  DateTime?
+  acuerdoPendienteMotivo String?   @db.VarChar(32)
+
+  /// Dirección clínica: quien visa las altas y las bajas de los casos.
+  ///
+  /// No es un Role aparte a propósito —el rol operativo sigue siendo ADMIN—
+  /// porque lo que habilita a leer una nota clínica no es el puesto sino la
+  /// colegiatura. Sin número de colegiado no hay acceso, aunque sea admin.
+  /// Ver lib/auth-guards → requireClinicalDirector.
+  clinicalDirectorSince DateTime?
+  colegiadoNumero       String?   @db.VarChar(32)
+  colegiadoColegio      String?   @db.VarChar(64)
+
   insuranceBlankFormUrl        String?
   insuranceBlankFormUploadedAt DateTime?
 
@@ -199,6 +222,13 @@ model User {
   insuranceClaims     InsuranceClaim[]     @relation("PatientInsuranceClaims")
   leads               Lead[]
   pushSubscriptions   PushSubscription[]
+
+  acuerdosAceptados   AceptacionAcuerdo[]
+  contactosReenganche ContactoReenganche[] @relation("ContactosDelPaciente")
+  casosComoPaciente   Caso[]               @relation("CasosDelPaciente")
+  casosVisados        Caso[]               @relation("CasosVisados")
+  eventosDeCaso       CasoEvento[]         @relation("EventosDelActor")
+  notasDeCaso         CasoNota[]           @relation("NotasDelAutor")
   // Back-relation necesaria para que borrar un usuario se lleve sus acuses de
   // lectura y no queden huérfanos.
   messageReceipts     AdminMessageRecipient[]
@@ -261,6 +291,7 @@ model ProfessionalProfile {
   invoices          Invoice[]          @relation("InvoiceProfessional")
   homeCarouselItems HomeCarouselItem[]
   insuranceClaims   InsuranceClaim[]
+  casos             Caso[]             @relation("CasosDelProfesional")
 
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -1499,4 +1530,190 @@ model ExchangeRate {
   updatedAt DateTime @updatedAt
 
   @@index([date])
+}
+
+/// Cada vez que una persona acepta el acuerdo de atención.
+///
+/// Es la prueba del consentimiento expreso que pide la Ley 8968 para datos de
+/// salud, así que es append-only: nunca se actualiza ni se borra una fila. Si el
+/// texto del acuerdo cambia, sube VERSION_ACUERDO y se pide aceptar de nuevo; lo
+/// aceptado antes sigue siendo válido para lo que pasó antes.
+///
+/// `contexto` dice en qué momento del recorrido se aceptó, que es justamente lo
+/// que hace pedagógica a la secuencia: al registrarse, al empezar el proceso con
+/// un profesional, y al repasar después de un tropiezo. Ver lib/acuerdo.
+model AceptacionAcuerdo {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  version  String @db.VarChar(16)
+  /// REGISTRO | SEGUNDA_CITA | REPASO_TRAS_MULTA | REPASO_TRAS_AUSENCIA
+  contexto String @db.VarChar(32)
+
+  ip        String?  @db.VarChar(64)
+  userAgent String?  @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([contexto])
+}
+
+/// Bitácora de intentos de volver a enganchar a alguien que faltó.
+///
+/// Existe para que "se le escribió" deje de ser un recuerdo de quien atendió. Es
+/// también el requisito de una baja por abandono: no se da de baja por abandono
+/// a quien nadie contactó (ver lib/casos).
+model ContactoReenganche {
+  id String @id @default(cuid())
+
+  patientId String
+  patient   User   @relation("ContactosDelPaciente", fields: [patientId], references: [id], onDelete: Cascade)
+
+  /// Cita que se perdió y originó el reenganche. Se conserva si la cita se borra.
+  appointmentId String?
+
+  /// EMAIL | WHATSAPP | LLAMADA | PRESENCIAL
+  canal String @db.VarChar(16)
+  /// Distingue el correo que sale solo de lo que hizo una persona.
+  automatico Boolean @default(false)
+  /// 0 = el mismo día, 1 = a los tres días, 2 = a los diez.
+  intento Int @default(0)
+
+  /// SIN_RESPUESTA | RESPONDIO | REAGENDO | NO_CONTINUA
+  resultado String? @db.VarChar(24)
+  nota      String? @db.Text
+
+  /// Quién lo registró. Null cuando lo hizo el sistema.
+  registradoPor String?
+
+  createdAt DateTime @default(now())
+
+  @@index([patientId, createdAt])
+  @@index([appointmentId])
+}
+
+/// Registro ADMINISTRATIVO de un proceso de atención.
+///
+/// Esto no es un expediente clínico y no debe convertirse en uno. El expediente
+/// le pertenece a la persona y a su profesional, y su custodia es obligación del
+/// profesional colegiado (CPPCR, arts. 21 y 22). La plataforma se ocupa de la
+/// parte administrativa: cuándo empezó un proceso, cuándo terminó y bajo qué
+/// categoría.
+///
+/// Por eso acá NO hay campos de evolución, estado ni recomendaciones. Si alguna
+/// vez se agrega un campo de texto libre a este modelo, se está abriendo la
+/// puerta a que entre contenido clínico a una base que no corresponde: el cierre
+/// se declara con categorías y atestaciones, no con relato.
+///
+/// El visado de la dirección clínica es un control del negocio —protege a la
+/// empresa y al profesional de un cierre mal documentado—, no una supervisión
+/// clínica: con quién y cada cuánto supervisa su práctica lo decide cada
+/// profesional.
+///
+/// Las relaciones son Restrict y no Cascade por integridad contable: un proceso
+/// que generó cobros no puede desaparecer en cascada. Por lo mismo se guarda
+/// copia congelada del nombre y la cédula.
+model Caso {
+  id String @id @default(cuid())
+
+  patientId String
+  patient   User   @relation("CasosDelPaciente", fields: [patientId], references: [id], onDelete: Restrict)
+
+  professionalId String
+  professional   ProfessionalProfile @relation("CasosDelProfesional", fields: [professionalId], references: [id], onDelete: Restrict)
+
+  pacienteNombre String  @db.VarChar(120)
+  pacienteCedula String? @db.VarChar(32)
+
+  /// ABIERTO | PENDIENTE_VISADO | CERRADO
+  estado    String   @default("ABIERTO") @db.VarChar(24)
+  abiertoAt DateTime @default(now())
+
+  /// ALTA | BAJA. Resumen de `tipoCierre`, para listar sin interpretar.
+  resultado String? @db.VarChar(8)
+  /// ALTA_POR_OBJETIVOS | ALTA_CON_SEGUIMIENTO | BAJA_POR_ABANDONO |
+  /// BAJA_A_SOLICITUD | BAJA_POR_DERIVACION | BAJA_POR_CRITERIO_PROFESIONAL
+  tipoCierre String? @db.VarChar(32)
+
+  cierrePropuestoAt DateTime?
+  cerradoAt         DateTime?
+
+  /// Atestaciones del profesional al cerrar. Son declaraciones, no relato: es
+  /// lo que protege a la empresa y a él mismo si mañana alguien pregunta.
+  personaInformada       Boolean @default(false)
+  registradoEnExpediente Boolean @default(false)
+
+  /// A quién se deriva, cuando el cierre es una derivación. Solo el destino:
+  /// las indicaciones son del expediente, y el expediente no vive acá.
+  derivadoA String? @db.VarChar(200)
+
+  visadoPorId String?
+  visadoPor   User?     @relation("CasosVisados", fields: [visadoPorId], references: [id], onDelete: SetNull)
+  visadoAt    DateTime?
+  visadoNota  String?   @db.Text
+
+  /// cerradoAt + 10 años (CPPCR, arts. 21 y 22). Nada se depura antes.
+  conservarHasta DateTime?
+
+  /// Cuando alguien retoma, no se reabre el caso cerrado: se abre uno nuevo que
+  /// apunta al anterior. Un expediente cerrado deja de moverse.
+  casoAnteriorId String? @unique
+  casoAnterior   Caso?   @relation("CasoRetomado", fields: [casoAnteriorId], references: [id], onDelete: SetNull)
+  casoSiguiente  Caso?   @relation("CasoRetomado")
+
+  notas   CasoNota[]
+  eventos CasoEvento[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // No hay unique de "un caso abierto por pareja": Postgres no lo expresa sin
+  // índice parcial y Prisma no lo modela. Lo garantiza abrirCasoSiNoExiste, que
+  // es el único camino que crea casos.
+  @@index([professionalId, estado])
+  @@index([patientId, estado])
+  @@index([estado])
+}
+
+/// Adenda a un caso. Append-only: corrige o amplía sin borrar lo anterior.
+model CasoNota {
+  id     String @id @default(cuid())
+  casoId String
+  caso   Caso   @relation(fields: [casoId], references: [id], onDelete: Restrict)
+
+  /// ADENDA | OBSERVACION_DIRECCION
+  tipo  String @db.VarChar(24)
+  texto String @db.Text
+
+  autorId String?
+  autor   User?   @relation("NotasDelAutor", fields: [autorId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([casoId, createdAt])
+}
+
+/// Bitácora del caso, incluidos los accesos de la dirección clínica.
+///
+/// El registro de lectura es la contrapartida de lo que el acuerdo le promete al
+/// paciente: que nadie más que su profesional y la dirección clínica accede a lo
+/// que se escribe, y que cada acceso queda anotado.
+model CasoEvento {
+  id     String @id @default(cuid())
+  casoId String
+  caso   Caso   @relation(fields: [casoId], references: [id], onDelete: Restrict)
+
+  /// APERTURA | CIERRE_PROPUESTO | VISADO | VISADO_DEVUELTO | REAPERTURA |
+  /// ADENDA | LECTURA_DIRECCION_CLINICA | COPIA_SOLICITADA
+  tipo   String  @db.VarChar(32)
+  detalle String? @db.Text
+
+  actorId String?
+  actor   User?   @relation("EventosDelActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([casoId, createdAt])
+  @@index([tipo])
 }

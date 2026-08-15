@@ -44,6 +44,52 @@ export async function requireProfessionalProfileId() {
   throw new Error("No se encontró el perfil profesional asociado a esta sesión.");
 }
 
+/**
+ * Dirección clínica: quien puede leer y visar los cierres de los casos.
+ *
+ * Deliberadamente no es un rol del enum. Lo que habilita a abrir un expediente
+ * no es el puesto en la plataforma sino la colegiatura: el Código de Ética y
+ * Deontológico del CPPCR solo admite compartir con autorización expresa de la
+ * persona usuaria (art. 33), y esa autorización —la que da el acuerdo al
+ * registrarse— se otorga a una dirección clínica profesional, no a "el
+ * administrador del sistema". Por eso se exigen las dos cosas, y sin número de
+ * colegiado no hay acceso aunque la cuenta sea ADMIN.
+ *
+ * @returns {Promise<{session: object, director: {id: string, name: string, colegiadoNumero: string}}>}
+ */
+export async function requireClinicalDirector() {
+  const session = await requireSession();
+  const userId = toStr(session.userId) || toStr(session.sub);
+  if (!userId) throw new Error("No autorizado: sesión sin usuario.");
+
+  const director = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      clinicalDirectorSince: true,
+      colegiadoNumero: true,
+      colegiadoColegio: true,
+    },
+  });
+
+  if (!director?.clinicalDirectorSince || !director.colegiadoNumero) {
+    throw new Error("No autorizado: se requiere dirección clínica con colegiatura registrada.");
+  }
+
+  return { session, director };
+}
+
+/** Versión que no lanza, para decidir si mostrar un enlace en el menú. */
+export async function esDireccionClinica() {
+  try {
+    await requireClinicalDirector();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function requireProfessionalContext() {
   const session = await requireSession();
   const role = toStr(session.role);

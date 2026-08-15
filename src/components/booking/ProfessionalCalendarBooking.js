@@ -11,6 +11,7 @@ import { buildSlots } from "@/lib/appointment-slots";
 import { RECURRENCE_RULES } from "@/lib/appointment-recurrence";
 import RecurrenceFields from "@/components/appointments/RecurrenceFields";
 import BookingConfirmationToast from "@/components/booking/BookingConfirmationToast";
+import RecordatorioSegundaCita from "@/components/booking/RecordatorioSegundaCita";
 import { SafeAvatar } from "@/components/SafeImage";
 import { modalityLabel } from "@/lib/rates";
 
@@ -47,6 +48,8 @@ export default function ProfessionalCalendarBooking({
   const [locationId, setLocationId] = useState(null);
   const [confirmation, setConfirmation] = useState(null);
   const [esPrimeraCita, setEsPrimeraCita] = useState(false);
+  const [esSegundaCita, setEsSegundaCita] = useState(false);
+  const [entiendeReglas, setEntiendeReglas] = useState(false);
 
   const days = useMemo(
     () => buildSlots({ availability, durationMin, booked, daysAhead: 14 }),
@@ -69,6 +72,7 @@ export default function ProfessionalCalendarBooking({
         const list = res?.options || [];
         setOptions(list);
         setEsPrimeraCita(Boolean(res?.esPrimeraCita));
+        setEsSegundaCita(Boolean(res?.esSegundaCita));
         // Con una sola opción no hay nada que elegir: se preselecciona.
         const bookable = list.filter((option) => option.bookable);
         setLocationId(bookable.length === 1 ? bookable[0].locationId : null);
@@ -88,6 +92,7 @@ export default function ProfessionalCalendarBooking({
   const selectedOption = options.find((option) => option.locationId === locationId) || null;
   const hasChoice = options.length > 1;
   const needsChoice = hasChoice && !selectedOption;
+  const faltaConfirmarReglas = esSegundaCita && !entiendeReglas;
 
   const onConfirm = () => {
     if (!selectedISO || needsChoice) return;
@@ -262,6 +267,12 @@ export default function ProfessionalCalendarBooking({
           </div>
         )}
 
+        {selectedISO && esSegundaCita && selectedOption?.bookable && (
+          <div className="mt-4">
+            <RecordatorioSegundaCita checked={entiendeReglas} onChange={setEntiendeReglas} />
+          </div>
+        )}
+
         {selectedISO && esPrimeraCita && selectedOption?.bookable && (
           <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             <div className="font-semibold">Primera cita con este profesional</div>
@@ -286,7 +297,13 @@ export default function ProfessionalCalendarBooking({
 
         <button
           type="button"
-          disabled={!selectedISO || isPending || needsChoice || (selectedISO && options.length === 0)}
+          disabled={
+            !selectedISO ||
+            isPending ||
+            needsChoice ||
+            faltaConfirmarReglas ||
+            (selectedISO && options.length === 0)
+          }
           onClick={onConfirm}
           className="mt-5 w-full rounded-xl bg-blue-600 px-4 py-2.5 font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
         >
@@ -295,6 +312,10 @@ export default function ProfessionalCalendarBooking({
 
         {needsChoice && (
           <p className="mt-2 text-xs text-amber-700">Elegí una modalidad para continuar.</p>
+        )}
+
+        {faltaConfirmarReglas && !needsChoice && (
+          <p className="mt-2 text-xs text-brand-700">Marcá la casilla de arriba para continuar.</p>
         )}
 
         <p className="mt-3 text-xs text-slate-500">

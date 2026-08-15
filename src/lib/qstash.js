@@ -37,3 +37,37 @@ export async function scheduleReminder({ appointmentId, type, sendAt }) {
     console.error(`[QStash] ERROR ${type}:`, err);
   }
 }
+
+/**
+ * Programa un recordatorio de reenganche para alguien que faltó a una cita.
+ *
+ * Mismo patrón que scheduleReminder, con dos diferencias que importan: se ancla
+ * en el paciente y no en la cita (la cita ya pasó), y el receptor vuelve a
+ * comprobar antes de enviar si la persona ya reagendó. Ver lib/reenganche.
+ *
+ * @param {object} opts
+ * @param {string} opts.patientId
+ * @param {string} [opts.appointmentId] - la cita a la que faltó
+ * @param {number} opts.intento - 1 = a los tres días, 2 = a los diez
+ * @param {Date|string} opts.sendAt
+ */
+export async function scheduleReengagement({ patientId, appointmentId, intento, sendAt }) {
+  if (!process.env.QSTASH_TOKEN || !APP_URL) {
+    console.log(`[QStash] reenganche OMITIDO - TOKEN: ${!!process.env.QSTASH_TOKEN}, URL: ${APP_URL}`);
+    return;
+  }
+
+  const delaySec = Math.floor((new Date(sendAt).getTime() - Date.now()) / 1000);
+  if (delaySec <= 0) return;
+
+  try {
+    await qstash.publishJSON({
+      url: `${APP_URL}/api/reenganche/send`,
+      delay: delaySec,
+      body: { patientId, appointmentId, intento },
+    });
+    console.log(`[QStash] reenganche #${intento} programado para ${patientId} en ${delaySec}s`);
+  } catch (err) {
+    console.error(`[QStash] ERROR reenganche #${intento}:`, err);
+  }
+}

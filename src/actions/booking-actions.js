@@ -26,6 +26,11 @@ import { createPaymentRequestForAppointment } from "@/lib/payment-requests";
 import { alertarCobroNoGenerado } from "@/lib/payment-alerts";
 import { getBookingOptions, resolveBookingSelection } from "@/lib/booking-rates";
 import { snapshotLocation } from "@/lib/rates";
+import {
+  anotarRecordatorioSegundaCita,
+  bloqueoPorAcuerdoPendiente,
+} from "@/lib/acuerdo-server";
+import { abrirCasoSiNoExiste, bloqueoPorCierreEnCurso } from "@/lib/casos";
 
 function describeRecurringConflict(conflict) {
   if (!conflict) return null;
@@ -155,6 +160,13 @@ export async function requestAppointment(
     return { error: "Debe iniciar sesión para agendar.", errorCode: "UNAUTHENTICATED" };
   }
 
+  // Si quedó un repaso del acuerdo pendiente, se resuelve antes de reservar.
+  const repasoPendiente = await bloqueoPorAcuerdoPendiente(session.sub);
+  if (repasoPendiente) return repasoPendiente;
+
+  const cierreEnRevision = await bloqueoPorCierreEnCurso(session.sub, professionalId);
+  if (cierreEnRevision) return cierreEnRevision;
+
   try {
     let duration = 60;
 
@@ -270,6 +282,12 @@ export async function requestAppointment(
     const hydratedAppointments = await hydrateAppointments(createdAppointments.map((item) => item.id));
     await notifyAppointments(hydratedAppointments, "Se creó una nueva cita en estado pendiente.");
 
+    // Con la primera cita se abre el caso, y en la segunda queda constancia de
+    // que se le recordaron las reglas. Ninguna de las dos puede tumbar una
+    // reserva ya hecha, así que van después y no lanzan.
+    await abrirCasoSiNoExiste({ patientId: session.sub, professionalId });
+    await anotarRecordatorioSegundaCita(session.sub, previousCount);
+
     const firstAppointment = hydratedAppointments.find((item) => item.isFirstWithProfessional);
     const depositPayment = firstAppointment && pricePaid
       ? await createPaymentRequestForAppointment(firstAppointment, "DEPOSIT_50")
@@ -341,7 +359,9 @@ export async function getSlotOptions(professionalId, dateString, timeString, ser
     const { options, timeBand } = await getBookingOptions({ professionalId, serviceId, startsAt });
 
     // Si es su primera cita con este profesional, se le cobra el 50% por
-    // adelantado y tiene que saberlo antes de confirmar.
+    // adelantado y tiene que saberlo antes de confirmar. Y si es la segunda, se
+    // le recuerdan las reglas de cancelación: ahí deja de estar probando y pasa
+    // a sostener un proceso. Ver lib/acuerdo.
     const session = await getSession();
     const previas = session?.sub
       ? await prisma.appointment.count({
@@ -358,6 +378,7 @@ export async function getSlotOptions(professionalId, dateString, timeString, ser
       options,
       timeBand: timeBand ? { id: timeBand.id, name: timeBand.name } : null,
       esPrimeraCita: previas === 0,
+      esSegundaCita: previas === 1,
     };
   } catch (error) {
     console.error("getSlotOptions error:", error);

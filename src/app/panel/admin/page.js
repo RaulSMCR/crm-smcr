@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/actions/auth-actions";
 import PendingProfessionalsList from "@/components/admin/PendingProfessionalsList";
 import { ventanasActivas } from "@/lib/psychosocial-calendar";
+import { esDireccionClinica } from "@/lib/auth-guards";
 import { prepararSesion } from "@/lib/frases-queries";
 
 export const dynamic = "force-dynamic";
@@ -71,6 +72,7 @@ export default async function AdminDashboard() {
     newLeadsCount,
     pendingRatesCount,
     pausedSchedulesCount,
+    pendingVisadoCount,
     pendingUsers,
   ] = await Promise.all([
     prisma.user.count({ where: wherePendingProsUsers }),
@@ -87,12 +89,15 @@ export default async function AdminDashboard() {
     prisma.lead.count({ where: { status: "NEW" } }),
     prisma.professionalRate.count({ where: { status: "PENDING" } }),
     prisma.user.count({ where: { schedulingBlockedAt: { not: null } } }),
+    prisma.caso.count({ where: { estado: "PENDIENTE_VISADO" } }),
     prisma.user.findMany({
       where: wherePendingProsUsers,
       include: { professionalProfile: true },
       orderBy: { createdAt: "desc" },
     }),
   ]);
+
+  const esDirectorClinico = await esDireccionClinica();
 
   // Cuántas ventanas de pauta están abiertas hoy. Es cálculo puro sobre el
   // calendario, sin base de datos.
@@ -186,6 +191,17 @@ export default async function AdminDashboard() {
             description="Pacientes por contactar antes de que puedan volver a agendar."
             count={pausedSchedulesCount || undefined}
           />
+          {/* Solo se muestra a quien tiene colegiatura registrada: la página
+              vuelve a exigirlo, esto es apenas el acceso. Ver lib/auth-guards. */}
+          {esDirectorClinico ? (
+            <DashboardCard
+              href="/panel/direccion-clinica"
+              title="Dirección clínica"
+              description="Altas y bajas esperando visado."
+              count={pendingVisadoCount || undefined}
+              tone="accent"
+            />
+          ) : null}
           <DashboardCard
             href="/panel/admin/marketing"
             title="Marketing"

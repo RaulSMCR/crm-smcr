@@ -8,6 +8,7 @@ import Link from "next/link";
 import { trackEvent } from "@/lib/analytics";
 import { trackLead } from "@/lib/meta-pixel";
 import { getMarketingAttributionFields, getMarketingAttributionRaw } from "@/lib/marketing-attribution-client";
+import { VERSION_ACUERDO } from "@/lib/acuerdo";
 
 function isEmailFormatValid(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim().toLowerCase());
@@ -73,6 +74,9 @@ export default function RegistroUsuarioPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [captchaToken, setCaptchaToken] = useState("");
+  // Sin esto no se crea la cuenta. El servidor lo vuelve a exigir: es el
+  // consentimiento expreso que pide la Ley 8968 para datos de salud.
+  const [aceptaAcuerdo, setAceptaAcuerdo] = useState(false);
   const [attribution, setAttribution] = useState({ acquisitionChannel: "Directo", campaignName: "" });
   const turnstileRef = useRef(null);
 
@@ -114,6 +118,7 @@ export default function RegistroUsuarioPage() {
     if (!String(form.phone || "").trim())          { setErrorMsg("Falta el teléfono de contacto."); return; }
     if (!String(form.identification || "").trim()) { setErrorMsg("Falta la identificación."); return; }
     if (!isPasswordValid)                          { setErrorMsg("Revisá los requisitos de contraseña."); return; }
+    if (!aceptaAcuerdo)                            { setErrorMsg("Necesitamos que leas y aceptes el acuerdo de atención para crear tu cuenta."); return; }
     if (CAPTCHA_ENABLED && !captchaToken)          { setErrorMsg("Completá la verificación de seguridad antes de continuar."); return; }
 
     setLoading(true);
@@ -123,6 +128,7 @@ export default function RegistroUsuarioPage() {
       formData.append("acquisitionChannel", attribution.acquisitionChannel);
       formData.append("campaignName", attribution.campaignName);
       Object.entries(getMarketingAttributionRaw()).forEach(([k, v]) => formData.append(k, v));
+      formData.append("acuerdoVersion", aceptaAcuerdo ? VERSION_ACUERDO : "");
       formData.append("captchaToken", captchaToken || "");
       const res = await registerUser(formData);
       if (res?.error || res?.warning) {
@@ -265,11 +271,58 @@ export default function RegistroUsuarioPage() {
               </div>
             </section>
 
+            {/* El acuerdo va acá, con este tamaño y con las reglas a la vista.
+                Antes vivía escondido al final de /terminos y la gente se
+                enteraba de la política de cancelación cuando ya se le había
+                aplicado. */}
+            <section className="space-y-4">
+              <h2 className="border-b border-neutral-200 pb-2 text-xs font-bold uppercase tracking-widest text-neutral-400">
+                Acuerdo de atención
+              </h2>
+
+              <div className="rounded-xl border border-brand-200 bg-brand-50 p-4 text-sm text-brand-950">
+                <p className="font-semibold">Antes de empezar, lo esencial:</p>
+                <ul className="mt-2 space-y-1.5 leading-relaxed">
+                  <li>· El precio que ves es el final y se congela al reservar.</li>
+                  <li>
+                    · Podés mover tu cita desde tu panel con <b>24 horas</b> de aviso, gratis y sin
+                    dar explicaciones.
+                  </li>
+                  <li>
+                    · Con menos de 24 horas, o si no llegás, se cobra el <b>50%</b> y tu agenda queda
+                    en pausa hasta que conversemos.
+                  </li>
+                  <li>· Tu proceso lo revisa una dirección clínica al darte de alta o de baja.</li>
+                </ul>
+                <a
+                  href="/terminos"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 inline-block font-semibold text-brand-700 underline hover:text-brand-900"
+                >
+                  Leer el acuerdo completo
+                </a>
+              </div>
+
+              <label className="flex cursor-pointer items-start gap-3 text-sm text-neutral-700">
+                <input
+                  type="checkbox"
+                  checked={aceptaAcuerdo}
+                  onChange={(e) => setAceptaAcuerdo(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-neutral-300 text-brand-600 focus:ring-brand-400"
+                />
+                <span>
+                  Leí el acuerdo de atención y la política de privacidad, y doy mi consentimiento
+                  expreso para el tratamiento de mis datos de salud.
+                </span>
+              </label>
+            </section>
+
             <AuthTurnstile ref={turnstileRef} onToken={setCaptchaToken} className="flex justify-center" />
 
             <button
               type="submit"
-              disabled={loading || !isPasswordValid || (CAPTCHA_ENABLED && !captchaToken)}
+              disabled={loading || !isPasswordValid || !aceptaAcuerdo || (CAPTCHA_ENABLED && !captchaToken)}
               className="w-full rounded-xl bg-brand-600 px-6 py-3.5 font-bold text-white transition-colors hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? "Avanzando…" : "¿Estás listo?"}
