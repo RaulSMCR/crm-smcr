@@ -150,6 +150,11 @@ export async function POST(request) {
               status: true,
               paymentStatus: true,
               isFirstWithProfessional: true,
+              date: true,
+              locationName: true,
+              locationAddress: true,
+              modality: true,
+              pricePaid: true,
               service: { select: { id: true, title: true, cabysCode: true, taxId: true, tax: { select: { id: true, rate: true } } } },
             },
           },
@@ -479,19 +484,89 @@ async function sendPaymentConfirmationEmail(transaction) {
 
   if (!patientEmail || !process.env.RESEND_API_KEY) return;
 
+  const cita = transaction.appointment;
+  const cuando = cita?.date
+    ? new Intl.DateTimeFormat("es-CR", {
+        timeZone: "America/Costa_Rica",
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(cita.date))
+    : null;
+
+  const lugar = cita?.locationName
+    ? `${cita.locationName}${cita.locationAddress ? ` — ${cita.locationAddress}` : ""}`
+    : null;
+
+  const total = cita?.pricePaid ? Number(cita.pricePaid).toLocaleString("es-CR") : null;
+  const saldo =
+    cita?.pricePaid && transaction.type === "DEPOSIT_50"
+      ? (Number(cita.pricePaid) - Number(transaction.amount)).toLocaleString("es-CR")
+      : null;
+
+  // Qué le queda por delante al paciente. Es la parte que de verdad necesita:
+  // saber si ya terminó de pagar o si le espera otro cobro, y cuándo.
+  const reglas =
+    transaction.type === "DEPOSIT_50"
+      ? `<p style="margin:0;">Con este adelanto <strong>su cita queda reservada</strong>. El saldo
+           de <strong>${currency} ${saldo || "—"}</strong> se cobra <strong>al concluir la
+           consulta</strong>: recibirá entonces un segundo enlace de pago por correo.</p>
+         <p style="margin:12px 0 0;">Se cobra la mitad por adelantado solo en la primera cita con
+           cada profesional. En las siguientes se cobra el total al terminar la consulta.</p>`
+      : transaction.type === "BALANCE_50"
+        ? `<p style="margin:0;">Con este pago <strong>la cita queda saldada</strong>. No hay
+             cobros pendientes.</p>`
+        : `<p style="margin:0;">La cita queda <strong>pagada por completo</strong>. No hay cobros
+             pendientes.</p>`;
+
+  const filas = [
+    ["Profesional", proName],
+    ["Servicio", cita?.service?.title],
+    ["Fecha y hora", cuando],
+    ["Lugar", lugar],
+    ["Precio de la consulta", total ? `${currency} ${total}` : null],
+  ]
+    .filter(([, valor]) => valor)
+    .map(
+      ([etiqueta, valor], i) => `
+        <tr${i % 2 ? ' style="background:#f8fafc;"' : ""}>
+          <td style="padding:6px 8px;color:#64748b;width:170px;">${etiqueta}</td>
+          <td style="padding:6px 8px;font-weight:600;">${valor}</td>
+        </tr>`
+    )
+    .join("");
+
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#0f172a;">
-      <h2>Pago confirmado</h2>
-      <p>Estimado/a <strong>${patientName}</strong>, el ${paymentLabel} de <strong>${currency} ${amount}</strong>
-         para la cita con ${proName} fue procesado correctamente por ONVO Pay.</p>
-      <p>Gracias por su confianza.</p>
-      <p style="font-size:12px;color:#64748b;">Este correo fue generado automáticamente.</p>
+      <h2 style="color:#047857;">¡Su cita quedó reservada!</h2>
+      <p>Estimado/a <strong>${patientName}</strong>, recibimos su ${paymentLabel} de
+         <strong>${currency} ${amount}</strong>.</p>
+
+      <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">${filas}</table>
+
+      <div style="padding:14px;border:1px solid #a7f3d0;border-radius:8px;background:#ecfdf5;
+                  font-size:14px;color:#065f46;">
+        ${reglas}
+      </div>
+
+      <p style="margin-top:16px;font-size:13px;color:#475569;">
+        Su factura electrónica llega en un correo aparte, con el comprobante adjunto.
+      </p>
+      <p style="margin-top:16px;font-size:13px;color:#475569;">
+        Si necesita reprogramar o cancelar, escríbanos con la mayor antelación posible para poder
+        ofrecerle el espacio a otra persona.
+      </p>
+      <p style="font-size:12px;color:#94a3b8;margin-top:24px;">
+        Este correo fue generado automáticamente por Salud Mental Costa Rica.
+      </p>
     </div>`;
 
   const { error } = await resend.emails.send({
     from: FROM_EMAIL,
     to: patientEmail,
-    subject: `${paymentLabel} confirmado - Salud Mental Costa Rica`,
+    subject: `Cita reservada — ${paymentLabel} confirmado`,
     html,
   });
 

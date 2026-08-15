@@ -8,6 +8,7 @@
 // entregarlos, de modo que no reaparecen en cada carga.
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { consumirAvisosDePago } from "@/actions/payment-notice-actions";
 import { modalityLabel } from "@/lib/rates";
 
@@ -33,20 +34,46 @@ function formatFecha(iso) {
 
 export default function PaymentReceivedToast() {
   const [avisos, setAvisos] = useState([]);
+  const router = useRouter();
 
   useEffect(() => {
     let cancelado = false;
-    consumirAvisosDePago()
-      .then((res) => {
-        if (!cancelado) setAvisos(res?.avisos || []);
-      })
-      .catch(() => {
+
+    async function revisar() {
+      try {
+        const res = await consumirAvisosDePago();
+        if (cancelado) return;
+        const nuevos = res?.avisos || [];
+        if (nuevos.length === 0) return;
+
+        setAvisos((prev) => [...prev, ...nuevos]);
+        // El panel se renderizó antes del pago, así que todavía muestra el
+        // botón «Pagar ahora» sobre una cita ya pagada. Al refrescar, el
+        // servidor vuelve a decidir con el estado nuevo.
+        router.refresh();
+      } catch {
         // Un aviso perdido no justifica romperle el panel al paciente.
-      });
+      }
+    }
+
+    revisar();
+
+    // El pago ocurre en otra pestaña: ONVO abre su checkout con target="_blank".
+    // Esta pestaña nunca se desmonta, así que sin escuchar el regreso del foco
+    // el paciente vuelve a un panel congelado en el estado anterior al pago.
+    function alVolver() {
+      if (document.visibilityState === "visible") revisar();
+    }
+
+    document.addEventListener("visibilitychange", alVolver);
+    window.addEventListener("focus", alVolver);
+
     return () => {
       cancelado = true;
+      document.removeEventListener("visibilitychange", alVolver);
+      window.removeEventListener("focus", alVolver);
     };
-  }, []);
+  }, [router]);
 
   if (avisos.length === 0) return null;
 
