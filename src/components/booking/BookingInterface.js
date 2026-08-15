@@ -8,6 +8,7 @@ import { getAvailableSlots, getSlotOptions, requestAppointment } from "@/actions
 import { RECURRENCE_RULES } from "@/lib/appointment-recurrence";
 import RecurrenceFields from "@/components/appointments/RecurrenceFields";
 import Toast from "@/components/ui/Toast";
+import BookingConfirmationToast from "@/components/booking/BookingConfirmationToast";
 import { trackEvent } from "@/lib/analytics";
 import { trackSchedule } from "@/lib/meta-pixel";
 import { modalityLabel } from "@/lib/rates";
@@ -42,6 +43,10 @@ export default function BookingInterface({ professionalId, servicePrice, service
   const [loadingConflictSlots, setLoadingConflictSlots] = useState(false);
   const [altSlot, setAltSlot] = useState(null);
   const [toast, setToast] = useState(null);
+  // Detalle de lo que el paciente acaba de reservar. Se muestra unos segundos
+  // antes de navegar: es la unica constancia en pantalla de las condiciones que
+  // acepto (fecha, lugar, costo y, en la primera cita, el adelanto del 50%).
+  const [confirmation, setConfirmation] = useState(null);
 
   useEffect(() => {
     const fetchSlots = async () => {
@@ -125,7 +130,22 @@ export default function BookingInterface({ professionalId, servicePrice, service
       trackEvent('schedule_appointment', { service: serviceTitle, professional: professionalName });
       trackSchedule();
       setConflict(null);
-      router.push(`/panel/paciente?new_appointment=true&series=${result.createdCount || 1}`);
+
+      const destino = `/panel/paciente?new_appointment=true&series=${result.createdCount || 1}`;
+
+      if (result.confirmation) {
+        setConfirmation({
+          ...result.confirmation,
+          requiresDeposit: result.requiresDeposit,
+          depositAmount: result.depositAmount,
+        });
+        // Se navega despues de la pausa. No se libera isBooking: el boton queda
+        // deshabilitado para que nadie reserve dos veces mientras se lee.
+        setTimeout(() => router.push(destino), 4000);
+        return;
+      }
+
+      router.push(destino);
     } else if (result.errorCode === "UNAUTHENTICATED") {
       const callbackUrl = encodeURIComponent(`/agendar/${professionalId}`);
       router.push(`/ingresar?callbackUrl=${callbackUrl}`);
@@ -399,6 +419,9 @@ export default function BookingInterface({ professionalId, servicePrice, service
       </div>
 
       <Toast message={toast?.message} type={toast?.type} onDismiss={() => setToast(null)} />
+
+      {/* No se autooculta: la navegacion posterior lo retira. */}
+      <BookingConfirmationToast confirmation={confirmation} autoHideMs={0} />
     </>
   );
 }

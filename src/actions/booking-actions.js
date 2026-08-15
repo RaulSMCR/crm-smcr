@@ -23,6 +23,7 @@ import {
   formatConflictDate,
 } from "@/lib/booking-conflicts";
 import { createPaymentRequestForAppointment } from "@/lib/payment-requests";
+import { alertarCobroNoGenerado } from "@/lib/payment-alerts";
 import { getBookingOptions, resolveBookingSelection } from "@/lib/booking-rates";
 import { snapshotLocation } from "@/lib/rates";
 
@@ -275,6 +276,9 @@ export async function requestAppointment(
       : null;
     if (depositPayment && !depositPayment.success) {
       console.error("No se pudo generar el adelanto de primera cita:", depositPayment.error);
+      // La cita ya quedó reservada y el paciente no recibió enlace: sin este
+      // aviso el fallo solo existe en los logs de Vercel.
+      await alertarCobroNoGenerado(firstAppointment, depositPayment);
     }
 
     revalidatePath(`/agendar/${professionalId}`);
