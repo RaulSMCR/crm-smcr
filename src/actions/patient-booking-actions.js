@@ -109,8 +109,8 @@ export async function createAppointmentForPatient({
       return {
         success: false,
         error:
-          "Su agenda está en pausa. La administración se pondrá en contacto para coordinar su " +
-          "próxima cita.",
+          "Tu agenda está en pausa. La administración se pone en contacto con vos para " +
+          "coordinar tu próxima cita.",
         errorCode: "AGENDAMIENTO_BLOQUEADO",
       };
     }
@@ -411,7 +411,7 @@ export async function rescheduleAppointmentByPatient(
     return {
       error:
         `${veredicto.mensaje} Se aplica el cargo del ${PORCENTAJE_MULTA}% del valor de la cita. ` +
-        "La administración se pondrá en contacto para coordinar su próxima cita.",
+        "La administración se pone en contacto con vos para coordinar tu próxima cita.",
       errorCode: veredicto.motivo,
       multa: veredicto.multa,
       bloqueado: true,

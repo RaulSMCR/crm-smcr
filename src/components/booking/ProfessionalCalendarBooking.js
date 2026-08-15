@@ -141,7 +141,7 @@ export default function ProfessionalCalendarBooking({
               <div className="text-sm text-slate-600">Ver perfil</div>
             </div>
           </Link>
-          <div className="text-sm text-slate-600">Seleccione un horario disponible</div>
+          <div className="text-sm text-slate-600">Elegí un horario disponible</div>
         </div>
 
         {msg.text && (
@@ -271,7 +271,7 @@ export default function ProfessionalCalendarBooking({
               concluir la consulta.
             </p>
             <p className="mt-2">
-              Al confirmar le enviaremos a su correo un enlace de pago seguro. La cita queda
+              Al confirmar te enviamos a tu correo un enlace de pago seguro. La cita queda
               reservada y se le avisa acá mismo cuando registremos el pago.
             </p>
           </div>
@@ -294,7 +294,7 @@ export default function ProfessionalCalendarBooking({
         </button>
 
         {needsChoice && (
-          <p className="mt-2 text-xs text-amber-700">Elija una modalidad para continuar.</p>
+          <p className="mt-2 text-xs text-amber-700">Elegí una modalidad para continuar.</p>
         )}
 
         <p className="mt-3 text-xs text-slate-500">

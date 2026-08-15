@@ -66,8 +66,8 @@ export function evaluarReagenda({ fechaCita, pricePaid, ahora = new Date(), bloq
       permitido: false,
       motivo: "AGENDAMIENTO_BLOQUEADO",
       mensaje:
-        "Su agenda está en pausa. La administración se pondrá en contacto para coordinar su " +
-        "próxima cita.",
+        "Tu agenda está en pausa. La administración se pone en contacto con vos para coordinar " +
+        "tu próxima cita.",
       horasRestantes,
       multa,
     };
@@ -83,9 +83,9 @@ export function evaluarReagenda({ fechaCita, pricePaid, ahora = new Date(), bloq
       permitido: false,
       motivo: "FUERA_DE_PLAZO",
       mensaje: yaPaso
-        ? "La hora de la cita ya pasó, así que no puede moverse."
-        : `Faltan menos de ${HORAS_MINIMAS_REAGENDA} horas para la cita, así que ya no puede ` +
-          "moverse por este medio.",
+        ? "La hora de la cita ya pasó, así que no se puede mover."
+        : `Faltan menos de ${HORAS_MINIMAS_REAGENDA} horas para la cita, así que ya no se puede ` +
+          "mover por este medio.",
       horasRestantes,
       multa,
     };

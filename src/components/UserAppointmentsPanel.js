@@ -112,7 +112,7 @@ export default function UserAppointmentsPanel({
 
     if (initialAction === "reschedule") {
       setReschedulingApt(targetAppointment);
-      setToast({ message: "Seleccione un nuevo horario para continuar con su cuidado.", type: "success" });
+      setToast({ message: "Elegí un nuevo horario para seguir con tu cuidado.", type: "success" });
       router.replace("/panel/paciente");
       return;
     }
@@ -300,7 +300,7 @@ export default function UserAppointmentsPanel({
                     <>
                       <p className="font-semibold">{paymentLabel} pendiente</p>
                       <p className="mt-1 text-xs text-amber-700">
-                        {amountLabel ? `${amountLabel}. ` : ""}Se le envio un enlace de pago al correo. Tambien puede pagar directamente:
+                        {amountLabel ? `${amountLabel}. ` : ""}Te enviamos un enlace de pago al correo. Tambien podes pagar directamente:
                       </p>
                       <a
                         href={payUrl}
@@ -426,7 +426,7 @@ export default function UserAppointmentsPanel({
         <SectionHeader
           title="Citas canceladas"
           count={sections.cancelled.length}
-          description="Historial de citas anuladas por usted o por el profesional."
+          description="Historial de citas anuladas por vos o por el profesional."
         />
         <div className="space-y-4">
           {sections.cancelled.length > 0 ? sections.cancelled.map(renderAppointment) : <EmptySection title="Citas canceladas" />}

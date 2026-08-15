@@ -106,7 +106,7 @@ export default function BookingConfirmationToast({ confirmation, onDismiss, auto
 
       {confirmation.requiresDeposit && confirmation.depositAmount ? (
         <p className="mt-3 rounded-lg bg-white/10 p-3 text-xs">
-          Le enviamos a su correo un enlace para pagar el <b>adelanto del 50%</b> (
+          Te enviamos a tu correo un enlace para pagar el <b>adelanto del 50%</b> (
           {formatCRC(confirmation.depositAmount)}). La cita queda reservada; el resto se
           cobra al concluir la consulta.
         </p>

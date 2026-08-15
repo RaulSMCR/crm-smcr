@@ -191,7 +191,7 @@ export default function BookingInterface({ professionalId, servicePrice, service
               <div>
                 <p className="font-semibold text-accent-950">Conflicto de horario detectado</p>
                 <p className="mt-1 text-sm text-accent-900">
-                  {conflict.label} Seleccione un horario alternativo para la sesión del{" "}
+                  {conflict.label} Elegí un horario alternativo para la sesión del{" "}
                   <strong className="capitalize">{conflictDateLabel}</strong>.
                 </p>
               </div>
@@ -230,7 +230,7 @@ export default function BookingInterface({ professionalId, servicePrice, service
                       ? "Procesando..."
                       : altSlot
                         ? `Confirmar ${altSlot} para esa sesión`
-                        : "Seleccione un horario"}
+                        : "Elegí un horario"}
                   </button>
                   <button
                     onClick={() => {
@@ -247,7 +247,7 @@ export default function BookingInterface({ professionalId, servicePrice, service
             ) : (
               <div className="rounded-xl border border-dashed border-accent-300 bg-white py-5 text-center">
                 <p className="text-sm text-accent-900">No hay horarios disponibles ese día.</p>
-                <p className="mt-1 text-xs text-accent-800">Elija una fecha de inicio diferente.</p>
+                <p className="mt-1 text-xs text-accent-800">Elegí una fecha de inicio diferente.</p>
                 <button
                   onClick={() => {
                     setConflict(null);
@@ -265,7 +265,7 @@ export default function BookingInterface({ professionalId, servicePrice, service
 
         <div className="space-y-6 p-6">
           <div>
-            <label className="mb-2 block text-sm font-medium text-brand-900">1. Seleccione el día</label>
+            <label className="mb-2 block text-sm font-medium text-brand-900">1. Elegí el día</label>
             <input
               type="date"
               value={selectedDate}
@@ -379,7 +379,7 @@ export default function BookingInterface({ professionalId, servicePrice, service
                 concluir la consulta.
               </p>
               <p className="mt-2">
-                Al confirmar le enviaremos a su correo un enlace de pago seguro. La cita queda
+                Al confirmar te enviamos a tu correo un enlace de pago seguro. La cita queda
                 reservada y le avisamos acá mismo cuando registremos el pago.
               </p>
             </div>
@@ -399,13 +399,13 @@ export default function BookingInterface({ professionalId, servicePrice, service
               ) : selectedSlot ? (
                 `Solicitar reserva (${selectedSlot})`
               ) : (
-                "Seleccione un horario"
+                "Elegí un horario"
               )}
             </button>
 
             {hayQueElegir && (
               <p className="mt-2 text-center text-xs text-amber-700">
-                Elija una modalidad para continuar.
+                Elegí una modalidad para continuar.
               </p>
             )}
 

@@ -129,8 +129,8 @@ export default function PaymentReceivedToast() {
 
           <p className="mt-3 text-xs text-white/80">
             {aviso.quedaSaldo
-              ? "Su cita quedó agendada. El saldo restante se cobra al concluir la consulta."
-              : "Su cita quedó saldada. Le enviamos la factura electrónica por correo."}
+              ? "Tu cita quedó agendada. El saldo restante se cobra al concluir la consulta."
+              : "Tu cita quedó saldada. Te enviamos la factura electrónica por correo."}
           </p>
         </div>
       ))}

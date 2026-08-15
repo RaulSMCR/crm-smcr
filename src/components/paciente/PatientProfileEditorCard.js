@@ -72,7 +72,7 @@ export default function PatientProfileEditorCard({ user }) {
       const res = await updateBillingInfo(fd);
       if (res?.error) setToast({ message: res.error, type: "error" });
       else if (res?.cleared)
-        setToast({ message: "Sus facturas volverán a emitirse a su nombre.", type: "success" });
+        setToast({ message: "Tus facturas vuelven a emitirse a tu nombre.", type: "success" });
       else setToast({ message: "Datos de facturación guardados.", type: "success" });
     });
   }
@@ -94,7 +94,7 @@ export default function PatientProfileEditorCard({ user }) {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-6">
       <h2 className="text-xl font-bold text-slate-900">Mi perfil</h2>
-      <p className="text-sm text-slate-600 mt-1">Actualice sus datos personales para mantener una atención segura.</p>
+      <p className="text-sm text-slate-600 mt-1">Actualizá tus datos personales para mantener una atención segura.</p>
 
       <form onSubmit={onSubmit} className="mt-5 space-y-4">
         <div>
@@ -193,7 +193,7 @@ export default function PatientProfileEditorCard({ user }) {
       <div className="mt-8 border-t border-slate-200 pt-6">
         <h3 className="text-lg font-bold text-slate-900">Seguro médico</h3>
         <p className="text-sm text-slate-500 mt-1">
-          Indique si tiene seguro médico y si planea usarlo para el pago de consultas.
+          Indicá si tenés seguro médico y si pensás usarlo para pagar las consultas.
         </p>
 
         <form onSubmit={onInsuranceSubmit} className="mt-4 space-y-4">
@@ -263,7 +263,7 @@ export default function PatientProfileEditorCard({ user }) {
       <div className="mt-8 border-t border-slate-200 pt-6">
         <h3 className="text-lg font-bold text-slate-900">Datos de facturación</h3>
         <p className="mt-1 text-sm text-slate-500">
-          Solo si necesita la factura a nombre de una empresa para deducirla del impuesto sobre
+          Solo si necesitás la factura a nombre de una empresa para deducirla del impuesto sobre
           la renta. Si lo deja vacío, la factura sale a su nombre con la cédula de su cuenta.
         </p>
 
@@ -293,7 +293,7 @@ export default function PatientProfileEditorCard({ user }) {
                 onChange={(e) => setBilling((p) => ({ ...p, billingIdType: e.target.value }))}
                 className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
               >
-                <option value="">Seleccione…</option>
+                <option value="">Elegí…</option>
                 {Object.entries(ETIQUETAS_IDENTIFICACION).map(([codigo, etiqueta]) => (
                   <option key={codigo} value={codigo}>
                     {etiqueta}

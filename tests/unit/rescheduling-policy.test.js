@@ -111,7 +111,7 @@ describe("mensaje de reinvitación", () => {
 
     expect(MENSAJE_REINVITACION).toBe(
       "tu ausencia tuvo un significado, que no sea el de la resignación, " +
-        "este es el enlace para que no desistas de estar mejor"
+        "este es el enlace para que no desistás de estar mejor"
     );
 
     // Tutea a propósito, mientras el resto del sitio trata de usted. No es un

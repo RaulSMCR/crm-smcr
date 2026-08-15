@@ -510,9 +510,9 @@ async function sendPaymentConfirmationEmail(transaction) {
   // saber si ya terminó de pagar o si le espera otro cobro, y cuándo.
   const reglas =
     transaction.type === "DEPOSIT_50"
-      ? `<p style="margin:0;">Con este adelanto <strong>su cita queda reservada</strong>. El saldo
+      ? `<p style="margin:0;">Con este adelanto <strong>tu cita queda reservada</strong>. El saldo
            de <strong>${currency} ${saldo || "—"}</strong> se cobra <strong>al concluir la
-           consulta</strong>: recibirá entonces un segundo enlace de pago por correo.</p>
+           consulta</strong>: vas a recibir entonces un segundo enlace de pago por correo.</p>
          <p style="margin:12px 0 0;">Se cobra la mitad por adelantado solo en la primera cita con
            cada profesional. En las siguientes se cobra el total al terminar la consulta.</p>`
       : transaction.type === "BALANCE_50"
@@ -540,8 +540,8 @@ async function sendPaymentConfirmationEmail(transaction) {
 
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#0f172a;">
-      <h2 style="color:#047857;">¡Su cita quedó reservada!</h2>
-      <p>Estimado/a <strong>${patientName}</strong>, recibimos su ${paymentLabel} de
+      <h2 style="color:#047857;">¡Tu cita quedó reservada!</h2>
+      <p>Hola <strong>${patientName}</strong>, recibimos tu ${paymentLabel} de
          <strong>${currency} ${amount}</strong>.</p>
 
       <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">${filas}</table>
@@ -552,11 +552,12 @@ async function sendPaymentConfirmationEmail(transaction) {
       </div>
 
       <p style="margin-top:16px;font-size:13px;color:#475569;">
-        Su factura electrónica llega en un correo aparte, con el comprobante adjunto.
+        Tu factura electrónica llega en un correo aparte, con el comprobante adjunto.
       </p>
       <p style="margin-top:16px;font-size:13px;color:#475569;">
-        Si necesita reprogramar o cancelar, escríbanos con la mayor antelación posible para poder
-        ofrecerle el espacio a otra persona.
+        ¿Necesitás mover la cita? Podés hacerlo desde tu panel avisando con al menos 24 horas.
+        Las condiciones completas están en
+        <a href="${process.env.NEXT_PUBLIC_APP_URL || ""}/terminos">términos y condiciones</a>.
       </p>
       <p style="font-size:12px;color:#94a3b8;margin-top:24px;">
         Este correo fue generado automáticamente por Salud Mental Costa Rica.

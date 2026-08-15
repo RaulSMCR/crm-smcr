@@ -92,16 +92,16 @@ export function estaBloqueado(user) {
 /**
  * Mensaje con el que se vuelve a invitar al paciente.
  *
- * Es texto clínico, escrito por Raúl, y va literal. Tutea a propósito, mientras
- * que el resto del sitio trata de usted: el que falta a una cita no necesita un
- * aviso administrativo, necesita que alguien le hable de cerca. Tampoco menciona
- * el cargo ni la política — eso se conversa, no se cobra por WhatsApp.
+ * Es texto clínico, escrito por Raúl, y va literal. No menciona el cargo ni la
+ * política: al que faltó no se le habla como a un trámite, y el cobro se
+ * conversa, no se manda por WhatsApp.
  *
- * No reescribir para "unificar el tono": el tono es la decisión.
+ * No agregarle el motivo del bloqueo ni el monto "para que quede claro": lo que
+ * lo hace funcionar es justamente que no los diga.
  */
 export const MENSAJE_REINVITACION =
   "tu ausencia tuvo un significado, que no sea el de la resignación, " +
-  "este es el enlace para que no desistas de estar mejor";
+  "este es el enlace para que no desistás de estar mejor";
 
 /**
  * Enlace de WhatsApp con el mensaje ya escrito, para que el administrador

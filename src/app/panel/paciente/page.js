@@ -11,6 +11,7 @@ import Link from "next/link";
 import { getFraseDelDia } from "@/lib/mi/frases";
 import { fraseAMostrar } from "@/lib/frases-usuario";
 import { etiquetaBloqueo } from "@/lib/scheduling-block";
+import PausedScheduleNotice from "@/components/paciente/PausedScheduleNotice";
 
 export const dynamic = "force-dynamic";
 
@@ -79,6 +80,15 @@ export default async function PacientePanelPage({ searchParams }) {
 
   if (!user) redirect("/ingresar");
 
+  // Cuántas veces se le aplicó la política. Solo en la primera se le ofrece pedir
+  // que lo contacten; después esa puerta ya se usó y el contacto lo inicia la
+  // administración.
+  const sancionesPrevias = user.schedulingBlockedAt
+    ? await prisma.appointment.count({
+        where: { patientId: userId, penaltyAppliedAt: { not: null } },
+      })
+    : 0;
+
   const userForClient = { ...user, birthDate: birthDateForInput(user.birthDate) };
   const created = String(searchParams?.created || "") === "1";
   const appointmentAction = String(searchParams?.appointmentAction || "");
@@ -100,20 +110,10 @@ export default async function PacientePanelPage({ searchParams }) {
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-6 md:p-10">
       {user.schedulingBlockedAt ? (
-        <div
-          role="status"
-          className="rounded-2xl border border-amber-300 bg-amber-50 p-5 text-amber-900"
-        >
-          <h2 className="font-semibold">Su agenda está en pausa</h2>
-          <p className="mt-1 text-sm">
-            {etiquetaBloqueo(user.schedulingBlockedReason)}. Por eso no puede agendar ni mover
-            citas por este medio en este momento.
-          </p>
-          <p className="mt-2 text-sm">
-            <b>La administración se pondrá en contacto</b> para coordinar su próximo turno. No
-            necesita hacer nada.
-          </p>
-        </div>
+        <PausedScheduleNotice
+          motivo={etiquetaBloqueo(user.schedulingBlockedReason)}
+          esPrimeraVez={sancionesPrevias <= 1}
+        />
       ) : null}
 
       <div className="flex items-start justify-between gap-6">

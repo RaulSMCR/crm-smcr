@@ -76,7 +76,57 @@ Para ejercer cualquiera de estos derechos, el Usuario debe enviar una solicitud 
 7. Plazo de Conservación de los Datos
 Sus datos personales serán conservados por el tiempo necesario para cumplir con los fines descritos en esta política y para cumplir con cualquier obligación legal (por ejemplo, fiscales o de auditoría). Una vez que los datos dejen de ser útiles, serán eliminados o anonimizados de forma segura.
       </p>
-      <p className="mt-4 text-neutral-700 leading-relaxed">
+      {/* La política de reservas vive acá por decisión editorial: no aparece en el
+          flujo de reserva para no enmarcar el vínculo terapéutico en sanciones.
+          Cuando se aplica por primera vez, el panel del paciente le ofrece pedir
+          que la administración lo contacte. */}
+      <section className="mt-12 border-t border-neutral-300 pt-8">
+        <h2 className="text-2xl font-bold text-brand-700">Reservas, pagos y ausencias</h2>
+
+        <h3 className="mt-6 font-bold text-neutral-900">Cómo se cobra</h3>
+        <p className="mt-2 leading-relaxed">
+          El precio que ves publicado es el precio final: ya incluye el impuesto y el costo de la
+          pasarela de pago. No se te suma nada encima. El precio se congela en el momento en que
+          reservás, así que si el profesional actualiza su tarifa después, tu cita mantiene el
+          valor que aceptaste.
+        </p>
+        <p className="mt-3 leading-relaxed">
+          En la <b>primera cita con cada profesional</b> se cobra el 50% por adelantado para
+          reservar el espacio, y el 50% restante al concluir la consulta. En las citas siguientes
+          con ese mismo profesional se cobra el total al terminar. En ambos casos recibís el enlace
+          de pago por correo.
+        </p>
+
+        <h3 className="mt-6 font-bold text-neutral-900">Si necesitás mover tu cita</h3>
+        <p className="mt-2 leading-relaxed">
+          Podés reprogramarla avisando con <b>al menos 24 horas</b> de anticipación, desde tu panel,
+          sin ningún costo.
+        </p>
+        <p className="mt-3 leading-relaxed">
+          Con menos de 24 horas, o si no asistís, se cobra el <b>50% del valor de la cita</b>. Si ya
+          habías pagado el adelanto, ese monto cubre el cargo y no se te cobra nada adicional.
+        </p>
+
+        <h3 className="mt-6 font-bold text-neutral-900">Por qué existe esta regla</h3>
+        <p className="mt-2 leading-relaxed">
+          El horario que reservás queda apartado para vos y no se le puede ofrecer a otra persona.
+          Avisar a tiempo permite que ese espacio lo use alguien más que lo necesita. La regla no
+          busca penalizarte: busca que el compromiso sea real en las dos direcciones.
+        </p>
+
+        <h3 className="mt-6 font-bold text-neutral-900">Qué pasa después</h3>
+        <p className="mt-2 leading-relaxed">
+          Cuando se aplica el cargo, tu agenda queda en pausa: no vas a poder reservar por tu cuenta
+          hasta que hablemos. <b>Esto no es una expulsión.</b> La administración se comunica con vos
+          para coordinar tu próximo turno, y ahí mismo se te devuelve el acceso.
+        </p>
+        <p className="mt-3 leading-relaxed">
+          La primera vez que te pase, en tu panel vas a encontrar un botón para pedir que te
+          contactemos. Un tropiezo no termina un proceso.
+        </p>
+      </section>
+
+      <p className="mt-8 text-neutral-700 leading-relaxed">
         La información publicada no sustituye la atención clínica personalizada. Para consultas específicas,
         recomendamos contactar con un profesional habilitado.
       </p>

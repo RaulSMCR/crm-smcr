@@ -88,3 +88,59 @@ export async function restituirAgendaDePaciente(patientId) {
     return { error: "No se pudo restituir el acceso." };
   }
 }
+
+/**
+ * El paciente pide que la administración lo contacte.
+ *
+ * Se ofrece solo la primera vez que le pasa. No es un trámite: es la puerta que
+ * se le deja abierta a alguien que probablemente nunca antes llevó un proceso
+ * con un profesional de salud mental, y que ante un cobro y una agenda cerrada
+ * lo más fácil sería abandonar. A la segunda ya conoce la regla y el contacto
+ * sale de la administración.
+ */
+export async function solicitarContactoDeAdmin() {
+  const session = await getSession();
+  if (!session || session.role !== "USER") return { error: "No autorizado." };
+
+  const patientId = String(session.sub);
+
+  const [paciente, sanciones] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: patientId },
+      select: { name: true, email: true, phone: true, schedulingBlockedAt: true },
+    }),
+    prisma.appointment.count({
+      where: { patientId, penaltyAppliedAt: { not: null } },
+    }),
+  ]);
+
+  if (!paciente?.schedulingBlockedAt) return { error: "Tu agenda no está en pausa." };
+  if (sanciones > 1) {
+    return { error: "Ya tenemos tu solicitud. La administración se comunica con vos." };
+  }
+
+  const to = process.env.ADMIN_ALERT_EMAIL || process.env.EMAIL_FROM;
+  if (to && process.env.RESEND_API_KEY) {
+    const { resend } = await import("@/lib/resend");
+    await resend.emails
+      .send({
+        from: process.env.EMAIL_FROM || "Salud Mental Costa Rica <onboarding@resend.dev>",
+        to,
+        subject: `🙋 ${paciente.name} pide que lo contacten`,
+        html: `
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#0f172a;">
+          <h2 style="color:#047857;">Un paciente pidió que lo contacten</h2>
+          <p>Es la <strong>primera vez</strong> que le pasa. Levantó la mano en lugar de
+             abandonar, que es exactamente lo que se buscaba.</p>
+          <p><strong>${paciente.name}</strong><br>${paciente.phone || "sin teléfono"} ·
+             ${paciente.email}</p>
+          <p style="font-size:13px;color:#475569;">Está en
+             <a href="${process.env.NEXT_PUBLIC_APP_URL || ""}/panel/admin/agendas-en-pausa">
+             agendas en pausa</a>, con el enlace de WhatsApp listo.</p>
+        </div>`,
+      })
+      .catch((e) => console.error("[agenda] No se pudo avisar la solicitud:", e));
+  }
+
+  return { success: true };
+}
