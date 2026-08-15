@@ -32,6 +32,9 @@ export async function sendFeEmail(invoice) {
   // tienen validez tributaria y el correo no puede afirmar lo contrario, menos
   // aún cuando durante las pruebas llega a personas reales.
   const esPrueba = FE_EMISOR.ambiente !== "01";
+  // En el sandbox el comprobante se manda aunque Hacienda lo rechace, para poder
+  // verificar el recorrido completo; el correo tiene que decirlo sin ambigüedad.
+  const fueRechazada = invoice.feStatus === "REJECTED";
 
   const currency = invoice.currency || "CRC";
   const fmt  = new Intl.NumberFormat("es-CR", { style: "currency", currency, maximumFractionDigits: 0 });
@@ -54,7 +57,7 @@ export async function sendFeEmail(invoice) {
 
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#0f172a;">
-      <h2 style="color:#1e40af;">Factura Electrónica emitida${esPrueba ? " (PRUEBA)" : ""}</h2>
+      <h2 style="color:${fueRechazada ? "#b91c1c" : "#1e40af"};">Factura Electrónica${fueRechazada ? " RECHAZADA" : " emitida"}${esPrueba ? " (PRUEBA)" : ""}</h2>
       <p>Estimado/a cliente, adjuntamos los datos de su factura electrónica emitida ante el Ministerio de Hacienda de Costa Rica.</p>
 
       <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">
@@ -99,6 +102,9 @@ export async function sendFeEmail(invoice) {
         DOCUMENTO DE PRUEBA — SIN VALIDEZ TRIBUTARIA.
         Emitido contra el ambiente de pruebas del Ministerio de Hacienda.
         No sirve como respaldo fiscal ni acredita ningún pago real.
+        ${fueRechazada ? `<br><br>Además, Hacienda lo <b>rechazó</b>. En el ambiente de pruebas
+        esto es esperable: su padrón de contribuyentes es independiente del real, así que no
+        reconoce ni el domicilio del emisor ni la cédula del receptor.` : ""}
       </p>` : `
       <p style="margin-top:24px;font-size:12px;color:#94a3b8;">
         Este documento tiene validez tributaria conforme a la Ley 9069 de Costa Rica.
@@ -193,6 +199,53 @@ async function sendFeConfigAlert(invoice) {
 
   if (error) console.error("[FE] Error enviando alerta de configuración al admin:", error);
   else console.log(`[FE] Alerta de FE no configurada enviada al admin para factura ${invoice.invoiceNumber}`);
+}
+
+/**
+ * Avisa al administrador que Hacienda rechazó un comprobante.
+ *
+ * Es la situación más cara de las que puede haber: el paciente ya pagó, la plata
+ * entró, y no hay documento que respalde el ingreso. Cuanto más tarde se
+ * descubra, más difícil de arreglar — el consecutivo sigue avanzando y la
+ * declaración del mes se arma con lo que haya.
+ */
+async function sendFeRejectAlert(invoice, motivo) {
+  const to = process.env.ADMIN_ALERT_EMAIL || process.env.EMAIL_FROM;
+  if (!to || !process.env.RESEND_API_KEY) {
+    console.error("[FE] No se pudo alertar el rechazo: falta ADMIN_ALERT_EMAIL o RESEND_API_KEY.");
+    return;
+  }
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#0f172a;">
+      <h2 style="color:#b91c1c;">Hacienda rechazó una factura</h2>
+      <p>El pago ya entró y <strong>no hay comprobante válido</strong> que lo respalde.
+         Al paciente no se le envió nada.</p>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">
+        <tr><td style="padding:6px 8px;color:#64748b;width:150px;">Factura</td>
+            <td style="padding:6px 8px;font-weight:600;">${invoice.invoiceNumber}</td></tr>
+        <tr style="background:#f8fafc;"><td style="padding:6px 8px;color:#64748b;">Número FE</td>
+            <td style="padding:6px 8px;">${invoice.feNumber || "—"}</td></tr>
+        <tr><td style="padding:6px 8px;color:#64748b;">Total</td>
+            <td style="padding:6px 8px;font-weight:600;">${invoice.total}</td></tr>
+        <tr style="background:#f8fafc;"><td style="padding:6px 8px;color:#64748b;">Cliente</td>
+            <td style="padding:6px 8px;">${invoice.contactName || "—"}</td></tr>
+      </table>
+      <p style="padding:12px;border:1px solid #fecaca;border-radius:8px;background:#fef2f2;
+                font-size:13px;color:#7f1d1d;white-space:pre-wrap;">${motivo || "Sin detalle."}</p>
+      <p style="margin-top:16px;font-size:13px;">Acción: corregir lo que señala el mensaje y
+         reenviar desde el panel. El XML enviado y la respuesta de Hacienda quedaron guardados
+         en la factura.</p>
+    </div>`;
+
+  const { error } = await resend.emails.send({
+    from: FROM_EMAIL,
+    to,
+    subject: `⚠ Hacienda rechazó la factura ${invoice.invoiceNumber}`,
+    html,
+  });
+
+  if (error) console.error("[FE] Error enviando la alerta de rechazo:", error);
 }
 
 // ─── Envío a Hacienda ────────────────────────────────────────────────────────
@@ -359,10 +412,34 @@ export async function submitInvoiceToFe(invoiceId) {
     data: { feNumber, feClave, feStatus, feErrorMessage, feXml, feRespuestaXml },
   });
 
-  // Enviar email al paciente SOLO si la aceptación provino de la integración real.
-  if (realAcceptance) {
-    const enriched = { ...invoice, feNumber, feClave, feStatus, feXml, feRespuestaXml };
+  const enriched = { ...invoice, feNumber, feClave, feStatus, feXml, feRespuestaXml };
+
+  // A quién se le manda el comprobante.
+  //
+  // En producción, solo si Hacienda aceptó: mandarle al paciente un documento
+  // rechazado sería entregarle algo que no vale y que él no puede distinguir.
+  //
+  // En el sandbox se manda igual, porque ahí Hacienda rechaza SIEMPRE: su padrón
+  // de contribuyentes es independiente del real y no reconoce ni el domicilio
+  // del emisor (-37) ni la cédula del receptor (-38). Si se esperara la
+  // aceptación, el recorrido completo no se podría probar nunca. El correo sale
+  // marcado como prueba y diciendo que fue rechazado.
+  // FE_REAL_API_URL en la condición no es redundante: sin ella, una factura del
+  // modo mock (números simulados, jamás enviados a Hacienda) saldría por correo
+  // como si fuera un comprobante. Ese es el guard FIS-01 y no puede aflojarse.
+  const esSandbox = FE_REAL_API_URL && FE_EMISOR.ambiente !== "01";
+  const seEntrega = realAcceptance || Boolean(esSandbox && feNumber);
+
+  if (seEntrega) {
     sendFeEmail(enriched).catch((e) => console.error("[FE] Error en sendFeEmail:", e));
+  }
+
+  // Un rechazo real deja al paciente pagado y sin comprobante. Hasta ahora solo
+  // quedaba en el log, así que nadie se enteraba hasta revisarlo a mano.
+  if (feStatus === "REJECTED" && !esSandbox) {
+    await sendFeRejectAlert(enriched, feErrorMessage).catch((e) =>
+      console.error("[FE] Error alertando el rechazo:", e)
+    );
   }
 
   return { feStatus, feNumber, feClave, feErrorMessage };

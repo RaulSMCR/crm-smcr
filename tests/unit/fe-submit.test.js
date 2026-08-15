@@ -35,6 +35,10 @@ vi.mock("@/lib/fe/xml.js", () => ({
 }));
 vi.mock("@/lib/fe/config.js", () => ({
   TIPO_DOC_MAP: { CUSTOMER_INVOICE: "01" },
+  // Ambiente de pruebas: es el que decide si un comprobante rechazado se le
+  // manda igual al paciente. En modo mock no debe mandarse nada aunque el
+  // ambiente sea 02, y eso es justo lo que verifica el caso (b).
+  FE_EMISOR: { ambiente: "02" },
 }));
 
 const PATIENT_EMAIL = "paciente@ejemplo.cr";
