@@ -160,6 +160,15 @@ model User {
   useInsuranceForPayment Boolean @default(false)
   insuranceName          String? @db.VarChar(128)
 
+  /// Datos de facturación. Solo se llenan si el paciente quiere la factura a
+  /// nombre de otra persona o de una empresa, para poder deducirla. Si van
+  /// vacíos, la factura sale con el nombre y la cédula de la cuenta.
+  /// Es todo o nada: nombre y cédula juntos, o ninguno (ver datosFacturacionDe).
+  billingName     String? @db.VarChar(100)
+  billingIdType   String? @db.VarChar(2)
+  billingIdNumber String? @db.VarChar(20)
+  billingEmail    String?
+
   insuranceBlankFormUrl        String?
   insuranceBlankFormUploadedAt DateTime?
 
@@ -369,6 +378,10 @@ model Invoice {
   professionalId  String?
   contactName     String?
   contactIdNumber String?
+  /// Tipo de identificación de Hacienda (01 física, 02 jurídica, 03 DIMEX,
+  /// 04 NITE). Se guarda el que se usó al emitir en vez de re-deducirlo del
+  /// largo: jurídica y NITE tienen ambos 10 dígitos.
+  contactIdType   String? @db.VarChar(2)
 
   invoiceDate DateTime
   dueDate     DateTime

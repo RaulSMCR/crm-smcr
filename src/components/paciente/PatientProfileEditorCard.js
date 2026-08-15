@@ -2,12 +2,14 @@
 "use client";
 
 import { useCallback, useState, useTransition } from "react";
-import { updatePatientProfile, updateInsuranceInfo } from "@/actions/patient-profile-actions";
+import { updatePatientProfile, updateInsuranceInfo, updateBillingInfo } from "@/actions/patient-profile-actions";
+import { ETIQUETAS_IDENTIFICACION } from "@/lib/fiscal-identity";
 import Toast from "@/components/ui/Toast";
 
 export default function PatientProfileEditorCard({ user }) {
   const [isPending, startTransition] = useTransition();
   const [insurancePending, startInsuranceTransition] = useTransition();
+  const [billingPending, startBillingTransition] = useTransition();
   const [toast, setToast] = useState(null);
   const dismissToast = useCallback(() => setToast(null), []);
 
@@ -19,6 +21,14 @@ export default function PatientProfileEditorCard({ user }) {
     birthDate: user?.birthDate || "",
     gender: user?.gender || "",
     interests: user?.interests || "",
+  });
+
+  // Vacíos por defecto: la mayoría factura a nombre propio y no toca esto.
+  const [billing, setBilling] = useState({
+    billingName: user?.billingName || "",
+    billingIdType: user?.billingIdType || "",
+    billingIdNumber: user?.billingIdNumber || "",
+    billingEmail: user?.billingEmail || "",
   });
 
   const [insurance, setInsurance] = useState({
@@ -47,6 +57,23 @@ export default function PatientProfileEditorCard({ user }) {
       const res = await updatePatientProfile(fd);
       if (res?.error) setToast({ message: res.error, type: "error" });
       else setToast({ message: "Perfil actualizado correctamente.", type: "success" });
+    });
+  }
+
+  function onBillingSubmit(e) {
+    e.preventDefault();
+    const fd = new FormData();
+    fd.append("billingName", billing.billingName);
+    fd.append("billingIdType", billing.billingIdType);
+    fd.append("billingIdNumber", billing.billingIdNumber);
+    fd.append("billingEmail", billing.billingEmail);
+
+    startBillingTransition(async () => {
+      const res = await updateBillingInfo(fd);
+      if (res?.error) setToast({ message: res.error, type: "error" });
+      else if (res?.cleared)
+        setToast({ message: "Sus facturas volverán a emitirse a su nombre.", type: "success" });
+      else setToast({ message: "Datos de facturación guardados.", type: "success" });
     });
   }
 
@@ -229,6 +256,98 @@ export default function PatientProfileEditorCard({ user }) {
           >
             {insurancePending ? "Guardando..." : "Guardar información de seguro"}
           </button>
+        </form>
+      </div>
+
+      {/* ── Datos de facturación ── */}
+      <div className="mt-8 border-t border-slate-200 pt-6">
+        <h3 className="text-lg font-bold text-slate-900">Datos de facturación</h3>
+        <p className="mt-1 text-sm text-slate-500">
+          Solo si necesita la factura a nombre de una empresa para deducirla del impuesto sobre
+          la renta. Si lo deja vacío, la factura sale a su nombre con la cédula de su cuenta.
+        </p>
+
+        <form onSubmit={onBillingSubmit} className="mt-4 space-y-4">
+          <div>
+            <label htmlFor="billingName" className="block text-sm font-medium text-slate-700">
+              Nombre o razón social
+            </label>
+            <input
+              id="billingName"
+              type="text"
+              value={billing.billingName}
+              onChange={(e) => setBilling((p) => ({ ...p, billingName: e.target.value }))}
+              placeholder="Tal como aparece en el registro de Hacienda"
+              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="billingIdType" className="block text-sm font-medium text-slate-700">
+                Tipo de identificación
+              </label>
+              <select
+                id="billingIdType"
+                value={billing.billingIdType}
+                onChange={(e) => setBilling((p) => ({ ...p, billingIdType: e.target.value }))}
+                className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
+              >
+                <option value="">Seleccione…</option>
+                {Object.entries(ETIQUETAS_IDENTIFICACION).map(([codigo, etiqueta]) => (
+                  <option key={codigo} value={codigo}>
+                    {etiqueta}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="billingIdNumber" className="block text-sm font-medium text-slate-700">
+                Número
+              </label>
+              <input
+                id="billingIdNumber"
+                type="text"
+                inputMode="numeric"
+                value={billing.billingIdNumber}
+                onChange={(e) => setBilling((p) => ({ ...p, billingIdNumber: e.target.value }))}
+                placeholder="Solo dígitos, sin guiones"
+                className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="billingEmail" className="block text-sm font-medium text-slate-700">
+              Correo para recibir la factura <span className="text-slate-400">(opcional)</span>
+            </label>
+            <input
+              id="billingEmail"
+              type="email"
+              value={billing.billingEmail}
+              onChange={(e) => setBilling((p) => ({ ...p, billingEmail: e.target.value }))}
+              placeholder={user?.email || "contabilidad@empresa.com"}
+              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              Si lo deja vacío, la factura llega al correo de su cuenta.
+            </p>
+          </div>
+
+          <button
+            type="submit"
+            disabled={billingPending}
+            className="rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900 disabled:opacity-60"
+          >
+            {billingPending ? "Guardando..." : "Guardar datos de facturación"}
+          </button>
+
+          <p className="text-xs text-slate-500">
+            Estos datos se usan en las facturas que se emitan de aquí en adelante. Las ya emitidas
+            no cambian: una factura electrónica no se puede modificar, solo anular con una nota de
+            crédito.
+          </p>
         </form>
       </div>
     </div>

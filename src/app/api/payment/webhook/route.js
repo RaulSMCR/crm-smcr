@@ -23,6 +23,7 @@ import { resend } from "@/lib/resend";
 import { submitInvoiceToFe } from "@/lib/fe/submit";
 import { sendInsuranceProSignAlert } from "@/lib/insurance-mail";
 import { splitTaxIncluded } from "@/lib/invoice-math";
+import { datosFacturacionDe } from "@/lib/fiscal-identity";
 import { estimateOnvoFee } from "@/lib/commission-plan";
 import { paymentTypeLabel } from "@/lib/payment-requests";
 import { reportDepositConversion } from "@/lib/analytics/reportDepositConversion";
@@ -157,6 +158,10 @@ export async function POST(request) {
               name: true,
               email: true,
               identification: true,
+              billingName: true,
+              billingIdType: true,
+              billingIdNumber: true,
+              billingEmail: true,
               hasInsurance: true,
               useInsuranceForPayment: true,
               insuranceName: true,
@@ -315,6 +320,8 @@ export async function createAutoInvoice(transaction) {
 
     let finalInvoiceId = null;
 
+    const receptor = datosFacturacionDe(transaction.patient);
+
     await prisma.$transaction(async (tx) => {
       const invoice = await tx.invoice.create({
         data: {
@@ -324,8 +331,12 @@ export async function createAutoInvoice(transaction) {
           contactId: transaction.patientId,
           appointmentId: transaction.appointmentId,
           professionalId: transaction.professionalId,
-          contactName:     transaction.patient?.name || null,
-          contactIdNumber: transaction.patient?.identification || null,
+          // Si el paciente cargó datos de facturación, la factura sale a nombre
+          // de esa persona o empresa: es lo que le permite deducirla. Si no,
+          // sale con su propia identidad, como siempre.
+          contactName:     receptor.nombre || null,
+          contactIdNumber: receptor.identificacion || null,
+          contactIdType:   receptor.tipoIdentificacion || null,
           paymentMethod:   "transfer",
           invoiceDate: now,
           dueDate: now,

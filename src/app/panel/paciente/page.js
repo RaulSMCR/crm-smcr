@@ -44,6 +44,10 @@ export default async function PacientePanelPage({ searchParams }) {
         insuranceName: true,
         insuranceBlankFormUrl: true,
         insurancePatientFormUrl: true,
+        billingName: true,
+        billingIdType: true,
+        billingIdNumber: true,
+        billingEmail: true,
       },
     }),
     prisma.appointment.findMany({

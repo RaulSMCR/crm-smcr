@@ -222,7 +222,10 @@ export function generateFeXml(invoice, lines) {
   // ─── Receptor (opcional si no hay identificación) ────────────────────────
   const contactName   = invoice.contactName   || "";
   const contactIdNum  = invoice.contactIdNumber ? String(invoice.contactIdNumber).replace(/\D/g, "") : "";
-  const idType        = inferIdType(contactIdNum);
+  // El tipo declarado manda. Solo se deduce del largo cuando la factura es
+  // anterior a que se guardara, porque jurídica y NITE tienen los mismos
+  // 10 dígitos y ahí adivinar se equivoca justo con quien pide deducible.
+  const idType        = invoice.contactIdType || inferIdType(contactIdNum);
 
   if (contactName) {
     const recEl = root.ele("Receptor");
