@@ -23,12 +23,17 @@ export function splitFirstAppointmentAmount(amount) {
 export function amountForPaymentType(type, totalAmount) {
   if (type === "DEPOSIT_50") return splitFirstAppointmentAmount(totalAmount).deposit;
   if (type === "BALANCE_50") return splitFirstAppointmentAmount(totalAmount).balance;
+  // La multa por aviso tardío es el mismo 50%, así que usa el mismo reparto: si
+  // se calculara aparte, el redondeo podría diferir en un colón de lo cobrado
+  // como adelanto sobre la misma cita.
+  if (type === "PENALTY_50") return splitFirstAppointmentAmount(totalAmount).deposit;
   return Number(totalAmount || 0);
 }
 
 export function paymentTypeLabel(type) {
   if (type === "DEPOSIT_50") return "adelanto 50%";
   if (type === "BALANCE_50") return "saldo 50%";
+  if (type === "PENALTY_50") return "cargo por cancelación tardía";
   return "pago 100%";
 }
 

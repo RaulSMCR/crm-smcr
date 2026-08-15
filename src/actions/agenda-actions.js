@@ -13,6 +13,9 @@ import { scheduleReminder } from "@/lib/qstash";
 import { buildSlots } from "@/lib/appointment-slots";
 import { createPaymentRequestForAppointment } from "@/lib/payment-requests";
 import { resolveBookingSelection } from "@/lib/booking-rates";
+import { MOTIVOS_BLOQUEO } from "@/lib/rescheduling-policy";
+import { aplicarMultaYPausa } from "@/lib/scheduling-block";
+import { alertarAgendaEnPausa } from "@/lib/payment-alerts";
 import {
   buildRecurringStarts,
   normalizeRecurrenceCount,
@@ -679,7 +682,7 @@ export async function updateAppointmentStatus(appointmentId, newStatus) {
       where: { id },
       data: { status },
       include: {
-        patient: { select: { name: true, email: true } },
+        patient: { select: { id: true, name: true, email: true, phone: true } },
         professional: {
           select: {
             id: true,
@@ -690,6 +693,16 @@ export async function updateAppointmentStatus(appointmentId, newStatus) {
         service: { select: { title: true } },
       },
     });
+
+    // Una inasistencia consume el espacio igual que una cancelación tardía: se
+    // cobra el 50% y la agenda del paciente queda en pausa hasta que la
+    // administración lo contacte. Ver lib/rescheduling-policy.
+    if (status === "NO_SHOW") {
+      const sancion = await aplicarMultaYPausa(updatedAppointment, MOTIVOS_BLOQUEO.NO_ASISTIO);
+      if (sancion.aplicada) {
+        await alertarAgendaEnPausa(updatedAppointment, MOTIVOS_BLOQUEO.NO_ASISTIO, sancion);
+      }
+    }
 
     await Promise.allSettled([
       syncGoogleCalendarEvent(updatedAppointment),

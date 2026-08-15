@@ -10,6 +10,7 @@ import PaymentReceivedToast from "@/components/PaymentReceivedToast";
 import Link from "next/link";
 import { getFraseDelDia } from "@/lib/mi/frases";
 import { fraseAMostrar } from "@/lib/frases-usuario";
+import { etiquetaBloqueo } from "@/lib/scheduling-block";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,8 @@ export default async function PacientePanelPage({ searchParams }) {
         billingIdType: true,
         billingIdNumber: true,
         billingEmail: true,
+        schedulingBlockedAt: true,
+        schedulingBlockedReason: true,
       },
     }),
     prisma.appointment.findMany({
@@ -96,6 +99,23 @@ export default async function PacientePanelPage({ searchParams }) {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-6 md:p-10">
+      {user.schedulingBlockedAt ? (
+        <div
+          role="status"
+          className="rounded-2xl border border-amber-300 bg-amber-50 p-5 text-amber-900"
+        >
+          <h2 className="font-semibold">Su agenda está en pausa</h2>
+          <p className="mt-1 text-sm">
+            {etiquetaBloqueo(user.schedulingBlockedReason)}. Por eso no puede agendar ni mover
+            citas por este medio en este momento.
+          </p>
+          <p className="mt-2 text-sm">
+            <b>La administración se pondrá en contacto</b> para coordinar su próximo turno. No
+            necesita hacer nada.
+          </p>
+        </div>
+      ) : null}
+
       <div className="flex items-start justify-between gap-6">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Panel del paciente</h1>

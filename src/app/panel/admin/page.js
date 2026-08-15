@@ -70,6 +70,7 @@ export default async function AdminDashboard() {
     insurancePendingCount,
     newLeadsCount,
     pendingRatesCount,
+    pausedSchedulesCount,
     pendingUsers,
   ] = await Promise.all([
     prisma.user.count({ where: wherePendingProsUsers }),
@@ -85,6 +86,7 @@ export default async function AdminDashboard() {
     prisma.insuranceClaim.count({ where: { status: "PENDING_SIGNED_FORM" } }),
     prisma.lead.count({ where: { status: "NEW" } }),
     prisma.professionalRate.count({ where: { status: "PENDING" } }),
+    prisma.user.count({ where: { schedulingBlockedAt: { not: null } } }),
     prisma.user.findMany({
       where: wherePendingProsUsers,
       include: { professionalProfile: true },
@@ -177,6 +179,12 @@ export default async function AdminDashboard() {
             title="Citas"
             description="Seguimiento operativo de la agenda."
             count={activeAppointmentsCount}
+          />
+          <DashboardCard
+            href="/panel/admin/agendas-en-pausa"
+            title="Agendas en pausa"
+            description="Pacientes por contactar antes de que puedan volver a agendar."
+            count={pausedSchedulesCount || undefined}
           />
           <DashboardCard
             href="/panel/admin/marketing"

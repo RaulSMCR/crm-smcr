@@ -36,6 +36,8 @@ enum PaymentTransactionType {
   DEPOSIT_50
   BALANCE_50
   FULL_100
+  /// Multa del 50% por avisar con menos de 24 horas o no asistir.
+  PENALTY_50
 }
 
 enum PaymentTransactionStatus {
@@ -168,6 +170,13 @@ model User {
   billingIdType   String? @db.VarChar(2)
   billingIdNumber String? @db.VarChar(20)
   billingEmail    String?
+
+  /// Agendamiento en pausa por avisar tarde o no asistir. El paciente no puede
+  /// agendar ni mover citas por su cuenta mientras esté puesto; solo lo levanta
+  /// un administrador, después de contactarlo. Ver lib/rescheduling-policy.
+  schedulingBlockedAt     DateTime?
+  schedulingBlockedReason String?   @db.VarChar(32)
+  schedulingRestoredAt    DateTime?
 
   insuranceBlankFormUrl        String?
   insuranceBlankFormUploadedAt DateTime?
@@ -673,6 +682,10 @@ model Appointment {
   followUps           Appointment[] @relation("FollowUps")
 
   isFirstWithProfessional Boolean              @default(false)
+
+  /// Cuándo se aplicó la multa por aviso tardío o inasistencia. Evita
+  /// cobrarla dos veces si se vuelve a marcar el mismo estado.
+  penaltyAppliedAt DateTime?
 
   // Atribución publicitaria capturada al agendar (para la conversión GA4 del
   // adelanto, que se confirma server-side días después). Ver src/lib/analytics.

@@ -19,7 +19,9 @@ import {
   formatConflictDate,
 } from "@/lib/booking-conflicts";
 import { createPaymentRequestForAppointment, splitFirstAppointmentAmount } from "@/lib/payment-requests";
-import { alertarCobroNoGenerado } from "@/lib/payment-alerts";
+import { alertarCobroNoGenerado, alertarAgendaEnPausa } from "@/lib/payment-alerts";
+import { evaluarReagenda, MOTIVOS_BLOQUEO, PORCENTAJE_MULTA } from "@/lib/rescheduling-policy";
+import { aplicarMultaYPausa, estaBloqueado } from "@/lib/scheduling-block";
 import { getBookingOptions, resolveBookingSelection } from "@/lib/booking-rates";
 
 function describeRecurringConflict(conflict) {
@@ -94,6 +96,23 @@ export async function createAppointmentForPatient({
     }
     if (start < new Date()) {
       return { success: false, error: "El horario seleccionado ya pasó." };
+    }
+
+    // La pausa no es solo sobre mover una cita: mientras esté puesta el paciente
+    // tampoco puede agendar una nueva. Si no, bastaría con cancelar y volver a
+    // reservar para esquivarla.
+    const perfil = await prisma.user.findUnique({
+      where: { id: patientId },
+      select: { schedulingBlockedAt: true },
+    });
+    if (estaBloqueado(perfil)) {
+      return {
+        success: false,
+        error:
+          "Su agenda está en pausa. La administración se pondrá en contacto para coordinar su " +
+          "próxima cita.",
+        errorCode: "AGENDAMIENTO_BLOQUEADO",
+      };
     }
 
     const [service, professional, assignment] = await Promise.all([
@@ -364,6 +383,39 @@ export async function rescheduleAppointmentByPatient(
   if (appointment.patientId !== String(session.sub)) return { error: "No autorizado." };
   if (!["PENDING", "CONFIRMED"].includes(appointment.status)) {
     return { error: "Esta cita no puede reagendarse." };
+  }
+
+  // Política de 24 horas. Fuera de ese margen la cita no se mueve por acá: se
+  // cobra el 50%, la agenda del paciente queda en pausa y el administrador lo
+  // contacta para coordinar. Ver lib/rescheduling-policy.
+  const paciente = await prisma.user.findUnique({
+    where: { id: String(session.sub) },
+    select: { schedulingBlockedAt: true, schedulingBlockedReason: true },
+  });
+
+  const veredicto = evaluarReagenda({
+    fechaCita: appointment.date,
+    pricePaid: appointment.pricePaid,
+    bloqueado: estaBloqueado(paciente),
+  });
+
+  if (!veredicto.permitido) {
+    // El bloqueo ya estaba puesto: no se vuelve a multar por insistir.
+    if (veredicto.motivo === "AGENDAMIENTO_BLOQUEADO") {
+      return { error: veredicto.mensaje, errorCode: veredicto.motivo };
+    }
+
+    const sancion = await aplicarMultaYPausa(appointment, MOTIVOS_BLOQUEO.REAGENDA_TARDIA);
+    await alertarAgendaEnPausa(appointment, MOTIVOS_BLOQUEO.REAGENDA_TARDIA, sancion);
+
+    return {
+      error:
+        `${veredicto.mensaje} Se aplica el cargo del ${PORCENTAJE_MULTA}% del valor de la cita. ` +
+        "La administración se pondrá en contacto para coordinar su próxima cita.",
+      errorCode: veredicto.motivo,
+      multa: veredicto.multa,
+      bloqueado: true,
+    };
   }
 
   const newStart = new Date(String(newStartISO || ""));
