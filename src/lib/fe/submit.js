@@ -347,10 +347,16 @@ export async function submitInvoiceToFe(invoiceId) {
     console.log(`[FE MOCK] Factura ${invoice.invoiceNumber} → feNumber=${feNumber} (SIMULADO, sin validez tributaria)`);
   }
 
-  // Actualizar factura en BD
+  // Actualizar factura en BD.
+  //
+  // Los dos XML se persisten aunque Hacienda rechace: son el comprobante que se
+  // adjunta al correo y, cuando algo falla, la única forma de ver qué se mandó
+  // y qué contestaron. Se quedaban en memoria (solo llegaban a sendFeEmail) y
+  // las columnas de la migración nunca se llenaban, así que cada rechazo había
+  // que reproducirlo a mano para poder leerlo.
   await prisma.invoice.update({
     where: { id: invoiceId },
-    data: { feNumber, feClave, feStatus, feErrorMessage },
+    data: { feNumber, feClave, feStatus, feErrorMessage, feXml, feRespuestaXml },
   });
 
   // Enviar email al paciente SOLO si la aceptación provino de la integración real.
