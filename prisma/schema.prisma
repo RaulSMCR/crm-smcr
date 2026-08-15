@@ -699,6 +699,14 @@ model PaymentTransaction {
   taxRate  Int                    @default(4)
   processingFee Decimal?          @db.Decimal(10, 2)
 
+  /// ONVO cobra un fijo POR TRANSACCIÓN en dólares (US$0.35 con tarjeta), no en
+  /// colones. Se guarda el monto en dólares y el tipo de cambio con el que se
+  /// convirtió, porque la liquidación de ONVO llega con SU tipo de cambio del
+  /// día: sin estos dos datos no hay forma de explicar la diferencia.
+  /// processingFee es la suma ya convertida, y es una estimación.
+  processingFeeUsd Decimal? @db.Decimal(10, 2)
+  usdCrcRate       Decimal? @db.Decimal(12, 4)
+
   // Campos ONVO Pay
   onvoPaymentLinkId String? // ID del enlace de pago ONVO del profesional (ej. live_xxx)
   onvoEventId       String? @unique // ID del evento webhook de ONVO (idempotencia)

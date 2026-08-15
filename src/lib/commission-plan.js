@@ -38,6 +38,62 @@ const ONVO_CARD_RATE_PCT = 3.5;
 const ONVO_CARD_FIXED_USD = 0.35;
 const USD_CRC_FALLBACK = 510;
 
+/** Tipo de cambio vigente para convertir el fijo en dólares de ONVO. */
+export function usdToCrc() {
+  const configurado = Number(process.env.USD_CRC_RATE);
+  return Number.isFinite(configurado) && configurado > 0 ? configurado : USD_CRC_FALLBACK;
+}
+
+/**
+ * Desglose del costo de pasarela de un cobro.
+ *
+ * ONVO cobra dos cosas distintas y conviene no mezclarlas: un porcentaje sobre
+ * el monto, que nace y muere en colones, y un fijo POR TRANSACCIÓN que cobra en
+ * dólares. El fijo es una cantidad, no una proporción: no crece con el monto,
+ * así que sobre un cobro chico pesa mucho más.
+ *
+ * Se devuelven los dos por separado, junto con el tipo de cambio aplicado,
+ * porque la liquidación de ONVO va a venir con SU tipo de cambio del día y sin
+ * esto no habría cómo cuadrar la diferencia. El total en colones es una
+ * estimación; los US$0.35 son el dato firme.
+ *
+ * @returns {{percentCents:number, ratePct:number, fixedUsd:number,
+ *            usdCrcRate:number, fixedCents:number, totalCents:number}}
+ */
+export function estimateOnvoFee(grossCents, method = "card") {
+  const gross = Math.max(0, Math.round(Number(grossCents) || 0));
+  const normalized = String(method || "card").toLowerCase();
+  const esSinpe = normalized.includes("sinpe");
+
+  const ratePct = normalized.includes("sinpe_movil")
+    ? Number(process.env.ONVO_SINPE_MOVIL_RATE || 1.5)
+    : esSinpe
+      ? Number(process.env.ONVO_SINPE_RATE || 2.5)
+      : Number(process.env.ONVO_CARD_RATE || ONVO_CARD_RATE_PCT);
+
+  const percentCents = Math.max(0, Math.round((gross * ratePct) / 100));
+
+  // SINPE no lleva fijo en dólares; si algún día lo lleva, se declara en colones.
+  const fixedUsd = esSinpe ? 0 : Number(process.env.ONVO_CARD_FIXED_FEE_USD || ONVO_CARD_FIXED_USD);
+  const usdCrcRate = usdToCrc();
+  const fixedColones = esSinpe
+    ? Number(process.env.ONVO_SINPE_FIXED_FEE_CRC || 0)
+    : fixedUsd * usdCrcRate;
+
+  // El fijo se venía sumando crudo sobre una cifra en céntimos, así que los
+  // "₡200" del default valían ₡2 y al profesional se le liquidaba de más.
+  const fixedCents = Math.max(0, Math.round(fixedColones * 100));
+
+  return {
+    percentCents,
+    ratePct,
+    fixedUsd,
+    usdCrcRate,
+    fixedCents,
+    totalCents: percentCents + fixedCents,
+  };
+}
+
 /**
  * Costo estimado de la pasarela, en céntimos de colón.
  *
@@ -47,29 +103,7 @@ const USD_CRC_FALLBACK = 510;
  * publicado es final.
  */
 export function estimateOnvoFeeCents(grossCents, method = "card") {
-  const gross = Math.max(0, Math.round(Number(grossCents) || 0));
-  const normalized = String(method || "card").toLowerCase();
-  const esSinpe = normalized.includes("sinpe");
-
-  const rate = normalized.includes("sinpe_movil")
-    ? Number(process.env.ONVO_SINPE_MOVIL_RATE || 1.5)
-    : esSinpe
-      ? Number(process.env.ONVO_SINPE_RATE || 2.5)
-      : Number(process.env.ONVO_CARD_RATE || ONVO_CARD_RATE_PCT);
-
-  // El fijo se venía sumando directo sobre una cifra en céntimos, así que los
-  // "₡200" del default valían ₡2. Se convierte explícitamente.
-  const fixedColones = esSinpe
-    ? Number(process.env.ONVO_SINPE_FIXED_FEE_CRC || 0)
-    : Number(process.env.ONVO_CARD_FIXED_FEE_USD || ONVO_CARD_FIXED_USD) * usdToCrc();
-
-  return Math.max(0, Math.round((gross * rate) / 100 + fixedColones * 100));
-}
-
-/** Tipo de cambio para convertir el fijo en dólares de ONVO. */
-function usdToCrc() {
-  const configurado = Number(process.env.USD_CRC_RATE);
-  return Number.isFinite(configurado) && configurado > 0 ? configurado : USD_CRC_FALLBACK;
+  return estimateOnvoFee(grossCents, method).totalCents;
 }
 
 function normalizeConsultationNumber(value) {

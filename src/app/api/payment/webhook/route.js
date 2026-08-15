@@ -23,7 +23,7 @@ import { resend } from "@/lib/resend";
 import { submitInvoiceToFe } from "@/lib/fe/submit";
 import { sendInsuranceProSignAlert } from "@/lib/insurance-mail";
 import { splitTaxIncluded } from "@/lib/invoice-math";
-import { estimateOnvoFeeCents } from "@/lib/commission-plan";
+import { estimateOnvoFee } from "@/lib/commission-plan";
 import { paymentTypeLabel } from "@/lib/payment-requests";
 import { reportDepositConversion } from "@/lib/analytics/reportDepositConversion";
 import { sendPurchaseMeta } from "@/lib/analytics/meta-events";
@@ -32,6 +32,20 @@ import { after } from "next/server";
 export const dynamic = "force-dynamic";
 
 const ONVO_WEBHOOK_SECRET = process.env.ONVO_WEBHOOK_SECRET;
+
+/**
+ * Campos de comisión a guardar en la transacción, en unidades de moneda.
+ * El fijo de ONVO se cobra en dólares, así que se conserva en dólares junto al
+ * tipo de cambio aplicado; processingFee es la suma estimada en colones.
+ */
+function desgloseComision(amount, paymentMethod) {
+  const fee = estimateOnvoFee(Math.round(Number(amount) * 100), paymentMethod);
+  return {
+    processingFee: fee.totalCents / 100,
+    processingFeeUsd: fee.fixedUsd,
+    usdCrcRate: fee.usdCrcRate,
+  };
+}
 const FROM_EMAIL = process.env.EMAIL_FROM || "Salud Mental Costa Rica <onboarding@resend.dev>";
 
 /**
@@ -209,10 +223,11 @@ export async function POST(request) {
       ...(newStatus === "APPROVED"
         ? {
             taxRate: Number(transaction.appointment?.service?.tax?.rate ?? 4),
-            processingFee: estimateOnvoFeeCents(
-              Math.round(Number(transaction.amount) * 100),
-              evento.paymentMethod
-            ) / 100,
+            // Se guardan los tres datos: el total convertido, el fijo en la
+            // moneda en que ONVO lo cobra y el tipo de cambio usado. La
+            // liquidación de ONVO va a traer su propio tipo de cambio, y sin
+            // esto la diferencia no se podría explicar.
+            ...desgloseComision(transaction.amount, evento.paymentMethod),
           }
         : {}),
     },

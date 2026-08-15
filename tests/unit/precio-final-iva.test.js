@@ -7,6 +7,7 @@ import { describe, it, expect } from "vitest";
 import { splitTaxIncluded } from "../../src/lib/invoice-math.js";
 import {
   baseCentsFromGross,
+  estimateOnvoFee,
   estimateOnvoFeeCents,
   calculateProfessionalSettlementItem,
 } from "../../src/lib/commission-plan.js";
@@ -81,6 +82,38 @@ describe("la comisión de la pasarela sale del negocio, no del paciente", () => 
       if (previo === undefined) delete process.env.USD_CRC_RATE;
       else process.env.USD_CRC_RATE = previo;
     }
+  });
+
+  it("separa el porcentaje del fijo y deja registrado el tipo de cambio", () => {
+    // La liquidación de ONVO llega con SU tipo de cambio del día. Guardar el
+    // fijo en dólares y la tasa usada es lo que permite explicar la diferencia
+    // en vez de asumirla como pérdida.
+    const previo = process.env.USD_CRC_RATE;
+    process.env.USD_CRC_RATE = "510";
+    try {
+      const fee = estimateOnvoFee(20000 * 100, "card");
+      expect(fee.ratePct).toBe(3.5);
+      expect(fee.percentCents).toBe(70000); // ₡700 del porcentaje
+      expect(fee.fixedUsd).toBe(0.35); // el dato firme, en la moneda que cobra ONVO
+      expect(fee.usdCrcRate).toBe(510);
+      expect(fee.fixedCents).toBe(17850); // ₡178.50 convertidos
+      expect(fee.totalCents).toBe(fee.percentCents + fee.fixedCents);
+    } finally {
+      if (previo === undefined) delete process.env.USD_CRC_RATE;
+      else process.env.USD_CRC_RATE = previo;
+    }
+  });
+
+  it("el fijo no crece con el monto: es una cantidad, no una proporción", () => {
+    const chico = estimateOnvoFee(5000 * 100, "card");
+    const grande = estimateOnvoFee(80000 * 100, "card");
+    expect(chico.fixedCents).toBe(grande.fixedCents);
+    expect(chico.fixedUsd).toBe(grande.fixedUsd);
+  });
+
+  it("SINPE no lleva el fijo en dólares", () => {
+    const fee = estimateOnvoFee(20000 * 100, "sinpe_movil");
+    expect(fee.fixedUsd).toBe(0);
   });
 
   it("el fijo en dólares vale colones, no céntimos", () => {
