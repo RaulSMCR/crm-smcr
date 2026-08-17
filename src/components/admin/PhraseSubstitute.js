@@ -58,10 +58,13 @@ export default function PhraseSubstitute({ fecha, facetas, selecciones, audienci
 
   return (
     <section className="rounded-lg border border-neutral-200 bg-neutral-50 p-5 shadow-card">
-      <h2 className="text-lg font-bold text-brand-900">Sustituir por otra frase del corpus</h2>
+      <h2 className="text-lg font-bold text-brand-900">Buscar a mano en el corpus</h2>
       <p className="mt-1 text-sm text-neutral-650">
-        1.112 frases de 40 autores. Filtrá por largo si la pieza va a historias: sobre 175
-        caracteres se vuelve ilegible en ese formato.
+        {facetas.total} frases de {facetas.autores.length} autores. Esto es para cuando ya sabés
+        qué autor o qué palabra buscás; si solo querés otras opciones para una audiencia, el botón
+        «sustituir por otras del corpus» de cada bloque las propone ya filtradas por tono, tema del
+        día y sin repetir lo que sale en fechas cercanas. Filtrá por largo si la pieza va a
+        historias: sobre 175 caracteres se vuelve ilegible en ese formato.
       </p>
 
       <div className="mt-4 max-w-sm">

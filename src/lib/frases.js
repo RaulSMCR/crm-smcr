@@ -31,7 +31,7 @@ export const HORA_DE_CAMBIO = 6; // 6:00 en Costa Rica
 // lleva los 300 KB del corpus al navegador.
 
 export { AUDIENCIAS, ROLES } from "@/lib/frases-audiencia";
-import { AUDIENCIAS } from "@/lib/frases-audiencia";
+import { AUDIENCIAS, hashEstable } from "@/lib/frases-audiencia";
 
 const ROLES_INTERNOS = { 1: "ancla", 2: "contrapunto" };
 
@@ -71,6 +71,11 @@ function sumar(iso, dias) {
   const f = aFecha(iso);
   f.setUTCDate(f.getUTCDate() + dias);
   return f.toISOString().slice(0, 10);
+}
+
+/** Suma (o resta) días a una fecha ISO, sin salirse del calendario gregoriano. */
+export function sumarDias(iso, dias) {
+  return sumar(iso, dias);
 }
 
 /** 0 = domingo … 6 = sábado. */
@@ -193,7 +198,11 @@ export function totalFuentes() {
   return corpus.fuentes.length;
 }
 
-/** Las 486 fuentes, ordenadas por cuántas asignaciones del año dependen de ellas. */
+export function totalAutores() {
+  return new Set(corpus.fuentes.map((f) => f.a)).size;
+}
+
+/** Todas las fuentes, ordenadas por cuántas asignaciones del año dependen de ellas. */
 export function fuentesPorImpacto() {
   const usos = new Map();
   for (const dia of calendario.dias) {
@@ -219,17 +228,72 @@ export function existeDia(fecha) {
  * Un día completo: metadatos de la fecha y sus 16 candidatas resueltas.
  * Devuelve null fuera de la ventana del corpus, que el panel debe tratar como
  * "el calendario se quedó sin material" y no como un error.
+ *
+ * `usadas` son las frases que ya se publicaron alguna vez. Una frase usada no
+ * vuelve a ofrecerse nunca: su casilla se rellena en el momento con la mejor
+ * candidata viva para esa audiencia. Por eso el calendario del año dejó de ser
+ * una preselección fija —cada elección recalcula lo que se verá después— y por
+ * eso este módulo, que sigue siendo puro, recibe el conjunto desde afuera en
+ * vez de consultarlo: quien conoce la base es frases-queries.
+ *
+ * `elegidas` ({audiencia: índice}) son las decisiones ya guardadas de ESTE día.
+ * Se exceptúan de la prohibición para su propia audiencia —si no, la elección
+ * guardada desaparecería de su propia lista— y siguen bloqueadas para las otras
+ * siete.
  */
-export function diaDeFrases(fecha) {
+export function diaDeFrases(fecha, { usadas, elegidas = {} } = {}) {
   const dia = DIA_POR_FECHA.get(fecha);
   if (!dia) return null;
+
+  const quemadas = usadas instanceof Set ? usadas : new Set(usadas || []);
+
+  // Dos frases no pueden coincidir el mismo día aunque ninguna esté usada: el
+  // reemplazo de una audiencia no puede pisar la candidata de otra.
+  const tomadas = new Set(Object.values(elegidas).filter((i) => Number.isInteger(i) && i >= 0));
+  for (const audiencia of AUDIENCIAS) {
+    for (const indice of dia.a[audiencia.id] || []) {
+      if (!quemadas.has(indice)) tomadas.add(indice);
+    }
+  }
 
   const candidatas = [];
   for (const audiencia of AUDIENCIAS) {
     const slots = dia.a[audiencia.id] || [];
+    const propia = Number.isInteger(elegidas[audiencia.id]) && elegidas[audiencia.id] >= 0
+      ? elegidas[audiencia.id]
+      : null;
+    // Reemplazos de esta audiencia, calculados solo si hace falta alguno.
+    let repuestas = null;
+    let siguienteRepuesta = 0;
+
     slots.forEach((indice, i) => {
-      const frase = fraseDeIndice(indice);
-      if (!frase) return;
+      let frase = fraseDeIndice(indice);
+      let reemplazo = null;
+
+      if (!frase || (quemadas.has(indice) && indice !== propia)) {
+        if (!repuestas) {
+          const opciones = alternativasParaAudiencia({
+            fecha: dia.d,
+            audiencia: audiencia.id,
+            excluir: [...quemadas, ...tomadas],
+            limite: slots.length,
+          }).opciones;
+          // La elección ya guardada de esta audiencia va primero: si el corpus
+          // perdió su casilla, tiene que seguir apareciendo —y marcada— en la
+          // lista de su propia audiencia en vez de desaparecer de la vista.
+          repuestas =
+            propia !== null && !slots.includes(propia)
+              ? [fraseDeIndice(propia), ...opciones]
+              : opciones;
+        }
+        const repuesta = repuestas[siguienteRepuesta];
+        siguienteRepuesta += 1;
+        if (!repuesta) return; // el corpus se quedó sin material vivo
+        reemplazo = { original: frase, porQue: repuesta.porQue };
+        frase = repuesta;
+        tomadas.add(frase.indice);
+      }
+
       candidatas.push({
         ...frase,
         audiencia: audiencia.id,
@@ -240,6 +304,16 @@ export function diaDeFrases(fecha) {
         tono: audiencia.tono,
         slot: i + 1,
         rol: ROLES_INTERNOS[i + 1],
+        // Dónde más sale esta misma frase en los días de alrededor. Es lo que
+        // vuelve visible la repetición al revisar día por día.
+        repeticiones: repeticionesCercanas(dia.d, frase.indice, { audiencia: audiencia.id }),
+        // La del corpus ya se publicó: esta entró en su lugar.
+        reemplazo: reemplazo
+          ? {
+              autorOriginal: reemplazo.original?.autor || null,
+              porQue: reemplazo.porQue || [],
+            }
+          : null,
       });
     });
   }
@@ -338,8 +412,8 @@ export function sesionDelDia(fecha, resueltas = new Set(), horizonte = 7) {
 // ─── Búsqueda para sustituir ─────────────────────────────────────────────────
 
 /**
- * Busca en las 1.112 frases del corpus. Es para el momento en que ninguna de las
- * 16 candidatas del día sirve y hay que traer otra.
+ * Busca en todo el corpus. Es la vía manual —cuando ya se sabe qué autor o qué
+ * palabra se quiere— frente a `alternativasParaAudiencia`, que propone sola.
  */
 export function buscarFrases({
   texto = "",
@@ -365,6 +439,268 @@ export function buscarFrases({
     if (resultados.length >= limite) break;
   }
   return resultados;
+}
+
+// ─── Repetición: dónde más sale cada frase ───────────────────────────────────
+//
+// El corpus reparte 5.840 asignaciones entre ~1.100 frases, así que cada frase
+// sale unas cinco veces al año. Eso no se puede evitar; lo que sí se puede es
+// verlo. Quien revisa día por día percibe monotonía cuando las reapariciones
+// caen juntas —la misma frase el martes en MR26 y el jueves en HRJ—, y hasta
+// ahora el panel no lo decía.
+
+/** Ventana en días dentro de la cual una reaparición se nota al revisar. */
+export const VENTANA_REPETICION = 10;
+
+// Índice inverso frase → dónde sale en el calendario. Se construye una vez por
+// proceso, igual que INDICE_POR_TEXTO.
+const APARICIONES = new Map();
+for (const dia of calendario.dias) {
+  for (const [aud, slots] of Object.entries(dia.a)) {
+    slots.forEach((indice, i) => {
+      if (!APARICIONES.has(indice)) APARICIONES.set(indice, []);
+      APARICIONES.get(indice).push({ fecha: dia.d, audiencia: aud, slot: i + 1 });
+    });
+  }
+}
+
+function diasEntre(a, b) {
+  return Math.round((aFecha(b) - aFecha(a)) / 86400000);
+}
+
+/** Todos los lugares del calendario donde el corpus coloca esta frase. */
+export function aparicionesDeFrase(indice) {
+  return APARICIONES.get(indice) || [];
+}
+
+/**
+ * Las otras veces que esta frase sale cerca de una fecha. Se excluye su propia
+ * casilla —(fecha, audiencia)— pero no las demás audiencias del mismo día: esas
+ * también las ve quien revisa, y son parte de la repetición percibida.
+ */
+export function repeticionesCercanas(fecha, indice, { audiencia = null, ventana = VENTANA_REPETICION } = {}) {
+  const cercanas = [];
+  for (const ap of aparicionesDeFrase(indice)) {
+    if (ap.fecha === fecha && ap.audiencia === audiencia) continue;
+    const distancia = diasEntre(fecha, ap.fecha);
+    if (Math.abs(distancia) > ventana) continue;
+    cercanas.push({ fecha: ap.fecha, audiencia: ap.audiencia, distancia });
+  }
+  return cercanas.sort((a, b) => Math.abs(a.distancia) - Math.abs(b.distancia));
+}
+
+// ─── Alternativas por audiencia ──────────────────────────────────────────────
+//
+// Cuando las dos candidatas del día no sirven, hay que traer otras. Buscarlas a
+// mano en el corpus entero es trabajo de archivo; esto propone directamente un
+// puñado ya filtrado para ESA audiencia y ESE día.
+//
+// El perfil tonal de cada audiencia no se escribe a mano: se deriva de las 730
+// asignaciones que el propio corpus le hizo durante el año. Así la propuesta
+// respeta el criterio editorial de la base de conocimiento en vez de inventar
+// uno paralelo —registradas tiran a Cálidas/Salud/Reflexión, no registradas a
+// Motivadoras/Audaces/Fuerza— y sigue siendo correcto si el corpus cambia.
+
+const PERFILES = new Map();
+
+/** Distribución tonal y temática real de una audiencia, normalizada a 0–1. */
+export function perfilDeAudiencia(audiencia) {
+  if (PERFILES.has(audiencia)) return PERFILES.get(audiencia);
+
+  const categorias = new Map();
+  const temas = new Map();
+  for (const dia of calendario.dias) {
+    for (const indice of dia.a[audiencia] || []) {
+      const frase = corpus.frases[indice];
+      if (!frase) continue;
+      categorias.set(frase.c, (categorias.get(frase.c) || 0) + 1);
+      for (const t of frase.m) temas.set(t, (temas.get(t) || 0) + 1);
+    }
+  }
+
+  const normalizar = (mapa) => {
+    const max = Math.max(1, ...mapa.values());
+    return new Map([...mapa.entries()].map(([k, v]) => [k, v / max]));
+  };
+
+  const perfil = { categorias: normalizar(categorias), temas: normalizar(temas) };
+  PERFILES.set(audiencia, perfil);
+  return perfil;
+}
+
+// Penalización por cercanía, por fecha: cuánto castiga a cada frase del corpus
+// el hecho de reaparecer cerca de ese día. Depende solo de la fecha, no de la
+// audiencia, así que calcularla una vez por día en vez de una por audiencia
+// ahorra las siete pasadas restantes sobre las 1.145 frases. Pesa: con medio
+// corpus quemado, una sesión recalcula hasta 64 veces (8 días × 8 audiencias).
+const CERCANIA_POR_FECHA = new Map();
+
+function penalizacionPorCercania(fecha) {
+  const guardada = CERCANIA_POR_FECHA.get(fecha);
+  if (guardada) return guardada;
+
+  const penas = new Float64Array(corpus.frases.length);
+  for (const [indice, apariciones] of APARICIONES.entries()) {
+    let pena = 0;
+    for (const ap of apariciones) {
+      if (ap.fecha === fecha) continue;
+      const distancia = Math.abs(diasEntre(fecha, ap.fecha));
+      if (distancia > VENTANA_REPETICION) continue;
+      pena += 3 * (1 - distancia / (VENTANA_REPETICION + 1));
+    }
+    penas[indice] = pena;
+  }
+
+  // La sesión trabaja sobre una decena de días; no hace falta guardar el año.
+  if (CERCANIA_POR_FECHA.size > 40) CERCANIA_POR_FECHA.clear();
+  CERCANIA_POR_FECHA.set(fecha, penas);
+  return penas;
+}
+
+let USOS_POR_AUTOR = null;
+
+function usosPorAutor() {
+  if (USOS_POR_AUTOR) return USOS_POR_AUTOR;
+  const usos = new Map();
+  for (const dia of calendario.dias) {
+    for (const slots of Object.values(dia.a)) {
+      for (const indice of slots) {
+        const autor = corpus.fuentes[corpus.frases[indice].f].a;
+        usos.set(autor, (usos.get(autor) || 0) + 1);
+      }
+    }
+  }
+  USOS_POR_AUTOR = { usos, max: Math.max(1, ...usos.values()) };
+  return USOS_POR_AUTOR;
+}
+
+const LARGO_HISTORIAS = 175;
+const PROFUNDIDAD = 200; // cuántas candidatas entran al reparto por autor
+
+/**
+ * Propone frases del corpus para una audiencia en un día, ordenadas por lo bien
+ * que le calzan y repartidas entre autores.
+ *
+ * Se descartan de plano las 16 del día y lo que venga en `excluir` (lo ya visto
+ * en esta sesión y lo ya publicado a esta audiencia hace poco, que la acción
+ * consulta en base de datos). Lo demás se ordena penalizando justo aquello que
+ * produce la monotonía: la frase que ya sale otro día cercano, el autor que ya
+ * está en el día y el autor sobrerrepresentado en el año.
+ *
+ * `pagina` avanza por la lista ordenada, así que «ver otras» nunca repite lo
+ * mostrado y sigue siendo determinista.
+ */
+export function alternativasParaAudiencia({
+  fecha,
+  audiencia,
+  excluir = [],
+  penalizar = [],
+  limite = 6,
+  pagina = 0,
+} = {}) {
+  const dia = DIA_POR_FECHA.get(fecha);
+  const vacio = { opciones: [], pagina: 0, hayMas: false, elegibles: 0 };
+  if (!dia || !AUDIENCIA_POR_ID.has(audiencia)) return vacio;
+
+  const perfil = perfilDeAudiencia(audiencia);
+  const { usos, max: maxUsos } = usosPorAutor();
+  const temasDelDia = new Set(dia.td);
+
+  const delDia = Object.values(dia.a).flat();
+  const autoresDelDia = new Set(delDia.map((i) => corpus.fuentes[corpus.frases[i].f].a));
+  const autoresDeLaAudiencia = new Set(
+    (dia.a[audiencia] || []).map((i) => corpus.fuentes[corpus.frases[i].f].a),
+  );
+
+  const excluidos = new Set([...delDia, ...excluir.map(Number)]);
+  const penalizados = new Set(penalizar.map(Number));
+  const cercania = penalizacionPorCercania(fecha);
+
+  const puntuadas = [];
+  for (let i = 0; i < corpus.frases.length; i += 1) {
+    if (excluidos.has(i)) continue;
+    const frase = corpus.frases[i];
+    const autor = corpus.fuentes[frase.f].a;
+
+    let score = 0;
+    const porQue = [];
+
+    // Tema del día: es lo que hace que la frase hable de lo que pasa esa fecha.
+    const comunes = frase.m.filter((t) => temasDelDia.has(t));
+    if (comunes.length) {
+      score += Math.min(comunes.length, 2) * 1.6;
+      porQue.push(`tema del día: ${comunes.slice(0, 2).join(", ")}`);
+    }
+
+    // Tono: cuánto pesa esta categoría en las asignaciones reales de la audiencia.
+    const afinidadTonal = perfil.categorias.get(frase.c) || 0;
+    score += 2 * afinidadTonal;
+    if (afinidadTonal >= 0.7) porQue.push(`tono de ${audiencia}`);
+
+    // Afinidad temática de la audiencia, más suave que la del día.
+    if (frase.m.length) {
+      const media = frase.m.reduce((n, t) => n + (perfil.temas.get(t) || 0), 0) / frase.m.length;
+      score += 0.8 * media;
+    }
+
+    // Lo que produce la monotonía, penalizado: cuanto más cerca reaparece la
+    // frase en el calendario, más pesa el castigo.
+    score -= cercania[i];
+
+    // Ya publicada a esta audiencia hace poco (viene de base de datos).
+    if (penalizados.has(i)) score -= 4;
+
+    if (autoresDeLaAudiencia.has(autor)) score -= 2;
+    else if (autoresDelDia.has(autor)) score -= 0.8;
+
+    score -= 0.6 * ((usos.get(autor) || 0) / maxUsos);
+    if (frase.t.length > LARGO_HISTORIAS) score -= 0.5;
+
+    // Desempate estable por audiencia. Sin esto las ocho audiencias reciben casi
+    // la misma lista —el tema del día pesa igual para todas— y sustituir en las
+    // ocho volvería a producir monotonía, solo que con otras frases. El desvío
+    // es menor que cualquier señal real, así que reordena empates y nada más.
+    score += 0.5 * (hashEstable(`${audiencia}:${i}`) / 2 ** 32);
+
+    puntuadas.push({ indice: i, autor, score, porQue });
+  }
+
+  puntuadas.sort((a, b) => b.score - a.score || a.indice - b.indice);
+
+  // Reparto por autor: sin esto, las mejores 6 salen casi siempre de los tres
+  // autores más presentes del corpus y la propuesta se ve tan monótona como el
+  // problema que viene a resolver.
+  const restantes = puntuadas.slice(0, PROFUNDIDAD);
+  const vecesPorAutor = new Map();
+  const orden = [];
+  while (restantes.length) {
+    let mejor = 0;
+    let mejorScore = -Infinity;
+    for (let k = 0; k < restantes.length; k += 1) {
+      const ajustado = restantes[k].score - 1.2 * (vecesPorAutor.get(restantes[k].autor) || 0);
+      if (ajustado > mejorScore) {
+        mejorScore = ajustado;
+        mejor = k;
+      }
+    }
+    const [elegida] = restantes.splice(mejor, 1);
+    vecesPorAutor.set(elegida.autor, (vecesPorAutor.get(elegida.autor) || 0) + 1);
+    orden.push(elegida);
+  }
+
+  const paginas = Math.max(1, Math.ceil(orden.length / limite));
+  const p = Math.min(Math.max(0, Math.trunc(pagina)), paginas - 1);
+  // Las reapariciones se resuelven solo para lo que se devuelve: calcularlas
+  // para las 1.145 puntuadas es trabajo tirado.
+  const opciones = orden.slice(p * limite, p * limite + limite).map((c) => ({
+    ...fraseDeIndice(c.indice),
+    audiencia,
+    porQue: c.porQue,
+    repeticiones: repeticionesCercanas(fecha, c.indice),
+    aparicionesEnElAnio: aparicionesDeFrase(c.indice).length,
+  }));
+
+  return { opciones, pagina: p, hayMas: (p + 1) * limite < orden.length, elegibles: puntuadas.length };
 }
 
 // ─── Vigencia del corpus ─────────────────────────────────────────────────────
@@ -397,6 +733,37 @@ export function estadoDeVigencia(fecha = hoyEnCostaRica()) {
   };
 }
 
+/**
+ * Cuánto material vivo queda.
+ *
+ * Con la prohibición de repetir, el corpus dejó de ser un calendario y pasó a
+ * ser un stock que se consume: cada elección quema una frase para siempre. Ocho
+ * audiencias por día son ocho frases por día, así que el corpus alcanza para
+ * `disponibles / 8` días de publicación, sin importar que el calendario cubra
+ * 365. Es la aritmética que el panel tiene que decir a la cara.
+ */
+export function estadoDeStock({ usadas = 0, fecha = PRIMER_DIA, audiencias = AUDIENCIAS.length } = {}) {
+  const total = totalFrases();
+  const disponibles = Math.max(0, total - usadas);
+  const porDia = Math.max(1, audiencias);
+  const diasQueAlcanza = Math.floor(disponibles / porDia);
+  const diasHastaElFinal = Math.max(0, diasEntre(fecha, ULTIMO_DIA) + 1);
+
+  return {
+    total,
+    usadas,
+    disponibles,
+    porDia,
+    diasQueAlcanza,
+    diasHastaElFinal,
+    alcanzaHasta:
+      diasQueAlcanza >= diasHastaElFinal ? ULTIMO_DIA : sumar(fecha, Math.max(0, diasQueAlcanza - 1)),
+    suficiente: diasQueAlcanza >= diasHastaElFinal,
+    // Cuántas frases habría que producir para llegar al final de la ventana.
+    faltan: Math.max(0, diasHastaElFinal * porDia - disponibles),
+  };
+}
+
 /** Vocabulario del corpus, para los filtros de la página de control. */
 export function facetasDelCorpus() {
   const temas = new Set();
@@ -411,5 +778,6 @@ export function facetasDelCorpus() {
     temas: [...temas].sort(),
     categorias: [...categorias].sort(),
     autores: [...autores].sort(),
+    total: corpus.frases.length,
   };
 }

@@ -1653,11 +1653,15 @@ model Caso {
   visadoAt    DateTime?
   visadoNota  String?   @db.Text
 
-  /// cerradoAt + 10 años (CPPCR, arts. 21 y 22). Nada se depura antes.
+  /// cerradoAt + 10 años.
+  ///
+  /// Es una decisión comercial de conservación del registro administrativo, no
+  /// la custodia del expediente: esa es del profesional colegiado y ocurre fuera
+  /// de esta base. Se eligió el mismo plazo para que ambos rastros duren igual.
   conservarHasta DateTime?
 
   /// Cuando alguien retoma, no se reabre el caso cerrado: se abre uno nuevo que
-  /// apunta al anterior. Un expediente cerrado deja de moverse.
+  /// apunta al anterior. Un registro cerrado deja de moverse.
   casoAnteriorId String? @unique
   casoAnterior   Caso?   @relation("CasoRetomado", fields: [casoAnteriorId], references: [id], onDelete: SetNull)
   casoSiguiente  Caso?   @relation("CasoRetomado")
@@ -1676,13 +1680,16 @@ model Caso {
   @@index([estado])
 }
 
-/// Adenda a un caso. Append-only: corrige o amplía sin borrar lo anterior.
+/// Observaciones de la dirección clínica cuando devuelve un cierre.
+///
+/// Append-only. Es texto administrativo entre la dirección y el profesional
+/// —qué falta para poder visar—, no contenido sobre la persona atendida.
 model CasoNota {
   id     String @id @default(cuid())
   casoId String
   caso   Caso   @relation(fields: [casoId], references: [id], onDelete: Restrict)
 
-  /// ADENDA | OBSERVACION_DIRECCION
+  /// OBSERVACION_DIRECCION
   tipo  String @db.VarChar(24)
   texto String @db.Text
 
@@ -1694,18 +1701,19 @@ model CasoNota {
   @@index([casoId, createdAt])
 }
 
-/// Bitácora del caso, incluidos los accesos de la dirección clínica.
+/// Bitácora del registro administrativo, incluidas las lecturas de la dirección
+/// clínica.
 ///
-/// El registro de lectura es la contrapartida de lo que el acuerdo le promete al
-/// paciente: que nadie más que su profesional y la dirección clínica accede a lo
-/// que se escribe, y que cada acceso queda anotado.
+/// Se anota quién abrió qué y cuándo aunque lo que haya acá sean categorías y
+/// fechas: es el hábito que hace que el día que se agregue algo más sensible ya
+/// exista el rastro.
 model CasoEvento {
   id     String @id @default(cuid())
   casoId String
   caso   Caso   @relation(fields: [casoId], references: [id], onDelete: Restrict)
 
   /// APERTURA | CIERRE_PROPUESTO | VISADO | VISADO_DEVUELTO | REAPERTURA |
-  /// ADENDA | LECTURA_DIRECCION_CLINICA | COPIA_SOLICITADA
+  /// LECTURA_DIRECCION_CLINICA | COPIA_SOLICITADA
   tipo   String  @db.VarChar(32)
   detalle String? @db.Text
 

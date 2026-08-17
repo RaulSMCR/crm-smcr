@@ -1,18 +1,17 @@
 // src/lib/casos.js
-// El caso: un proceso de atención entre un paciente y un profesional.
+// El registro administrativo de un proceso de atención.
 //
-// Se abre solo, con la primera cita, y se cierra con alta o con baja. El cierre
-// no queda en firme hasta que la dirección clínica lo visa, y eso está declarado
-// en el acuerdo que el paciente acepta antes de empezar: el Código de Ética y
-// Deontológico del CPPCR admite compartir con autorización expresa de la persona
-// usuaria (art. 33) y exige que el consentimiento informado advierta los límites
-// del secreto profesional. Sin ese aviso previo, esta supervisión no sería
-// legítima; por eso el texto de /terminos y este módulo se sostienen mutuamente.
+// Acá no hay expediente clínico y no debe haberlo. El expediente le pertenece a
+// la persona y a su profesional, y conservarlo diez años es obligación del
+// profesional colegiado (CPPCR, arts. 21 y 22). La plataforma se ocupa de la
+// parte administrativa: cuándo empezó un proceso, cuándo terminó y con qué
+// categoría.
 //
-// Dos reglas que no se negocian:
-//
-//   Una nota de cierre visada no se edita. Se corrige con una adenda fechada.
-//   Un expediente no se borra antes de diez años de concluido el servicio.
+// El proceso se abre solo, con la primera cita, y se cierra con alta o con baja.
+// El cierre pasa por la dirección clínica antes de quedar en firme, pero eso es
+// un control del negocio —protege a la empresa y al profesional de un cierre mal
+// documentado—, no supervisión de la práctica: con quién y cada cuánto supervisa
+// lo decide cada profesional.
 //
 // Las reglas puras viven en lib/casos-policy, para que las puedan usar los
 // componentes cliente sin arrastrar Prisma al navegador. Se reexportan acá
@@ -40,10 +39,10 @@ export {
  * tiene que abrir nada a mano. Es idempotente y nunca lanza: si falla, la cita
  * igual tiene que quedar reservada.
  *
- * Si había un caso cerrado, el nuevo lo apunta como anterior. Un expediente
+ * Si había un caso cerrado, el nuevo lo apunta como anterior. Un registro
  * cerrado no se reabre: se retoma con uno nuevo, encadenado al viejo.
  */
-export async function abrirCasoSiNoExiste({ patientId, professionalId, motivoConsulta = null }) {
+export async function abrirCasoSiNoExiste({ patientId, professionalId }) {
   try {
     const pid = String(patientId || "");
     const proId = String(professionalId || "");
@@ -83,7 +82,6 @@ export async function abrirCasoSiNoExiste({ patientId, professionalId, motivoCon
         professionalId: proId,
         pacienteNombre: String(paciente.name || "").slice(0, 120),
         pacienteCedula: paciente.identification || null,
-        motivoConsulta,
         estado: ESTADOS.ABIERTO,
         casoAnteriorId: anterior?.id || null,
         eventos: {

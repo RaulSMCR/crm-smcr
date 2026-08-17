@@ -9,9 +9,9 @@
 // logro que es: es de las pocas veces que un sistema puede devolverle a alguien
 // una buena noticia sobre sí mismo.
 //
-// El derecho a leer el expediente completo existe y está acá (Ley N.º 8239),
-// pero pasa por pedirlo: la entrega de un expediente clínico es un acto
-// profesional que alguien acompaña, no una descarga.
+// El derecho a pedir el expediente existe y está acá (Ley N.º 8239), pero la
+// plataforma no lo tiene: el expediente es de la persona y de su profesional,
+// que es su custodio. El botón le hace llegar la solicitud a él.
 
 import { useState, useTransition } from "react";
 import { solicitarCopiaExpediente } from "@/actions/caso-actions";
@@ -74,7 +74,7 @@ function Proceso({ proceso }) {
       <div className="mt-3">
         {pedido ? (
           <p className="text-sm font-medium text-slate-700">
-            Registramos tu solicitud. La dirección clínica coordina la entrega con tu profesional.
+            Le hicimos llegar tu solicitud a tu profesional, que es quien conserva tu expediente.
           </p>
         ) : (
           <button
@@ -83,7 +83,7 @@ function Proceso({ proceso }) {
             disabled={isPending}
             className="text-sm font-semibold text-brand-700 underline hover:text-brand-900 disabled:opacity-60"
           >
-            {isPending ? "Enviando…" : "Solicitar copia de mi expediente"}
+            {isPending ? "Enviando…" : "Pedirle copia de mi expediente"}
           </button>
         )}
         {error ? <p className="mt-1 text-sm text-accent-800">{error}</p> : null}
@@ -99,8 +99,8 @@ export default function MisProcesos({ procesos = [] }) {
     <section className="rounded-2xl border border-slate-200 bg-white p-6">
       <h2 className="text-xl font-bold text-slate-900">Tus procesos</h2>
       <p className="mt-1 text-sm text-slate-600">
-        Cada profesional con el que trabajás lleva un proceso propio. Tenés derecho a acceder a tu
-        expediente y a pedir una copia cuando quieras.
+        Cada profesional con el que trabajás lleva un proceso propio. Tu expediente lo conserva
+        ese profesional, y tenés derecho a pedirle una copia cuando quieras.
       </p>
 
       <ul className="mt-4 space-y-3">

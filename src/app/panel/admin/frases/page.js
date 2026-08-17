@@ -11,6 +11,7 @@ import {
   VERSION_CORPUS,
   diaDeFrases,
   diasDeAltaExposicion,
+  estadoDeStock,
   estadoDeVigencia,
   existeDia,
   facetasDelCorpus,
@@ -18,15 +19,14 @@ import {
   fechaVigente,
   resumenRango,
   sesionDe,
-  totalFrases,
   totalFuentes,
 } from "@/lib/frases";
 import {
   conteoPorFecha,
+  frasesUsadas,
   historialDeSelecciones,
   listaDeVerificacion,
   seleccionesDelDia,
-  seleccionesEnRango,
   verificacionDeFuentes,
 } from "@/lib/frases-queries";
 
@@ -72,9 +72,21 @@ export default async function AdminPhrasesPage({ searchParams }) {
       : null;
 
   const vigencia = estadoDeVigencia(hoy);
-  const dia = diaDeFrases(fecha);
   const seleccionesPorAudiencia = await seleccionesDelDia(fecha);
   const decididasDelDia = seleccionesPorAudiencia.size;
+
+  // Con la prohibición de repetir, las candidatas del día no salen fijas del
+  // corpus: las que ya se publicaron alguna vez se reemplazan al vuelo por la
+  // mejor viva para esa audiencia. Por eso el stock se consulta antes de armar
+  // el día.
+  const { usadas } = await frasesUsadas();
+  const elegidasDelDia = Object.fromEntries(
+    [...seleccionesPorAudiencia.entries()]
+      .filter(([, pick]) => pick.status !== "SKIPPED" && pick.phraseIndex >= 0)
+      .map(([aud, pick]) => [aud, pick.phraseIndex]),
+  );
+  const dia = diaDeFrases(fecha, { usadas, elegidas: elegidasDelDia });
+  const stock = estadoDeStock({ usadas: usadas.size, fecha: hoy });
 
   // Rejilla del mes de la fecha en foco.
   const mes = fecha.slice(0, 7);
@@ -157,7 +169,16 @@ export default async function AdminPhrasesPage({ searchParams }) {
 
   const metricas = [
     { label: "Días completos", value: `${diasCompletos}/${todos.length}`, help: "Las 8 audiencias decididas" },
-    { label: "Frases del corpus", value: totalFrases(), help: `${totalFuentes()} pares autor–obra` },
+    {
+      label: "Stock vivo",
+      value: `${stock.disponibles}/${stock.total}`,
+      help: `${stock.usadas} quemadas · ${totalFuentes()} pares autor–obra`,
+    },
+    {
+      label: "Alcanza para",
+      value: `${stock.diasQueAlcanza} días`,
+      help: `A ${stock.porDia} audiencias por día, hasta el ${stock.alcanzaHasta}`,
+    },
     { label: "Fuentes verificadas", value: `${verificadas}/${total}`, help: "Candado de la placa de redes" },
     { label: "Alta exposición", value: altaSinDecidir.length, help: "Días de calor 9-10 sin completar" },
   ];
@@ -176,7 +197,7 @@ export default async function AdminPhrasesPage({ searchParams }) {
           </p>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {metricas.map((m) => (
             <div key={m.label} className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 shadow-card">
               <div className="text-xs font-bold uppercase tracking-[0.16em] text-neutral-500">
@@ -187,6 +208,26 @@ export default async function AdminPhrasesPage({ searchParams }) {
             </div>
           ))}
         </div>
+
+        {!stock.suficiente ? (
+          <section className="rounded-lg border border-accent-500 bg-accent-50 p-5">
+            <h2 className="text-sm font-bold uppercase tracking-[0.14em] text-accent-950">
+              El stock no llega al final de la ventana
+            </h2>
+            <p className="mt-1 text-sm text-accent-950">
+              Ninguna frase se repite: cada elección quema una para siempre. Quedan{" "}
+              <strong>{stock.disponibles}</strong> vivas de {stock.total} y se gastan{" "}
+              {stock.porDia} por día —una por audiencia—, así que alcanzan para{" "}
+              <strong>{stock.diasQueAlcanza} días</strong> de publicación: hasta el{" "}
+              {stock.alcanzaHasta}, no hasta el {ULTIMO_DIA}. Para cubrir
+              la ventana completa harían falta <strong>{stock.faltan}</strong> frases más.
+            </p>
+            <p className="mt-2 text-xs text-accent-950">
+              Las salidas son dos, y las dos son decisión tuya: producir más corpus, o publicar a
+              menos audiencias por día. Con 4 audiencias diarias el mismo stock rinde el doble.
+            </p>
+          </section>
+        ) : null}
 
         {vigencia.requiereRenovacion ? (
           <section className="rounded-lg border border-accent-500 bg-accent-50 p-5">
@@ -298,12 +339,19 @@ export default async function AdminPhrasesPage({ searchParams }) {
         )}
 
         {dia ? (
-          <PhraseSubstitute
-            fecha={fecha}
-            facetas={facetas}
-            selecciones={selecciones}
-            audienciaInicial={audienciaFoco}
-          />
+          // La `key` fuerza el remontaje al cambiar de día o de audiencia en la
+          // URL: sin ella el componente sobrevive a la navegación suave y se
+          // queda con la audiencia del render anterior, así que el enlace
+          // «buscar a mano» parecía no hacer nada.
+          <div id="sustituir" className="scroll-mt-6">
+            <PhraseSubstitute
+              key={`${fecha}:${audienciaFoco || ""}`}
+              fecha={fecha}
+              facetas={facetas}
+              selecciones={selecciones}
+              audienciaInicial={audienciaFoco}
+            />
+          </div>
         ) : null}
 
         <PhraseSourceChecklist lista={lista} total={total} verificadas={verificadas} />

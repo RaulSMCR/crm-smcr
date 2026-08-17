@@ -122,25 +122,26 @@ export async function proponerCierre(casoId, datos) {
 
     const propuesta = {
       tipoCierre: toStr(datos?.tipoCierre),
-      evolucion: toStr(datos?.evolucion),
-      estadoActual: toStr(datos?.estadoActual),
-      recomendaciones: toStr(datos?.recomendaciones),
-      referencia: toStr(datos?.referencia),
+      personaInformada: Boolean(datos?.personaInformada),
+      registradoEnExpediente: Boolean(datos?.registradoEnExpediente),
+      derivadoA: toStr(datos?.derivadoA).slice(0, 200),
     };
 
     const validacion = validarCierre({ ...propuesta, contactosDeReenganche });
     if (!validacion.ok) return { error: validacion.error };
 
+    // Se persiste exactamente lo validado y nada más. Si algún día llega un
+    // campo de texto en `datos`, acá muere: este objeto es la lista completa de
+    // lo que la plataforma guarda de un cierre.
     await prisma.caso.update({
       where: { id },
       data: {
         estado: ESTADOS.PENDIENTE_VISADO,
         tipoCierre: propuesta.tipoCierre,
         resultado: validacion.resultado,
-        cierreEvolucion: propuesta.evolucion,
-        cierreEstadoActual: propuesta.estadoActual,
-        cierreRecomendaciones: propuesta.recomendaciones,
-        cierreReferencia: propuesta.referencia || null,
+        personaInformada: propuesta.personaInformada,
+        registradoEnExpediente: propuesta.registradoEnExpediente,
+        derivadoA: propuesta.derivadoA || null,
         cierrePropuestoAt: new Date(),
         // Se limpia el visado anterior por si vuelve de una devolución.
         visadoPorId: null,
@@ -163,43 +164,13 @@ export async function proponerCierre(casoId, datos) {
   }
 }
 
-/**
- * Adenda a un caso. Es la única forma de corregir una nota ya visada.
- *
- * No se edita lo escrito: se agrega. Un expediente cuya historia se puede
- * reescribir no es un expediente.
- */
-export async function agregarAdenda(casoId, texto) {
-  try {
-    const professionalId = await requireProfessionalProfileId();
-    const id = toStr(casoId);
-    const contenido = toStr(texto);
-
-    if (!id) return { error: "Caso inválido." };
-    if (contenido.length < 20) return { error: "La adenda necesita algo más de contenido." };
-
-    const caso = await prisma.caso.findUnique({
-      where: { id },
-      select: { professionalId: true },
-    });
-    if (!caso) return { error: "Caso no encontrado." };
-    if (caso.professionalId !== professionalId) return { error: "Este caso no es tuyo." };
-
-    const session = await getSession();
-    const autorId = session?.sub ? String(session.sub) : null;
-
-    await prisma.casoNota.create({
-      data: { casoId: id, tipo: "ADENDA", texto: contenido, autorId },
-    });
-    await anotarEvento(id, EVENTOS.ADENDA, { actorId: autorId });
-
-    revalidarCasos();
-    return { success: true };
-  } catch (error) {
-    console.error("agregarAdenda error:", error);
-    return { error: "No se pudo guardar la adenda." };
-  }
-}
+// No existe una acción para agregar notas al caso, y es a propósito.
+//
+// La versión anterior tenía adendas para corregir la nota de cierre. Ya no hay
+// nota de cierre que corregir: lo que se guarda son categorías y atestaciones.
+// Si un cierre quedó mal, la dirección clínica lo devuelve y el profesional lo
+// vuelve a proponer. Un campo de texto libre en el caso terminaría, tarde o
+// temprano, con contenido clínico en una base que no corresponde.
 
 // ---------------------------------------------------------------------------
 // Dirección clínica
@@ -370,9 +341,10 @@ export async function devolverCierre(casoId, observacion) {
 /**
  * Pide copia de su expediente (Ley N.º 8239).
  *
- * No devuelve un archivo: registra la solicitud y avisa a la administración. La
- * entrega de un expediente clínico es un acto profesional, no una descarga, y
- * quien la hace tiene que poder acompañar lo que ahí se lee.
+ * La plataforma no lo tiene y no puede entregarlo: el expediente es de la
+ * persona y de su profesional, que es su custodio. Lo único que se hace acá es
+ * hacerle llegar la solicitud a él y dejar constancia de que se pidió, con copia
+ * a la administración para poder darle seguimiento si no responde.
  */
 export async function solicitarCopiaExpediente(casoId) {
   try {
@@ -388,29 +360,34 @@ export async function solicitarCopiaExpediente(casoId) {
         id: true,
         patientId: true,
         pacienteNombre: true,
-        professional: { select: { user: { select: { name: true } } } },
+        professional: { select: { user: { select: { name: true, email: true } } } },
       },
     });
     if (!caso || caso.patientId !== patientId) return { error: "Caso no encontrado." };
 
     await anotarEvento(id, EVENTOS.COPIA_SOLICITADA, { actorId: patientId });
 
-    const to = process.env.ADMIN_ALERT_EMAIL || process.env.EMAIL_FROM;
-    if (to && process.env.RESEND_API_KEY) {
+    // El destinatario es el profesional, que es quien tiene el expediente. La
+    // administración va en copia solo para poder insistir si no responde.
+    const profesional = caso.professional?.user;
+    const destinatarios = [profesional?.email, process.env.ADMIN_ALERT_EMAIL].filter(Boolean);
+
+    if (destinatarios.length && process.env.RESEND_API_KEY) {
       const { resend } = await import("@/lib/resend");
       await resend.emails
         .send({
           from: process.env.EMAIL_FROM || "Salud Mental Costa Rica <onboarding@resend.dev>",
-          to,
+          to: destinatarios,
           subject: `📄 ${caso.pacienteNombre} pide copia de su expediente`,
           html: `
           <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#0f172a;">
             <h2 style="color:#2b7073;">Solicitud de copia de expediente</h2>
-            <p><strong>${caso.pacienteNombre}</strong> solicitó copia de su expediente del proceso
-               con ${caso.professional?.user?.name || "su profesional"}.</p>
-            <p>Es un derecho de la persona usuaria (Ley N.º 8239). La entrega la coordina la
-               dirección clínica junto al profesional tratante.</p>
-            <p style="font-size:13px;color:#475569;">Caso ${caso.id}</p>
+            <p><strong>${caso.pacienteNombre}</strong> solicitó copia del expediente de su proceso
+               con ${profesional?.name || "su profesional"}.</p>
+            <p>Es un derecho de la persona usuaria (Ley N.º 8239) y la entrega le corresponde al
+               profesional tratante, que es el custodio del expediente. La plataforma no lo
+               conserva: solo hace llegar la solicitud y deja constancia de la fecha.</p>
+            <p style="font-size:13px;color:#475569;">Registro ${caso.id}</p>
           </div>`,
         })
         .catch((e) => console.error("[caso] No se pudo avisar la solicitud de copia:", e));

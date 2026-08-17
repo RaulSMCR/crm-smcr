@@ -49,7 +49,7 @@ El tratamiento de sus Datos Sensibles requiere un nivel de consentimiento superi
 
 Mecanismo de Consentimiento: Al crear su perfil y, de manera particular, al completar el campo "Motivo de Consulta" o al utilizar el módulo de agendamiento, el Usuario deberá marcar una casilla de forma inequívoca que indique:
 
-"He leído y acepto el Acuerdo de Atención y la Política de Privacidad, y otorgo mi consentimiento informado y expreso para el tratamiento de mis datos personales de salud (Datos Sensibles) por parte de Salud Mental Costa Rica, con el fin de gestionar mi conexión con el profesional de la salud mental y el seguimiento clínico de mi proceso."
+"He leído y acepto el Acuerdo de Atención y la Política de Privacidad, y otorgo mi consentimiento informado y expreso para el tratamiento de mis datos personales de salud (Datos Sensibles) por parte de Salud Mental Costa Rica, con el fin de gestionar mi conexión con el profesional de la salud mental y la administración de mis citas, pagos y fechas de mi proceso."
 
 Revocación: El Usuario tiene el derecho de revocar este consentimiento en cualquier momento, lo cual puede conllevar la imposibilidad de seguir utilizando la función de agendamiento, sin afectar la legalidad del tratamiento realizado previamente a la revocación.
 
@@ -58,7 +58,7 @@ La Empresa solo comunicará sus datos en los siguientes casos:
 
 A Profesionales: Los datos de contacto, identificación y el Motivo de Consulta son transferidos al Profesional con el que el Usuario decide agendar la cita. Esta transferencia es esencial para la prestación del servicio que usted solicita.
 
-A la Dirección Clínica: Las notas de apertura y de cierre del proceso de atención son accesibles para la Dirección Clínica de la Empresa, profesional colegiado activo, con el fin exclusivo de supervisar las altas y las bajas. Este acceso constituye un límite del secreto profesional declarado de forma previa y expresa, conforme al Código de Ética y Deontológico del Colegio de Profesionales en Psicología de Costa Rica, y queda registrado en la bitácora de cada expediente.
+Nota sobre el expediente clínico: la Empresa NO es custodia del expediente clínico de la persona usuaria. Dicho expediente pertenece a la persona usuaria y al Profesional tratante, y su conservación y reserva son obligación de este último conforme a la normativa de su colegio profesional. La Empresa administra únicamente el registro operativo del proceso (fecha de apertura, fecha de cierre y categoría del cierre), sin contenido clínico. El cierre de dicho registro es revisado por la Dirección Clínica de la Empresa como control interno de calidad documental, sin acceso al expediente clínico.
 
 Por Obligación Legal: Cuando sea requerido por orden judicial o administrativa de la PRODHAB u otra autoridad competente.
 
@@ -87,7 +87,7 @@ Para ejercer cualquiera de estos derechos, el Usuario debe enviar una solicitud 
 7. Plazo de Conservación de los Datos
 Sus datos personales serán conservados por el tiempo necesario para cumplir con los fines descritos en esta política y para cumplir con cualquier obligación legal (por ejemplo, fiscales o de auditoría). Una vez que los datos dejen de ser útiles, serán eliminados o anonimizados de forma segura.
 
-Excepción — expedientes clínicos: los registros de apertura y cierre del proceso de atención se conservan por un mínimo de diez (10) años a partir de la conclusión del servicio, conforme a los artículos 21 y 22 del Código de Ética y Deontológico del Colegio de Profesionales en Psicología de Costa Rica. Durante ese plazo no pueden eliminarse, ni siquiera a solicitud de la persona usuaria; sí puede solicitarse copia de ellos en cualquier momento, conforme a la Ley N.º 8239.`;
+Registros administrativos de atención: los datos de apertura y cierre de cada proceso (fechas y categoría, sin contenido clínico) se conservan por diez (10) años a partir del cierre, por decisión de la Empresa y para efectos de respaldo contable y de auditoría. La conservación del expediente clínico corre por cuenta del Profesional tratante, conforme a la normativa de su colegio profesional. La persona usuaria puede solicitar copia de su expediente al Profesional en cualquier momento, conforme a la Ley N.º 8239.`;
 
 export default function Terminos() {
   return (
@@ -138,8 +138,8 @@ export default function Terminos() {
               4.
             </span>
             <span>
-              Tu proceso lo lleva un profesional dentro de un equipo con dirección clínica, que
-              revisa las altas y las bajas.
+              Tu expediente clínico lo conserva tu profesional, no la plataforma. Acá se
+              administran tus citas, tus pagos y las fechas de tu proceso.
             </span>
           </li>
         </ul>
@@ -193,34 +193,33 @@ export default function Terminos() {
         </p>
       </section>
 
-      {/* Este bloque es el que hace legítimo el acceso de la dirección clínica al
-          cierre de los casos: el Código de Ética del CPPCR admite compartir con
-          autorización expresa de la persona usuaria (art. 33), y exige que el
-          consentimiento informado advierta los límites del secreto profesional.
-          Por eso va en el cuerpo, con este tamaño, y no en una nota al pie. */}
-      <section id="direccion-clinica" className="mt-12 scroll-mt-24">
-        <h2 className="text-2xl font-bold text-brand-700">Tu proceso no lo lleva una sola persona</h2>
+      {/* Este bloque dice qué guarda la plataforma y qué no. El expediente le
+          pertenece a la persona y a su profesional, y su custodia es obligación
+          de él (CPPCR, arts. 21 y 22). Prometer acá que "la dirección clínica
+          revisa tu proceso" sería prometer algo que no nos toca. */}
+      <section id="expediente" className="mt-12 scroll-mt-24">
+        <h2 className="text-2xl font-bold text-brand-700">Tu expediente es tuyo y de tu profesional</h2>
         <p className="mt-3 leading-relaxed">
-          El profesional que te atiende trabaja dentro de un equipo con <b>dirección clínica</b>, a
-          cargo de un profesional colegiado activo. Cuando tu proceso se cierre —porque cumpliste
-          tus objetivos, porque el camino cambió o porque conviene que sigas con otra persona— esa
-          decisión no la toma tu profesional en soledad: la revisa junto a la dirección clínica
-          antes de quedar en firme.
+          Lo que conversás en sesión, lo que tu profesional anota y todo el contenido de tu proceso
+          forman tu <b>expediente clínico</b>. Ese expediente le pertenece a vos y a tu profesional,
+          y es él quien lo custodia, con la reserva y los plazos que le exige su colegio. La
+          plataforma <b>no lo tiene, no lo lee y no lo guarda</b>.
         </p>
         <p className="mt-3 leading-relaxed">
-          Eso significa que la dirección clínica accede a las notas de apertura y de{" "}
-          <b>cierre</b> de tu proceso. No a lo que conversás sesión a sesión. Es una garantía de que
-          nadie cierra un proceso a la ligera, y es un límite del secreto profesional que preferimos
-          decirte de frente, acá, antes de que aceptes.
+          Lo que sí administramos nosotros es la parte operativa: cuándo empezó tu proceso, cuándo
+          terminó y bajo qué categoría —alta, derivación, cierre a tu pedido—, además de tus citas y
+          tus pagos. Nada de eso incluye lo que hablás en consulta.
         </p>
         <p className="mt-3 leading-relaxed">
-          Cada vez que la dirección clínica abre tu expediente queda registrado quién fue y cuándo.
-          Nadie más lo ve: ni el personal administrativo, ni otros profesionales de la red.
+          Cuando un proceso se cierra, ese registro administrativo lo revisa la dirección clínica
+          antes de quedar firme. Es un control interno para que ningún cierre quede mal documentado:
+          protege a tu profesional y nos protege a nosotros. No es una revisión de tu tratamiento, y
+          no da acceso a tu expediente.
         </p>
         <p className="mt-3 leading-relaxed">
-          Tenés derecho a acceder a tu expediente y a pedir una copia cuando querás
-          (Ley N.º 8239). Podés solicitarla desde tu panel. Y por obligación profesional, tu
-          expediente se conserva al menos <b>diez años</b> después de que tu proceso concluya.
+          Tenés derecho a pedir copia de tu expediente cuando querás (Ley N.º 8239). Podés hacerlo
+          desde tu panel: la solicitud le llega directamente a tu profesional, que es quien puede
+          entregártela.
         </p>
       </section>
 

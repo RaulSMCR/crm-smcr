@@ -5,7 +5,14 @@ import { useState, useTransition } from "react";
 // Desde frases-audiencia y no desde frases: este último importa los 300 KB del
 // corpus y los arrastraría al bundle del navegador.
 import { AUDIENCIAS } from "@/lib/frases-audiencia";
-import { elegirFraseDelDia, omitirDia, reabrirDia } from "@/actions/frases-actions";
+import {
+  elegirFraseDelDia,
+  omitirDia,
+  otrasOpcionesParaAudiencia,
+  reabrirDia,
+} from "@/actions/frases-actions";
+
+const POR_TANDA = 6;
 
 // Escala de calor 0–10. Un solo tono, como el mapa térmico: globals.css aplasta
 // con !important las variantes de bg-red-* y bg-green-*, así que una rampa
@@ -70,7 +77,32 @@ function ProgresoAudiencias({ selecciones }) {
   );
 }
 
-function Candidata({ candidata, elegida, verificada, onElegir, deshabilitado }) {
+/**
+ * Cómo se lee una reaparición: la misma frase saliendo otro día cercano, en
+ * cualquier audiencia. Es la monotonía que se percibe al revisar día por día y
+ * que hasta ahora el panel no mostraba.
+ */
+function textoRepeticion(r) {
+  if (r.distancia === 0) return `hoy mismo en ${r.audiencia}`;
+  const dias = Math.abs(r.distancia);
+  const cuantos = `${dias} ${dias === 1 ? "día" : "días"}`;
+  return r.distancia > 0 ? `en ${cuantos} en ${r.audiencia}` : `hace ${cuantos} en ${r.audiencia}`;
+}
+
+function AvisoDeRepeticion({ repeticiones }) {
+  if (!repeticiones?.length) return null;
+  return (
+    <span
+      className="rounded-full border border-accent-400 bg-accent-50 px-2 py-0.5 font-semibold text-accent-950"
+      title={repeticiones.map((r) => `${r.fecha} · ${r.audiencia}`).join(" · ")}
+    >
+      se repite {textoRepeticion(repeticiones[0])}
+      {repeticiones.length > 1 ? ` (+${repeticiones.length - 1})` : ""}
+    </span>
+  );
+}
+
+function Candidata({ candidata, elegida, verificada, onElegir, deshabilitado, alternativa = false }) {
   return (
     <label
       className={`block cursor-pointer rounded-lg border px-4 py-3 transition ${
@@ -94,11 +126,33 @@ function Candidata({ candidata, elegida, verificada, onElegir, deshabilitado }) 
               {candidata.audiencia}
             </span>
             <span className="rounded-full border border-neutral-300 px-2 py-0.5 text-[10px] font-semibold text-neutral-600">
-              {candidata.rol}
+              {alternativa ? "traída del corpus" : candidata.rol}
             </span>
             <span className="text-[10px] font-semibold text-neutral-500">
               {candidata.categoria} · {candidata.largo} car.
             </span>
+            {candidata.reemplazo ? (
+              <span
+                className="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-bold text-brand-900"
+                title={
+                  candidata.reemplazo.autorOriginal
+                    ? `La que el corpus tenía acá (${candidata.reemplazo.autorOriginal}) ya se publicó. Ninguna frase se repite, así que entró esta en su lugar.`
+                    : "La que el corpus tenía acá ya se publicó; entró esta en su lugar."
+                }
+              >
+                recalculada
+              </span>
+            ) : null}
+            {(alternativa ? candidata.porQue : candidata.reemplazo?.porQue)
+              ? (alternativa ? candidata.porQue : candidata.reemplazo.porQue).map((motivo) => (
+                  <span
+                    key={motivo}
+                    className="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold text-brand-900"
+                  >
+                    {motivo}
+                  </span>
+                ))
+              : null}
             {candidata.largo > 175 ? (
               <span className="rounded-full bg-accent-100 px-2 py-0.5 text-[10px] font-semibold text-accent-950">
                 larga para historias
@@ -123,7 +177,10 @@ function Candidata({ candidata, elegida, verificada, onElegir, deshabilitado }) 
                 fuente sin verificar
               </span>
             )}
-            <span className="text-neutral-500">{candidata.audienciaLabel}</span>
+            <AvisoDeRepeticion repeticiones={candidata.repeticiones} />
+            {candidata.audienciaLabel ? (
+              <span className="text-neutral-500">{candidata.audienciaLabel}</span>
+            ) : null}
           </div>
         </div>
       </div>
@@ -135,6 +192,51 @@ function BloqueAudiencia({ fecha, audiencia, candidatas, seleccion, verificacion
   const [abierto, setAbierto] = useState(!seleccion);
   const indiceElegido = seleccion && seleccion.status !== "SKIPPED" ? seleccion.phraseIndex : null;
   const omitida = seleccion?.status === "SKIPPED";
+
+  // Alternativas traídas del corpus para ESTA audiencia. `null` = se están
+  // mostrando las dos que asignó el corpus. `vistas` acumula lo ya descartado
+  // para que cada tanda traiga material nuevo y no dé vueltas sobre lo mismo.
+  const [alternativas, setAlternativas] = useState(null);
+  const [vistas, setVistas] = useState([]);
+  const [agotado, setAgotado] = useState(false);
+  const [cargando, setCargando] = useState(false);
+  const [errorAlt, setErrorAlt] = useState(null);
+
+  // Siempre se pide la primera página: lo ya descartado va como exclusión, así
+  // que la tanda siguiente es la que sigue en el orden, sin saltarse nada.
+  async function traerOtras(siguiente) {
+    setCargando(true);
+    setErrorAlt(null);
+    const descartadas = siguiente ? [...vistas, ...(alternativas || []).map((a) => a.indice)] : [];
+    const r = await otrasOpcionesParaAudiencia({
+      fecha,
+      audiencia: audiencia.id,
+      vistas: descartadas,
+      limite: POR_TANDA,
+    });
+    setCargando(false);
+    if (r?.error) {
+      setErrorAlt(r.error);
+      return;
+    }
+    if (!r.opciones?.length) {
+      setErrorAlt("Ya viste todo lo que el corpus tiene para esta audiencia en este día.");
+      setAgotado(true);
+      return;
+    }
+    setVistas(descartadas);
+    setAlternativas(r.opciones);
+    setAgotado(!r.hayMas);
+  }
+
+  function volverALasDelCorpus() {
+    setAlternativas(null);
+    setVistas([]);
+    setAgotado(false);
+    setErrorAlt(null);
+  }
+
+  const mostradas = alternativas || candidatas;
 
   return (
     <div className="rounded-lg border border-neutral-200 bg-white p-3">
@@ -195,24 +297,76 @@ function BloqueAudiencia({ fecha, audiencia, candidatas, seleccion, verificacion
               </button>
             </div>
           ) : (
-            candidatas.map((candidata) => (
-              <Candidata
-                key={candidata.slot}
-                candidata={candidata}
-                elegida={indiceElegido === candidata.indice}
-                verificada={Boolean(verificaciones[candidata.claveFuente])}
-                deshabilitado={pendiente}
-                onElegir={() => onElegir(candidata)}
-              />
-            ))
+            <>
+              {alternativas ? (
+                <p className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-[11px] text-neutral-700">
+                  Opciones traídas del corpus para {audiencia.id}, escogidas por el tono de la
+                  audiencia y los temas del día, evitando las que ya salen en fechas cercanas y
+                  repartiendo entre autores. Elegir una la guarda como sustitución.
+                  {vistas.length ? ` Ya descartaste ${vistas.length}.` : ""}
+                </p>
+              ) : null}
+              {mostradas.length === 0 ? (
+                <p className="rounded-lg border border-accent-400 bg-accent-50 px-3 py-2 text-[11px] font-semibold text-accent-950">
+                  El corpus se quedó sin frases vivas para esta audiencia: todas las que le calzan
+                  ya se publicaron y ninguna se repite. Hace falta material nuevo.
+                </p>
+              ) : null}
+              {mostradas.map((candidata) => (
+                <Candidata
+                  key={`${candidata.slot || "alt"}-${candidata.indice}`}
+                  candidata={candidata}
+                  alternativa={Boolean(alternativas)}
+                  elegida={indiceElegido === candidata.indice}
+                  verificada={
+                    alternativas
+                      ? Boolean(candidata.verificada)
+                      : Boolean(verificaciones[candidata.claveFuente])
+                  }
+                  deshabilitado={pendiente}
+                  onElegir={() => onElegir(candidata)}
+                />
+              ))}
+            </>
           )}
 
+          {errorAlt ? (
+            <p className="rounded-lg border border-accent-400 bg-accent-50 px-3 py-2 text-[11px] font-semibold text-accent-950">
+              {errorAlt}
+            </p>
+          ) : null}
+
           <div className="flex flex-wrap gap-2">
+            {!omitida ? (
+              <button
+                type="button"
+                onClick={() => traerOtras(Boolean(alternativas))}
+                disabled={cargando || (Boolean(alternativas) && agotado)}
+                className="rounded-lg border border-brand-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-brand-900 hover:border-brand-500 disabled:opacity-50"
+              >
+                {cargando
+                  ? "Buscando…"
+                  : alternativas
+                    ? agotado
+                      ? "No quedan más"
+                      : `Otras ${POR_TANDA} distintas`
+                    : "Sustituir por otras del corpus"}
+              </button>
+            ) : null}
+            {alternativas ? (
+              <button
+                type="button"
+                onClick={volverALasDelCorpus}
+                className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-neutral-700 hover:border-brand-300"
+              >
+                Volver a las 2 del día
+              </button>
+            ) : null}
             <Link
-              href={`/panel/admin/frases?fecha=${fecha}&audiencia=${audiencia.id}`}
+              href={`/panel/admin/frases?fecha=${fecha}&audiencia=${audiencia.id}#sustituir`}
               className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-neutral-800 hover:border-brand-300"
             >
-              Sustituir por otra del corpus
+              Buscar a mano
             </Link>
             {!omitida ? (
               <button
@@ -247,7 +401,10 @@ function DiaPendiente({ dia, verificaciones, compacto }) {
         fecha: dia.fecha,
         indice: candidata.indice,
         audiencia: candidata.audiencia,
+        // Las traídas del corpus no tienen slot del día: se guardan como
+        // sustitución, que es lo que dice el historial.
         slot: candidata.slot,
+        sustituida: !candidata.slot,
       });
       if (r?.error) setError(r.error);
     });
@@ -424,7 +581,9 @@ export default function DailyPhraseReview({ sesion, verificaciones, compacto = f
           </div>
           <p className="mt-1 text-sm text-neutral-700">
             Cada una de las 8 audiencias elige su propia frase. Se trabaja con un día de
-            anticipación; el viernes cubre sábado, domingo y lunes.
+            anticipación; el viernes cubre sábado, domingo y lunes. Ninguna frase se repite: la
+            que elegís queda quemada para siempre y las candidatas de los días siguientes se
+            recalculan solas.
             {sesion.atrasadas > 0
               ? ` Hay ${sesion.atrasadas} ${sesion.atrasadas === 1 ? "día atrasado" : "días atrasados"}.`
               : ""}

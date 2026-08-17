@@ -187,6 +187,88 @@ function generar() {
     process.exit(1);
   }
 
+  // ─── Avisos de repetición ──────────────────────────────────────────────────
+  //
+  // El CRM prohíbe repetir: una frase elegida no se vuelve a ofrecer nunca. Eso
+  // convierte al corpus en un stock que se consume, no en un calendario. Estas
+  // cuentas no invalidan el material —el panel reemplaza al vuelo lo quemado—,
+  // pero dicen de entrada cuánto rinde y dónde aprieta, que es lo que hay que
+  // saber ANTES de producir el ciclo siguiente.
+  const AUDIENCIAS_POR_DIA = 8;
+  const VENTANA_CERCANA = 10;
+
+  const necesarias = dias.length * AUDIENCIAS_POR_DIA;
+  const cobertura = (frases.length / necesarias) * 100;
+
+  // Cada frase, en qué posiciones del año la coloca el corpus.
+  const posiciones = new Map();
+  dias.forEach((dia, i) => {
+    for (const slots of Object.values(dia.a)) {
+      for (const indice of slots) {
+        if (!posiciones.has(indice)) posiciones.set(indice, []);
+        posiciones.get(indice).push(i);
+      }
+    }
+  });
+
+  let reusos = 0;
+  let reusosCercanos = 0;
+  for (const ds of posiciones.values()) {
+    for (let k = 1; k < ds.length; k += 1) {
+      reusos += 1;
+      if (ds[k] - ds[k - 1] <= VENTANA_CERCANA) reusosCercanos += 1;
+    }
+  }
+
+  const usosPorAutor = new Map();
+  for (const dia of dias) {
+    for (const slots of Object.values(dia.a)) {
+      for (const indice of slots) {
+        const autor = fuentes[frases[indice].f].a;
+        usosPorAutor.set(autor, (usosPorAutor.get(autor) || 0) + 1);
+      }
+    }
+  }
+  // La concentración se mide sobre las asignaciones del corpus (16 por día), no
+  // sobre las publicaciones del año (8): son cosas distintas y confundirlas
+  // duplica la cifra.
+  const asignaciones = [...usosPorAutor.values()].reduce((n, v) => n + v, 0);
+  const topAutores = [...usosPorAutor.entries()].sort((a, b) => b[1] - a[1]);
+  const conc10 = (topAutores.slice(0, 10).reduce((n, [, v]) => n + v, 0) / asignaciones) * 100;
+
+  console.log("");
+  console.log("─── repetición ───────────────────────────────────────────────");
+  console.log(
+    `stock        ${frases.length} frases distintas para ${necesarias} publicaciones del año ` +
+      `(${cobertura.toFixed(0)} % de cobertura)`,
+  );
+  console.log(
+    `alcance      con la prohibición de repetir, rinde ${Math.floor(frases.length / AUDIENCIAS_POR_DIA)} días ` +
+      `a ${AUDIENCIAS_POR_DIA} audiencias diarias`,
+  );
+  console.log(
+    `reusos       ${reusos} reapariciones en el calendario · ${reusosCercanos} a ${VENTANA_CERCANA} días o menos`,
+  );
+  console.log(
+    `autores      ${usosPorAutor.size} · los 10 primeros cubren ${conc10.toFixed(0)} % de las ${asignaciones} asignaciones`,
+  );
+
+  if (frases.length < necesarias) {
+    console.log("");
+    console.log(
+      `AVISO: faltan ${necesarias - frases.length} frases para cubrir el año sin repetir ninguna. ` +
+        `El panel va a reemplazar las quemadas mientras haya stock, y se queda mudo cuando se agote.`,
+    );
+  }
+  if (reusosCercanos > 0) {
+    console.log(
+      `AVISO: ${reusosCercanos} reapariciones caen a ${VENTANA_CERCANA} días o menos. ` +
+        `No se publican dos veces —la prohibición lo impide—, pero cada una obliga a un reemplazo ` +
+        `y aleja la propuesta del criterio editorial del corpus.`,
+    );
+  }
+  console.log("");
+
   const corpus = {
     version: `${dias[0].d}_${dias.at(-1).d}`,
     generado: new Date().toISOString().slice(0, 10),

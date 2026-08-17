@@ -4,6 +4,12 @@ import {
   PRIMER_DIA,
   ULTIMO_DIA,
   HORA_DE_CAMBIO,
+  VENTANA_REPETICION,
+  alternativasParaAudiencia,
+  aparicionesDeFrase,
+  estadoDeStock,
+  perfilDeAudiencia,
+  repeticionesCercanas,
   fechaVigente,
   fechaHoy,
   diasAPreparar,
@@ -313,5 +319,311 @@ describe("calor mensual para el mapa térmico", () => {
 
   it("devuelve null fuera de la ventana", () => {
     expect(calorDelMes(2025, 1)).toBeNull();
+  });
+});
+
+describe("repetición visible al revisar", () => {
+  // El corpus reparte 5.840 asignaciones entre ~1.100 frases: cada una sale unas
+  // cinco veces al año y eso no se puede evitar. Lo que sí se puede es avisar
+  // cuándo la reaparición cae tan cerca que se nota al revisar día por día.
+  it("cada candidata trae dónde más sale la misma frase cerca", () => {
+    const dia = diaDeFrases("2026-12-24");
+    for (const c of dia.candidatas) expect(Array.isArray(c.repeticiones)).toBe(true);
+    expect(dia.candidatas.some((c) => c.repeticiones.length)).toBe(true);
+  });
+
+  it("no cuenta su propia casilla como repetición", () => {
+    const dia = diaDeFrases("2026-12-24");
+    for (const c of dia.candidatas) {
+      const propia = c.repeticiones.filter(
+        (r) => r.fecha === dia.fecha && r.audiencia === c.audiencia,
+      );
+      expect(propia).toHaveLength(0);
+    }
+  });
+
+  it("las reapariciones que reporta existen de verdad en el calendario", () => {
+    const dia = diaDeFrases("2026-11-02");
+    for (const c of dia.candidatas) {
+      for (const r of c.repeticiones) {
+        const otro = diaDeFrases(r.fecha);
+        const ahi = otro.candidatas.filter((x) => x.audiencia === r.audiencia);
+        expect(ahi.some((x) => x.indice === c.indice)).toBe(true);
+        expect(Math.abs(r.distancia)).toBeLessThanOrEqual(VENTANA_REPETICION);
+      }
+    }
+  });
+
+  it("la ventana acota qué cuenta como cercano", () => {
+    const c = diaDeFrases("2026-12-24").candidatas.find((x) => x.repeticiones.length);
+    expect(repeticionesCercanas("2026-12-24", c.indice, { audiencia: c.audiencia })).toEqual(
+      c.repeticiones,
+    );
+    // Con ventana 0 solo queda lo del mismo día en otras audiencias.
+    const mismoDia = repeticionesCercanas("2026-12-24", c.indice, {
+      audiencia: c.audiencia,
+      ventana: 0,
+    });
+    expect(mismoDia.every((r) => r.fecha === "2026-12-24")).toBe(true);
+  });
+
+  it("una frase sabe todos los lugares del año donde el corpus la coloca", () => {
+    const dia = diaDeFrases("2026-12-24");
+    const c = dia.candidatas[0];
+    const apariciones = aparicionesDeFrase(c.indice);
+    expect(apariciones.length).toBeGreaterThan(0);
+    expect(apariciones).toContainEqual({
+      fecha: "2026-12-24",
+      audiencia: c.audiencia,
+      slot: c.slot,
+    });
+  });
+});
+
+describe("alternativas por audiencia", () => {
+  const FECHA = "2026-12-24";
+
+  it("nunca propone las que el día ya tiene asignadas", () => {
+    const dia = diaDeFrases(FECHA);
+    const delDia = new Set(dia.candidatas.map((c) => c.indice));
+    const { opciones } = alternativasParaAudiencia({ fecha: FECHA, audiencia: "MR26" });
+    expect(opciones.length).toBeGreaterThan(0);
+    for (const o of opciones) expect(delDia.has(o.indice)).toBe(false);
+  });
+
+  it("respeta lo que se le pide excluir", () => {
+    const primera = alternativasParaAudiencia({ fecha: FECHA, audiencia: "MR26" });
+    const excluir = primera.opciones.map((o) => o.indice);
+    const segunda = alternativasParaAudiencia({ fecha: FECHA, audiencia: "MR26", excluir });
+    for (const o of segunda.opciones) expect(excluir).not.toContain(o.indice);
+  });
+
+  it("reparte entre autores: una tanda no repite autor", () => {
+    // Sin el reparto, las mejores seis salen casi siempre de los dos o tres
+    // autores más presentes del corpus y la propuesta se ve tan monótona como
+    // el problema que viene a resolver.
+    for (const audiencia of ["MR26", "HNJ"]) {
+      const { opciones } = alternativasParaAudiencia({ fecha: FECHA, audiencia });
+      expect(new Set(opciones.map((o) => o.autor)).size).toBe(opciones.length);
+    }
+  });
+
+  it("la tanda siguiente no repite lo ya mostrado", () => {
+    const p0 = alternativasParaAudiencia({ fecha: FECHA, audiencia: "MRJ", pagina: 0 });
+    const p1 = alternativasParaAudiencia({ fecha: FECHA, audiencia: "MRJ", pagina: 1 });
+    expect(p0.hayMas).toBe(true);
+    const vistos = new Set(p0.opciones.map((o) => o.indice));
+    for (const o of p1.opciones) expect(vistos.has(o.indice)).toBe(false);
+  });
+
+  it("propone el tono de la audiencia y no uno genérico", () => {
+    // La afinidad se mide contra la distribución tonal real de cada audiencia en
+    // el corpus: lo que le proponemos a las no registradas calza mejor con su
+    // propio perfil (interpelación) que con el de las registradas (homeostasis).
+    const media = (opciones, perfil) =>
+      opciones.reduce((n, o) => n + (perfil.categorias.get(o.categoria) || 0), 0) / opciones.length;
+
+    const noRegistradas = alternativasParaAudiencia({ fecha: FECHA, audiencia: "MN26" }).opciones;
+    expect(media(noRegistradas, perfilDeAudiencia("MN26"))).toBeGreaterThan(
+      media(noRegistradas, perfilDeAudiencia("MR26")),
+    );
+
+    const registradas = alternativasParaAudiencia({ fecha: FECHA, audiencia: "MR26" }).opciones;
+    expect(media(registradas, perfilDeAudiencia("MR26"))).toBeGreaterThan(
+      media(registradas, perfilDeAudiencia("MN26")),
+    );
+  });
+
+  it("evita las frases que vuelven a salir en fechas cercanas", () => {
+    // Es la razón de ser de todo esto: sustituir no puede traer material que el
+    // mismo revisor va a ver otra vez la semana entrante.
+    const dia = diaDeFrases(FECHA);
+    const repetidasEnElDia = dia.candidatas.filter((c) => c.repeticiones.length).length;
+    expect(repetidasEnElDia).toBeGreaterThan(0);
+
+    const { opciones } = alternativasParaAudiencia({ fecha: FECHA, audiencia: "MR26" });
+    const repetidasPropuestas = opciones.filter((o) => o.repeticiones.length).length;
+    expect(repetidasPropuestas / opciones.length).toBeLessThan(
+      repetidasEnElDia / dia.candidatas.length,
+    );
+  });
+
+  it("explica por qué propone cada frase", () => {
+    const { opciones } = alternativasParaAudiencia({ fecha: FECHA, audiencia: "HR26" });
+    expect(opciones.every((o) => Array.isArray(o.porQue))).toBe(true);
+    expect(opciones.some((o) => o.porQue.some((m) => m.startsWith("tema del día")))).toBe(true);
+  });
+
+  it("es determinista: la misma pregunta da la misma respuesta", () => {
+    const a = alternativasParaAudiencia({ fecha: FECHA, audiencia: "HRJ" });
+    const b = alternativasParaAudiencia({ fecha: FECHA, audiencia: "HRJ" });
+    expect(a.opciones.map((o) => o.indice)).toEqual(b.opciones.map((o) => o.indice));
+  });
+
+  it("audiencias distintas reciben propuestas distintas el mismo día", () => {
+    const registrada = alternativasParaAudiencia({ fecha: FECHA, audiencia: "MR26" }).opciones;
+    const noRegistrada = alternativasParaAudiencia({ fecha: FECHA, audiencia: "HNJ" }).opciones;
+    const comunes = registrada.filter((o) => noRegistrada.some((x) => x.indice === o.indice));
+    expect(comunes.length).toBeLessThan(registrada.length);
+  });
+
+  it("no propone nada fuera del calendario ni para una audiencia inventada", () => {
+    expect(alternativasParaAudiencia({ fecha: "2030-01-01", audiencia: "MR26" }).opciones).toEqual([]);
+    expect(alternativasParaAudiencia({ fecha: FECHA, audiencia: "XX99" }).opciones).toEqual([]);
+  });
+});
+
+describe("prohibición de repetir: el día se recalcula", () => {
+  const FECHA = "2026-10-10";
+
+  it("una frase quemada no vuelve a aparecer como candidata", () => {
+    const original = diaDeFrases(FECHA);
+    const quemada = original.candidatas[0].indice;
+    const recalculado = diaDeFrases(FECHA, { usadas: new Set([quemada]) });
+    expect(recalculado.candidatas.some((c) => c.indice === quemada)).toBe(false);
+  });
+
+  it("el día conserva sus 16 candidatas y sus 2 por audiencia", () => {
+    const usadas = new Set(diaDeFrases(FECHA).candidatas.map((c) => c.indice));
+    const recalculado = diaDeFrases(FECHA, { usadas });
+    expect(recalculado.candidatas).toHaveLength(16);
+    for (const audiencia of AUDIENCIAS) {
+      const suyas = recalculado.candidatas.filter((c) => c.audiencia === audiencia.id);
+      expect(suyas, `${audiencia.id} sin candidatas`).toHaveLength(2);
+      expect(new Set(suyas.map((c) => c.slot)).size).toBe(2);
+    }
+  });
+
+  it("el reemplazo viene marcado y dice a quién sustituye", () => {
+    const original = diaDeFrases(FECHA);
+    const quemada = original.candidatas[0];
+    const recalculado = diaDeFrases(FECHA, { usadas: new Set([quemada.indice]) });
+    const repuesta = recalculado.candidatas.find(
+      (c) => c.audiencia === quemada.audiencia && c.slot === quemada.slot,
+    );
+    expect(repuesta.reemplazo).toBeTruthy();
+    expect(repuesta.reemplazo.autorOriginal).toBe(quemada.autor);
+    expect(repuesta.indice).not.toBe(quemada.indice);
+    // Las que no se tocaron no quedan marcadas.
+    const intacta = recalculado.candidatas.find((c) => c.indice === original.candidatas[3].indice);
+    expect(intacta.reemplazo).toBeNull();
+  });
+
+  it("no coloca la misma frase dos veces el mismo día", () => {
+    const usadas = new Set(diaDeFrases(FECHA).candidatas.map((c) => c.indice));
+    const recalculado = diaDeFrases(FECHA, { usadas });
+    const indices = recalculado.candidatas.map((c) => c.indice);
+    expect(new Set(indices).size).toBe(indices.length);
+  });
+
+  it("la elección ya guardada sigue visible en su audiencia y bloqueada en las otras", () => {
+    // Su propia casilla la conserva —si no, la elección guardada desaparecería
+    // de su propia lista— pero para las otras siete está quemada como cualquiera.
+    const original = diaDeFrases(FECHA);
+    const guardada = original.candidatas.find((c) => c.audiencia === "MR26" && c.slot === 1);
+    const recalculado = diaDeFrases(FECHA, {
+      usadas: new Set([guardada.indice]),
+      elegidas: { MR26: guardada.indice },
+    });
+    const suya = recalculado.candidatas.filter((c) => c.audiencia === "MR26");
+    expect(suya.some((c) => c.indice === guardada.indice)).toBe(true);
+    const ajenas = recalculado.candidatas.filter((c) => c.audiencia !== "MR26");
+    expect(ajenas.some((c) => c.indice === guardada.indice)).toBe(false);
+  });
+
+  it("elegir una frase hoy cambia lo que se ofrece los días siguientes", () => {
+    // Es el punto de todo esto: el calendario dejó de ser una preselección fija
+    // del año. Se busca una frase que el corpus coloca en dos días distintos y
+    // se comprueba que quemarla en el primero la borra del segundo.
+    const hoy = diaDeFrases(FECHA);
+    const conFuturo = hoy.candidatas.find((c) =>
+      aparicionesDeFrase(c.indice).some((a) => a.fecha > FECHA),
+    );
+    expect(conFuturo, "el corpus no reusa ninguna candidata de este día").toBeTruthy();
+
+    const futura = aparicionesDeFrase(conFuturo.indice).find((a) => a.fecha > FECHA);
+    const antes = diaDeFrases(futura.fecha);
+    expect(antes.candidatas.some((c) => c.indice === conFuturo.indice)).toBe(true);
+
+    const despues = diaDeFrases(futura.fecha, { usadas: new Set([conFuturo.indice]) });
+    expect(despues.candidatas.some((c) => c.indice === conFuturo.indice)).toBe(false);
+    expect(despues.candidatas).toHaveLength(16);
+  });
+
+  it("es determinista: el mismo stock quemado da el mismo día", () => {
+    const usadas = new Set(diaDeFrases(FECHA).candidatas.slice(0, 5).map((c) => c.indice));
+    const a = diaDeFrases(FECHA, { usadas });
+    const b = diaDeFrases(FECHA, { usadas: new Set(usadas) });
+    expect(a.candidatas.map((c) => c.indice)).toEqual(b.candidatas.map((c) => c.indice));
+  });
+
+  it("las alternativas tampoco ofrecen lo quemado", () => {
+    const quemadas = [...Array(50).keys()];
+    const { opciones } = alternativasParaAudiencia({
+      fecha: FECHA,
+      audiencia: "HR26",
+      excluir: quemadas,
+    });
+    for (const o of opciones) expect(quemadas).not.toContain(o.indice);
+  });
+});
+
+describe("el corpus como stock que se consume", () => {
+  it("a 8 audiencias por día, el stock rinde un octavo de lo que parece", () => {
+    const stock = estadoDeStock({ usadas: 0, fecha: PRIMER_DIA });
+    expect(stock.total).toBe(totalFrases());
+    expect(stock.disponibles).toBe(totalFrases());
+    expect(stock.diasQueAlcanza).toBe(Math.floor(totalFrases() / 8));
+    // La ventana del corpus son 365 días: si el stock no da para tantos, el
+    // panel tiene que decirlo en vez de dejar que se descubra a mitad de camino.
+    expect(stock.diasHastaElFinal).toBe(365);
+    expect(stock.suficiente).toBe(false);
+    expect(stock.faltan).toBe(365 * 8 - totalFrases());
+  });
+
+  it("descuenta lo quemado y adelanta la fecha en que se agota", () => {
+    const limpio = estadoDeStock({ usadas: 0, fecha: PRIMER_DIA });
+    const gastado = estadoDeStock({ usadas: 400, fecha: PRIMER_DIA });
+    expect(gastado.disponibles).toBe(limpio.disponibles - 400);
+    expect(gastado.diasQueAlcanza).toBeLessThan(limpio.diasQueAlcanza);
+    expect(gastado.alcanzaHasta < limpio.alcanzaHasta).toBe(true);
+  });
+
+  it("con menos audiencias por día el mismo stock rinde más", () => {
+    const ocho = estadoDeStock({ usadas: 0, fecha: PRIMER_DIA, audiencias: 8 });
+    const cuatro = estadoDeStock({ usadas: 0, fecha: PRIMER_DIA, audiencias: 4 });
+    expect(cuatro.diasQueAlcanza).toBe(ocho.diasQueAlcanza * 2);
+  });
+
+  it("agotado no devuelve números negativos", () => {
+    const vacio = estadoDeStock({ usadas: totalFrases() + 100, fecha: PRIMER_DIA });
+    expect(vacio.disponibles).toBe(0);
+    expect(vacio.diasQueAlcanza).toBe(0);
+    expect(vacio.suficiente).toBe(false);
+  });
+});
+
+describe("la elección guardada nunca se pierde de vista", () => {
+  const FECHA = "2026-10-10";
+
+  it("una sustitución guardada aparece en su audiencia aunque no sea del día", () => {
+    // Caso real: se sustituyó por una traída del corpus y además la casilla que
+    // el corpus tenía ahí ya estaba quemada. Sin este cuidado, la elección
+    // guardada desaparecía de su propia lista y el radio salía sin marcar.
+    const dia = diaDeFrases(FECHA);
+    const delDia = new Set(dia.candidatas.map((c) => c.indice));
+    const ajena = [...Array(totalFrases()).keys()].find((i) => !delDia.has(i));
+    const quemada = dia.candidatas.find((c) => c.audiencia === "HRJ" && c.slot === 1);
+
+    const recalculado = diaDeFrases(FECHA, {
+      usadas: new Set([quemada.indice, ajena]),
+      elegidas: { HRJ: ajena },
+    });
+
+    const suyas = recalculado.candidatas.filter((c) => c.audiencia === "HRJ");
+    expect(suyas).toHaveLength(2);
+    expect(suyas.some((c) => c.indice === ajena)).toBe(true);
+    // Y sigue bloqueada para las otras siete.
+    expect(recalculado.candidatas.filter((c) => c.indice === ajena)).toHaveLength(1);
   });
 });

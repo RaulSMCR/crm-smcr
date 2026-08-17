@@ -1,11 +1,14 @@
 // tests/unit/casos.test.js
-// El expediente: qué se exige para cerrar un caso, cuánto hay que conservarlo y
-// cuándo se puede abrir uno nuevo. Prisma está mockeado.
+// El registro administrativo de procesos: qué se exige para cerrar uno, cuánto
+// se conserva y cuándo se abre uno nuevo. Prisma está mockeado.
 //
-// Los dos bordes que más importan: una baja por abandono sin ningún intento de
-// contacto registrado no se puede proponer, y el plazo de conservación son diez
-// años desde el cierre (CPPCR, arts. 21 y 22). Si alguno de estos tests se
-// afloja, se afloja una obligación profesional, no una preferencia de producto.
+// Acá no hay expediente clínico y estos tests existen en parte para que siga
+// siendo así: si alguien agrega un campo de relato al cierre, `validarCierre`
+// deja de tener sentido y estas pruebas tienen que doler.
+//
+// El borde que más importa: una baja por abandono sin ningún intento de contacto
+// registrado no se puede proponer. Es la diferencia entre constatar un abandono
+// y fabricarlo por omisión.
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const { prisma } = vi.hoisted(() => ({
@@ -31,13 +34,10 @@ import {
   validarCierre,
 } from "@/lib/casos";
 
-const LARGO = "x".repeat(60);
-
 const CIERRE_VALIDO = {
   tipoCierre: "ALTA_POR_OBJETIVOS",
-  evolucion: LARGO,
-  estadoActual: LARGO,
-  recomendaciones: LARGO,
+  personaInformada: true,
+  registradoEnExpediente: true,
 };
 
 beforeEach(() => {
@@ -45,7 +45,7 @@ beforeEach(() => {
 });
 
 describe("validarCierre()", () => {
-  it("acepta un alta con la nota completa", () => {
+  it("acepta un alta con las dos declaraciones", () => {
     const res = validarCierre(CIERRE_VALIDO);
     expect(res.ok).toBe(true);
     expect(res.resultado).toBe(RESULTADOS.ALTA);
@@ -55,21 +55,32 @@ describe("validarCierre()", () => {
     expect(validarCierre({ ...CIERRE_VALIDO, tipoCierre: "ALTA_PORQUE_SI" }).ok).toBe(false);
   });
 
-  it("rechaza una nota de tres palabras", () => {
-    expect(validarCierre({ ...CIERRE_VALIDO, evolucion: "mejoró" }).ok).toBe(false);
-    expect(validarCierre({ ...CIERRE_VALIDO, estadoActual: "bien" }).ok).toBe(false);
-    expect(validarCierre({ ...CIERRE_VALIDO, recomendaciones: "ninguna" }).ok).toBe(false);
+  it("no cierra sin haber informado a la persona", () => {
+    expect(validarCierre({ ...CIERRE_VALIDO, personaInformada: false }).ok).toBe(false);
   });
 
-  it("no acepta espacios en blanco como contenido", () => {
-    expect(validarCierre({ ...CIERRE_VALIDO, evolucion: " ".repeat(80) }).ok).toBe(false);
+  it("no cierra sin constancia de registro en el expediente del profesional", () => {
+    expect(validarCierre({ ...CIERRE_VALIDO, registradoEnExpediente: false }).ok).toBe(false);
+  });
+
+  it("ignora cualquier campo de relato que le manden", () => {
+    // Si alguien reintroduce texto clínico por la puerta de atrás, no se valida
+    // ni se persiste: la firma de validarCierre es la lista completa.
+    const conRelato = validarCierre({
+      ...CIERRE_VALIDO,
+      evolucion: "la persona mejoró mucho",
+      estadoActual: "estable",
+    });
+    expect(conRelato.ok).toBe(true);
+    expect(conRelato).not.toHaveProperty("evolucion");
   });
 
   it("una derivación sin destino no es una derivación", () => {
     const sinDestino = { ...CIERRE_VALIDO, tipoCierre: "BAJA_POR_DERIVACION" };
     expect(validarCierre(sinDestino).ok).toBe(false);
+    expect(validarCierre({ ...sinDestino, derivadoA: "  " }).ok).toBe(false);
 
-    const conDestino = validarCierre({ ...sinDestino, referencia: LARGO });
+    const conDestino = validarCierre({ ...sinDestino, derivadoA: "Dra. Mora, psiquiatría" });
     expect(conDestino.ok).toBe(true);
     expect(conDestino.resultado).toBe(RESULTADOS.BAJA);
   });
@@ -83,6 +94,16 @@ describe("validarCierre()", () => {
     const conIntento = validarCierre({ ...abandono, contactosDeReenganche: 1 });
     expect(conIntento.ok).toBe(true);
     expect(conIntento.resultado).toBe(RESULTADOS.BAJA);
+  });
+
+  it("el abandono no exige haber informado: por definición no se pudo", () => {
+    const res = validarCierre({
+      tipoCierre: "BAJA_POR_ABANDONO",
+      personaInformada: false,
+      registradoEnExpediente: true,
+      contactosDeReenganche: 2,
+    });
+    expect(res.ok).toBe(true);
   });
 });
 
@@ -151,6 +172,9 @@ describe("abrirCasoSiNoExiste()", () => {
     expect(data.estado).toBe(ESTADOS.ABIERTO);
     expect(data.casoAnteriorId).toBeNull();
     expect(data.eventos.create.tipo).toBe(EVENTOS.APERTURA);
+    // Al abrir no se guarda motivo de consulta ni nada parecido: sería dato de
+    // salud (Ley 8968, art. 3.c) en una base que no lo necesita.
+    expect(data).not.toHaveProperty("motivoConsulta");
   });
 
   it("al retomar encadena con el caso cerrado en vez de reabrirlo", async () => {

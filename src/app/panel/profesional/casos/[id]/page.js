@@ -4,8 +4,7 @@ import { getSession } from "@/lib/auth";
 import { obtenerMiCaso } from "@/actions/caso-actions";
 import { ESTADOS } from "@/lib/casos";
 import CierreDeCasoForm from "@/components/casos/CierreDeCasoForm";
-import NotaDeCierre from "@/components/casos/NotaDeCierre";
-import AdendaForm from "@/components/casos/AdendaForm";
+import RegistroDeCierre from "@/components/casos/RegistroDeCierre";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +35,6 @@ export default async function CasoPage({ params }) {
   const cerrado = caso.estado === ESTADOS.CERRADO;
 
   const observaciones = caso.notas.filter((n) => n.tipo === "OBSERVACION_DIRECCION");
-  const adendas = caso.notas.filter((n) => n.tipo === "ADENDA");
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-6 md:p-10">
@@ -87,46 +85,21 @@ export default async function CasoPage({ params }) {
         <section className="rounded-2xl border border-slate-200 bg-white p-6">
           <h2 className="text-lg font-bold text-slate-900">Cerrar el proceso</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Un alta o una baja son los dos momentos donde más se juega la continuidad de una
-            persona. Por eso ninguno queda en firme sin pasar por la dirección clínica.
+            Se registra el cierre administrativo y pasa por la dirección clínica antes de quedar en
+            firme. Tu expediente sigue siendo tuyo: nada de su contenido pasa por acá.
           </p>
           <div className="mt-5">
             <CierreDeCasoForm casoId={caso.id} contactosDeReenganche={contactosDeReenganche} />
           </div>
         </section>
       ) : (
-        <NotaDeCierre caso={caso} />
+        <RegistroDeCierre caso={caso} />
       )}
-
-      {cerrado ? (
-        <section className="rounded-2xl border border-slate-200 bg-white p-6">
-          <h2 className="text-lg font-bold text-slate-900">Adendas</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            La nota visada no se edita. Lo que haga falta corregir o ampliar se agrega acá, fechado.
-          </p>
-
-          {adendas.length > 0 ? (
-            <ul className="mt-4 space-y-3 border-t border-slate-100 pt-4">
-              {adendas.map((nota) => (
-                <li key={nota.id} className="text-sm text-slate-800">
-                  <p className="whitespace-pre-line leading-relaxed">{nota.texto}</p>
-                  <p className="mt-1 text-xs text-slate-500">{fechaHora(nota.createdAt)}</p>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-
-          <div className="mt-5">
-            <AdendaForm casoId={caso.id} />
-          </div>
-        </section>
-      ) : null}
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6">
         <h2 className="text-lg font-bold text-slate-900">Bitácora</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Incluye cada acceso de la dirección clínica. Es lo que se le prometió a la persona en el
-          acuerdo.
+          Quién abrió este registro y cuándo, incluidas las lecturas de la dirección clínica.
         </p>
         <ul className="mt-4 space-y-2 text-sm text-slate-700">
           {caso.eventos.map((evento) => (

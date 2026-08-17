@@ -3,14 +3,18 @@ import { notFound, redirect } from "next/navigation";
 import { abrirCasoParaVisar } from "@/actions/caso-actions";
 import { esDireccionClinica } from "@/lib/auth-guards";
 import { ESTADOS } from "@/lib/casos";
-import NotaDeCierre from "@/components/casos/NotaDeCierre";
+import RegistroDeCierre from "@/components/casos/RegistroDeCierre";
 import VisadoActions from "@/components/casos/VisadoActions";
 
 export const dynamic = "force-dynamic";
 
-// Abrir esta página ES el acceso al expediente, así que abrirCasoParaVisar deja
-// el registro de lectura antes de devolver nada. No hay forma de leer sin que
-// quede anotado: esa es la contrapartida exacta de lo que dice el acuerdo.
+// Acá no se lee un expediente: se lee el registro administrativo de un cierre
+// —categoría, fechas y declaraciones del profesional—. El expediente clínico lo
+// conserva él y nunca pasa por esta base.
+//
+// Aun así, abrirCasoParaVisar deja constancia de la lectura antes de devolver
+// nada. Es barato y es el hábito correcto: el día que este modelo cambie, el
+// rastro ya está.
 
 export default async function VisarCasoPage({ params }) {
   // En Next 16 params es una promesa.
@@ -43,10 +47,11 @@ export default async function VisarCasoPage({ params }) {
       </div>
 
       <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
-        Tu lectura de este expediente quedó registrada en la bitácora del caso.
+        Tu lectura quedó registrada en la bitácora. Lo que ves es el registro administrativo del
+        cierre; el expediente clínico lo conserva el profesional tratante.
       </p>
 
-      <NotaDeCierre caso={caso} />
+      <RegistroDeCierre caso={caso} />
 
       {/* Dato de contexto que cambia cómo se lee una baja por abandono: no es lo
           mismo si hubo un intento de contacto que si hubo seis. */}

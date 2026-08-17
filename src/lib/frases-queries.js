@@ -36,6 +36,37 @@ export function reconciliarSeleccion(pick) {
 
 const TOTAL_AUDIENCIAS = AUDIENCIAS.length;
 
+/**
+ * Todas las frases que ya se publicaron alguna vez, con dónde se publicaron.
+ *
+ * Es la pieza central de la prohibición de repetir: una frase que entra acá no
+ * se vuelve a ofrecer ningún día ni a ninguna audiencia, y el calendario del año
+ * se recalcula alrededor de lo que queda vivo. Reabrir un día la libera —el
+ * registro se borra—, que es la única forma de devolver material al stock.
+ *
+ * Se reconcilia por texto y no por índice: regenerar el corpus mueve las
+ * posiciones, y una frase quemada tiene que seguir quemada después.
+ */
+export async function frasesUsadas() {
+  const filas = await prisma.dailyPhrasePick.findMany({
+    where: { status: { not: "SKIPPED" } },
+    select: { date: true, audience: true, phraseIndex: true, phraseText: true, status: true },
+    orderBy: { date: "asc" },
+  });
+
+  const usadas = new Set();
+  const donde = new Map();
+  for (const fila of filas) {
+    const { phraseIndex } = reconciliarIndice(fila);
+    // Índice -1: la frase salió del corpus al regenerarlo. Ya no se puede
+    // ofrecer de todos modos, así que no hace falta marcarla.
+    if (phraseIndex < 0) continue;
+    usadas.add(phraseIndex);
+    if (!donde.has(phraseIndex)) donde.set(phraseIndex, { fecha: fila.date, audiencia: fila.audience });
+  }
+  return { usadas, donde };
+}
+
 /** Las hasta-8 elecciones de una fecha, indexadas por audiencia. */
 export async function seleccionesDelDia(fecha) {
   const filas = await prisma.dailyPhrasePick.findMany({ where: { date: String(fecha) } });
@@ -99,7 +130,7 @@ export function fuenteVerificada(claveFuente, verificaciones) {
 }
 
 /**
- * Las 486 fuentes con su estado, ordenadas por impacto: verificar las primeras
+ * Todas las fuentes con su estado, ordenadas por impacto: verificar las primeras
  * 60 cubre más de la mitad de las publicaciones del año.
  */
 export async function listaDeVerificacion({ soloPendientes = false, limite = 0 } = {}) {
@@ -140,10 +171,18 @@ export async function prepararSesion(fecha = fechaHoy(), horizonte = 7) {
   const sesion = sesionDelDia(fecha, resueltas, horizonte);
 
   const seleccionesRango = await seleccionesEnRango(fecha, hasta);
+  // Lo ya publicado gobierna lo que se puede ofrecer: las candidatas del corpus
+  // que estén quemadas se reemplazan al vuelo, día por día.
+  const { usadas } = await frasesUsadas();
 
   const pendientes = sesion.pendientes.map((p) => {
-    const dia = diaDeFrases(p.fecha);
     const porAudiencia = seleccionesRango.get(p.fecha) || new Map();
+    const elegidas = Object.fromEntries(
+      [...porAudiencia.entries()]
+        .filter(([, pick]) => pick.status !== "SKIPPED" && pick.phraseIndex >= 0)
+        .map(([aud, pick]) => [aud, pick.phraseIndex]),
+    );
+    const dia = diaDeFrases(p.fecha, { usadas, elegidas });
     return {
       ...p,
       candidatas: dia ? dia.candidatas : [],

@@ -47,13 +47,12 @@ export async function requireProfessionalProfileId() {
 /**
  * Dirección clínica: quien puede leer y visar los cierres de los casos.
  *
- * Deliberadamente no es un rol del enum. Lo que habilita a abrir un expediente
- * no es el puesto en la plataforma sino la colegiatura: el Código de Ética y
- * Deontológico del CPPCR solo admite compartir con autorización expresa de la
- * persona usuaria (art. 33), y esa autorización —la que da el acuerdo al
- * registrarse— se otorga a una dirección clínica profesional, no a "el
- * administrador del sistema". Por eso se exigen las dos cosas, y sin número de
- * colegiado no hay acceso aunque la cuenta sea ADMIN.
+ * Lo que visa son cierres administrativos, no expedientes: el expediente es de
+ * la persona y de su profesional, y nunca pasa por esta base. Aun así se exige
+ * colegiatura, porque decidir si un alta o una baja está bien documentada es un
+ * juicio que solo tiene sentido desde el ejercicio profesional. Deliberadamente
+ * no es un rol del enum: el rol operativo sigue siendo ADMIN, y un administrador
+ * sin colegiatura no entra acá.
  *
  * @returns {Promise<{session: object, director: {id: string, name: string, colegiadoNumero: string}}>}
  */

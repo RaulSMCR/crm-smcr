@@ -292,7 +292,7 @@ export default function RegistroUsuarioPage() {
                     · Con menos de 24 horas, o si no llegás, se cobra el <b>50%</b> y tu agenda queda
                     en pausa hasta que conversemos.
                   </li>
-                  <li>· Tu proceso lo revisa una dirección clínica al darte de alta o de baja.</li>
+                  <li>· Tu expediente clínico lo conserva tu profesional, no la plataforma.</li>
                 </ul>
                 <a
                   href="/terminos"
