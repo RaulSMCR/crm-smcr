@@ -2,6 +2,9 @@ import Link from "next/link";
 
 export const metadata = {
   title: "Espera de aprobación | Salud Mental Costa Rica",
+  // Pantalla de estado de una cuenta concreta: no tiene nada que hacer en un
+  // índice de búsqueda.
+  robots: { index: false, follow: false },
 };
 
 export default function EsperaAprobacionPage() {

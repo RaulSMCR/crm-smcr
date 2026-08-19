@@ -1,3 +1,12 @@
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata = buildMetadata({
+  title: "Política de Cookies",
+  description:
+    "Qué cookies usa el sitio, para qué sirven y cómo configurarlas o deshabilitarlas desde el navegador.",
+  path: "cookies",
+});
+
 export default function CookiesPage() {
   return (
     <main className="max-w-4xl mx-auto py-16 px-6 text-neutral-800">

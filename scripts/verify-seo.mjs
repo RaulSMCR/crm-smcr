@@ -174,15 +174,44 @@ function normalizar(u) {
   return String(u || '').replace(/\/+$/, '');
 }
 
+/** Ruta sin dominio ni barra final. */
+function ruta(u) {
+  try {
+    return new URL(u).pathname.replace(/\/+$/, '') || '/';
+  } catch {
+    return normalizar(u) || '/';
+  }
+}
+
+/**
+ * ¿El canónico apunta a esta misma página?
+ *
+ * Se compara por ruta, no por URL completa, porque con `--base` la petición va a
+ * localhost mientras el canónico sigue declarando el dominio de producción —que
+ * es lo correcto—. Comparar cadenas enteras marcaba las 40 URLs como rotas.
+ */
+function apuntaASiMisma(r) {
+  return ruta(r.canonical) === ruta(r.url);
+}
+
+/** ¿La página se declara no indexable? */
+function esNoindex(r) {
+  return /noindex/i.test(String(r.robots || ''));
+}
+
 function problemas(r) {
   const p = [];
   if (r.status === 0) p.push(`inalcanzable: ${r.error}`);
   else if (r.status >= 400) p.push(`HTTP ${r.status}`);
   else if (r.status >= 300) p.push(`redirige a ${r.location}`);
-  else {
+  else if (esNoindex(r)) {
+    // Una página noindex no necesita canónico ni JSON-LD: pedírselos sería
+    // reportar como defecto justamente lo que se buscaba.
+    if (r.canonical && !apuntaASiMisma(r)) p.push(`noindex, pero con canónico ajeno -> ${r.canonical}`);
+  } else {
     if (!r.title) p.push('sin <title>');
     if (!r.canonical) p.push('sin canónico');
-    else if (normalizar(r.canonical) !== normalizar(r.url)) p.push(`canónico ajeno -> ${r.canonical}`);
+    else if (!apuntaASiMisma(r)) p.push(`canónico ajeno -> ${r.canonical}`);
     if (!r.jsonLd.length) p.push('sin JSON-LD');
     if (r.jsonLdInvalidos) p.push(`${r.jsonLdInvalidos} bloque(s) JSON-LD ilegibles`);
   }
@@ -205,13 +234,15 @@ function imprimir(resultados) {
   console.log(`\n${resultados.length} URLs · ${resultados.length - conFallas.length} sin observaciones · ${conFallas.length} con observaciones`);
 
   // Los recuentos que el plan usa como criterio de aceptación.
+  const publicas = resultados.filter((r) => r.status === 200 && !esNoindex(r));
   const resumen = {
     'HTTP 4xx/5xx': resultados.filter((r) => r.status >= 400).length,
     'redirecciones': resultados.filter((r) => r.status >= 300 && r.status < 400).length,
-    'canónico ajeno': resultados.filter((r) => r.status === 200 && r.canonical && normalizar(r.canonical) !== normalizar(r.url)).length,
-    'sin canónico': resultados.filter((r) => r.status === 200 && !r.canonical).length,
-    'sin JSON-LD': resultados.filter((r) => r.status === 200 && !r.jsonLd?.length).length,
-    'sin meta description': resultados.filter((r) => r.status === 200 && !r.description).length,
+    'noindex declarado': resultados.filter((r) => r.status === 200 && esNoindex(r)).length,
+    'canónico ajeno (públicas)': publicas.filter((r) => r.canonical && !apuntaASiMisma(r)).length,
+    'sin canónico (públicas)': publicas.filter((r) => !r.canonical).length,
+    'sin JSON-LD (públicas)': publicas.filter((r) => !r.jsonLd?.length).length,
+    'sin meta description (públicas)': publicas.filter((r) => !r.description).length,
   };
   for (const [k, v] of Object.entries(resumen)) console.log(`  ${String(v).padStart(3)}  ${k}`);
 }

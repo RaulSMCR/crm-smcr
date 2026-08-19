@@ -1,6 +1,6 @@
 # S1 · Metadatos heredados y sitemap
 
-**Estado:** plan escrito, **pendiente de aprobación**. Nada implementado.
+**Estado:** aprobado e **implementado** el 2026-08-19. Ver §8, resultado real.
 **Rama:** `fix/seo-geo` (sobre `06aa3aa`, cierre de S0).
 **Hallazgos:** H-01, H-05, H-15, H-16, H-17, H-26, H-06, H-07, H-08.
 **Riesgo:** bajo. No toca URLs, no toca la base, no hay migración.
@@ -221,3 +221,47 @@ El criterio de H-16 y el de H-05 son los dos que S1 **no** puede cerrar por sí 
 ## 7. Definición de terminado
 
 Commit `fix(seo): S1 — metadatos heredados y sitemap`, cuerpo listando H-01, H-06, H-07, H-08, H-15, H-16, H-17, H-26 como cerrados y H-05 como abierto por D1. Este documento se actualiza con el resultado real de la verificación. Y se detiene.
+
+---
+
+## 8. Resultado real de la ejecución
+
+Aprobado y ejecutado el 2026-08-19. Build limpio. Arnés: **39 de 40 URLs sin observaciones**.
+
+### Criterios, uno por uno
+
+| # | Criterio | Resultado |
+|---|---|---|
+| H-01 | `canónico ajeno` de 7 a 0 | **7 → 0** |
+| H-01 | `/faq`, `/terminos`, `/privacidad`, `/cookies` con canónico propio | cumplido |
+| H-06 | `/sitemap.xml` deja de ser estático | cumplido — el build lo reporta con `1h` de revalidación |
+| H-07 | con base inalcanzable, el build falla | cumplido — sale con código 1 y nombra `/sitemap.xml` |
+| H-08 | `mariano-zorrilla` fuera del sitemap | cumplido — 0 apariciones |
+| H-08 | el sitemap baja de 39 entradas | **39 → 36** |
+| H-15 | sin `<meta name="keywords">` | cumplido — 0 apariciones |
+| H-16 | `og:url` propio por página | cumplido en todas las rutas verificables |
+| H-16 | `/blog/serie/{slug}` | **no verificado**, ver abajo |
+| H-17 | `/privacidad` y `/cookies` con título propio | cumplido |
+| H-17 | `/registro*` con `noindex` | cumplido — `noindex, nofollow` en las tres |
+| H-26 | 6 reglas nuevas en `robots.txt`, ninguna contra IA | cumplido — 0 directivas contra crawlers de IA |
+| H-05 | imagen social | **no hecho**, bloqueado por D1 |
+
+### Diferencias respecto de lo planificado
+
+**El sitemap quedó en 36, no en 35.** El plan restaba 3 rutas de registro; solo había 2 en el sitemap (`/registro` y `/registro/profesional` — `/registro/usuario` nunca estuvo). 39 − 2 − 1 = 36.
+
+**Cuatro layouts se volvieron uno.** El plan asumía que `/ingresar`, `/cambiar-password`, `/verificar-email` y `/recuperar` necesitaban un `layout.js` cada uno. Al leerlos, los tres primeros son server components y exportan `metadata` directo. Solo `/recuperar` es `"use client"` y necesita layout.
+
+**`/registro*` no se bloquea en `robots.txt`,** contra lo que decía el plan. Esas rutas están hoy indexadas —las publicaba el sitemap— y bloquearlas por robots impediría que el crawler leyera el `noindex` que ahora declaran: quedarían indexadas para siempre como «bloqueada por robots.txt». Primero tienen que poder rastrearse para salir del índice. Están fuera del sitemap y con `noindex`, que es lo que corresponde ahora.
+
+**Se corrigió el arnés de S0.** Comparaba canónicos por URL completa, así que con `--base http://localhost:3000` marcaba las 40 como rotas: la petición va a localhost pero el canónico declara producción, que es lo correcto. Ahora compara por ruta. Además dejó de exigirles canónico y JSON-LD a las páginas `noindex` —era reportar como defecto justamente lo que se buscaba— y el resumen separa públicas de no indexables.
+
+### Lo que quedó abierto
+
+**H-05 · imagen social.** Bloqueado por **D1**. Es lo más visible que S1 no arregla: `/og-image.png` sigue devolviendo 404 y cada vez que se comparte una página del sitio, la vista previa sale rota. Anotado como HN-01.
+
+**H-16 en `/blog/serie/{slug}`.** No verificable: la taxonomía está vacía en producción (0 series, 0 temas, 0 disciplinas — H-13). El `openGraph` propio está implementado y el build compila la ruta, pero no hay un slug real contra el cual comprobarlo, y S1 no escribe en producción. Se verifica en S11, cuando haya series cargadas. **No se da por bueno.**
+
+### Hallazgos nuevos
+
+Tres más, anotados en `docs/hallazgos-nuevos.md` sin arreglar (HN-02, HN-03, HN-04). El que importa: **la home y `/servicios` se tragan los errores de base en silencio y se prerenderizan vacías**, que es el mismo patrón de H-07 en dos rutas más. Si esa degradación es deliberada, es una decisión que no me toca revertir.

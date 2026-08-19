@@ -57,20 +57,20 @@ export const metadata = {
   },
   description:
     'Plataforma interdisciplinaria de bienestar y salud mental en Costa Rica. Psicología, nutrición, deporte y más. Consultas virtuales y presenciales con profesionales verificados.',
-  keywords: [
-    'salud mental Costa Rica',
-    'psicología online',
-    'terapia virtual',
-    'coaching bienestar',
-    'nutrición Costa Rica',
-    'profesionales verificados salud mental',
-    'consulta psicológica',
-  ],
-  alternates: { canonical: BASE_URL },
+  // Sin `keywords` y sin `alternates.canonical` a propósito.
+  //
+  // `keywords` no lo usa ningún buscador desde hace más de una década, y las
+  // mismas siete palabras repetidas en cada página no describían ninguna.
+  //
+  // El canónico es más serio: en el layout raíz se hereda por toda ruta que no
+  // lo redefina, así que decenas de URLs le estaban declarando a Google «la
+  // versión buena de esta página es la home». Cada página pública declara el
+  // suyo (ver `buildMetadata` en src/lib/seo.js) y las privadas declaran
+  // `robots: noindex`, que es lo que corresponde.
   openGraph: {
     type: 'website',
     locale: 'es_CR',
-    url: BASE_URL,
+    // Sin `url`: se hereda igual que el canónico y con el mismo efecto.
     siteName: 'Salud Mental Costa Rica',
     title: 'Salud Mental Costa Rica — Bienestar con profesionales validados',
     description:

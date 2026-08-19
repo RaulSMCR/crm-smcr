@@ -1,12 +1,14 @@
 import AccordionItem from "@/components/AccordionItem";
 import FaqContactSection from "@/components/FaqContactSection";
 import JsonLd from "@/components/JsonLd";
+import { buildMetadata } from "@/lib/seo";
 
-export const metadata = {
+export const metadata = buildMetadata({
   title: "Preguntas Frecuentes",
   description:
     "Encontrá respuestas a las consultas más frecuentes sobre nuestra plataforma de salud mental.",
-};
+  path: "faq",
+});
 
 const IconServiceFee = () => (
   <svg

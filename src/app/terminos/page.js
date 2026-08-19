@@ -1,4 +1,5 @@
 import ConfirmarAcuerdo from "@/components/terminos/ConfirmarAcuerdo";
+import { buildMetadata } from "@/lib/seo";
 
 // El orden de esta página es una decisión, no una casualidad.
 //
@@ -8,11 +9,12 @@ import ConfirmarAcuerdo from "@/components/terminos/ConfirmarAcuerdo";
 // va primero, escrita como se explica un encuadre y no como se recita un
 // reglamento. Lo legal sigue completo, debajo.
 
-export const metadata = {
+export const metadata = buildMetadata({
   title: "Acuerdo de atención y privacidad",
   description:
     "Cómo funciona tu espacio, cómo se cobra, qué pasa si necesitás mover una cita y cómo se cuida tu información.",
-};
+  path: "terminos",
+});
 
 const PRIVACIDAD = `Política de Privacidad y Tratamiento de Datos Sensibles - Salud Mental Costa Rica
 [Salud Mental Costa Rica / Nombre Legal de la Empresa] (en adelante, "la Empresa") se compromete a proteger su privacidad. Esta Política describe cómo recopilamos, utilizamos y protegemos sus datos personales, en cumplimiento estricto con la Ley de Protección de la Persona frente al Tratamiento de sus Datos Personales (Ley N.º 8968) y su Reglamento en la República de Costa Rica.
