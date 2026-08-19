@@ -76,6 +76,7 @@ export async function generateMetadata({ params }) {
       `${name}, especialista en ${professional.specialty || "salud mental"} en Salud Mental Costa Rica.`,
     image: professional.user?.image,
     imageAlt: name,
+    subtitle: professional.specialty || "Salud Mental Costa Rica",
   });
 
   return buildMetadata({

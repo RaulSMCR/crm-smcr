@@ -9,6 +9,7 @@ import ConsentBanner from '@/components/ConsentBanner';
 import AnalyticsLoader from '@/components/AnalyticsLoader';
 import MarketingAttributionCapture from '@/components/MarketingAttributionCapture';
 import { SITE_URL, siteUrl } from '@/lib/site-url';
+import { defaultOgImage } from '@/lib/seo';
 
 // Tipografía display (Art Nouveau contenido). Solo para titulares: el cuerpo
 // sigue en la sans del sistema. El fallback es serif a propósito, para que si
@@ -49,6 +50,13 @@ const GOOGLE_ADS_ID = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID;
 
 const BASE_URL = SITE_URL;
 
+// Tarjeta social por defecto, para cualquier ruta que no defina la suya. Se
+// genera en /og; antes esto apuntaba a /og-image.png, que no existía.
+const OG_POR_DEFECTO = defaultOgImage(
+  'Salud Mental Costa Rica',
+  'Bienestar con profesionales validados'
+);
+
 export const metadata = {
   metadataBase: new URL(BASE_URL),
   title: {
@@ -75,14 +83,14 @@ export const metadata = {
     title: 'Salud Mental Costa Rica — Bienestar con profesionales validados',
     description:
       'Plataforma interdisciplinaria de bienestar y salud mental en Costa Rica. Psicología, nutrición, deporte y más.',
-    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'Salud Mental Costa Rica' }],
+    images: [{ url: OG_POR_DEFECTO, width: 1200, height: 630, alt: 'Salud Mental Costa Rica' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Salud Mental Costa Rica — Bienestar con profesionales validados',
     description:
       'Consultas virtuales y presenciales con profesionales verificados en psicología, nutrición y más.',
-    images: ['/og-image.png'],
+    images: [OG_POR_DEFECTO],
   },
 };
 

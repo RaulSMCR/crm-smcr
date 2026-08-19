@@ -4,23 +4,36 @@ Cosas que aparecieron durante la ejecución del plan y que **no** están en `doc
 
 | # | Hallazgo | Estado |
 |---|---|---|
-| HN-01 | `/og-image.png` devuelve 404 en producción | **abierto** — bloqueado por D1 |
+| HN-01 | `/og-image.png` devuelve 404 en producción | **reparado** el 2026-08-19 (D1 resuelta) |
 | HN-02 | La home y `/servicios` hornean su estado degradado en el build | **reparado** el 2026-08-19 |
 | HN-03 | El arnés se autoflagelaba contra el servidor local | **reparado** el 2026-08-19 |
 | HN-04 | `/panel/admin/tareas` ya existe | **abierto** — a resolver al empezar S16 |
+| HN-05 | La caché de `next build` sirvió un prerender viejo | **anotado** — sin arreglo, es del build |
 
 ---
 
-## HN-01 · `/og-image.png` devuelve 404 en producción
+## HN-01 · `/og-image.png` devuelve 404 en producción — **reparado**
 
 **Encontrado en:** S0, verificación del baseline.
-**Relacionado con:** H-05, que la auditoría clasificó como mejora de identidad de marca.
+**Cierra también:** H-05, que la auditoría clasificó como mejora de identidad de marca. No lo era: era una URL rota.
 
-`src/app/layout.js` declara `og:image` y `twitter:image` apuntando a `/og-image.png`, y `src/lib/seo.js:22` lo usa como `DEFAULT_OG_IMAGE` para toda entidad que no traiga imagen propia. **El archivo no existe**, ni en `public/` ni en producción. Verificado: `curl -o /dev/null -w "%{http_code}" https://saludmentalcostarica.com/og-image.png` → `404`.
+`src/app/layout.js` declaraba `og:image` y `twitter:image` apuntando a `/og-image.png`, y `src/lib/seo.js` lo usaba como `DEFAULT_OG_IMAGE` para toda entidad sin imagen propia. **El archivo no existía**, ni en `public/` ni en producción. Cada página compartida en WhatsApp, Instagram, Facebook o LinkedIn salía con la vista previa rota.
 
-No es que falte una imagen mejor: es que la vista previa de todo lo que se comparte del sitio en WhatsApp, Instagram, Facebook y LinkedIn sale rota, hoy.
+### D1, resuelta
 
-**Bloqueado por D1.** Hay que decidir si es archivo estático o generado, y qué muestra.
+Imagen **generada, con el título de cada página**. La tarjeta es el espacio donde se decide si alguien abre el enlace; quince artículos compartidos con la misma estampa lo desperdician.
+
+`src/app/og/route.js` la compone con `ImageResponse` de Next: fondo `brand-950`, logo, nombre de la plataforma en versalitas, el título de la página, la regla coral de marca y una bajada opcional. Acepta `?t=` (título) y `?s=` (bajada).
+
+Vive en `/og` y **no** bajo `/api/`: el robots.txt bloquea `/api/`, algunos rastreadores sociales respetan robots.txt al buscar la imagen, y una vista previa bloqueada por robots es la misma vista previa rota que esto viene a arreglar.
+
+### Dos cosas que aparecieron al implementarlo
+
+**El aviso «sin imagen social» del panel de SEO se habría apagado para siempre.** `src/app/panel/admin/marketing/seo/page.js` audita la salida de `resolveSeo`, y desde que hay una imagen generada por defecto el campo `image` nunca vuelve a quedar vacío: el aviso habría dado siempre «con imagen social», incluso para un artículo sin portada. `resolveSeo` ahora devuelve además `imagenPropia`, que distingue una imagen editorial de verdad de la generada, y `auditItem` la consulta primero. Con test que lo fija.
+
+**Una portada propia siempre gana.** Si el artículo tiene `coverImage` o `ogImage`, se comparte con esa. La tarjeta generada es el piso, no el techo.
+
+**Verificado:** las tarjetas se generan con acentos y ñ correctos, el logo renderiza, y `og:image` responde 200 en la home, las páginas legales, los perfiles y los artículos sin portada.
 
 ---
 
@@ -74,3 +87,15 @@ La `DATABASE_URL` de desarrollo trae `connection_limit=1`. Con las 4 peticiones 
 **Encontrado en:** S1, mapeo de rutas.
 
 S16 especifica construir `/panel/tareas` como pantalla de aterrizaje del panel. Ya hay una ruta `/panel/admin/tareas` en el árbol. Antes de empezar S16 hay que ver qué hace: o se extiende, o se reemplaza, o conviven y hay que decidir cuál es la de aterrizaje.
+
+---
+
+## HN-05 · La caché de `next build` sirvió un prerender viejo
+
+**Encontrado en:** la verificación de HN-01.
+
+Después de cambiar `src/lib/seo.js` y `src/app/layout.js` y de reconstruir con éxito, la home seguía emitiendo `og:image` apuntando al viejo `/og-image.png`. El artefacto `.next/server/app/index.html` era más reciente que los archivos fuente y aun así traía el valor anterior: la caché incremental de Next reusó el prerender de `/` pese al cambio.
+
+Con `rm -rf .next` y reconstrucción limpia, el resultado fue el correcto.
+
+No hay nada que arreglar en el proyecto. Queda anotado porque es la tercera trampa de instrumento del plan —junto con HN-03— y produce exactamente la conclusión equivocada: parece que el código no funciona cuando lo que falla es la verificación. **Ante un resultado que contradice el código fuente, reconstruir limpio antes de investigar.**

@@ -32,9 +32,29 @@ describe("resolveSeo", () => {
     expect(r.noindex).toBe(false);
   });
 
-  it("cae a la imagen por defecto si no hay ninguna", () => {
+  it("genera la tarjeta social si no hay imagen propia", () => {
     const r = resolveSeo({}, { title: "X", description: "Y" });
-    expect(r.image).toBe("/og-image.png");
+    // Antes esto caía a "/og-image.png", un archivo que no existía y que hacía
+    // que toda página compartida saliera con la vista previa rota.
+    expect(r.image).toContain("/og?t=X");
+    expect(r.imagenPropia).toBe(false);
+  });
+
+  it("marca imagenPropia cuando hay una imagen editorial", () => {
+    // El panel de SEO audita esta salida. Sin esta distinción, desde que /og
+    // genera una tarjeta por defecto el aviso «sin imagen social» no volvería a
+    // dispararse nunca, porque `image` ya nunca queda vacío.
+    const conPortada = resolveSeo({}, { title: "X", description: "Y", image: "/portada.jpg" });
+    expect(conPortada.image).toBe("/portada.jpg");
+    expect(conPortada.imagenPropia).toBe(true);
+
+    const conOgImage = resolveSeo({ ogImage: "/social.jpg" }, { title: "X", description: "Y" });
+    expect(conOgImage.imagenPropia).toBe(true);
+  });
+
+  it("pasa el subtítulo a la tarjeta generada", () => {
+    const r = resolveSeo({}, { title: "Andrea Robles", description: "Y", subtitle: "Psicología" });
+    expect(r.image).toContain("s=Psicolog");
   });
 
   it("recorta la descripción al máximo permitido", () => {

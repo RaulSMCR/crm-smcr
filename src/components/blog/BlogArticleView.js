@@ -4,6 +4,7 @@ import PostMarketingTracker from "@/components/blog/PostMarketingTracker";
 import SafeImage, { SafeAvatar } from "@/components/SafeImage";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import { siteUrl } from "@/lib/site-url";
+import { defaultOgImage } from "@/lib/seo";
 
 const formatDate = (date) =>
   new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "long", year: "numeric" }).format(new Date(date));
@@ -22,7 +23,7 @@ export default function BlogArticleView({ post, slug, preview = false }) {
     "@type": "Article",
     headline: post.title,
     description: post.excerpt || undefined,
-    image: post.coverImage || siteUrl("og-image.png"),
+    image: post.coverImage || defaultOgImage(post.title),
     datePublished: new Date(post.createdAt).toISOString(),
     dateModified: new Date(post.updatedAt).toISOString(),
     url: siteUrl(`blog/${slug}`),

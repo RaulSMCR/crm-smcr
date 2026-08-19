@@ -244,7 +244,7 @@ Aprobado y ejecutado el 2026-08-19. Build limpio. Arnés: **39 de 40 URLs sin ob
 | H-17 | `/privacidad` y `/cookies` con título propio | cumplido |
 | H-17 | `/registro*` con `noindex` | cumplido — `noindex, nofollow` en las tres |
 | H-26 | 6 reglas nuevas en `robots.txt`, ninguna contra IA | cumplido — 0 directivas contra crawlers de IA |
-| H-05 | imagen social | **no hecho**, bloqueado por D1 |
+| H-05 | imagen social | **cerrado después**, con D1 resuelta — ver HN-01 |
 
 ### Diferencias respecto de lo planificado
 
@@ -258,7 +258,7 @@ Aprobado y ejecutado el 2026-08-19. Build limpio. Arnés: **39 de 40 URLs sin ob
 
 ### Lo que quedó abierto
 
-**H-05 · imagen social.** Bloqueado por **D1**. Es lo más visible que S1 no arregla: `/og-image.png` sigue devolviendo 404 y cada vez que se comparte una página del sitio, la vista previa sale rota. Anotado como HN-01.
+**H-05 · imagen social.** ~~Bloqueado por D1.~~ **Cerrado el 2026-08-19**, una vez tomada D1: imagen generada por página en `src/app/og/route.js`. Detalle completo en `docs/hallazgos-nuevos.md`, HN-01.
 
 **H-16 en `/blog/serie/{slug}`.** No verificable: la taxonomía está vacía en producción (0 series, 0 temas, 0 disciplinas — H-13). El `openGraph` propio está implementado y el build compila la ruta, pero no hay un slug real contra el cual comprobarlo, y S1 no escribe en producción. Se verifica en S11, cuando haya series cargadas. **No se da por bueno.**
 
