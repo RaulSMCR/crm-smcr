@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
+import { resolveRedirect, TIPOS } from "@/lib/slug-redirect";
 import JsonLd from "@/components/JsonLd";
 import ViewTracker from "@/components/tracking/ViewTracker";
 import { prisma } from "@/lib/prisma";
@@ -76,6 +77,7 @@ export async function generateMetadata({ params }) {
       `${name}, especialista en ${professional.specialty || "salud mental"} en Salud Mental Costa Rica.`,
     image: professional.user?.image,
     imageAlt: name,
+    subtitle: professional.specialty || "Salud Mental Costa Rica",
   });
 
   return buildMetadata({
@@ -93,7 +95,11 @@ export default async function ProfessionalPublicProfilePage({ params, searchPara
   const { slug: rawSlug } = await params;
   const slug = String(rawSlug || "");
   const professional = await getProfessional(slug);
-  if (!professional) notFound();
+  if (!professional) {
+    const vigente = await resolveRedirect(TIPOS.PROFESIONAL, slug);
+    if (vigente) permanentRedirect(`/profesionales/${vigente}`);
+    notFound();
+  }
 
   const name = professional.user?.name || "Profesional";
   const review = professional.profileReview || "";

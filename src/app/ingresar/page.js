@@ -1,4 +1,9 @@
 import { Suspense } from "react";
+
+export const metadata = {
+  title: "Ingresar",
+  robots: { index: false, follow: false },
+};
 import LoginClient from "./LoginClient";
 
 export default function LoginPage() {

@@ -19,8 +19,27 @@ export const SEO_LIMITS = {
   description: { min: 70, max: 160 },
 };
 
-const DEFAULT_OG_IMAGE = "/og-image.png";
 const SITE_NAME = "Salud Mental Costa Rica";
+
+/**
+ * Imagen social por defecto: se genera en `/og` con el título de la página.
+ *
+ * Antes esto era la constante `"/og-image.png"`, un archivo que no existía en
+ * `public/` ni en producción. El efecto: `og:image` y `twitter:image` apuntaban
+ * a un 404 y toda página compartida en WhatsApp, Instagram, Facebook o LinkedIn
+ * salía con la vista previa rota.
+ *
+ * Se genera por página en vez de servir un PNG fijo porque la tarjeta es donde
+ * se decide si alguien abre el enlace, y quince artículos compartidos con la
+ * misma estampa desperdician ese espacio.
+ */
+export function defaultOgImage(title, subtitle) {
+  const params = new URLSearchParams();
+  if (title) params.set("t", String(title));
+  if (subtitle) params.set("s", String(subtitle));
+  const qs = params.toString();
+  return siteUrl(qs ? `og?${qs}` : "og");
+}
 
 /** Recorta a un largo máximo respetando palabras, sin cortar a mitad. */
 function clampText(str, max) {
@@ -44,7 +63,7 @@ function firstNonEmpty(...values) {
  * aplicando el override editorial sobre los fallbacks del contenido.
  *
  * @param {object} entity  registro con posibles campos metaTitle, metaDescription, ogImage, focusKeyword, noindex
- * @param {object} fallbacks  { title, description, image, imageAlt }
+ * @param {object} fallbacks  { title, description, image, imageAlt, subtitle }
  */
 export function resolveSeo(entity = {}, fallbacks = {}) {
   const title = firstNonEmpty(entity.metaTitle, fallbacks.title);
@@ -52,7 +71,13 @@ export function resolveSeo(entity = {}, fallbacks = {}) {
     firstNonEmpty(entity.metaDescription, fallbacks.description),
     SEO_LIMITS.description.max,
   );
-  const image = firstNonEmpty(entity.ogImage, fallbacks.image, DEFAULT_OG_IMAGE);
+
+  // `imagenPropia` distingue «tiene una imagen editorial de verdad» de «le
+  // generamos una». Sin esa distinción, el panel de SEO —que audita esta misma
+  // salida— dejaría de avisar «sin imagen social» para siempre, porque desde que
+  // /og genera una por defecto el campo nunca vuelve a quedar vacío.
+  const imagenPropia = firstNonEmpty(entity.ogImage, fallbacks.image);
+  const image = imagenPropia || defaultOgImage(title, fallbacks.subtitle);
   const imageAlt = firstNonEmpty(fallbacks.imageAlt, title, SITE_NAME);
 
   return {
@@ -60,6 +85,7 @@ export function resolveSeo(entity = {}, fallbacks = {}) {
     description,
     image,
     imageAlt,
+    imagenPropia: Boolean(imagenPropia),
     focusKeyword: firstNonEmpty(entity.focusKeyword, ""),
     noindex: Boolean(entity.noindex),
   };
@@ -75,15 +101,17 @@ export function buildMetadata({
   title,
   description,
   path = "",
-  image = DEFAULT_OG_IMAGE,
+  image,
   imageAlt,
+  subtitle,
   type = "website",
   noindex = false,
   keywords,
 } = {}) {
   const canonical = siteUrl(path);
+  const ogImage = image || defaultOgImage(title, subtitle);
   const cleanDescription = clampText(description, SEO_LIMITS.description.max);
-  const ogImages = [{ url: image, width: 1200, height: 630, alt: imageAlt || title || SITE_NAME }];
+  const ogImages = [{ url: ogImage, width: 1200, height: 630, alt: imageAlt || title || SITE_NAME }];
 
   const metadata = {
     title,
@@ -172,10 +200,14 @@ export function auditItem(item = {}) {
       : { code: "excerpt", level: LEVEL.WARN, label: "Sin extracto" },
   );
 
+  // `imagenPropia` viene de resolveSeo y dice si hay una imagen editorial. Se
+  // consulta antes que `image` porque desde que /og genera una tarjeta por
+  // defecto, `image` nunca está vacío y este aviso no volvería a dispararse.
+  const conImagen = item.imagenPropia ?? Boolean(firstNonEmpty(item.image));
   issues.push(
-    firstNonEmpty(item.image)
+    conImagen
       ? { code: "image", level: LEVEL.OK, label: "Con imagen social" }
-      : { code: "image", level: LEVEL.WARN, label: "Sin imagen social" },
+      : { code: "image", level: LEVEL.WARN, label: "Portada propia ausente (se genera una)" },
   );
 
   const kw = firstNonEmpty(item.focusKeyword);

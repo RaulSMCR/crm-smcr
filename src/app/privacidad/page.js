@@ -1,3 +1,12 @@
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata = buildMetadata({
+  title: "Política de Privacidad",
+  description:
+    "Qué datos personales recopilamos, para qué se usan y cómo pedir su modificación o eliminación.",
+  path: "privacidad",
+});
+
 export default function Privacidad() {
   return (
     <main className="max-w-4xl mx-auto py-16 px-6 text-neutral-800">

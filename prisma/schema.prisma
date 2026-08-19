@@ -1725,3 +1725,30 @@ model CasoEvento {
   @@index([casoId, createdAt])
   @@index([tipo])
 }
+
+/// Historial de slugs: qué URL vieja lleva a cuál actual.
+///
+/// Una tabla para las tres entidades en vez de un campo `slugHistory[]` por
+/// modelo. La razón que decide es el slug que migra dos veces: con un arreglo
+/// por entidad hay que acordarse de arrastrar el histórico completo en cada
+/// migración, y olvidarlo rompe la URL más vieja en silencio. Acá cada salto es
+/// una fila y la cadena se sigue sola.
+///
+/// Se consulta solo en el camino del 404, nunca en el middleware: resolver esto
+/// en cada request agregaría una consulta a la base a todas las URLs que sí
+/// funcionan.
+model SlugRedirect {
+  id         String   @id @default(cuid())
+  /// 'post' | 'professional' | 'service'. Texto y no enum: agregar una entidad
+  /// no debería costar una migración de tipo. Lo valida src/lib/slug-redirect.js,
+  /// que es el único que escribe acá.
+  entityType String
+  fromSlug   String
+  toSlug     String
+  createdAt  DateTime @default(now())
+
+  /// Un slug viejo no puede apuntar a dos destinos.
+  @@unique([entityType, fromSlug])
+  /// Para encadenar saltos y para el --revert de S4.
+  @@index([entityType, toSlug])
+}

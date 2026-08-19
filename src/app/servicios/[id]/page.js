@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
+import { resolveRedirect, TIPOS } from "@/lib/slug-redirect";
 import Link from "next/link";
-import { isPrismaConnectionError } from "@/lib/prisma-safe";
+import { isPrismaConnectionError, fallarSiEsBuild } from "@/lib/prisma-safe";
 import ViewTracker from "@/components/tracking/ViewTracker";
 import JsonLd from "@/components/JsonLd";
 import { siteUrl } from "@/lib/site-url";
@@ -101,6 +102,7 @@ export default async function ServiceDetailPage({ params }) {
     });
   } catch (error) {
     if (!isPrismaConnectionError(error)) throw error;
+    fallarSiEsBuild(error, `/servicios/${id}`);
     dbUnavailable = true;
     console.error(`No se pudo cargar /servicios/${id} por falla de conexion a la base:`, error);
   }
@@ -121,7 +123,13 @@ export default async function ServiceDetailPage({ params }) {
     );
   }
 
-  if (!service) notFound();
+  if (!service) {
+    // Hoy el segmento es el cuid del servicio; en S6 pasa a ser un slug legible
+    // y las URLs con cuid quedan registradas acá como origen.
+    const vigente = await resolveRedirect(TIPOS.SERVICIO, id);
+    if (vigente) permanentRedirect(`/servicios/${vigente}`);
+    notFound();
+  }
 
   const professionals = (service.professionalAssignments || []).map((assignment) => ({
     ...assignment.professional,

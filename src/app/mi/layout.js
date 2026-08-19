@@ -14,6 +14,10 @@ export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: { default: "Mi espacio", template: "%s · SMCR" },
+  // Todo /mi/* es el espacio privado de una persona usuaria. El guard de sesión
+  // ya lo protege, pero el noindex lo declara sin depender de que el crawler
+  // llegue a la redirección.
+  robots: { index: false, follow: false },
   applicationName: "SMCR — Mi espacio",
   // El manifest se enlaza SOLO para /mi/* (no toca el layout raíz).
   manifest: "/mi/manifest.webmanifest",

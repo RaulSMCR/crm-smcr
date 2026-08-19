@@ -53,3 +53,7 @@ next-env.d.ts
 # Comprobantes de referencia para depurar la firma electronica.
 # Llevan datos reales de pacientes (nombre, cedula, correo): nunca se versionan.
 tmp/
+
+# Respaldos e inventarios de S0 (plan SEO/GEO). Llevan nombres y correos
+# reales del equipo: se generan con scripts/seo-baseline-dump.mjs y no se versionan.
+docs/backups/

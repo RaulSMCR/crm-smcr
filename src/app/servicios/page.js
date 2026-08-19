@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { isPrismaConnectionError } from "@/lib/prisma-safe";
+import { isPrismaConnectionError, fallarSiEsBuild } from "@/lib/prisma-safe";
 import JsonLd from "@/components/JsonLd";
 import { siteUrl } from "@/lib/site-url";
 import SafeImage, { SafeAvatar } from "@/components/SafeImage";
@@ -116,6 +116,9 @@ export default async function ServiciosPage() {
     });
   } catch (error) {
     if (!isPrismaConnectionError(error)) throw error;
+    // El aviso de «temporalmente no disponible» es correcto para un visitante y
+    // es un soft-404 servido como 200 si queda horneado en el build.
+    fallarSiEsBuild(error, "/servicios");
     dbUnavailable = true;
     console.error("No se pudo cargar /servicios por falla de conexion a la base:", error);
   }

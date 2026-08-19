@@ -2,6 +2,12 @@
 import Link from "next/link";
 import { verifyEmail } from "@/actions/auth-actions";
 
+export const metadata = {
+  title: "Verificar correo",
+  // Se llega por enlace con token, nunca por búsqueda.
+  robots: { index: false, follow: false },
+};
+
 export default async function VerificarEmailPage({ searchParams }) {
   const token = searchParams?.token;
 

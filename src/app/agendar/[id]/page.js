@@ -4,6 +4,7 @@ import BookingInterface from '@/components/booking/BookingInterface';
 import JsonLd from '@/components/JsonLd';
 import ViewTracker from '@/components/tracking/ViewTracker';
 import { siteUrl } from "@/lib/site-url";
+import { defaultOgImage } from "@/lib/seo";
 import { SafeAvatar } from "@/components/SafeImage";
 
 export async function generateMetadata({ params }) {
@@ -30,7 +31,7 @@ export async function generateMetadata({ params }) {
   ).substring(0, 160);
   const ogImage = professional.avatarUrl
     ? [{ url: professional.avatarUrl, width: 800, height: 800, alt: name }]
-    : [{ url: '/og-image.png', width: 1200, height: 630, alt: name }];
+    : [{ url: defaultOgImage(`Agendá con ${name}`, professional.specialty || ''), width: 1200, height: 630, alt: name }];
 
   return {
     title: `Agendá con ${name} — ${professional.specialty}`,

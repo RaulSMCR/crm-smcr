@@ -36,10 +36,23 @@ export async function generateMetadata({ params }) {
   const { slug } = await params;
   const series = await prisma.series.findUnique({ where: { slug: String(slug || "") }, select: { name: true, description: true } });
   if (!series) return { title: "Serie no encontrada" };
+  const canonical = siteUrl(`blog/serie/${slug}`);
+  const description = series.description || `Serie de artículos: ${series.name}.`;
+
   return {
     title: `${series.name} · Serie`,
-    description: series.description || `Serie de artículos: ${series.name}.`,
-    alternates: { canonical: siteUrl(`blog/serie/${slug}`) },
+    description,
+    alternates: { canonical },
+    // `openGraph` se declara entero y no solo `url`: el layout raíz ya no
+    // hereda una URL, pero sí hereda título y descripción genéricos del sitio,
+    // y una serie compartida en redes tiene que decir de qué serie se trata.
+    openGraph: {
+      type: "website",
+      title: `${series.name} · Serie`,
+      description,
+      url: canonical,
+      siteName: "Salud Mental Costa Rica",
+    },
   };
 }
 

@@ -27,6 +27,10 @@ const nextConfig = {
       "./docs/gpt-smcr/01-identidad-y-marca.md",
       "./docs/gpt-smcr/10-instrucciones-gpt.md",
     ],
+    // La tarjeta social se compone en runtime y lee el logo del disco. Lo que
+    // vive en public/ lo sirve el CDN, no el sistema de archivos de la funcion:
+    // sin esta linea el logo no esta ahi y la tarjeta sale sin marca.
+    "/og": ["./public/logo.svg"],
   },
 };
 
