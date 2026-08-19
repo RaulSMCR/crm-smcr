@@ -1,6 +1,7 @@
 // src/app/blog/[slug]/page.js
 import { prisma } from '@/lib/prisma';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
+import { resolveRedirect, TIPOS } from '@/lib/slug-redirect';
 import { resolveSeo, buildMetadata } from "@/lib/seo";
 import BlogArticleView from "@/components/blog/BlogArticleView";
 import ArticleTaxonomy from "@/components/blog/ArticleTaxonomy";
@@ -54,7 +55,14 @@ export default async function BlogPostPage({ params }) {
     },
   });
 
-  if (!post) notFound();
+  if (!post) {
+    // Antes de dar el artículo por inexistente, ver si el slug es una URL vieja.
+    // La consulta vive acá y no en el middleware: así solo la pagan las URLs que
+    // ya iban a terminar en 404.
+    const vigente = await resolveRedirect(TIPOS.POST, slug);
+    if (vigente) permanentRedirect(`/blog/${vigente}`);
+    notFound();
+  }
 
   return (
     <>

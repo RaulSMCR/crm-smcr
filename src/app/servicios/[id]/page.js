@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
+import { resolveRedirect, TIPOS } from "@/lib/slug-redirect";
 import Link from "next/link";
 import { isPrismaConnectionError, fallarSiEsBuild } from "@/lib/prisma-safe";
 import ViewTracker from "@/components/tracking/ViewTracker";
@@ -122,7 +123,13 @@ export default async function ServiceDetailPage({ params }) {
     );
   }
 
-  if (!service) notFound();
+  if (!service) {
+    // Hoy el segmento es el cuid del servicio; en S6 pasa a ser un slug legible
+    // y las URLs con cuid quedan registradas acá como origen.
+    const vigente = await resolveRedirect(TIPOS.SERVICIO, id);
+    if (vigente) permanentRedirect(`/servicios/${vigente}`);
+    notFound();
+  }
 
   const professionals = (service.professionalAssignments || []).map((assignment) => ({
     ...assignment.professional,
