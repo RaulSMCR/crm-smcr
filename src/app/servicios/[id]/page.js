@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { isPrismaConnectionError } from "@/lib/prisma-safe";
+import { isPrismaConnectionError, fallarSiEsBuild } from "@/lib/prisma-safe";
 import ViewTracker from "@/components/tracking/ViewTracker";
 import JsonLd from "@/components/JsonLd";
 import { siteUrl } from "@/lib/site-url";
@@ -101,6 +101,7 @@ export default async function ServiceDetailPage({ params }) {
     });
   } catch (error) {
     if (!isPrismaConnectionError(error)) throw error;
+    fallarSiEsBuild(error, `/servicios/${id}`);
     dbUnavailable = true;
     console.error(`No se pudo cargar /servicios/${id} por falla de conexion a la base:`, error);
   }

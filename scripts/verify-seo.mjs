@@ -32,7 +32,13 @@ function valorDe(flag) {
 const salida = valorDe('--out');
 const baseNueva = valorDe('--base');
 const anterior = valorDe('--diff');
-const CONCURRENCIA = Number(valorDe('--concurrencia') || 4);
+// Contra producción, cuatro peticiones a la vez acortan la corrida sin molestar
+// a nadie. Contra un servidor local, no: la `DATABASE_URL` de desarrollo trae
+// `connection_limit=1`, así que la segunda petición concurrente agota el pool de
+// Prisma y devuelve páginas a medias —sin <title>, o directamente 500—. Son
+// falsos positivos que se leen como si el sitio estuviera roto.
+const esLocal = /localhost|127\.0\.0\.1/.test(String(baseNueva || ''));
+const CONCURRENCIA = Number(valorDe('--concurrencia') || (esLocal ? 1 : 4));
 
 if (!archivo) {
   console.error('Uso: node scripts/verify-seo.mjs <archivo-de-urls> [--json] [--out f] [--base URL] [--diff baseline.json]');

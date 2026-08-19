@@ -2,7 +2,12 @@
 
 Cosas que aparecieron durante la ejecución del plan y que **no** están en `docs/auditoria-seo-geo.md`.
 
-Regla del plan (§4): no se arreglan sobre la marcha. Se anotan acá y se discuten.
+| # | Hallazgo | Estado |
+|---|---|---|
+| HN-01 | `/og-image.png` devuelve 404 en producción | **abierto** — bloqueado por D1 |
+| HN-02 | La home y `/servicios` hornean su estado degradado en el build | **reparado** el 2026-08-19 |
+| HN-03 | El arnés se autoflagelaba contra el servidor local | **reparado** el 2026-08-19 |
+| HN-04 | `/panel/admin/tareas` ya existe | **abierto** — a resolver al empezar S16 |
 
 ---
 
@@ -19,32 +24,48 @@ No es que falte una imagen mejor: es que la vista previa de todo lo que se compa
 
 ---
 
-## HN-02 · La home y `/servicios` se tragan los errores de base en silencio
+## HN-02 · La home y `/servicios` hornean su estado degradado en el build — **reparado**
 
 **Encontrado en:** S1, fase de verificación de H-07 (build con `DATABASE_URL` inalcanzable).
 
-Al probar que el sitemap ahora falla el build cuando no hay base, la salida mostró que otras dos rutas hacen exactamente lo que se acaba de corregir en el sitemap:
+### Corrección al enunciado original
 
-```
-La base de datos fallo, pero la web sigue viva: PrismaClientInitializationError
-No se pudo cargar /servicios por falla de conexion a la base: PrismaClientInitializationError
-```
+La primera versión de este hallazgo decía que estas rutas «se tragan los errores de base en silencio». **Es inexacto y hay que dejarlo asentado.** `src/app/servicios/page.js` y `src/app/servicios/[id]/page.js` relanzan si el error no es de conexión, y muestran al visitante un aviso explícito de «temporalmente no disponible». Es una degradación deliberada y bien construida.
 
-La home y `/servicios` se prerenderizan **vacías** y el build pasa como si nada. En el sitemap eso significaba publicar un índice sin contenido; acá significa desplegar la portada del sitio y el catálogo de servicios sin un solo servicio, sin que nadie se entere.
+El problema real es más estrecho y solo aparece en el build.
 
-Es el mismo patrón de H-07 en dos rutas más. La diferencia es que acá la degradación puede ser deliberada —una home a medias es mejor que un 500— y esa decisión no me corresponde tomarla.
+### El problema
 
-**A discutir:** ¿degradar en silencio o fallar el build? Si se elige degradar, al menos debería quedar visible en el despliegue.
+Ambas rutas se prerenderizan estáticas (`○ /` y `○ /servicios`, con revalidación de 5 min). Si el `next build` corre mientras la base no responde, **el estado degradado se hornea en el HTML estático y se sirve con HTTP 200** —a los visitantes y a Google— hasta que expire la revalidación.
+
+Un aviso de error servido como 200 es un soft-404: le enseña al buscador que la página del catálogo de servicios dice que no hay servicios.
+
+### La reparación
+
+Degradar con elegancia significa cosas opuestas según cuándo pase, y esa es toda la corrección:
+
+- **En una petición real**, degradar es correcto. El visitante ve algo y el próximo intento probablemente funcione. **No se tocó.**
+- **En el build**, no. La política del proyecto para el build ya quedó fijada en H-07: si no hay base, el build falla y se ve.
+
+Se agregaron `enPrerender()` y `fallarSiEsBuild()` a `src/lib/prisma-safe.js`, y se llaman desde el `catch` de las tres rutas que degradan.
+
+### Dos cosas que aparecieron al repararlo
+
+**La guarda solo debe cortar ante una falla de conexión real.** La primera versión relanzaba cualquier error y **rompió el build con la base sana**: la home se impone un timeout propio de 4 s (`Promise.race` en `src/app/page.js`), y durante el build quince workers consultan la misma base a la vez y lo disparan por contención propia. Un timeout de aplicación no es «no hay base».
+
+**La home no se aplica su timeout durante el build.** Ese límite existe para que un visitante no espere a una base lenta. En el build no hay nadie esperando, y aplicarlo solo producía fallas por contención. Sin él, una falla real de conexión sí llega como tal y corta el build, que es lo que se busca.
+
+**Verificado en las dos direcciones:** con base, el build sale con 0 y ninguna guarda se dispara; sin base, sale con 1 y nombra la ruta.
 
 ---
 
-## HN-03 · El pool de Prisma en local está limitado a una conexión
+## HN-03 · El arnés se autoflagelaba contra el servidor local — **reparado**
 
 **Encontrado en:** S1, primera corrida del arnés contra `localhost`.
 
-Con `connection_limit=1` en la `DATABASE_URL` local, cuatro peticiones concurrentes bastan para que Prisma agote el pool y devuelva `P2024`. En la corrida del arnés produjo un `500` en `/blog` y cinco páginas servidas sin `<title>`, todos falsos positivos.
+La `DATABASE_URL` de desarrollo trae `connection_limit=1`. Con las 4 peticiones concurrentes que el arnés usaba por defecto, Prisma agotaba el pool y devolvía `P2024`: en la corrida produjo un `500` en `/blog` y cinco páginas servidas sin `<title>`. Todos falsos positivos, y se leen exactamente como si el sitio estuviera roto.
 
-No es un defecto del sitio ni del arnés. Queda anotado porque **cualquier verificación local del plan tiene que correr con `--concurrencia 1`**, y si no se sabe, se pierde media hora persiguiendo un fantasma.
+**Reparado:** `scripts/verify-seo.mjs` detecta si `--base` apunta a localhost y baja la concurrencia a 1 por su cuenta. Contra producción sigue en 4. `--concurrencia` sigue disponible para forzar el valor.
 
 ---
 

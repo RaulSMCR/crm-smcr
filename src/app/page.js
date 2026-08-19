@@ -8,6 +8,7 @@ import ProfessionalCtaSection from "@/components/ProfessionalCtaSection";
 import JsonLd from "@/components/JsonLd";
 import { SITE_URL } from "@/lib/site-url";
 import { buildMetadata } from "@/lib/seo";
+import { fallarSiEsBuild, enPrerender } from "@/lib/prisma-safe";
 
 export const metadata = buildMetadata({
   title: "Salud Mental Costa Rica — Bienestar con profesionales validados",
@@ -169,11 +170,17 @@ export default async function HomePage() {
       }),
     ]);
 
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error("Timeout DB")), 4000);
-    });
-
-    const [dbServices, dbCarouselItems] = await Promise.race([dbPromise, timeoutPromise]);
+    // El límite de 4 s existe para que un visitante no espere a una base lenta.
+    // En el build no hay nadie esperando, y sí hay quince workers consultando a
+    // la vez: aplicarlo ahí solo produce fallas por contención propia.
+    const [dbServices, dbCarouselItems] = enPrerender()
+      ? await dbPromise
+      : await Promise.race([
+          dbPromise,
+          new Promise((_, reject) => {
+            setTimeout(() => reject(new Error("Timeout DB")), 4000);
+          }),
+        ]);
 
     if (dbServices && dbServices.length > 0) {
       categoriesToShow = dbServices.map((service, index) => ({
@@ -191,6 +198,10 @@ export default async function HomePage() {
 
     carouselItems = normalizeCarouselItems(dbCarouselItems);
   } catch (error) {
+    // En una petición real la home degrada a las categorías por defecto y sigue
+    // en pie, que es lo que corresponde. En el build, no: ese estado degradado
+    // se hornea en el HTML estático y se sirve con 200 hasta que revalide.
+    fallarSiEsBuild(error, "/");
     console.error("La base de datos fallo, pero la web sigue viva:", error);
   }
 
