@@ -101,14 +101,44 @@ solo el número, como antes.
 - Las cuatro especialidades quedaron normalizadas.
 - El formulario de verificación aparece en la lista de pendientes.
 
-**Lo que todavía no se puede verificar:** ningún perfil tiene colegiatura
-registrada, así que la rama de `hasCredential` del JSON-LD **no se ejerció contra
-datos reales**. Se ejerce sola en cuanto Raúl cargue la primera verificación.
+**Ejercido contra datos reales el 2026-08-20.** Los tres profesionales activos
+tienen su colegiatura verificada contra el CPPCR, así que la rama de
+`hasCredential` del JSON-LD ya se emite en producción.
 
 ---
 
-## 5. Pendiente
+## 5. Cierre: las tres verificaciones
 
-Cargar la verificación de los cuatro profesionales actuales: colegio, matrícula y
-enlace al registro público. Los números de matrícula ya están; falta el colegio y
-el enlace, que son lo que los vuelve comprobables.
+| Perfil | Matrícula | Colegio |
+|---|---|---|
+| raul-olmedo | 8270 | CPPCR |
+| andrea-robles | 11665 | CPPCR |
+| esteban-madrigal | **13032** | CPPCR |
+
+**Una matrícula estaba mal cargada.** La base decía `130032` para Esteban
+Madrigal; el registro del colegio dice `13032`. Un dígito de más, invisible a
+menos que alguien lo compare contra la fuente — que es exactamente para lo que
+sirve este procedimiento. Quedó corregido.
+
+**Mariano Zorrilla fue dado de baja** por decisión de Raúl. Antes de borrar se
+comprobó que no tuviera nada asociado —cero artículos, citas, asignaciones,
+facturas, casos clínicos, liquidaciones, tarifas y disponibilidad—, y el borrado
+se ensayó dentro de una transacción revertida para que Postgres confirmara que
+ninguna clave foránea lo bloqueaba. Recién entonces se ejecutó.
+
+Que tuviera cero casos clínicos es lo que lo volvía borrable: con historia
+clínica de por medio, la obligación de custodia de diez años lo habría impedido.
+
+### `sameAs`: por qué no se emite
+
+El enlace que da el CPPCR es el **buscador** del directorio, no un permalink a la
+ficha de cada colegiado: el nombre no aparece en el HTML inicial y la página se
+arma con JavaScript.
+
+`sameAs` afirma «esta URL es otra representación de esta persona». Quien la abre
+llega a un formulario, así que la afirmación no sobrevive al clic. En categoría
+YMYL, una afirmación de identidad que se cae al comprobarla hace más daño que no
+decir nada.
+
+La URL sí se usa en `recognizedBy.url`, donde lo que se afirma es «este es el
+registro del colegio que emite la credencial», que es exactamente lo que es.
