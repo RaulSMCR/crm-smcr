@@ -1,10 +1,15 @@
 import { Client } from "@upstash/qstash";
+import { SITE_URL } from "@/lib/site-url";
 
 const qstash = new Client({
   token: process.env.QSTASH_TOKEN,
 });
 
-const APP_URL = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://crm-smcr.vercel.app";
+// `APP_URL` primero porque es la variable privada que usa el worker; el resto
+// sale de site-url.js, que ya acepta las cuatro públicas y tiene el dominio
+// correcto como último recurso. Antes caía a "https://crm-smcr.vercel.app", un
+// dominio distinto del que el sitio usa en todo lo demás.
+const APP_URL = process.env.APP_URL || SITE_URL;
 
 /**
  * Programa un recordatorio de cita vía QStash.

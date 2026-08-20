@@ -290,7 +290,6 @@ model ProfessionalProfile {
 
   isApproved Boolean @default(false)
 
-  rating     Decimal? @db.Decimal(2, 1)
   commission Int      @default(10)
 
   // ✅ Lo que tu código espera

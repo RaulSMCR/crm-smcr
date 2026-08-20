@@ -1,8 +1,9 @@
 // src/lib/insurance-mail.js
 import { resend } from "@/lib/resend";
+import { SITE_URL } from "@/lib/site-url";
 
 const FROM = process.env.EMAIL_FROM || "Salud Mental Costa Rica <onboarding@resend.dev>";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_URL || "http://localhost:3000";
+const APP_URL = SITE_URL;
 
 function fileUrl(value) {
   const raw = String(value || "");

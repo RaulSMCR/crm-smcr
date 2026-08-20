@@ -1,3 +1,4 @@
+import { SITE_URL } from "@/lib/site-url";
 // src/lib/payment-alerts.js
 // Aviso al administrador cuando una cita queda agendada sin su orden de cobro.
 //
@@ -29,7 +30,7 @@ export async function alertarAgendaEnPausa(appointment, motivo, sancion = {}) {
       timeStyle: "short",
     }).format(appointment.date);
 
-    const base = process.env.NEXT_PUBLIC_APP_URL || "";
+    const base = SITE_URL;
     const urlAgenda = base ? `${base}/agendar/${appointment.professionalId}` : "";
     const wa = enlaceWhatsApp({ telefono: appointment.patient?.phone, urlAgenda });
 

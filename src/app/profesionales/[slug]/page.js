@@ -57,7 +57,6 @@ async function getProfessional(slug) {
       },
       bio: true,
       profileReview: true,
-      rating: true,
       metaTitle: true,
       metaDescription: true,
       ogImage: true,

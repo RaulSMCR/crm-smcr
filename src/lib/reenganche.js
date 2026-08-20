@@ -20,13 +20,14 @@ import { prisma } from "@/lib/prisma";
 import { MENSAJE_REINVITACION } from "@/lib/scheduling-block";
 import { scheduleReengagement } from "@/lib/qstash";
 import {
+import { SITE_URL } from "@/lib/site-url";
   CANALES,
   DIAS_DE_SEGUIMIENTO,
   RESULTADOS_QUE_CIERRAN,
   diasDesde,
 } from "@/lib/reenganche-policy";
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "";
+const APP_URL = process.env.APP_URL || SITE_URL;
 
 /**
  * ¿Ya volvió a agendar desde que faltó?

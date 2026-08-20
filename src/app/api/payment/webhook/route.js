@@ -28,6 +28,7 @@ import { estimateOnvoFee } from "@/lib/commission-plan";
 import { obtenerTipoCambio } from "@/lib/exchange-rate";
 import { paymentTypeLabel } from "@/lib/payment-requests";
 import { reportDepositConversion } from "@/lib/analytics/reportDepositConversion";
+import { SITE_URL } from "@/lib/site-url";
 import { sendPurchaseMeta } from "@/lib/analytics/meta-events";
 import { after } from "next/server";
 
@@ -563,7 +564,7 @@ async function sendPaymentConfirmationEmail(transaction) {
       <p style="margin-top:16px;font-size:13px;color:#475569;">
         ¿Necesitás mover la cita? Podés hacerlo desde tu panel avisando con al menos 24 horas.
         Las condiciones completas están en
-        <a href="${process.env.NEXT_PUBLIC_APP_URL || ""}/terminos">términos y condiciones</a>.
+        <a href="${SITE_URL}/terminos">términos y condiciones</a>.
       </p>
       <p style="font-size:12px;color:#94a3b8;margin-top:24px;">
         Este correo fue generado automáticamente por Salud Mental Costa Rica.

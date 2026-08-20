@@ -11,6 +11,7 @@ import {
 } from "@/lib/scheduling-block";
 import { registrarContacto } from "@/lib/reenganche";
 import { CANALES, RESULTADOS_CONTACTO, diasDesde } from "@/lib/reenganche-policy";
+import { SITE_URL } from "@/lib/site-url";
 
 /**
  * Pacientes con la agenda en pausa, con todo lo necesario para contactarlos.
@@ -60,7 +61,9 @@ export async function listarAgendasEnPausa() {
     },
   });
 
-  const base = process.env.NEXT_PUBLIC_APP_URL || "";
+  // Un `|| ""` acá deja un enlace relativo dentro de un correo, donde no hay
+  // página base contra la cual resolverlo: el enlace simplemente no funciona.
+  const base = SITE_URL;
 
   return {
     pacientes: pacientes.map((p) => {
@@ -194,7 +197,7 @@ export async function solicitarContactoDeAdmin() {
           <p><strong>${paciente.name}</strong><br>${paciente.phone || "sin teléfono"} ·
              ${paciente.email}</p>
           <p style="font-size:13px;color:#475569;">Está en
-             <a href="${process.env.NEXT_PUBLIC_APP_URL || ""}/panel/admin/agendas-en-pausa">
+             <a href="${SITE_URL}/panel/admin/agendas-en-pausa">
              agendas en pausa</a>, con el enlace de WhatsApp listo.</p>
         </div>`,
       })
