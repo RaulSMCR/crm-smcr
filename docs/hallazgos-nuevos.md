@@ -153,3 +153,28 @@ las siete versiones que S3 vino a juntar— y ahora importa la unificada.
 **La fragilidad de fondo sigue:** un script que nombra artículos por slug se
 rompe cada vez que un slug cambia. El dry-run hace que eso se note antes y no
 después.
+
+---
+
+## HN-08 · Aprobar o suspender un profesional no tocaba su página pública
+
+**Encontrado en:** al suspender a dos profesionales, después de S14.
+
+`approveUser` y `rejectUser` revalidaban cinco rutas, **todas de `/panel`**.
+Ninguna pública.
+
+El efecto: aprobar a alguien no lo hacía aparecer en el sitio, y suspenderlo no
+lo hacía desaparecer. Se resolvía solo cuando expiraba la revalidación.
+
+Antes de S14 tardaba hasta una hora desde la primera visita. Después de S14, que
+prerenderiza los perfiles en el build, el desfase es el mismo pero más visible:
+la página existe horneada desde antes del cambio.
+
+**Reparado:** las dos acciones revalidan ahora `/profesionales`,
+`/profesionales/[slug]` y `/sitemap.xml`.
+
+Lo que hace este hallazgo digno de anotarse no es la hora de demora: es que
+**S14 no lo causó pero lo volvió visible**. Volver estática una ruta convierte
+cada invalidación faltante en un bug con consecuencia, y este era el único caso
+del proyecto donde el estado público de una persona depende de una acción de
+panel.

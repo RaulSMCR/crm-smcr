@@ -37,9 +37,10 @@ export async function approveUser(userId) {
     if (user.role !== "PROFESSIONAL") return { error: "El usuario no es profesional." };
     if (!user.professionalProfile) return { error: "El profesional no tiene perfil profesional." };
 
-    await prisma.professionalProfile.update({
+    const perfil = await prisma.professionalProfile.update({
       where: { id: user.professionalProfile.id },
       data: { isApproved: true },
+      select: { slug: true },
     });
 
     await prisma.user.update({
@@ -69,6 +70,12 @@ export async function approveUser(userId) {
     revalidatePath("/panel/profesional");
     revalidatePath("/panel/profesional/perfil");
     revalidatePath("/panel/profesional/horarios");
+    // Estas rutas son estáticas desde S14, así que sin invalidarlas el cambio no
+    // se ve hasta que expire la revalidación de una hora: aprobar a alguien no
+    // lo hacía aparecer, y suspenderlo no lo hacía desaparecer.
+    revalidatePath("/profesionales");
+    revalidatePath("/profesionales/[slug]", "page");
+    revalidatePath("/sitemap.xml");
 
     return { success: true };
   } catch (error) {
@@ -94,6 +101,12 @@ export async function rejectUser(userId) {
     revalidatePath("/panel/profesional");
     revalidatePath("/panel/profesional/perfil");
     revalidatePath("/panel/profesional/horarios");
+    // Estas rutas son estáticas desde S14, así que sin invalidarlas el cambio no
+    // se ve hasta que expire la revalidación de una hora: aprobar a alguien no
+    // lo hacía aparecer, y suspenderlo no lo hacía desaparecer.
+    revalidatePath("/profesionales");
+    revalidatePath("/profesionales/[slug]", "page");
+    revalidatePath("/sitemap.xml");
 
     return { success: true };
   } catch (error) {
