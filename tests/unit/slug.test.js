@@ -73,6 +73,18 @@ describe("slugify", () => {
     expect(slugify("--x--", { separator: "_" })).toBe("x");
   });
 
+  it("nombres de persona: el registro producía slugs sin la letra acentuada", () => {
+    // src/actions/auth-actions.js armaba el slug con `[^\w\s-]` y `\w` sin flag
+    // `u`, que es [A-Za-z0-9_]: la letra acentuada no coincidía y se BORRABA,
+    // en vez de convertirse en guión como pasaba con los artículos. Por eso el
+    // perfil de Raúl quedó en `ral-olmedo`.
+    expect(slugify("Raúl Olmedo")).toBe("raul-olmedo");
+    expect(slugify("María Muñoz Peña")).toBe("maria-munoz-pena");
+    expect(slugify("José Ángel Gutiérrez")).toBe("jose-angel-gutierrez");
+    expect(slugify("Ñuño Íñiguez")).toBe("nuno-iniguez");
+    expect(slugify("François Dupont")).toBe("francois-dupont");
+  });
+
   it("es determinista: la misma entrada da siempre lo mismo", () => {
     const t = "Qué es psicoterapia y cómo orientarse entre escuelas. Parte 3.";
     expect(slugify(t)).toBe(slugify(t));

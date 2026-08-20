@@ -4,7 +4,9 @@ import { prisma } from '@/lib/prisma';
 import { siteUrl } from "@/lib/site-url";
 import SafeImage, { SafeAvatar } from "@/components/SafeImage";
 import LibraryBar from "@/components/blog/LibraryBar";
-import { parseLibraryParams, buildLibraryWhere, buildLibraryOrderBy } from "@/lib/blog-taxonomy";
+import { parseLibraryParams, buildLibraryWhere, buildLibraryOrderBy, libraryHref } from "@/lib/blog-taxonomy";
+import { permanentRedirect } from "next/navigation";
+import { resolveRedirect, TIPOS } from "@/lib/slug-redirect";
 
 export const metadata = {
   title: 'Blog de salud mental y bienestar',
@@ -32,6 +34,23 @@ export const revalidate = 300;
 export default async function BlogPage({ searchParams }) {
   const sp = await searchParams;
   const params = parseLibraryParams(sp);
+
+  // Un `?autor=` que ya no corresponde a ningún perfil no puede quedar en una
+  // lista vacía servida con 200: eso es una página en blanco sin explicación.
+  // Pasa con los enlaces compartidos desde antes de que el slug cambiara —
+  // `?autor=ral-olmedo` es una URL que existe en el mundo—. Se resuelve por la
+  // misma tabla de redirects que las rutas, y se redirige preservando el resto
+  // de los filtros.
+  if (params.autor) {
+    const existe = await prisma.professionalProfile.findFirst({
+      where: { slug: params.autor },
+      select: { id: true },
+    });
+    if (!existe) {
+      const vigente = await resolveRedirect(TIPOS.PROFESIONAL, params.autor);
+      if (vigente) permanentRedirect(libraryHref(params, { autor: vigente }));
+    }
+  }
 
   // Sólo mostramos filtros que tienen contenido publicado detrás (nada de
   // disciplinas o temas vacíos). El vocabulario público exige estado APPROVED.

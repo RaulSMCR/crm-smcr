@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 import { sendVerificationEmail, ttlToDate, VERIFY_TOKEN_TTL_HOURS } from "@/lib/mail";
 import { signToken, getSession as getLibSession } from "@/lib/auth";
+import { slugUnico } from "@/lib/slug";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { checkRateLimit, recordAttempt } from "@/lib/rate-limit";
 import { verifyTurnstile } from "@/lib/turnstile";
@@ -298,19 +299,22 @@ export async function registerProfessional(formData) {
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) return { error: "El correo ya está registrado." };
 
-    let slugBase = name.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-");
-    let slug = slugBase || "profesional";
-    let count = 0;
-
-    while (
-      await prisma.professionalProfile.findUnique({
-        where: { slug: count === 0 ? slug : `${slug}-${count}` },
-      })
-    ) {
-      count += 1;
-    }
-
-    slug = count === 0 ? slug : `${slug}-${count}`;
+    // Antes acá vivía `name.replace(/[^\w\s-]/g, "")`, con `\w` sin flag `u`.
+    // `\w` es `[A-Za-z0-9_]`, así que la letra acentuada no coincidía y se
+    // **borraba**: "Raúl" quedaba "Ral". Es un bug distinto al que mutiló los
+    // slugs de artículo —aquel reemplazaba por guión, este directamente come la
+    // letra— pero la causa es la misma: filtrar antes de transliterar.
+    const slug = await slugUnico(
+      name,
+      async (candidato) =>
+        Boolean(
+          await prisma.professionalProfile.findUnique({
+            where: { slug: candidato },
+            select: { id: true },
+          }),
+        ),
+      { fallback: "profesional" },
+    );
 
     const hashedPassword = await bcrypt.hash(password, 12);
     const verifyToken = crypto.randomBytes(32).toString("hex");
