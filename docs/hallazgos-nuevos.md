@@ -117,3 +117,39 @@ refactorizar de paso. Es candidato para S15, que es el segmento de limpieza.
 Importa poco por sí solo. Importa porque al migrar imágenes uno tiende a tocar
 todos los componentes que parecen relevantes, y este habría consumido tiempo sin
 cambiar nada de lo que se ve.
+
+---
+
+## HN-07 · S4 rompió el script de backfill de taxonomía y no me di cuenta
+
+**Encontrado en:** al desbloquear S11, cuatro segmentos después de haberlo causado.
+
+`scripts/backfill-blog-taxonomy.mjs` referencia artículos por **slug literal**.
+S4 reparó los slugs mutilados, y de los ocho que el script nombraba, **siete
+dejaron de existir**. Correrlo habría creado dos series y enlazado un artículo,
+sin fallar: los avisos de "no encontré el artículo" salen por consola y el script
+termina bien.
+
+### Lo que falló en mi verificación
+
+La verificación de S4 incluía «revisar enlaces internos que apunten a slugs
+viejos hardcodeados». **Busqué en `src/` y en el cuerpo de los artículos, y no en
+`scripts/`.** El plan decía «buscar en `src/`» y lo tomé al pie de la letra en
+vez de preguntarme dónde más podía haber un slug escrito a mano.
+
+Tres de los ocho slugs, además, ya no existían ni antes de S4: venían de un
+estado del contenido anterior. El script llevaba tiempo desactualizado y nadie
+lo notaba porque nadie lo corría.
+
+### Reparado
+
+Slugs actualizados, cinco series derivadas de los títulos reales, y **modo
+dry-run por defecto**: ahora hay que mirar la lista antes de escribir, y un slug
+muerto se ve como `! NO EXISTE` en vez de pasar como una advertencia entre otras.
+
+También se le sacó la copia local de `slugify` —que es exactamente cómo nacieron
+las siete versiones que S3 vino a juntar— y ahora importa la unificada.
+
+**La fragilidad de fondo sigue:** un script que nombra artículos por slug se
+rompe cada vez que un slug cambia. El dry-run hace que eso se note antes y no
+después.
