@@ -2,27 +2,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { slugify, slugUnico } from "@/lib/slug";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-function slugify(text) {
-  return String(text)
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
 
-function slugifySeriesName(value) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
 
 async function requireProfessionalApproved(session) {
   if (!session) return { ok: false, status: 401, message: "No autorizado" };
@@ -66,11 +51,11 @@ export async function POST(request) {
       return NextResponse.json({ message: "Titulo y contenido son requeridos" }, { status: 400 });
     }
 
-    let slug = slugify(requestedSlug || title);
-    if (!slug) slug = `post-${Date.now()}`;
-
-    const exists = await prisma.post.findUnique({ where: { slug }, select: { id: true } });
-    if (exists) slug = `${slug}-${Math.random().toString(36).slice(2, 7)}`;
+    const slug = await slugUnico(
+      requestedSlug || title,
+      async (candidato) =>
+        Boolean(await prisma.post.findUnique({ where: { slug: candidato }, select: { id: true } })),
+    );
 
     const seriesName = String(body?.seriesName || "").trim();
     const seriesOrderValue = Number(body?.seriesOrder);
@@ -79,7 +64,7 @@ export async function POST(request) {
       : null;
     const series = seriesName
       ? await prisma.series.findFirst({
-          where: { isActive: true, OR: [{ name: seriesName }, { slug: slugifySeriesName(seriesName) }] },
+          where: { isActive: true, OR: [{ name: seriesName }, { slug: slugify(seriesName) }] },
           select: { id: true },
         })
       : null;

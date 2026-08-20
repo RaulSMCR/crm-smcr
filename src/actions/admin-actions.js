@@ -5,14 +5,8 @@ import { revalidatePath } from "next/cache";
 import { resend } from "@/lib/resend";
 import { getSession } from "@/lib/auth";
 import { SITE_URL as BASE_URL } from "@/lib/site-url";
+import { slugify, slugUnico } from "@/lib/slug";
 
-function slugify(text) {
-  return String(text)
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
 
 function clampInt(value, min, max, fallback) {
   const number = Number(value);
@@ -26,15 +20,6 @@ function requireAdmin(session) {
   }
 }
 
-function slugifySeriesName(value) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
 
 export async function approveUser(userId) {
   if (!userId) return { error: "ID de usuario requerido" };
@@ -244,11 +229,11 @@ export async function createAdminPost(input) {
     });
     if (!author) return { error: "El profesional elegido ya no existe." };
 
-    let slug = slugify(input?.slug || title);
-    if (!slug) slug = `articulo-${Date.now()}`;
-
-    const taken = await prisma.post.findUnique({ where: { slug }, select: { id: true } });
-    if (taken) slug = `${slug}-${Math.random().toString(36).slice(2, 7)}`;
+    const slug = await slugUnico(
+      input?.slug || title,
+      async (candidato) =>
+        Boolean(await prisma.post.findUnique({ where: { slug: candidato }, select: { id: true } })),
+    );
 
     const seriesName = String(input?.seriesName || "").trim();
     const seriesOrderValue = Number(input?.seriesOrder);
@@ -257,7 +242,7 @@ export async function createAdminPost(input) {
       : null;
     const series = seriesName
       ? await prisma.series.findFirst({
-          where: { isActive: true, OR: [{ name: seriesName }, { slug: slugifySeriesName(seriesName) }] },
+          where: { isActive: true, OR: [{ name: seriesName }, { slug: slugify(seriesName) }] },
           select: { id: true },
         })
       : null;

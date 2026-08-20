@@ -6,16 +6,8 @@ import Link from "next/link";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import MarkdownFileImport from "@/components/blog/MarkdownFileImport";
 import { createAdminPost } from "@/actions/admin-actions";
+import { slugify } from "@/lib/slug";
 
-function slugify(text) {
-  return String(text)
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
 
 export default function AdminPostCreator({ authors = [], defaultAuthorId = "" }) {
   const router = useRouter();

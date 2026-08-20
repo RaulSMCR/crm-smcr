@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { siteUrl } from "@/lib/site-url";
 import CopyUrlInput from "@/components/admin/CopyUrlInput";
 import HomeCarouselManager from "@/components/admin/HomeCarouselManager";
+import { slugify } from "@/lib/slug";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -66,14 +67,11 @@ function formatSeconds(value) {
   return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
 }
 
-function slugify(value) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 64);
+// El separador `_` es deliberado: es la convención de los nombres de campaña
+// UTM, no un descuido. Por eso la función unificada lo acepta como parámetro
+// en vez de imponer el guión.
+function slugCampania(value) {
+  return slugify(value, { separator: "_", maxLength: 64 });
 }
 
 function campaignKey(row) {
@@ -312,7 +310,7 @@ export default async function AdminMarketingPage() {
       const avgScroll = Math.round(stats?._avg?.scrollDepth || 0);
       const isFeatured = featuredPostIds.has(post.id);
       const score = views + reads * 2 + linked * 5 + (isFeatured ? 8 : 0);
-      const campaign = slugify(post.title) || "articulo_blog";
+      const campaign = slugCampania(post.title) || "articulo_blog";
 
       return {
         id: post.id,

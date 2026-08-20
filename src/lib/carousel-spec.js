@@ -104,15 +104,9 @@ export const createCarouselSchema = z.object({
   sourcePostId: z.string().optional(),
 });
 
-export function slugify(value) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
-}
+// Se reexporta para no romper a quien la importe desde acá. La implementación
+// vive en src/lib/slug.js, que es la única del proyecto.
+export { slugify } from "@/lib/slug";
 
 /** Convierte issues de zod en mensajes legibles con la ruta al campo. */
 export function formatZodIssues(issues) {

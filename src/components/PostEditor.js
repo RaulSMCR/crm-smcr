@@ -8,17 +8,11 @@ import MarkdownFileImport from "@/components/blog/MarkdownFileImport";
 import SeoFieldset from "@/components/admin/SeoFieldset";
 import { IMAGE_FALLBACKS, PUBLIC_IMAGE_ACCEPT, SUPPORTED_PUBLIC_IMAGE_TYPES } from "@/lib/images";
 import { extractCrmMetadata } from "@/lib/editorial-metadata";
+import { slugify } from "@/lib/slug";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const IMAGE_FORMAT_ERROR = "Formato no soportado. Usa JPG, PNG, WEBP, GIF o AVIF.";
 
-function slugify(text) {
-  return String(text)
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
 
 function formatBytes(bytes) {
   if (!bytes) return "";
