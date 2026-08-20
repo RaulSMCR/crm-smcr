@@ -7,62 +7,65 @@ import { siteUrl } from "@/lib/site-url";
 import SafeImage, { SafeAvatar } from "@/components/SafeImage";
 import { IMAGE_FALLBACKS } from "@/lib/images";
 
+// Preguntas frecuentes de la página de servicios.
+//
+// Antes esto era solo un `FAQ_SCHEMA`: cinco pares pregunta/respuesta declarados
+// en JSON-LD que **no aparecían en la página**. Google penaliza esa discordancia,
+// y además el contenido escondido se pudre sin que nadie lo note: tres de las
+// cinco respuestas afirmaban cosas falsas —"coaching de vida y ejecutivo" entre
+// las disciplinas, cuando ninguno de los servicios lo es, y "consultas 100%
+// virtuales", cuando la plataforma atiende en ambas modalidades—.
+//
+// Ahora hay una sola fuente: este arreglo alimenta el marcado Y lo que se ve.
+// No pueden desincronizarse porque son lo mismo. Es el patrón que ya usa /faq.
+const PREGUNTAS = [
+  {
+    pregunta: '¿La atención es virtual o presencial?',
+    respuesta:
+      'Las dos. Cada profesional define en qué modalidades atiende, y podés elegir la que te sirva al agendar. El precio puede ser distinto entre una y otra: lo define cada profesional y lo ves antes de confirmar.',
+  },
+  {
+    pregunta: '¿Cómo funciona la consulta virtual?',
+    respuesta:
+      'Una vez agendada tu cita recibís un enlace de videollamada por correo. La sesión se hace por Google Meet, sin instalar nada: solo necesitás conexión a internet y un dispositivo con cámara.',
+  },
+  {
+    pregunta: '¿Los profesionales están verificados?',
+    respuesta:
+      'Sí. Antes de la entrevista revisamos la matrícula de cada profesional en el registro público de su colegio y guardamos el enlace a esa consulta. En cada perfil vas a ver el colegio que emite la credencial, el número de matrícula y un enlace para comprobarlo por tu cuenta.',
+  },
+  {
+    pregunta: '¿Cuánto cuesta una consulta?',
+    respuesta:
+      'Depende del profesional, del servicio y de la modalidad. El precio se muestra en el perfil de cada profesional antes de agendar, en colones costarricenses.',
+  },
+  {
+    pregunta: '¿Qué disciplinas están disponibles?',
+    respuesta:
+      'Psicología clínica, psicodiagnóstico, psiquiatría, nutrición, terapia física y deporte, musicoterapia, terapia de lenguaje, pedagogía y acompañamiento terapéutico. Estamos incorporando profesionales en varias de estas áreas: los servicios que todavía no tienen a nadie asignado aparecen marcados como tales.',
+  },
+];
+
 const FAQ_SCHEMA = {
   '@context': 'https://schema.org',
   '@type': 'FAQPage',
-  mainEntity: [
-    {
-      '@type': 'Question',
-      name: '¿Cómo funciona la consulta virtual?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'Una vez agendada tu cita, recibirás un enlace de videollamada por correo electrónico. La sesión se realiza a través de Google Meet, sin necesidad de instalar nada. Solo necesitás conexión a internet y un dispositivo con cámara.',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: '¿Los profesionales están verificados?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'Sí. Todos los profesionales en Salud Mental Costa Rica pasan por un proceso de validación que incluye revisión de credenciales académicas, número de matrícula profesional y entrevista con nuestro equipo antes de ser aprobados para atender en la plataforma.',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: '¿Cuánto cuesta una consulta?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'El costo varía según el profesional y el tipo de servicio. Podés ver el precio de cada consulta directamente en el perfil del profesional antes de agendar. Los precios están en colones costarricenses (CRC).',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: '¿Puedo agendar desde el extranjero?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'Sí. Nuestra plataforma acepta pagos internacionales y las consultas son 100% virtuales, por lo que podés agendar desde cualquier país. Las sesiones se coordinan según la zona horaria de Costa Rica (UTC-6).',
-      },
-    },
-    {
-      '@type': 'Question',
-      name: '¿Qué disciplinas están disponibles?',
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: 'Contamos con profesionales en psicología clínica, coaching de vida y ejecutivo, nutrición y dietética, entrenamiento físico y deporte, y otras disciplinas de bienestar integral. La oferta crece a medida que incorporamos nuevos especialistas verificados.',
-      },
-    },
-  ],
+  mainEntity: PREGUNTAS.map(({ pregunta, respuesta }) => ({
+    '@type': 'Question',
+    name: pregunta,
+    acceptedAnswer: { '@type': 'Answer', text: respuesta },
+  })),
 };
+
 
 export const metadata = {
   title: 'Servicios de bienestar y salud mental',
   description:
-    'Explorá nuestra oferta de servicios: psicología clínica, coaching, nutrición, deporte y más. Profesionales verificados en Costa Rica.',
+    'Psicología clínica, psiquiatría, nutrición, terapia física, musicoterapia, terapia de lenguaje y más, con profesionales de colegiatura verificada en Costa Rica.',
   alternates: { canonical: siteUrl('servicios') },
   openGraph: {
     title: 'Servicios de bienestar y salud mental | Salud Mental Costa Rica',
     description:
-      'Explorá nuestra oferta de servicios: psicología clínica, coaching, nutrición, deporte y más.',
+      'Psicología clínica, psiquiatría, nutrición, terapia física y más, con profesionales de colegiatura verificada.',
     url: siteUrl('servicios'),
   },
 };
@@ -238,6 +241,12 @@ export default async function ServiciosPage() {
                 </Link>
               </div>
 
+              {professionals.length === 0 ? (
+                <div className="border-t border-slate-100 px-6 pb-6 pt-5">
+                  <div className="text-sm font-medium text-accent-800">Estamos incorporando profesionales</div>
+                </div>
+              ) : null}
+
               {professionals.length > 0 ? (
                 <div className="border-t border-slate-100 px-6 pb-6 pt-5">
                   <div className="text-sm font-semibold text-slate-800">Disponible con:</div>
@@ -275,6 +284,27 @@ export default async function ServiciosPage() {
           <p className="text-neutral-900">Todavia no hay servicios publicados.</p>
         </div>
       ) : null}
+
+      {/* Las preguntas, visibles. El marcado de arriba sale de este mismo
+          arreglo: antes se declaraban en JSON-LD sin aparecer en ningún lado. */}
+      <section className="rounded-2xl border border-slate-200 bg-white p-6 md:p-8">
+        <h2 className="text-2xl font-light text-slate-900">Preguntas frecuentes</h2>
+        <dl className="mt-6 divide-y divide-slate-100">
+          {PREGUNTAS.map(({ pregunta, respuesta }) => (
+            <div key={pregunta} className="py-4 first:pt-0 last:pb-0">
+              <dt className="font-semibold text-slate-900">{pregunta}</dt>
+              <dd className="mt-1.5 leading-relaxed text-slate-700">{respuesta}</dd>
+            </div>
+          ))}
+        </dl>
+        <p className="mt-6 text-sm text-slate-600">
+          ¿Otra duda? Mirá{" "}
+          <Link href="/faq" className="font-semibold text-brand-700 underline">
+            todas las preguntas frecuentes
+          </Link>
+          .
+        </p>
+      </section>
     </div>
   );
 }

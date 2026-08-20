@@ -23,10 +23,16 @@ const STOCK_IMAGES = [
   "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=1600&q=80",
 ];
 
+// Categorías de respaldo, para cuando la base no responde en una petición real.
+//
+// Los slugs eran "psico", "nutri" y "coach", que no corresponden a ningún
+// servicio: la home degradada enlazaba a tres 404. Ahora usan slugs reales, que
+// desde S6 son estables. Y se va la categoría que no corresponde a ninguno de
+// los servicios que realmente se ofrecen.
 const FALLBACK_CATEGORIES = [
-  { name: "Psicologia", slug: "psico", description: "Ayuda profesional.", imageUrl: STOCK_IMAGES[0] },
-  { name: "Nutricion", slug: "nutri", description: "Alimentacion sana.", imageUrl: STOCK_IMAGES[1] },
-  { name: "Coaching", slug: "coach", description: "Avance hacia metas concretas.", imageUrl: STOCK_IMAGES[2] },
+  { name: "Psicoterapia", slug: "psicoterapia-psicoanalitica-adultos", description: "Un espacio para hablar y pensar lo que duele.", imageUrl: STOCK_IMAGES[0] },
+  { name: "Nutrición", slug: "nutricion", description: "Acompañamiento en la alimentación.", imageUrl: STOCK_IMAGES[1] },
+  { name: "Terapia física y deporte", slug: "terapia-fisica-y-deporte", description: "Movimiento, dolor y rehabilitación.", imageUrl: STOCK_IMAGES[2] },
 ];
 
 export const revalidate = 300;

@@ -242,7 +242,24 @@ export default async function ServiceDetailPage({ params }) {
         <h2 className="text-2xl font-semibold text-slate-900">Profesionales disponibles</h2>
 
         {professionals.length === 0 ? (
-          <p className="mt-3 text-slate-700">Actualmente no hay profesionales asignados a este servicio.</p>
+          // El servicio se publica aunque todavía no tenga a nadie asignado. Decir
+          // "no hay profesionales" suena a que el servicio no existe; decir que se
+          // está incorporando dice lo que realmente pasa y deja una puerta abierta
+          // a quien quiera sumarse.
+          <div className="mt-3 rounded-xl border border-accent-300 bg-accent-50 p-4">
+            <p className="font-semibold text-brand-950">Estamos incorporando profesionales para este servicio.</p>
+            <p className="mt-1 text-sm text-neutral-800">
+              Si sos profesional en esta área y te interesa sumarte al equipo,{" "}
+              <Link href="/registro/profesional" className="font-semibold text-brand-700 underline">
+                escribinos
+              </Link>
+              . Mientras tanto, podés ver{" "}
+              <Link href="/servicios" className="font-semibold text-brand-700 underline">
+                los otros servicios disponibles
+              </Link>
+              .
+            </p>
+          </div>
         ) : (
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             {professionals.map((professional) => (
