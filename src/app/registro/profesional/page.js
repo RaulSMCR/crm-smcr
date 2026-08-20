@@ -97,6 +97,19 @@ export default function RegistroProfesionalPage() {
 
   const isPasswordValid = Object.values(passwordChecks).every(Boolean);
 
+  // Qué falta, calculado en vivo.
+  //
+  // Antes el botón se deshabilitaba y nadie decía por qué: quien llenaba todo y
+  // se olvidaba del CV, o a quien no le cargaba el captcha, veía un botón gris y
+  // ninguna explicación. Los mensajes que lo explican existían desde siempre en
+  // handleSubmit, pero eran inalcanzables — el botón deshabilitado impedía que
+  // el submit llegara a ejecutarlos.
+  const faltantes = [
+    !isPasswordValid && "una contraseña que cumpla los requisitos de arriba",
+    !file && "el CV en PDF",
+    CAPTCHA_ENABLED && !captchaToken && "la verificación de seguridad",
+  ].filter(Boolean);
+
   useEffect(() => {
     setAttribution(
       getMarketingAttributionFields({
@@ -360,7 +373,10 @@ export default function RegistroProfesionalPage() {
 
               <button
                 type="submit"
-                disabled={loading || !isPasswordValid || !file || (CAPTCHA_ENABLED && !captchaToken)}
+                // Solo se bloquea mientras envía. Si falta algo, se deja hacer
+                // clic y se dice qué falta: un botón gris sin explicación es la
+                // peor forma de validar un formulario.
+                disabled={loading}
                 className="w-full rounded-xl bg-brand-600 px-6 py-3.5 font-bold text-white transition-colors hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50 sm:w-1/2"
               >
                 {loading ? (
@@ -373,6 +389,22 @@ export default function RegistroProfesionalPage() {
                   </span>
                 ) : "Completar registro"}
               </button>
+
+              {/* El error del submit, repetido acá. Arriba también se muestra,
+                  pero quien hace clic en el botón está al final del formulario y
+                  no ve un aviso que quedó a tres pantallas de distancia. */}
+              {errorMsg ? (
+                <p role="alert" className="mt-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+                  {errorMsg}
+                </p>
+              ) : null}
+
+              {/* Y antes de hacer clic: qué falta, mientras se completa. */}
+              {!loading && !errorMsg && faltantes.length ? (
+                <p className="mt-3 text-sm text-neutral-600">
+                  Para poder enviar falta {faltantes.join(", ")}.
+                </p>
+              ) : null}
 
               <p className="mt-6 text-center text-sm text-neutral-500">
                 ¿Ya tienes cuenta?{" "}

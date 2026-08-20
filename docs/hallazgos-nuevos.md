@@ -282,3 +282,51 @@ pasan, y la página responde 200 hasta que alguien la abre.
 
 `tests/unit/fecha-costa-rica.test.js` llama a las tres funciones **sin
 argumentos**, que es el único llamado que ejercita el valor por defecto.
+
+---
+
+## HN-11 · El botón de registro se deshabilitaba sin decir por qué
+
+**Encontrado en:** 2026-08-20, una profesional llenó todo el formulario y el
+botón le quedó gris.
+
+Los dos formularios de registro deshabilitaban el botón con una condición
+compuesta:
+
+```js
+disabled={loading || !isPasswordValid || !file || (CAPTCHA_ENABLED && !captchaToken)}
+```
+
+Tres motivos distintos, ninguno visible. Quien se olvidaba del CV, o a quien no
+le cargaba el captcha, veía un botón gris y nada más. No hay forma de averiguar
+cuál de los tres es sin leer el código.
+
+### Lo que lo vuelve peor
+
+**Los mensajes que lo explican existían desde siempre**, en `handleSubmit`:
+
+```js
+if (!isPasswordValid) { setErrorMsg("Revisá los requisitos de contraseña."); return; }
+if (!file)            { setErrorMsg("Falta adjuntar el CV en PDF."); return; }
+if (CAPTCHA_ENABLED && !captchaToken) { setErrorMsg("Completá la verificación…"); return; }
+```
+
+Eran **código inalcanzable para exactamente los casos que importan**: el botón
+deshabilitado impedía que el submit llegara a ejecutarlos. Alguien escribió la
+explicación correcta y otra decisión la dejó muda.
+
+Y aunque se dispararan, `errorMsg` se renderizaba al principio del formulario —
+a tres pantallas del botón en el registro profesional.
+
+### Reparado
+
+El botón se deshabilita **solo mientras envía**. Si falta algo, se deja hacer
+clic y el submit dice qué falta: un botón gris sin explicación es la peor forma
+de validar un formulario, porque no da ninguna pista de qué hacer.
+
+Además, antes de hacer clic, un aviso en vivo junto al botón: *«Para poder
+enviar falta una contraseña que cumpla los requisitos de arriba, el CV en PDF, la
+verificación de seguridad»*. Y el error del submit se repite junto al botón, no
+solo arriba.
+
+Aplicado a los dos formularios: profesional y paciente.

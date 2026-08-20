@@ -97,6 +97,14 @@ export default function RegistroUsuarioPage() {
 
   const isPasswordValid = Object.values(passwordChecks).every(Boolean);
 
+  // Ver la nota en registro/profesional: el botón deshabilitado no explicaba
+  // nada, y los mensajes que sí explican estaban en handleSubmit, inalcanzables.
+  const faltantes = [
+    !isPasswordValid && "una contraseña que cumpla los requisitos",
+    !aceptaAcuerdo && "aceptar el acuerdo de atención y privacidad",
+    CAPTCHA_ENABLED && !captchaToken && "la verificación de seguridad",
+  ].filter(Boolean);
+
   useEffect(() => {
     setAttribution(getMarketingAttributionFields({ acquisitionChannel: "Directo" }));
   }, []);
@@ -322,11 +330,25 @@ export default function RegistroUsuarioPage() {
 
             <button
               type="submit"
-              disabled={loading || !isPasswordValid || !aceptaAcuerdo || (CAPTCHA_ENABLED && !captchaToken)}
+              disabled={loading}
               className="w-full rounded-xl bg-brand-600 px-6 py-3.5 font-bold text-white transition-colors hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? "Avanzando…" : "¿Estás listo?"}
             </button>
+
+            {/* El error, junto al botón: arriba también se muestra, pero quien
+                hace clic acá no ve un aviso que quedó al principio del formulario. */}
+            {errorMsg ? (
+              <p role="alert" className="mt-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+                {errorMsg}
+              </p>
+            ) : null}
+
+            {!loading && !errorMsg && faltantes.length ? (
+              <p className="mt-3 text-sm text-neutral-600">
+                Para poder enviar falta {faltantes.join(", ")}.
+              </p>
+            ) : null}
           </form>
 
           <p className="mt-6 text-center text-sm text-neutral-500">
