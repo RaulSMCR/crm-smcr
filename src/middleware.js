@@ -11,7 +11,7 @@ const PUBLIC_EXACT = new Set([
   "/registro/profesional",
   "/contacto",
   "/faq",
-  "/nosotros",
+  "/profesionales",
   "/servicios",
   "/espera-aprobacion",
   "/verificar-email",

@@ -16,7 +16,7 @@ export default async function BlogPreviewPage({ params }) {
     where: { id: String(id || "") },
     include: {
       author: {
-        select: { id: true, slug: true, specialty: true, bio: true, user: { select: { name: true, image: true } } },
+        select: { id: true, slug: true, specialty: true, licensingBody: true, licenseNumber: true, bio: true, user: { select: { name: true, image: true } } },
       },
     },
   });

@@ -45,7 +45,7 @@ export default async function Header() {
           <Link href="/servicios" className="hover:text-blue-600 transition-colors">
             Servicios
           </Link>
-          <Link href="/nosotros" className="hover:text-blue-600 transition-colors">
+          <Link href="/profesionales" className="hover:text-blue-600 transition-colors">
             Nosotros
           </Link>
           <Link href="/blog" className="hover:text-blue-600 transition-colors">

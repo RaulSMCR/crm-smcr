@@ -115,12 +115,16 @@ export default function BlogArticleView({ post, slug, preview = false }) {
             <p className="text-blue-600 font-medium">{post.author.specialty || "Profesional de Salud"}</p>
           </div>
           <div className="ml-auto hidden sm:block">
-            <Link
-              href={`/agendar/${post.author.id}`}
-              className="btn btn-outline"
-            >
-              Ver Perfil
-            </Link>
+            {/* Apuntaba a /agendar/{id}: el lector que quería saber quién
+                escribía caía en un formulario de reserva. El perfil es donde
+                está la credencial verificada, y es además el nodo al que el
+                JSON-LD del artículo ya apunta como autor — el enlace visible
+                acompaña ahora al enlace semántico. */}
+            {autorSlug ? (
+              <Link href={`/profesionales/${autorSlug}`} className="btn btn-outline">
+                Ver perfil
+              </Link>
+            ) : null}
           </div>
         </div>
 
@@ -128,6 +132,43 @@ export default function BlogArticleView({ post, slug, preview = false }) {
         <div className="prose prose-lg prose-blue max-w-none text-gray-700 leading-relaxed">
           <MarkdownRenderer content={post.content || ""} />
         </div>
+
+        {/* Bloque de autor al pie.
+            El grafo JSON-LD ya dice que este artículo lo escribió esa persona y
+            que esa persona tiene una colegiatura verificada. Esto es lo mismo
+            dicho en HTML, para el lector: quién escribe, con qué respaldo, y por
+            dónde seguir leyéndolo. Un grafo que el HTML no refleja es una
+            afirmación que el lector no puede comprobar. */}
+        {autorSlug ? (
+          <aside className="mt-12 rounded-2xl border border-gray-200 bg-gray-50 p-6">
+            <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Sobre quien escribe</p>
+            <div className="mt-3 flex items-start gap-4">
+              <SafeAvatar src={authorUser.image} alt={authorUser.name} size={56} className="shrink-0" />
+              <div className="min-w-0">
+                <h3 className="text-lg font-bold text-gray-900">{authorUser.name}</h3>
+                {post.author.specialty ? (
+                  <p className="text-sm font-medium text-blue-700">{post.author.specialty}</p>
+                ) : null}
+                {post.author.licensingBody && post.author.licenseNumber ? (
+                  <p className="mt-0.5 text-xs text-gray-500">
+                    {post.author.licensingBody} · Mat. {post.author.licenseNumber}
+                  </p>
+                ) : null}
+                {post.author.bio ? (
+                  <p className="mt-2 text-sm leading-relaxed text-gray-700">{post.author.bio}</p>
+                ) : null}
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm font-semibold">
+                  <Link href={`/profesionales/${autorSlug}`} className="text-blue-600 hover:underline">
+                    Ver su perfil
+                  </Link>
+                  <Link href={`/blog?autor=${autorSlug}`} className="text-blue-600 hover:underline">
+                    Sus otros artículos
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </aside>
+        ) : null}
 
         {/* Footer del Artículo */}
         <div className="mt-12 pt-8 border-t border-gray-200">

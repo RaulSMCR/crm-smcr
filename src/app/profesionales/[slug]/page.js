@@ -223,7 +223,7 @@ export default async function ProfessionalPublicProfilePage({ params, searchPara
       />
 
       <div className="mx-auto max-w-6xl space-y-8">
-        <Link href="/nosotros" className="text-sm font-semibold text-slate-600 hover:text-slate-900 hover:underline">
+        <Link href="/profesionales" className="text-sm font-semibold text-slate-600 hover:text-slate-900 hover:underline">
           Volver al equipo
         </Link>
 

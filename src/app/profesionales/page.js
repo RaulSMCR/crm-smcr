@@ -1,4 +1,8 @@
-//src/app/nosotros/page.js
+// src/app/profesionales/page.js
+//
+// Índice del equipo. Antes vivía en /nosotros, que redirige acá desde S9: los
+// breadcrumbs de los perfiles ya apuntaban a /profesionales, una URL que no
+// existía — declaraban un 404 en el marcado.
 import { prisma } from '@/lib/prisma';
 import ProfessionalProfileCard from '@/components/ProfessionalProfileCard';
 import { siteUrl } from "@/lib/site-url";
@@ -9,12 +13,12 @@ export const metadata = {
   title: 'Nuestro equipo de profesionales',
   description:
     'Conocé al equipo de psicólogos, coaches, nutricionistas y especialistas en bienestar que forman parte de Salud Mental Costa Rica.',
-  alternates: { canonical: siteUrl('nosotros') },
+  alternates: { canonical: siteUrl('profesionales') },
   openGraph: {
     title: 'Nuestro equipo de profesionales | Salud Mental Costa Rica',
     description:
       'Conocé al equipo de psicólogos, coaches y especialistas en bienestar de Salud Mental Costa Rica.',
-    url: siteUrl('nosotros'),
+    url: siteUrl('profesionales'),
   },
 };
 
@@ -69,7 +73,7 @@ export default async function NosotrosPage() {
         <JsonLd
           data={grafo(
             nodoListado({
-              id: `${siteUrl("nosotros")}#equipo`,
+              id: `${siteUrl("profesionales")}#equipo`,
               nombre: "Equipo de Salud Mental Costa Rica",
               items: professionals
                 .filter((p) => p.slug)

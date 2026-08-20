@@ -80,7 +80,7 @@ export default function PublicHeader() {
         {!isPatient ? (
           <nav className="hidden gap-6 font-display text-[16px] font-normal text-neutral-600 md:flex">
             <Link href="/servicios" className="transition-colors hover:text-brand-700">Servicios</Link>
-            <Link href="/nosotros" className="transition-colors hover:text-brand-700">Nosotros</Link>
+            <Link href="/profesionales" className="transition-colors hover:text-brand-700">Profesionales</Link>
             <Link href="/blog" className="transition-colors hover:text-brand-700">Blog</Link>
             <Link href="/faq" className="transition-colors hover:text-brand-700">FAQs</Link>
           </nav>

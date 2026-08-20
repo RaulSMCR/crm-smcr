@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const STATIC_INDEXABLE = [
-  "/", "/servicios", "/blog", "/nosotros", "/faq",
+  "/", "/servicios", "/blog", "/profesionales", "/faq",
   "/registro", "/registro/profesional", "/terminos", "/privacidad", "/cookies",
 ];
 

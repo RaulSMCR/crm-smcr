@@ -29,7 +29,7 @@ export default function Footer() {
             <li><Link href="/" className="text-neutral-100 hover:text-accent-100">Inicio</Link></li>
             <li><Link href="/servicios" className="text-neutral-100 hover:text-accent-100">Servicios</Link></li>
             <li><Link href="/blog" className="text-neutral-100 hover:text-accent-100">Blog</Link></li>
-            <li><Link href="/nosotros" className="text-neutral-100 hover:text-accent-100">Nosotros</Link></li>
+            <li><Link href="/profesionales" className="text-neutral-100 hover:text-accent-100">Profesionales</Link></li>
             <li><Link href="/faq" className="text-neutral-100 hover:text-accent-100">FAQs</Link></li>
           </ul>
         </div>

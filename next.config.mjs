@@ -18,6 +18,12 @@ const nextConfig = {
 
   // La guia editorial (SKILL.md) se lee en runtime como system prompt de la
   // redaccion asistida; forzamos su inclusion en el bundle de la route.
+  // /nosotros pasó a ser /profesionales (S9). La URL vieja estaba en el sitemap
+  // y probablemente indexada, así que redirige en vez de desaparecer.
+  async redirects() {
+    return [{ source: "/nosotros", destination: "/profesionales", permanent: true }];
+  },
+
   outputFileTracingIncludes: {
     "/api/admin/carousels/draft": [
       "./vendor/instagram-slides/SKILL.md",
