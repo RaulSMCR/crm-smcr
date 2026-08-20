@@ -99,3 +99,19 @@ Después de cambiar `src/lib/seo.js` y `src/app/layout.js` y de reconstruir con 
 Con `rm -rf .next` y reconstrucción limpia, el resultado fue el correcto.
 
 No hay nada que arreglar en el proyecto. Queda anotado porque es la tercera trampa de instrumento del plan —junto con HN-03— y produce exactamente la conclusión equivocada: parece que el código no funciona cuando lo que falla es la verificación. **Ante un resultado que contradice el código fuente, reconstruir limpio antes de investigar.**
+
+---
+
+## HN-06 · `BlogPostCard` es código muerto
+
+**Encontrado en:** S13, buscando dónde se renderizan las portadas.
+
+`src/components/BlogPostCard.js` no se importa desde ningún lado. El listado de
+`/blog` arma sus tarjetas con su propio marcado.
+
+No se borró: está fuera del alcance de S13 y la regla del plan es no
+refactorizar de paso. Es candidato para S15, que es el segmento de limpieza.
+
+Importa poco por sí solo. Importa porque al migrar imágenes uno tiende a tocar
+todos los componentes que parecen relevantes, y este habría consumido tiempo sin
+cambiar nada de lo que se ve.

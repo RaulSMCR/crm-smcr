@@ -117,6 +117,7 @@ export default function AdminPostEditor({ post }) {
     content: post.content || "",
     coverImage: post.coverImage || "",
     coverImageTitle: post.coverImageTitle || "",
+    coverImageAlt: post.coverImageAlt || "",
     coverImageAuthor: post.coverImageAuthor || "",
     coverImageNote: post.coverImageNote || "",
     coverImageFocusX: post.coverImageFocusX ?? 50,
@@ -506,6 +507,19 @@ export default function AdminPostEditor({ post }) {
               </div>
             </div>
 
+            <div>
+              <input
+                value={form.coverImageAlt}
+                onChange={(event) => updateField("coverImageAlt", event.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                placeholder="Qué se ve en la imagen"
+                maxLength={300}
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Para lectores de pantalla. Describí la escena; el nombre de la obra va en el campo
+                de abajo.
+              </p>
+            </div>
             <input
               value={form.coverImageTitle}
               onChange={(event) => updateField("coverImageTitle", event.target.value)}

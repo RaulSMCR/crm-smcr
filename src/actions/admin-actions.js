@@ -137,6 +137,7 @@ export async function updateAdminPost(postInput) {
     const excerpt = String(postInput?.excerpt || "").trim() || null;
     const coverImage = String(postInput?.coverImage || "").trim() || null;
     const coverImageTitle = String(postInput?.coverImageTitle || "").trim() || null;
+    const coverImageAlt = String(postInput?.coverImageAlt || "").trim().slice(0, 300) || null;
     const coverImageAuthor = String(postInput?.coverImageAuthor || "").trim() || null;
     const coverImageNote = String(postInput?.coverImageNote || "").trim() || null;
     const coverImageFocusX = clampInt(postInput?.coverImageFocusX, 0, 100, 50);
@@ -174,6 +175,7 @@ export async function updateAdminPost(postInput) {
         excerpt,
         coverImage,
         coverImageTitle,
+        coverImageAlt,
         coverImageAuthor,
         coverImageNote,
         coverImageFocusX,

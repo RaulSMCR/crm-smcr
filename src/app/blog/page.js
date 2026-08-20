@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { siteUrl } from "@/lib/site-url";
 import SafeImage, { SafeAvatar } from "@/components/SafeImage";
+import SafeCover from "@/components/SafeCover";
 import LibraryBar from "@/components/blog/LibraryBar";
 import { parseLibraryParams, buildLibraryWhere, buildLibraryOrderBy, libraryHref } from "@/lib/blog-taxonomy";
 import { permanentRedirect } from "next/navigation";
@@ -67,7 +68,7 @@ export default async function BlogPage({ searchParams }) {
     take: 24,
     select: {
       id: true, slug: true, title: true,
-      coverImage: true, coverImageFocusX: true, coverImageFocusY: true, coverImageScale: true,
+      coverImage: true, coverImageAlt: true, coverImageFocusX: true, coverImageFocusY: true, coverImageScale: true,
       excerpt: true, createdAt: true,
       series: { select: { name: true, slug: true } },
       seriesOrder: true, seriesApproved: true,
@@ -163,15 +164,14 @@ export default async function BlogPage({ searchParams }) {
             <article key={p.id} className="group flex flex-col bg-white border border-gray-200 rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300">
               <Link href={`/blog/${p.slug}`} className="relative h-56 w-full overflow-hidden bg-gray-100 block">
                 {p.coverImage ? (
-                  <SafeImage
+                  <SafeCover
                     src={p.coverImage}
-                    alt={`Portada: ${p.title}`}
+                    alt={p.coverImageAlt || `Portada: ${p.title}`}
                     fallbackSrc=""
-                    className="absolute inset-0 h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    style={{
-                      objectPosition: `${p.coverImageFocusX ?? 50}% ${p.coverImageFocusY ?? 50}%`,
-                      transform: `scale(${(p.coverImageScale ?? 100) / 100})`,
-                    }}
+                    className="group-hover:scale-105 transition-transform duration-500"
+                    focusX={p.coverImageFocusX}
+                    focusY={p.coverImageFocusY}
+                    scale={p.coverImageScale}
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   />
                 ) : (

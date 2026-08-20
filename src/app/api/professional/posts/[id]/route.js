@@ -43,6 +43,7 @@ export async function PATCH(request, { params }) {
     const excerpt = String(body?.excerpt || "").trim() || null;
     const coverImage = String(body?.coverImage || "").trim() || null;
     const coverImageTitle = String(body?.coverImageTitle || "").trim() || null;
+    const coverImageAlt = String(body?.coverImageAlt || "").trim().slice(0, 300) || null;
     const coverImageAuthor = String(body?.coverImageAuthor || "").trim() || null;
     const coverImageNote = String(body?.coverImageNote || "").trim() || null;
 
@@ -84,6 +85,7 @@ export async function PATCH(request, { params }) {
         slug: nextSlug,
         coverImage,
         coverImageTitle,
+        coverImageAlt,
         coverImageAuthor,
         coverImageNote,
         status: "DRAFT",

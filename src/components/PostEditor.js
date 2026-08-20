@@ -39,6 +39,7 @@ export default function PostEditor({ initial = null }) {
   const [seoRevision, setSeoRevision] = useState(0);
   const [coverImage, setCoverImage] = useState(initial?.coverImage ?? "");
   const [coverImageTitle, setCoverImageTitle] = useState(initial?.coverImageTitle ?? "");
+  const [coverImageAlt, setCoverImageAlt] = useState(initial?.coverImageAlt ?? "");
   const [coverImageAuthor, setCoverImageAuthor] = useState(initial?.coverImageAuthor ?? "");
   const [coverImageNote, setCoverImageNote] = useState(initial?.coverImageNote ?? "");
   const [previewUrl, setPreviewUrl] = useState(initial?.coverImage ?? "");
@@ -183,6 +184,7 @@ export default function PostEditor({ initial = null }) {
       ...(isEdit ? {} : { seriesName: seriesName || null, seriesOrder }),
       coverImage: coverImage || null,
       coverImageTitle: coverImageTitle || null,
+      coverImageAlt: coverImageAlt || null,
       coverImageAuthor: coverImageAuthor || null,
       coverImageNote: coverImageNote || null,
     };
@@ -374,6 +376,23 @@ export default function PostEditor({ initial = null }) {
             </button>
           </div>
         ) : null}
+
+        <div>
+          <label className="mb-1 block text-sm font-medium text-slate-700">
+            Qué se ve en la imagen
+          </label>
+          <input
+            value={coverImageAlt}
+            onChange={(e) => setCoverImageAlt(e.target.value)}
+            className="w-full rounded border px-3 py-2"
+            placeholder="Ej. Un hombre solo mirando por la ventana de un café de noche"
+            maxLength={300}
+          />
+          <p className="mt-1 text-xs text-slate-500">
+            Es lo que escucha quien usa lector de pantalla. Describí la escena, no repitas el título
+            del artículo ni el nombre de la obra: eso ya va abajo, en el crédito.
+          </p>
+        </div>
 
         <div className="grid gap-3 md:grid-cols-2">
           <div>

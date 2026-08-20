@@ -2,6 +2,7 @@ import Link from "next/link";
 import JsonLd from "@/components/JsonLd";
 import PostMarketingTracker from "@/components/blog/PostMarketingTracker";
 import SafeImage, { SafeAvatar } from "@/components/SafeImage";
+import SafeCover from "@/components/SafeCover";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import { siteUrl } from "@/lib/site-url";
 import { defaultOgImage } from "@/lib/seo";
@@ -70,15 +71,18 @@ export default function BlogArticleView({ post, slug, preview = false }) {
       {/* Hero / Cabecera */}
       <header className="relative flex h-[400px] w-full items-center justify-center overflow-hidden bg-gray-900">
         {post.coverImage ? (
-          <SafeImage
+          <SafeCover
             src={post.coverImage}
-            alt={post.coverImageTitle || post.title}
+            // Antes acá iba `coverImageTitle`, que es el nombre de la obra para
+            // el crédito —y ya se muestra abajo como tal—, no una descripción de
+            // lo que se ve. Para un lector de pantalla eso no describía nada.
+            alt={post.coverImageAlt || post.title}
             fallbackSrc=""
-            className="absolute inset-0 h-full w-full object-cover"
-            style={{
-              objectPosition: `${post.coverImageFocusX ?? 50}% ${post.coverImageFocusY ?? 50}%`,
-              transform: `scale(${(post.coverImageScale ?? 100) / 100})`,
-            }}
+            priority
+            sizes="100vw"
+            focusX={post.coverImageFocusX}
+            focusY={post.coverImageFocusY}
+            scale={post.coverImageScale}
           />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-r from-blue-900 to-gray-900 opacity-90" />

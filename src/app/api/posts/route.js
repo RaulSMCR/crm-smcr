@@ -44,6 +44,7 @@ export async function POST(request) {
     const noindex = Boolean(body?.noindex);
     const coverImage = String(body?.coverImage || body?.imageUrl || "").trim() || null;
     const coverImageTitle = String(body?.coverImageTitle || "").trim() || null;
+    const coverImageAlt = String(body?.coverImageAlt || "").trim().slice(0, 300) || null;
     const coverImageAuthor = String(body?.coverImageAuthor || "").trim() || null;
     const coverImageNote = String(body?.coverImageNote || "").trim() || null;
 
@@ -85,6 +86,7 @@ export async function POST(request) {
         seriesApproved: false,
         coverImage,
         coverImageTitle,
+        coverImageAlt,
         coverImageAuthor,
         coverImageNote,
         status: "DRAFT",

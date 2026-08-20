@@ -883,6 +883,9 @@ model Post {
   content          String     @db.Text
   excerpt          String?    @db.Text
   coverImage       String?
+  /// Qué se VE en la imagen, para lectores de pantalla y buscadores. Distinto de
+  /// `coverImageTitle`, que es el nombre de la obra y va en el crédito.
+  coverImageAlt    String?    @db.VarChar(300)
   coverImageTitle  String?
   coverImageAuthor String?
   coverImageNote   String?    @db.Text
