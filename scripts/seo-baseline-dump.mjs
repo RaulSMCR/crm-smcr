@@ -32,10 +32,15 @@ const DIR = 'docs/backups';
 // Rutas estáticas públicas. Se listan a mano porque el sitemap actual mezcla
 // rutas que S1 va a sacar (las de /registro) y no sirve como fuente de verdad.
 const ESTATICAS = [
-  '/', '/servicios', '/blog', '/nosotros', '/faq',
+  '/', '/servicios', '/blog', '/profesionales', '/faq',
   '/terminos', '/privacidad', '/cookies',
   '/registro', '/registro/profesional', '/registro/usuario',
 ];
+
+// URLs que existieron y ahora redirigen. Se listan a propósito: el arnés tiene
+// que seguir comprobándolas, porque el fallo que importa no es que devuelvan 200
+// sino que algún día devuelvan 404.
+const HEREDADAS = ['/nosotros'];
 
 async function main() {
   mkdirSync(DIR, { recursive: true });
@@ -74,11 +79,22 @@ async function main() {
   // en el sitemap: el criterio es "una URL que alguien pudo haber compartido",
   // no "una URL que declaramos". Por eso entran también los perfiles inactivos
   // y los posts que el sitemap omite.
+  // Los slugs viejos salen de la tabla de redirects, que es el registro de todo
+  // lo que alguna vez fue una URL pública. Sin esto, el inventario solo prueba
+  // el presente y una URL compartida hace seis meses puede romperse sin que
+  // nadie se entere.
+  const redirects = await prisma.slugRedirect.findMany({
+    select: { entityType: true, fromSlug: true },
+  });
+  const prefijo = { post: '/blog', professional: '/profesionales', service: '/servicios' };
+
   const urls = [
     ...ESTATICAS,
-    ...servicios.filter((s) => s.isActive).map((s) => `/servicios/${s.id}`),
+    ...HEREDADAS,
+    ...servicios.filter((s) => s.isActive && s.slug).map((s) => `/servicios/${s.slug}`),
     ...perfiles.filter((p) => p.slug).map((p) => `/profesionales/${p.slug}`),
     ...posts.filter((p) => p.status === 'PUBLISHED').map((p) => `/blog/${p.slug}`),
+    ...redirects.filter((r) => prefijo[r.entityType]).map((r) => `${prefijo[r.entityType]}/${r.fromSlug}`),
   ].map((ruta) => `${BASE}${ruta}`);
 
   const rutaInventario = `${DIR}/urls-produccion-${FECHA}.txt`;
