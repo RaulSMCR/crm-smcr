@@ -8,7 +8,7 @@ import { defaultOgImage } from "@/lib/seo";
 import { grafo, ref, nodoMigas, idArticulo, idPersona, ID_SITIO, ID_ORGANIZACION } from "@/lib/jsonld";
 
 const formatDate = (date) =>
-  new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "long", year: "numeric" }).format(new Date(date));
+  new Intl.DateTimeFormat("es-CR", { day: "numeric", month: "long", year: "numeric" }).format(new Date(date));
 
 /**
  * Render del artículo tal como se ve en la página pública. Reutilizado por la ruta
@@ -18,6 +18,13 @@ const formatDate = (date) =>
 export default function BlogArticleView({ post, slug, preview = false }) {
   const authorUser = post.author.user;
   const coverCreditParts = [post.coverImageTitle, post.coverImageAuthor].filter(Boolean);
+
+  // "Actualizado el …" solo aparece si hubo una edición real y posterior a la
+  // publicación. Mostrar una fecha de actualización igual a la de publicación es
+  // ruido, y mostrar una anterior sería un error visible.
+  const mostrarActualizado =
+    post.contentUpdatedAt &&
+    new Date(post.contentUpdatedAt).getTime() - new Date(post.createdAt).getTime() > 60 * 1000;
 
   // El autor deja de venir embebido y pasa a ser una referencia al `@id` del
   // perfil, que es donde la persona está descrita una sola vez y con sus
@@ -36,7 +43,11 @@ export default function BlogArticleView({ post, slug, preview = false }) {
       description: post.excerpt || undefined,
       image: post.coverImage || defaultOgImage(post.title),
       datePublished: new Date(post.createdAt).toISOString(),
-      dateModified: new Date(post.updatedAt).toISOString(),
+      // `contentUpdatedAt` y no `updatedAt`: aquel se mueve con cada visita por
+      // el contador de vistas. Si está nulo —los artículos anteriores a este
+      // cambio— se cae a la fecha de publicación, que es no afirmar nada, en vez
+      // de inventar una edición que no sabemos si ocurrió.
+      dateModified: new Date(post.contentUpdatedAt || post.createdAt).toISOString(),
       url: siteUrl(`blog/${slug}`),
       inLanguage: "es-CR",
       isPartOf: ref(ID_SITIO),
@@ -81,7 +92,22 @@ export default function BlogArticleView({ post, slug, preview = false }) {
             </span>
           </div>
           <h1 className="contrast-on-image mb-4 text-4xl font-light leading-tight md:text-6xl">{post.title}</h1>
-          <p className="contrast-on-image-muted text-lg">{formatDate(post.createdAt)}</p>
+          <p className="contrast-on-image-muted text-lg">
+            {/* `<time dateTime>` da la fecha en formato legible por máquina. El
+                listado ya lo hacía; el detalle mostraba solo el texto. */}
+            <time dateTime={new Date(post.createdAt).toISOString()}>{formatDate(post.createdAt)}</time>
+            {mostrarActualizado ? (
+              <>
+                {" · "}
+                <span className="text-base">
+                  Actualizado el{" "}
+                  <time dateTime={new Date(post.contentUpdatedAt).toISOString()}>
+                    {formatDate(post.contentUpdatedAt)}
+                  </time>
+                </span>
+              </>
+            ) : null}
+          </p>
         </div>
       </header>
 

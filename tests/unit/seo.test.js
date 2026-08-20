@@ -32,6 +32,30 @@ describe("resolveSeo", () => {
     expect(r.noindex).toBe(false);
   });
 
+  it("no deja puntuación colgando al recortar (H-37)", () => {
+    // Once excerpts terminaban en coma o punto y coma, porque la palabra
+    // anterior al corte traía la puntuación pegada. Una meta description que
+    // termina en coma se lee como un error, no como un resumen.
+    const largo =
+      "El problema ético no está en cobrar por conocimiento psicológico. Aparece cuando la oferta necesita que quien la recibe se reconozca primero como carente, herido o enfermo para que el producto encuentre comprador.";
+    const d = buildMetadata({ title: "x", description: largo }).description;
+
+    expect(d.length).toBeLessThanOrEqual(160);
+    expect(d.endsWith("…")).toBe(true);
+    expect(d).not.toMatch(/[,;:·—–-]…$/);
+    expect(d).not.toMatch(/\s…$/);
+  });
+
+  it("no toca una descripción que ya entra en el límite", () => {
+    const corto = "Una descripción breve que no necesita recorte.";
+    expect(buildMetadata({ title: "x", description: corto }).description).toBe(corto);
+  });
+
+  it("colapsa espacios repetidos antes de medir", () => {
+    const d = buildMetadata({ title: "x", description: "hola    mundo" }).description;
+    expect(d).toBe("hola mundo");
+  });
+
   it("genera la tarjeta social si no hay imagen propia", () => {
     const r = resolveSeo({}, { title: "X", description: "Y" });
     // Antes esto caía a "/og-image.png", un archivo que no existía y que hacía

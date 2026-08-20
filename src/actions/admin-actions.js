@@ -165,6 +165,9 @@ export async function updateAdminPost(postInput) {
     const post = await prisma.post.update({
       where: { id },
       data: {
+        // Marca la edición real del contenido. `updatedAt` no puede usarse para
+        // esto: el contador de vistas lo mueve en cada visita.
+        contentUpdatedAt: new Date(),
         title,
         slug,
         content,

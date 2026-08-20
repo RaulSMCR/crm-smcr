@@ -80,7 +80,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="es" className={cormorant.variable}>
+    <html lang="es-CR" className={cormorant.variable}>
       {/* Google Consent Mode v2: por defecto TODO denegado, antes de cargar
           cualquier script de analítica. GA/Pixel se cargan solo tras aceptar
           (ver AnalyticsLoader) y respetan este estado. */}

@@ -76,6 +76,9 @@ export async function PATCH(request, { params }) {
     const updated = await prisma.post.update({
       where: { id },
       data: {
+        // Ver la nota en admin-actions: `updatedAt` está contaminado por el
+        // contador de vistas.
+        contentUpdatedAt: new Date(),
         title,
         content,
         slug: nextSlug,

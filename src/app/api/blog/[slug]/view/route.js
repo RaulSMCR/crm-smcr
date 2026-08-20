@@ -25,6 +25,9 @@ export async function POST(_req, { params }) {
     return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
   }
 
+  // OJO: esto toca `updatedAt` (@updatedAt) en cada visita. Por eso `updatedAt`
+  // no sirve como señal editorial y existe `contentUpdatedAt`, que solo se mueve
+  // cuando alguien edita el artículo de verdad.
   await prisma.post.update({
     where: { id: post.id },
     data: { views: { increment: 1 } },

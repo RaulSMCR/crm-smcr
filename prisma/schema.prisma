@@ -921,6 +921,10 @@ model Post {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  /// Última edición real del cuerpo del artículo. `updatedAt` no sirve: el
+  /// contador de vistas lo toca en cada visita. Nulo = no se sabe.
+  contentUpdatedAt DateTime?
+
   viewEvents        PostViewEvent[]
   homeCarouselItems HomeCarouselItem[]
 

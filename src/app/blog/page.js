@@ -24,7 +24,7 @@ export const metadata = {
 };
 
 const formatDate = (date) => {
-  return new Intl.DateTimeFormat('es-ES', {
+  return new Intl.DateTimeFormat('es-CR', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',

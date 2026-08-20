@@ -9,7 +9,7 @@ import SafeImage from "@/components/SafeImage";
 export const revalidate = 300;
 
 const formatDate = (date) =>
-  new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "short", year: "numeric" }).format(date);
+  new Intl.DateTimeFormat("es-CR", { day: "2-digit", month: "short", year: "numeric" }).format(date);
 
 async function getSeries(slug) {
   return prisma.series.findFirst({

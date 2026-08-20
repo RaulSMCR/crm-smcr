@@ -41,13 +41,33 @@ export function defaultOgImage(title, subtitle) {
   return siteUrl(qs ? `og?${qs}` : "og");
 }
 
-/** Recorta a un largo máximo respetando palabras, sin cortar a mitad. */
+/**
+ * Recorta a un largo máximo respetando palabras.
+ *
+ * El corte por espacio no alcanza: once excerpts terminaban en coma o punto y
+ * coma —"…se reconozca primero como carente," — porque la palabra anterior al
+ * corte traía puntuación pegada. Una descripción que termina en coma se lee como
+ * un error, no como un resumen.
+ *
+ * Así que después de cortar se limpia la puntuación colgante y se cierra con
+ * puntos suspensivos, que es lo que dice "esto sigue" sin fingir que la frase
+ * terminó ahí.
+ */
 function clampText(str, max) {
-  const value = String(str || "").trim();
+  const value = String(str || "").replace(/\s+/g, " ").trim();
   if (value.length <= max) return value;
-  const cut = value.slice(0, max);
+
+  // Se reserva lugar para el carácter de elipsis, o el resultado se pasa de max.
+  const limite = Math.max(1, max - 1);
+  const cut = value.slice(0, limite);
   const lastSpace = cut.lastIndexOf(" ");
-  return (lastSpace > max * 0.6 ? cut.slice(0, lastSpace) : cut).trim();
+  const base = lastSpace > limite * 0.6 ? cut.slice(0, lastSpace) : cut;
+
+  // Fuera espacios y puntuación de cierre pegada al corte: , ; : . · - — etc.
+  const limpio = base.replace(/[\s.,;:·—–-]+$/u, "");
+  if (!limpio) return base.trim();
+
+  return `${limpio}…`;
 }
 
 function firstNonEmpty(...values) {
