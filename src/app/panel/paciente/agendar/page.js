@@ -25,7 +25,7 @@ export default async function PacienteAgendarPage({ searchParams }) {
   const [service, professional, assignment, availability, appts] = await Promise.all([
     prisma.service.findUnique({
       where: { id: serviceId },
-      select: { id: true, title: true, durationMin: true, isActive: true },
+      select: { id: true, slug: true, title: true, durationMin: true, isActive: true },
     }),
     prisma.professionalProfile.findUnique({
       where: { id: professionalId },
@@ -67,7 +67,7 @@ export default async function PacienteAgendarPage({ searchParams }) {
           Este profesional aún no está habilitado para agendar en este servicio.
         </p>
         <div className="mt-4">
-          <a className="text-brand-800 hover:text-brand-900 hover:underline" href={`/servicios/${serviceId}`}>
+          <a className="text-brand-800 hover:text-brand-900 hover:underline" href={`/servicios/${service.slug}`}>
             Volver al servicio
           </a>
         </div>
@@ -86,7 +86,7 @@ export default async function PacienteAgendarPage({ searchParams }) {
     <div className="mx-auto max-w-6xl space-y-6 p-6 md:p-10">
       <div>
         <div className="text-sm text-slate-600">
-          <a className="hover:underline" href={`/servicios/${serviceId}`}>
+          <a className="hover:underline" href={`/servicios/${service.slug}`}>
             Volver al servicio
           </a>
         </div>

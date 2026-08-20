@@ -78,6 +78,7 @@ export default async function ServiciosPage() {
       orderBy: [{ displayOrder: "asc" }, { title: "asc" }],
       select: {
         id: true,
+        slug: true,
         title: true,
         description: true,
         bannerImage: true,
@@ -212,7 +213,7 @@ export default async function ServiciosPage() {
                 </div>
 
                 <Link
-                  href={`/servicios/${service.id}`}
+                  href={`/servicios/${service.slug}`}
                   className="btn btn-accent w-full whitespace-nowrap sm:w-auto"
                 >
                   Ver detalles

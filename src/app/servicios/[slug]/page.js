@@ -13,13 +13,13 @@ import { IMAGE_FALLBACKS } from "@/lib/images";
 export const revalidate = 3600;
 
 export async function generateMetadata({ params }) {
-  const { id: rawId } = await params;
-  const id = String(rawId || "");
+  const { slug: rawSlug } = await params;
+  const slug = String(rawSlug || "");
   let service = null;
 
   try {
     service = await prisma.service.findUnique({
-      where: { id },
+      where: { slug },
       select: {
         title: true, description: true, bannerImage: true,
         metaTitle: true, metaDescription: true, ogImage: true, noindex: true,
@@ -45,7 +45,7 @@ export async function generateMetadata({ params }) {
   return buildMetadata({
     title: seo.title,
     description: seo.description,
-    path: `servicios/${id}`,
+    path: `servicios/${slug}`,
     image: seo.image,
     imageAlt: seo.imageAlt,
     noindex: seo.noindex,
@@ -53,14 +53,14 @@ export async function generateMetadata({ params }) {
 }
 
 export default async function ServiceDetailPage({ params }) {
-  const { id: rawId } = await params;
-  const id = String(rawId || "");
+  const { slug: rawSlug } = await params;
+  const slug = String(rawSlug || "");
   let service = null;
   let dbUnavailable = false;
 
   try {
     service = await prisma.service.findUnique({
-      where: { id },
+      where: { slug },
       select: {
         id: true,
         title: true,
@@ -102,9 +102,9 @@ export default async function ServiceDetailPage({ params }) {
     });
   } catch (error) {
     if (!isPrismaConnectionError(error)) throw error;
-    fallarSiEsBuild(error, `/servicios/${id}`);
+    fallarSiEsBuild(error, `/servicios/${slug}`);
     dbUnavailable = true;
-    console.error(`No se pudo cargar /servicios/${id} por falla de conexion a la base:`, error);
+    console.error(`No se pudo cargar /servicios/${slug} por falla de conexion a la base:`, error);
   }
 
   if (dbUnavailable) {
@@ -126,7 +126,7 @@ export default async function ServiceDetailPage({ params }) {
   if (!service) {
     // Hoy el segmento es el cuid del servicio; en S6 pasa a ser un slug legible
     // y las URLs con cuid quedan registradas acá como origen.
-    const vigente = await resolveRedirect(TIPOS.SERVICIO, id);
+    const vigente = await resolveRedirect(TIPOS.SERVICIO, slug);
     if (vigente) permanentRedirect(`/servicios/${vigente}`);
     notFound();
   }
@@ -148,7 +148,7 @@ export default async function ServiceDetailPage({ params }) {
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 p-6 md:p-10">
-      <JsonLd data={{ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Servicios", item: siteUrl("servicios") }, { "@type": "ListItem", position: 2, name: service.title, item: siteUrl(`servicios/${service.id}`) }] }} />
+      <JsonLd data={{ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Servicios", item: siteUrl("servicios") }, { "@type": "ListItem", position: 2, name: service.title, item: siteUrl(`servicios/${service.slug}`) }] }} />
       <JsonLd data={{ "@context": "https://schema.org", "@type": "Service", name: service.title, description: service.description || undefined, offers: minApprovedPrice !== null ? { "@type": "Offer", priceCurrency: "CRC", price: minApprovedPrice, availability: "https://schema.org/InStock" } : undefined }} />
       <ViewTracker
         eventName="view_service"

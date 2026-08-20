@@ -37,7 +37,7 @@ export default async function sitemap() {
     [services, professionals, posts] = await Promise.all([
       prisma.service.findMany({
         where: { isActive: true, noindex: false },
-        select: { id: true, updatedAt: true },
+        select: { slug: true, updatedAt: true },
       }),
       prisma.professionalProfile.findMany({
         // El filtro tiene que ser el mismo que el de la página del perfil
@@ -62,8 +62,8 @@ export default async function sitemap() {
     throw error;
   }
 
-  const serviceEntries = services.map(({ id, updatedAt }) => ({
-    url: `${BASE_URL}/servicios/${id}`,
+  const serviceEntries = services.map(({ slug, updatedAt }) => ({
+    url: `${BASE_URL}/servicios/${slug}`,
     lastModified: updatedAt,
     changeFrequency: 'weekly',
     priority: 0.9,

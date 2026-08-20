@@ -106,6 +106,7 @@ export default async function HomePage() {
         orderBy: [{ displayOrder: "asc" }, { title: "asc" }],
         select: {
           id: true,
+          slug: true,
           title: true,
           description: true,
           bannerImage: true,
@@ -185,7 +186,7 @@ export default async function HomePage() {
     if (dbServices && dbServices.length > 0) {
       categoriesToShow = dbServices.map((service, index) => ({
         name: service.title,
-        slug: service.id,
+        slug: service.slug,
         description: service.description || "Servicio profesional.",
         imageUrl: service.bannerImage || STOCK_IMAGES[index % STOCK_IMAGES.length],
         imagePosition: `${service.bannerFocusX ?? 50}% ${service.bannerFocusY ?? 50}%`,

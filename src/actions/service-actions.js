@@ -166,7 +166,8 @@ export async function updateServiceDetails(serviceId, formData) {
     revalidatePath(`/panel/admin/servicios/${serviceId}`);
     revalidatePath("/panel/admin/servicios");
     revalidatePath("/servicios");
-    revalidatePath(`/servicios/${serviceId}`);
+    // La ruta pública es /servicios/[slug]; el id ya no es un path válido.
+    revalidatePath('/servicios/[slug]', 'page');
 
     return { success: true };
   } catch (error) {
@@ -228,7 +229,8 @@ export async function syncServiceAssignments(serviceId, professionalIds = []) {
     revalidatePath("/panel/admin/servicios");
     revalidatePath("/panel/admin/personal");
     revalidatePath("/servicios");
-    revalidatePath(`/servicios/${sid}`);
+    // La ruta pública es /servicios/[slug]; el id ya no es un path válido.
+    revalidatePath('/servicios/[slug]', 'page');
 
     return { success: true };
   } catch (error) {
@@ -338,7 +340,8 @@ export async function reviewServiceAssignment(serviceId, professionalId, payload
     revalidatePath("/panel/admin/personal");
     revalidatePath("/panel/profesional/perfil");
     revalidatePath("/servicios");
-    revalidatePath(`/servicios/${sid}`);
+    // La ruta pública es /servicios/[slug]; el id ya no es un path válido.
+    revalidatePath('/servicios/[slug]', 'page');
 
     return { success: true };
   } catch (error) {

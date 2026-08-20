@@ -301,6 +301,10 @@ model ProfessionalProfile {
 model Service {
   id                  String  @id @default(cuid())
   title               String
+  /// URL pública legible. Antes la ruta usaba el cuid: opaco para una persona y
+  /// sin ninguna señal de tema para un buscador. Las URLs viejas con cuid siguen
+  /// funcionando por SlugRedirect.
+  slug                String  @unique
   description         String? @db.Text
   bannerImage         String?
   bannerFocusX        Int     @default(50)

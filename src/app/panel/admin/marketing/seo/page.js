@@ -65,7 +65,7 @@ export default async function AdminSeoPage() {
       prisma.service.findMany({
         where: { isActive: true },
         select: {
-          id: true, title: true, description: true, bannerImage: true,
+          id: true, slug: true, title: true, description: true, bannerImage: true,
           metaTitle: true, metaDescription: true, ogImage: true, focusKeyword: true, noindex: true,
         },
         orderBy: { displayOrder: "asc" },
@@ -101,7 +101,7 @@ export default async function AdminSeoPage() {
         kind: "Servicio",
         label: s.title,
         editHref: `/panel/admin/servicios/${s.id}`,
-        publicHref: `/servicios/${s.id}`,
+        publicHref: `/servicios/${s.slug}`,
         audit: auditItem({ ...seo, excerpt: s.description, focusKeyword: s.focusKeyword, bodyText: s.description }),
       };
     }),
