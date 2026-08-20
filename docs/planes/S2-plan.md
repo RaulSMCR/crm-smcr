@@ -135,8 +135,20 @@ Implementado y verificado el 2026-08-19 **con la tabla todavía ausente en produ
 - Build limpio, suite completa en verde.
 - Arnés: 39/40, sin cambios respecto de S1. Ninguna URL existente cambió de comportamiento.
 - `/profesionales/mariano-zorrilla` y `/blog/inventado-que-no-existe` siguen devolviendo **404**, no 500: la degradación de §4 funciona.
-- El 301 real **no está verificado todavía**: requiere la tabla. Queda como criterio pendiente para el momento en que Raúl corra el SQL, y es precondición bloqueante de S4.
+### Cierre: la tabla existe y el redirect funciona
 
-### Pendiente de Raúl ⚠
+La tabla se creó el 2026-08-19, durante la recuperación del incidente de pérdida de datos (ver abajo). Verificación completa contra producción:
 
-Correr el SQL de §3 en el SQL Editor de Supabase, y después `prisma migrate resolve --applied` en local. **S4 no puede arrancar hasta que eso esté hecho y el 301 verificado.**
+1. Se insertó `post: prueba-301-borrar → que-es-psicoterapia-y-como-orientarse-entre-escuelas`.
+2. `/blog/prueba-301-borrar` respondió **308 Permanent Redirect** con `Location` al destino correcto.
+3. Se borró la fila. La misma URL volvió a **404**.
+
+**Corrección al plan: es 308, no 301.** El plan decía «emitir `permanentRedirect()` (301)». `permanentRedirect()` de Next emite **308**, y no hay forma de pedirle 301 desde un Server Component. Para SEO da igual —Google documenta que trata 308 igual que 301—, y 308 además preserva el método HTTP, que es más correcto. Pero el número del plan estaba mal y conviene que quede escrito, porque la verificación de S4 va a comparar contra lo que diga acá.
+
+**S4 queda desbloqueado.**
+
+### Nota sobre cómo se creó la tabla
+
+No se creó siguiendo estos pasos. El `migration.sql` de `20260819120000_add_slug_redirect` se commiteó vacío (0 bytes) y quedó registrado como aplicado sin haber creado nada; en el intento de resolverlo se corrió un comando que reaplicó las 65 migraciones desde cero y **vació la base de producción**. La tabla terminó creándose durante esa recuperación.
+
+La lección, que vale para S4, S5 y S6: **`prisma migrate dev` y `prisma migrate reset` no se corren nunca contra producción.** La regla del proyecto de que los cambios de esquema van por el SQL Editor existe exactamente por esto, y este plan la había repetido sin nombrar el comando peligroso.
