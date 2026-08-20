@@ -8,6 +8,7 @@ import LibraryBar from "@/components/blog/LibraryBar";
 import { parseLibraryParams, buildLibraryWhere, buildLibraryOrderBy, libraryHref } from "@/lib/blog-taxonomy";
 import { permanentRedirect } from "next/navigation";
 import JsonLd from "@/components/JsonLd";
+import { unstable_cache } from "next/cache";
 import { grafo, nodoListado, idArticulo } from "@/lib/jsonld";
 import { resolveRedirect, TIPOS } from "@/lib/slug-redirect";
 
@@ -32,7 +33,37 @@ const formatDate = (date) => {
   }).format(date);
 };
 
-export const revalidate = 300;
+// Esta página NO puede ser estática: lee `searchParams` para los filtros, y eso
+// la vuelve dinámica sin importar lo que se declare. Antes exportaba
+// `revalidate = 300`, que no tenía ningún efecto y hacía creer que había cache.
+//
+// Lo que sí se puede cachear son los datos, no la página: ver
+// `vocabularioDeLaBiblioteca` abajo.
+
+/**
+ * Las cuatro listas que arman la barra de filtros.
+ *
+ * Son idénticas para todo visitante y cambian solo cuando alguien publica o
+ * etiqueta un artículo, pero se consultaban en cada visita — y en secuencia,
+ * porque el pool de la base es de una sola conexión. Cuatro viajes a la base
+ * para dibujar unos chips que casi nunca cambian.
+ *
+ * `unstable_cache` las guarda por cinco minutos. La consulta de artículos queda
+ * fuera a propósito: depende de los filtros, así que cachearla exigiría una
+ * entrada por combinación y la mayoría se usaría una sola vez.
+ */
+const vocabularioDeLaBiblioteca = unstable_cache(
+  async () => {
+    const publishedApproved = { some: { status: "APPROVED", post: { status: "PUBLISHED" } } };
+    const disciplines = await prisma.discipline.findMany({ where: { isActive: true, posts: publishedApproved }, orderBy: [{ order: "asc" }, { name: "asc" }], select: { name: true, slug: true } });
+    const topics = await prisma.topic.findMany({ where: { isActive: true, posts: publishedApproved }, orderBy: [{ order: "asc" }, { name: "asc" }], select: { name: true, slug: true } });
+    const series = await prisma.series.findMany({ where: { isActive: true, posts: { some: { status: "PUBLISHED", seriesApproved: true } } }, orderBy: { name: "asc" }, select: { name: true, slug: true } });
+    const authors = await prisma.professionalProfile.findMany({ where: { posts: { some: { status: "PUBLISHED" } } }, orderBy: { user: { name: "asc" } }, select: { slug: true, user: { select: { name: true } } } });
+    return { disciplines, topics, series, authors };
+  },
+  ["biblioteca-vocabulario"],
+  { revalidate: 300, tags: ["biblioteca"] },
+);
 
 export default async function BlogPage({ searchParams }) {
   const sp = await searchParams;
@@ -60,8 +91,6 @@ export default async function BlogPage({ searchParams }) {
   // Las consultas van SECUENCIALES a propósito: el pool de la base es de una
   // sola conexión (pooler con connection_limit=1), y un Promise.all de varias
   // consultas se pisa y expira (P2024).
-  const publishedApproved = { some: { status: "APPROVED", post: { status: "PUBLISHED" } } };
-
   const posts = await prisma.post.findMany({
     where: buildLibraryWhere(params),
     orderBy: buildLibraryOrderBy(params),
@@ -77,10 +106,7 @@ export default async function BlogPage({ searchParams }) {
       author: { select: { slug: true, specialty: true, user: { select: { name: true, image: true } } } },
     },
   });
-  const disciplines = await prisma.discipline.findMany({ where: { isActive: true, posts: publishedApproved }, orderBy: [{ order: "asc" }, { name: "asc" }], select: { name: true, slug: true } });
-  const topics = await prisma.topic.findMany({ where: { isActive: true, posts: publishedApproved }, orderBy: [{ order: "asc" }, { name: "asc" }], select: { name: true, slug: true } });
-  const series = await prisma.series.findMany({ where: { isActive: true, posts: { some: { status: "PUBLISHED", seriesApproved: true } } }, orderBy: { name: "asc" }, select: { name: true, slug: true } });
-  const authors = await prisma.professionalProfile.findMany({ where: { posts: { some: { status: "PUBLISHED" } } }, orderBy: { user: { name: "asc" } }, select: { slug: true, user: { select: { name: true } } } });
+  const { disciplines, topics, series, authors } = await vocabularioDeLaBiblioteca();
 
   // Temas complementarios del tema seleccionado (curados por el admin, en
   // ambos sentidos de la relación).

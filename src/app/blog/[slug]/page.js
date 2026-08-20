@@ -8,6 +8,26 @@ import ArticleTaxonomy from "@/components/blog/ArticleTaxonomy";
 
 export const revalidate = 3600;
 
+/**
+ * Prerenderiza los artículos publicados en el build.
+ *
+ * Sin esto, la primera visita a cada artículo pagaba el render completo con sus
+ * consultas a Prisma: medido contra producción, ~500 ms contra los ~80 ms de la
+ * home, que sí estaba prerenderizada.
+ *
+ * `dynamicParams` queda en su valor por defecto (true) a propósito: un artículo
+ * publicado después del build, o un slug viejo que necesita redirigir, se
+ * resuelve en demanda igual que antes. Esto acelera lo conocido sin cerrar la
+ * puerta a lo que aparezca.
+ */
+export async function generateStaticParams() {
+  const posts = await prisma.post.findMany({
+    where: { status: "PUBLISHED" },
+    select: { slug: true },
+  });
+  return posts.map(({ slug }) => ({ slug }));
+}
+
 export async function generateMetadata({ params }) {
   const { slug } = await params;
   const post = await prisma.post.findUnique({

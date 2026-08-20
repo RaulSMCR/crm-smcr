@@ -8,10 +8,20 @@ import { siteUrl } from "@/lib/site-url";
 import { resolveSeo, buildMetadata } from "@/lib/seo";
 import { tituloDe } from "@/lib/disciplinas";
 import { grafo, ref, nodoMigas, idPersona, ID_ORGANIZACION } from "@/lib/jsonld";
+import BotonAgendar from "@/components/profile/BotonAgendar";
 import { SafeAvatar } from "@/components/SafeImage";
 import WhiplashCorner from "@/components/ornaments/WhiplashCorner";
 
 export const revalidate = 3600;
+
+/** Prerenderiza los perfiles activos. Ver la nota en blog/[slug]. */
+export async function generateStaticParams() {
+  const perfiles = await prisma.professionalProfile.findMany({
+    where: { isApproved: true, user: { is: { isActive: true } } },
+    select: { slug: true },
+  });
+  return perfiles.filter((p) => p.slug).map(({ slug }) => ({ slug }));
+}
 
 function formatCRC(value) {
   const amount = Number(value);
@@ -103,7 +113,7 @@ export async function generateMetadata({ params }) {
   });
 }
 
-export default async function ProfessionalPublicProfilePage({ params, searchParams }) {
+export default async function ProfessionalPublicProfilePage({ params }) {
   const { slug: rawSlug } = await params;
   const slug = String(rawSlug || "");
   const professional = await getProfessional(slug);
@@ -121,9 +131,6 @@ export default async function ProfessionalPublicProfilePage({ params, searchPara
       price: Number(assignment.approvedSessionPrice),
     }))
     .filter((service) => service?.id);
-  const resolvedSearchParams = await searchParams;
-  const requestedServiceId = String(resolvedSearchParams?.serviceId || "");
-  const firstService = services.find((service) => service.id === requestedServiceId) || services[0];
 
   const personSchema = {
     "@type": "Person",
@@ -279,13 +286,8 @@ export default async function ProfessionalPublicProfilePage({ params, searchPara
               ) : null}
             </div>
 
-            {firstService ? (
-              <Link
-                href={`/agendar/${professional.id}?serviceId=${firstService.id}`}
-                className="btn btn-accent mt-6 w-full"
-              >
-                Agendar cita
-              </Link>
+            {services.length ? (
+              <BotonAgendar professionalId={professional.id} services={services} />
             ) : (
               <Link
                 href="/servicios"

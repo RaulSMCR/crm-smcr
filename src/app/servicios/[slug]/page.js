@@ -13,6 +13,15 @@ import { IMAGE_FALLBACKS } from "@/lib/images";
 
 export const revalidate = 3600;
 
+/** Prerenderiza los servicios activos. Ver la nota en blog/[slug]. */
+export async function generateStaticParams() {
+  const servicios = await prisma.service.findMany({
+    where: { isActive: true },
+    select: { slug: true },
+  });
+  return servicios.map(({ slug }) => ({ slug }));
+}
+
 export async function generateMetadata({ params }) {
   const { slug: rawSlug } = await params;
   const slug = String(rawSlug || "");
