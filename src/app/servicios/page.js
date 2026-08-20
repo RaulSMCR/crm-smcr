@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { isPrismaConnectionError, fallarSiEsBuild } from "@/lib/prisma-safe";
 import JsonLd from "@/components/JsonLd";
+import { grafo, nodoListado, idServicio } from "@/lib/jsonld";
 import { siteUrl } from "@/lib/site-url";
 import SafeImage, { SafeAvatar } from "@/components/SafeImage";
 import { IMAGE_FALLBACKS } from "@/lib/images";
@@ -127,6 +128,23 @@ export default async function ServiciosPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-8 p-6 md:p-10">
       <JsonLd data={FAQ_SCHEMA} />
+      {/* El listado deja de ser una página sin nodo propio: declara qué contiene
+          y apunta al `@id` de cada servicio, que está descrito en su ficha. */}
+      {services.length ? (
+        <JsonLd
+          data={grafo(
+            nodoListado({
+              id: `${siteUrl("servicios")}#lista`,
+              nombre: "Servicios de Salud Mental Costa Rica",
+              items: services.map((s) => ({
+                url: siteUrl(`servicios/${s.slug}`),
+                nombre: s.title,
+                id: idServicio(s.slug),
+              })),
+            }),
+          )}
+        />
+      ) : null}
       <div>
         <h1 className="text-4xl font-light text-slate-900">Nuestros Servicios</h1>
         <p className="mt-2 text-slate-600">Encuentra el apoyo profesional que necesitas hoy.</p>

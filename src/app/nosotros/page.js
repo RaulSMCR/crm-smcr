@@ -2,6 +2,8 @@
 import { prisma } from '@/lib/prisma';
 import ProfessionalProfileCard from '@/components/ProfessionalProfileCard';
 import { siteUrl } from "@/lib/site-url";
+import JsonLd from "@/components/JsonLd";
+import { grafo, nodoListado, idPersona } from "@/lib/jsonld";
 
 export const metadata = {
   title: 'Nuestro equipo de profesionales',
@@ -61,6 +63,25 @@ export default async function NosotrosPage() {
 
   return (
     <main className="max-w-7xl mx-auto px-4 py-12">
+      {/* El índice del equipo apunta al `@id` de cada perfil, donde la persona
+          está descrita con su colegiatura verificada. */}
+      {professionals.length ? (
+        <JsonLd
+          data={grafo(
+            nodoListado({
+              id: `${siteUrl("nosotros")}#equipo`,
+              nombre: "Equipo de Salud Mental Costa Rica",
+              items: professionals
+                .filter((p) => p.slug)
+                .map((p) => ({
+                  url: siteUrl(`profesionales/${p.slug}`),
+                  nombre: p.user?.name || "Profesional",
+                  id: idPersona(p.slug),
+                })),
+            }),
+          )}
+        />
+      ) : null}
       <div className="text-center mb-16">
         <h1 className="text-5xl font-light text-gray-900 mb-4">Nuestro Equipo</h1>
         <p className="text-lg text-gray-600 max-w-2xl mx-auto">

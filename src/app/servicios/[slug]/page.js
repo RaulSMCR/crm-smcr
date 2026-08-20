@@ -7,6 +7,7 @@ import ViewTracker from "@/components/tracking/ViewTracker";
 import JsonLd from "@/components/JsonLd";
 import { siteUrl } from "@/lib/site-url";
 import { resolveSeo, buildMetadata } from "@/lib/seo";
+import { grafo, ref, nodoMigas, idServicio, ID_ORGANIZACION } from "@/lib/jsonld";
 import SafeImage, { SafeAvatar } from "@/components/SafeImage";
 import { IMAGE_FALLBACKS } from "@/lib/images";
 
@@ -63,6 +64,7 @@ export default async function ServiceDetailPage({ params }) {
       where: { slug },
       select: {
         id: true,
+        slug: true,
         title: true,
         description: true,
         bannerImage: true,
@@ -148,8 +150,35 @@ export default async function ServiceDetailPage({ params }) {
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 p-6 md:p-10">
-      <JsonLd data={{ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Servicios", item: siteUrl("servicios") }, { "@type": "ListItem", position: 2, name: service.title, item: siteUrl(`servicios/${service.slug}`) }] }} />
-      <JsonLd data={{ "@context": "https://schema.org", "@type": "Service", name: service.title, description: service.description || undefined, offers: minApprovedPrice !== null ? { "@type": "Offer", priceCurrency: "CRC", price: minApprovedPrice, availability: "https://schema.org/InStock" } : undefined }} />
+      <JsonLd
+        data={grafo(
+          {
+            "@type": "Service",
+            "@id": idServicio(service.slug),
+            name: service.title,
+            description: service.description || undefined,
+            url: siteUrl(`servicios/${service.slug}`),
+            // Quién presta el servicio. Sin esto el nodo flotaba: un servicio sin
+            // proveedor no le dice a nadie de quién se está hablando.
+            provider: ref(ID_ORGANIZACION),
+            areaServed: { "@type": "Country", name: "Costa Rica" },
+            offers:
+              minApprovedPrice !== null
+                ? {
+                    "@type": "Offer",
+                    priceCurrency: "CRC",
+                    price: minApprovedPrice,
+                    availability: "https://schema.org/InStock",
+                    url: siteUrl(`servicios/${service.slug}`),
+                  }
+                : undefined,
+          },
+          nodoMigas([
+            { nombre: "Servicios", url: siteUrl("servicios") },
+            { nombre: service.title, url: siteUrl(`servicios/${service.slug}`) },
+          ]),
+        )}
+      />
       <ViewTracker
         eventName="view_service"
         eventParams={{ service_name: service.title }}

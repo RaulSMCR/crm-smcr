@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { siteUrl } from "@/lib/site-url";
 import { resolveSeo, buildMetadata } from "@/lib/seo";
 import { tituloDe } from "@/lib/disciplinas";
+import { grafo, ref, nodoMigas, idPersona, ID_ORGANIZACION } from "@/lib/jsonld";
 import { SafeAvatar } from "@/components/SafeImage";
 import WhiplashCorner from "@/components/ornaments/WhiplashCorner";
 
@@ -118,8 +119,10 @@ export default async function ProfessionalPublicProfilePage({ params, searchPara
   const firstService = services.find((service) => service.id === requestedServiceId) || services[0];
 
   const personSchema = {
-    "@context": "https://schema.org",
     "@type": "Person",
+    // El `@id` es lo que convierte esta ficha en LA descripción de la persona:
+    // cada artículo suyo apunta acá en vez de repetir un autor embebido.
+    "@id": idPersona(professional.slug),
     name,
     description: review || undefined,
     image: professional.user?.image || undefined,
@@ -166,12 +169,29 @@ export default async function ProfessionalPublicProfilePage({ params, searchPara
     // el registro del colegio que emite la credencial" — que es exactamente lo
     // que es. Si algún colegio expone un permalink por profesional, ahí sí
     // corresponde `sameAs`.
+
+    // La persona trabaja para la organización, y la organización está descrita
+    // una sola vez en el layout. Esto es lo que ata al profesional con la marca
+    // en el grafo, en vez de dejarlo como una persona suelta en internet.
+    worksFor: ref(ID_ORGANIZACION),
+
+    // `knowsAbout` acepta texto o URL. Se declara la disciplina, que es lo único
+    // que el sistema sabe con certeza; los temas concretos saldrán de la
+    // taxonomía cuando esté poblada.
+    ...(professional.specialty ? { knowsAbout: [professional.specialty] } : {}),
   };
 
   return (
     <main className="min-h-screen bg-surface px-6 py-10">
-      <JsonLd data={personSchema} />
-      <JsonLd data={{ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Profesionales", item: siteUrl("profesionales") }, { "@type": "ListItem", position: 2, name, item: siteUrl(`profesionales/${professional.slug}`) }] }} />
+      <JsonLd
+        data={grafo(
+          personSchema,
+          nodoMigas([
+            { nombre: "Profesionales", url: siteUrl("profesionales") },
+            { nombre: name, url: siteUrl(`profesionales/${professional.slug}`) },
+          ]),
+        )}
+      />
       <ViewTracker
         eventName="view_professional_profile"
         eventParams={{ professional_name: name }}

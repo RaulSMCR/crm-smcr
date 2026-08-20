@@ -47,6 +47,7 @@ export default async function BlogPostPage({ params }) {
       author: {
         select: {
           id: true,
+          slug: true,
           specialty: true,
           bio: true,
           user: { select: { name: true, image: true } },

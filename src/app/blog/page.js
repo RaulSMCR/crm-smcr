@@ -6,6 +6,8 @@ import SafeImage, { SafeAvatar } from "@/components/SafeImage";
 import LibraryBar from "@/components/blog/LibraryBar";
 import { parseLibraryParams, buildLibraryWhere, buildLibraryOrderBy, libraryHref } from "@/lib/blog-taxonomy";
 import { permanentRedirect } from "next/navigation";
+import JsonLd from "@/components/JsonLd";
+import { grafo, nodoListado, idArticulo } from "@/lib/jsonld";
 import { resolveRedirect, TIPOS } from "@/lib/slug-redirect";
 
 export const metadata = {
@@ -103,8 +105,26 @@ export default async function BlogPage({ searchParams }) {
 
   const authorList = authors.map((a) => ({ slug: a.slug, name: a.user?.name || "Profesional" }));
 
+  // El listado declara qué contiene y apunta al `@id` de cada artículo. Los
+  // filtros no lo cambian a propósito: lo que se declara es lo que la página
+  // muestra, y una lista filtrada sigue siendo una lista.
+  const grafoListado = posts.length
+    ? grafo(
+        nodoListado({
+          id: `${siteUrl("blog")}#lista`,
+          nombre: "Biblioteca de Salud Mental Costa Rica",
+          items: posts.map((p) => ({
+            url: siteUrl(`blog/${p.slug}`),
+            nombre: p.title,
+            id: idArticulo(p.slug),
+          })),
+        }),
+      )
+    : null;
+
   return (
     <main className="max-w-6xl mx-auto px-4 py-12">
+      {grafoListado ? <JsonLd data={grafoListado} /> : null}
       <header className="mb-8 text-center">
         <h1 className="text-5xl font-light text-gray-900 tracking-tight">Nuestro Blog</h1>
         <p className="text-lg text-gray-600 mt-3 max-w-2xl mx-auto">

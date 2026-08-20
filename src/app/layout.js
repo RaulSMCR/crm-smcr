@@ -9,6 +9,7 @@ import ConsentBanner from '@/components/ConsentBanner';
 import AnalyticsLoader from '@/components/AnalyticsLoader';
 import MarketingAttributionCapture from '@/components/MarketingAttributionCapture';
 import { SITE_URL, siteUrl } from '@/lib/site-url';
+import { grafo, nodoOrganizacion, nodoSitio } from '@/lib/jsonld';
 import { defaultOgImage } from '@/lib/seo';
 
 // Tipografía display (Art Nouveau contenido). Solo para titulares: el cuerpo
@@ -22,27 +23,10 @@ const cormorant = Cormorant_Garamond({
   variable: '--font-cormorant',
 });
 
-const ORGANIZATION_SCHEMA = {
-  '@context': 'https://schema.org',
-  '@type': 'Organization',
-  name: 'Salud Mental Costa Rica',
-  url: SITE_URL,
-  logo: siteUrl('logo.svg'),
-  description: 'Plataforma interdisciplinaria de bienestar y salud mental en Costa Rica. Psicología, nutrición, deporte y más.',
-  contactPoint: {
-    '@type': 'ContactPoint',
-    telephone: '+506-7129-1909',
-    email: 'contacto@saludmentalcostarica.com',
-    contactType: 'customer service',
-    availableLanguage: 'Spanish',
-  },
-  sameAs: [
-    'https://www.instagram.com/saludmentalcostarica',
-    'https://www.facebook.com/saludmentalcostarica',
-    'https://www.linkedin.com/company/saludmentalcostarica',
-    'https://www.youtube.com/@saludmentalcostarica',
-  ],
-};
+// La organización y el sitio se describen UNA vez, acá, y el resto del sitio los
+// referencia por `@id`. Antes la organización aparecía en tres lugares con tres
+// formas distintas, que para un buscador son tres organizaciones.
+const GRAFO_SITIO = grafo(nodoOrganizacion(), nodoSitio());
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID;
@@ -125,7 +109,7 @@ export default function RootLayout({ children }) {
         {process.env.NODE_ENV === 'production' && (
           <AnalyticsLoader gaId={GA_ID} metaPixelId={META_PIXEL_ID} googleAdsId={GOOGLE_ADS_ID} />
         )}
-        <JsonLd data={ORGANIZATION_SCHEMA} />
+        <JsonLd data={GRAFO_SITIO} />
         <Header />
         
         {/* flex-grow: Empuja el footer hacia abajo si el contenido es corto.

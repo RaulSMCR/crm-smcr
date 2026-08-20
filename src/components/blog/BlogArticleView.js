@@ -5,6 +5,7 @@ import SafeImage, { SafeAvatar } from "@/components/SafeImage";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import { siteUrl } from "@/lib/site-url";
 import { defaultOgImage } from "@/lib/seo";
+import { grafo, ref, nodoMigas, idArticulo, idPersona, ID_SITIO, ID_ORGANIZACION } from "@/lib/jsonld";
 
 const formatDate = (date) =>
   new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "long", year: "numeric" }).format(new Date(date));
@@ -18,43 +19,41 @@ export default function BlogArticleView({ post, slug, preview = false }) {
   const authorUser = post.author.user;
   const coverCreditParts = [post.coverImageTitle, post.coverImageAuthor].filter(Boolean);
 
-  const articleSchema = {
-    "@context": "https://schema.org",
-    "@type": "Article",
-    headline: post.title,
-    description: post.excerpt || undefined,
-    image: post.coverImage || defaultOgImage(post.title),
-    datePublished: new Date(post.createdAt).toISOString(),
-    dateModified: new Date(post.updatedAt).toISOString(),
-    url: siteUrl(`blog/${slug}`),
-    author: {
-      "@type": "Person",
-      name: authorUser.name,
-      image: authorUser.image || undefined,
-      jobTitle: post.author.specialty || undefined,
+  // El autor deja de venir embebido y pasa a ser una referencia al `@id` del
+  // perfil, que es donde la persona está descrita una sola vez y con sus
+  // credenciales. Antes, cada artículo declaraba un `Person` con nombre y foto:
+  // quince artículos del mismo autor eran quince personas distintas que se
+  // llamaban igual, y ninguna tenía colegiatura.
+  //
+  // Si el autor no tiene slug —no debería pasar— se cae al objeto embebido, que
+  // es peor pero no deja el artículo sin autor.
+  const autorSlug = post.author?.slug;
+  const articleSchema = grafo(
+    {
+      "@type": "Article",
+      "@id": idArticulo(slug),
+      headline: post.title,
+      description: post.excerpt || undefined,
+      image: post.coverImage || defaultOgImage(post.title),
+      datePublished: new Date(post.createdAt).toISOString(),
+      dateModified: new Date(post.updatedAt).toISOString(),
+      url: siteUrl(`blog/${slug}`),
+      inLanguage: "es-CR",
+      isPartOf: ref(ID_SITIO),
+      author: autorSlug
+        ? ref(idPersona(autorSlug))
+        : { "@type": "Person", name: authorUser.name, image: authorUser.image || undefined },
+      publisher: ref(ID_ORGANIZACION),
     },
-    publisher: {
-      "@type": "Organization",
-      name: "Salud Mental Costa Rica",
-      logo: { "@type": "ImageObject", url: siteUrl("logo.svg") },
-    },
-  };
+    nodoMigas([
+      { nombre: "Blog", url: siteUrl("blog") },
+      { nombre: post.title, url: siteUrl(`blog/${slug}`) },
+    ]),
+  );
 
   return (
     <article className="min-h-screen bg-surface">
       {!preview ? <JsonLd data={articleSchema} /> : null}
-      {!preview ? (
-        <JsonLd
-          data={{
-            "@context": "https://schema.org",
-            "@type": "BreadcrumbList",
-            itemListElement: [
-              { "@type": "ListItem", position: 1, name: "Blog", item: siteUrl("blog") },
-              { "@type": "ListItem", position: 2, name: post.title, item: siteUrl(`blog/${post.slug}`) },
-            ],
-          }}
-        />
-      ) : null}
       {!preview ? <PostMarketingTracker slug={slug} title={post.title} /> : null}
 
       {/* Hero / Cabecera */}
