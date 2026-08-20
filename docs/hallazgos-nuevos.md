@@ -7,7 +7,7 @@ Cosas que aparecieron durante la ejecución del plan y que **no** están en `doc
 | HN-01 | `/og-image.png` devuelve 404 en producción | **reparado** el 2026-08-19 (D1 resuelta) |
 | HN-02 | La home y `/servicios` hornean su estado degradado en el build | **reparado** el 2026-08-19 |
 | HN-03 | El arnés se autoflagelaba contra el servidor local | **reparado** el 2026-08-19 |
-| HN-04 | `/panel/admin/tareas` ya existe | **abierto** — a resolver al empezar S16 |
+| HN-04 | `/panel/admin/tareas` ya existe | **resuelto** — se incorporó ahí, decisión de Raúl |
 | HN-05 | La caché de `next build` sirvió un prerender viejo | **anotado** — sin arreglo, es del build |
 
 ---
@@ -82,11 +82,13 @@ La `DATABASE_URL` de desarrollo trae `connection_limit=1`. Con las 4 peticiones 
 
 ---
 
-## HN-04 · `/panel/admin/tareas` ya existe
+## HN-04 · `/panel/admin/tareas` ya existe — **resuelto**
 
 **Encontrado en:** S1, mapeo de rutas.
 
-S16 especifica construir `/panel/tareas` como pantalla de aterrizaje del panel. Ya hay una ruta `/panel/admin/tareas` en el árbol. Antes de empezar S16 hay que ver qué hace: o se extiende, o se reemplaza, o conviven y hay que decidir cuál es la de aterrizaje.
+S16 especificaba `/panel/tareas`. Ya existía `/panel/admin/tareas`, con un inventario operativo diario cuyo estado vivía en `localStorage`.
+
+**Decisión de Raúl: incorporar ahí.** Las tareas sostenidas de SEO/GEO van arriba y el inventario operativo abajo. No se creó ninguna ruta nueva y no se desplazó nada de lo que ya funcionaba.
 
 ---
 

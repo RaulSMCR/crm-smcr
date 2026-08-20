@@ -927,6 +927,17 @@ model Post {
   /// contador de vistas lo toca en cada visita. Nulo = no se sabe.
   contentUpdatedAt DateTime?
 
+  /// Párrafo autocontenido de 40-60 palabras, escrito para que un modelo pueda
+  /// citarlo tal cual. Campo propio y no `metaDescription`: aquella compite por
+  /// el clic y se corta a 160; este responde una pregunta completa.
+  extractiveBlock      String?   @db.Text
+  /// Derivados del ensayo. Video y transcripción son los únicos con capacidad de
+  /// citación; slides y reels son distribución.
+  videoUrl             String?
+  transcriptUploadedAt DateTime?
+  slidesDoneAt         DateTime?
+  reelsDoneAt          DateTime?
+
   viewEvents        PostViewEvent[]
   homeCarouselItems HomeCarouselItem[]
 
@@ -1780,4 +1791,53 @@ model SlugRedirect {
   @@unique([entityType, fromSlug])
   /// Para encadenar saltos y para el --revert de S4.
   @@index([entityType, toSlug])
+}
+
+
+/// Registro de las tareas sostenidas del panel (S16).
+///
+/// Antes esto vivía en `localStorage`: por navegador, perdido al cambiar de
+/// máquina, y sin forma de calcular una racha. La racha es el único número que
+/// el panel muestra sin pedirlo, y necesita historia.
+model TaskLog {
+  id         String   @id @default(cuid())
+  fecha      DateTime @db.Date
+  /// 'diaria' | 'semanal' | 'mensual' | 'trimestral'
+  cadencia   String   @db.VarChar(12)
+  /// 'escribi', 'contacto', 'search_console', ...
+  clave      String   @db.VarChar(60)
+  completado Boolean  @default(false)
+  nota       String?  @db.Text
+  /// Campos propios de cada tarea, que varían demasiado para columnas.
+  datos      Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  /// Una tarea por día: marcar dos veces actualiza, no duplica.
+  @@unique([fecha, clave])
+  @@index([fecha(sort: Desc)])
+  @@index([clave, fecha(sort: Desc)])
+}
+
+/// Contactos para conseguir menciones fuera del dominio propio.
+///
+/// Las menciones de marca externas correlacionan con visibilidad en IA más que
+/// los backlinks, y es la tarea que menos se siente como trabajo. Sin registro
+/// no se sostiene: "ya le escribí" deja de ser un recuerdo.
+model OutreachLog {
+  id           String    @id @default(cuid())
+  fecha        DateTime  @db.Date
+  destinatario String    @db.VarChar(200)
+  /// 'email' | 'instagram' | 'llamada' | 'en persona'
+  canal        String?   @db.VarChar(40)
+  pedido       String?   @db.Text
+  /// 'pendiente' | 'respondio' | 'publicado' | 'sin_respuesta'
+  resultado    String    @default("pendiente") @db.VarChar(20)
+  urlMencion   String?
+  seguimiento  DateTime? @db.Date
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([fecha(sort: Desc)])
+  @@index([seguimiento])
 }

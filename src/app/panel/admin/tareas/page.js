@@ -9,6 +9,10 @@ import { momentoActual, tareasDelCalendario } from "@/lib/psychosocial-calendar"
 import { coberturaDeTemas } from "@/lib/psychosocial-calendar-queries";
 import { prepararSesion } from "@/lib/frases-queries";
 import { estadoDeVigencia } from "@/lib/frases";
+import TareasSostenidas from "@/components/admin/TareasSostenidas";
+import DeudaEditorial from "@/components/admin/DeudaEditorial";
+import { hoyCR, calcularRacha } from "@/lib/tareas-sostenidas";
+import { deudaEditorial, pipelineEditorial } from "@/lib/deuda-editorial";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -233,6 +237,43 @@ export default async function AdminTasksPage() {
 
   const areas = areaCalendario ? [areaCalendario, ...AREAS] : AREAS;
 
+  // --- Tareas sostenidas de SEO/GEO (S16) ---------------------------------
+  //
+  // Van ARRIBA del inventario operativo a propósito. El inventario es la rutina
+  // del día; esto es lo que solo pasa si alguien lo sostiene, y lo que no se ve
+  // primero no se hace.
+  const hoy = hoyCR();
+  const inicioDelMes = `${hoy.slice(0, 7)}-01`;
+  const [registrosDeHoy, registrosDelPeriodo, diasEscritos, deuda, pipeline] = [
+    await prisma.taskLog.findMany({
+      where: { fecha: new Date(`${hoy}T12:00:00.000Z`), cadencia: "diaria" },
+      select: { clave: true, completado: true, nota: true },
+    }),
+    // Las tareas de cadencia larga se consideran hechas si se marcaron dentro
+    // del período en curso: una revisión semanal marcada el lunes sigue hecha el
+    // jueves, y volver a mostrarla sin marcar sería pedir que se haga de nuevo.
+    await prisma.taskLog.findMany({
+      where: { fecha: { gte: new Date(`${inicioDelMes}T12:00:00.000Z`) }, cadencia: { not: "diaria" } },
+      orderBy: { fecha: "desc" },
+      select: { clave: true, completado: true, nota: true },
+    }),
+    await prisma.taskLog.findMany({
+      where: { clave: "escribi", completado: true },
+      orderBy: { fecha: "desc" },
+      take: 400,
+      select: { fecha: true },
+    }),
+    await deudaEditorial(),
+    await pipelineEditorial(),
+  ];
+
+  // El más reciente de cada clave gana.
+  const registros = [...registrosDelPeriodo].reverse().concat(registrosDeHoy);
+  const racha = calcularRacha(
+    diasEscritos.map((d) => d.fecha.toISOString().slice(0, 10)),
+    hoy,
+  );
+
   const metrics = [
     { label: "Borradores", value: draftPosts, help: "Artículos por revisar" },
     { label: "Publicados hoy", value: publishedToday, help: "Actualizados como publicados" },
@@ -248,10 +289,19 @@ export default async function AdminTasksPage() {
           <Link href="/panel/admin" className="text-sm text-neutral-500 hover:text-neutral-700">
             Panel
           </Link>
-          <h1 className="text-3xl font-bold text-brand-900">Inventario diario</h1>
+          <h1 className="text-3xl font-bold text-brand-900">Tareas</h1>
           <p className="text-sm text-neutral-700">
-            Rutina operativa para contenido, finanzas, publicidad, SEO y mantenimiento.
+            Lo sostenido arriba, la rutina del día abajo.
           </p>
+        </div>
+
+        <TareasSostenidas registros={registros} racha={racha} />
+
+        <DeudaEditorial deuda={deuda} pipeline={pipeline} />
+
+        <div className="border-t border-slate-200 pt-6">
+          <h2 className="text-2xl font-bold text-brand-900">Inventario operativo</h2>
+          <p className="text-sm text-neutral-700">La rutina del día: contenido, finanzas, publicidad y mantenimiento.</p>
         </div>
 
         <PsychosocialBriefing momento={momento} cobertura={cobertura} compacto />
