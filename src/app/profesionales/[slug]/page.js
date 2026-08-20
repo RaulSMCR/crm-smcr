@@ -6,6 +6,7 @@ import ViewTracker from "@/components/tracking/ViewTracker";
 import { prisma } from "@/lib/prisma";
 import { siteUrl } from "@/lib/site-url";
 import { resolveSeo, buildMetadata } from "@/lib/seo";
+import { tituloDe } from "@/lib/disciplinas";
 import { SafeAvatar } from "@/components/SafeImage";
 import WhiplashCorner from "@/components/ornaments/WhiplashCorner";
 
@@ -33,6 +34,9 @@ async function getProfessional(slug) {
       slug: true,
       specialty: true,
       licenseNumber: true,
+      licensingBody: true,
+      licenseVerifiedAt: true,
+      licenseVerificationUrl: true,
       bio: true,
       profileReview: true,
       rating: true,
@@ -120,8 +124,38 @@ export default async function ProfessionalPublicProfilePage({ params, searchPara
     description: review || undefined,
     image: professional.user?.image || undefined,
     url: siteUrl(`profesionales/${professional.slug}`),
-    jobTitle: professional.specialty || undefined,
-    ...(professional.licenseNumber ? { identifier: professional.licenseNumber } : {}),
+    // `specialty` guarda la DISCIPLINA ("Psicología clínica"); `jobTitle` pide
+    // el título de quien la ejerce ("Psicólogo clínico"). Ver src/lib/disciplinas.js.
+    jobTitle: tituloDe(professional.specialty) || undefined,
+
+    // La matrícula deja de emitirse como `identifier` suelto. Un identificador
+    // sin autoridad emisora no dice nada: es un número. Como PropertyValue queda
+    // dicho quién lo emite, que es lo que lo vuelve comprobable.
+    ...(professional.licenseNumber && professional.licensingBody
+      ? {
+          hasCredential: {
+            "@type": "EducationalOccupationalCredential",
+            credentialCategory: "Colegiatura profesional",
+            recognizedBy: {
+              "@type": "Organization",
+              name: professional.licensingBody,
+              ...(professional.licenseVerificationUrl ? { url: professional.licenseVerificationUrl } : {}),
+            },
+            identifier: {
+              "@type": "PropertyValue",
+              propertyID: professional.licensingBody,
+              value: professional.licenseNumber,
+            },
+          },
+          memberOf: { "@type": "Organization", name: professional.licensingBody },
+        }
+      : professional.licenseNumber
+        ? { identifier: professional.licenseNumber }
+        : {}),
+
+    // Solo se declara `sameAs` cuando hay una URI externa comprobable. El enlace
+    // al registro del colegio es exactamente eso.
+    ...(professional.licenseVerificationUrl ? { sameAs: [professional.licenseVerificationUrl] } : {}),
   };
 
   return (
@@ -168,7 +202,27 @@ export default async function ProfessionalPublicProfilePage({ params, searchPara
                 {professional.specialty || "Profesional de salud"}
               </p>
               {professional.licenseNumber ? (
-                <p className="mt-2 text-xs text-nv-cream/75">Licencia: {professional.licenseNumber}</p>
+                <p className="mt-2 text-xs text-nv-cream/75">
+                  {professional.licensingBody
+                    ? `${professional.licensingBody} · Mat. ${professional.licenseNumber}`
+                    : `Licencia: ${professional.licenseNumber}`}
+                  {/* Una credencial verificada y una declarada no son lo mismo, y
+                      la ficha no debería presentarlas igual. El enlace es al
+                      registro público del colegio: quien quiera, comprueba. */}
+                  {professional.licenseVerifiedAt && professional.licenseVerificationUrl ? (
+                    <>
+                      {" · "}
+                      <a
+                        href={professional.licenseVerificationUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline decoration-dotted hover:text-nv-cream"
+                      >
+                        verificada en el colegio
+                      </a>
+                    </>
+                  ) : null}
+                </p>
               ) : null}
             </div>
 

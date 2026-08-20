@@ -275,3 +275,64 @@ export async function createAdminPost(input) {
     return { error: "No se pudo crear el artículo." };
   }
 }
+
+/**
+ * Registra la verificación de colegiatura de un profesional.
+ *
+ * Es el paso del tamizaje previo a la entrevista: el admin busca la matrícula en
+ * el registro público del colegio correspondiente y guarda el enlace al punto
+ * exacto donde aparece. Queda asentado quién lo verificó y cuándo.
+ *
+ * Sin esto, `licenseNumber` es un número que el propio profesional declaró y que
+ * nadie puede comprobar. La diferencia importa: en salud, una credencial
+ * afirmada y una credencial verificada no son lo mismo, y el sitio no debería
+ * presentarlas igual.
+ */
+export async function registrarVerificacionColegiatura(profileId, datos) {
+  if (!profileId) return { error: "Falta el perfil." };
+
+  try {
+    const session = await getSession();
+    requireAdmin(session);
+
+    const colegio = String(datos?.licensingBody || "").trim();
+    const url = String(datos?.licenseVerificationUrl || "").trim();
+    const matricula = String(datos?.licenseNumber || "").trim();
+
+    if (!colegio) return { error: "Indicá el colegio profesional que emite la matrícula." };
+    if (!matricula) return { error: "Indicá el número de matrícula." };
+
+    // Una URL que no se puede abrir no es evidencia de nada. Se valida la forma
+    // acá; que apunte al registro correcto lo comprueba quien la pega.
+    if (url) {
+      try {
+        const u = new URL(url);
+        if (!["http:", "https:"].includes(u.protocol)) throw new Error("protocolo");
+      } catch {
+        return { error: "El enlace al registro del colegio no es una URL válida." };
+      }
+    }
+
+    const perfil = await prisma.professionalProfile.update({
+      where: { id: String(profileId) },
+      data: {
+        licensingBody: colegio,
+        licenseNumber: matricula,
+        licenseVerificationUrl: url || null,
+        licenseVerifiedAt: new Date(),
+        // La sesión trae el id en `sub` (JWT) con `userId` como alternativa;
+        // es la convención de src/lib/auth.js.
+        licenseVerifiedById: String(session?.sub || session?.userId || "") || null,
+      },
+      select: { id: true, slug: true },
+    });
+
+    revalidatePath("/panel/admin/personal");
+    if (perfil.slug) revalidatePath(`/profesionales/${perfil.slug}`);
+
+    return { ok: true };
+  } catch (error) {
+    console.error("[registrarVerificacionColegiatura]", error);
+    return { error: "No se pudo registrar la verificación." };
+  }
+}

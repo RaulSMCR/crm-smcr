@@ -213,6 +213,9 @@ model User {
 
   professionalProfile ProfessionalProfile?
 
+  /// Colegiaturas que esta persona (admin) verificó.
+  colegiaturasVerificadas ProfessionalProfile[] @relation("VerificacionesDeColegiatura")
+
   appointments    Appointment[] @relation("PatientAppointments")
   invoiceContacts Invoice[]     @relation("InvoiceContact")
   invoicesCreated Invoice[]     @relation("InvoiceCreator")
@@ -248,8 +251,21 @@ model ProfessionalProfile {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   slug                     String    @unique
+  /// Disciplina, no cargo. Los valores válidos están en src/lib/disciplinas.js;
+  /// `tituloDe()` convierte esto en el `jobTitle` del JSON-LD, que nombra a
+  /// quien ejerce y no al campo del saber.
   specialty                String
   licenseNumber            String?
+
+  /// Verificación de colegiatura. El procedimiento es el del tamizaje previo a
+  /// la entrevista: el admin revisa la matrícula en el colegio correspondiente y
+  /// guarda el enlace al punto del registro público donde aparece. Sin esto,
+  /// `licenseNumber` es un número sin autoridad que lo respalde.
+  licensingBody            String?   @db.VarChar(160)
+  licenseVerifiedAt        DateTime?
+  licenseVerificationUrl   String?
+  licenseVerifiedById      String?
+  licenseVerifiedBy        User?     @relation("VerificacionesDeColegiatura", fields: [licenseVerifiedById], references: [id], onDelete: Restrict)
   bio                      String?   @db.Text
   profileReview            String?   @db.Text
   profileReviewDraft       String?   @db.Text
@@ -296,6 +312,9 @@ model ProfessionalProfile {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   settlements Settlement[]
+
+  /// Para el listado de "credenciales por reverificar" de la revisión trimestral.
+  @@index([licenseVerifiedAt])
 }
 
 model Service {

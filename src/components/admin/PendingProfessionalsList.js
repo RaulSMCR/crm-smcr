@@ -2,6 +2,7 @@
 "use client";
 
 import { approveUser, rejectUser } from "@/actions/admin-actions";
+import VerificacionColegiatura from "@/components/admin/VerificacionColegiatura";
 import { useState } from "react";
 
 const fileUrl = (value) => String(value || "").startsWith("/") || String(value || "").startsWith("http")
@@ -182,6 +183,8 @@ export default function PendingProfessionalsList({ users }) {
                       ) : (
                         <div className="text-xs text-slate-400 italic">Sin datos profesionales.</div>
                       )}
+
+                      {prof ? <VerificacionColegiatura perfil={prof} /> : null}
 
                       {bio ? (
                         <div className="mt-1">
