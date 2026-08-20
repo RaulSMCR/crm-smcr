@@ -6,7 +6,6 @@ import MissionVideo from "@/components/MissionVideo";
 import HomeFeatureCarousel from "@/components/HomeFeatureCarousel";
 import ProfessionalCtaSection from "@/components/ProfessionalCtaSection";
 import JsonLd from "@/components/JsonLd";
-import { SITE_URL } from "@/lib/site-url";
 import { buildMetadata } from "@/lib/seo";
 import { fallarSiEsBuild, enPrerender } from "@/lib/prisma-safe";
 
@@ -208,7 +207,25 @@ export default async function HomePage() {
 
   return (
     <div>
-      <JsonLd data={{ "@context": "https://schema.org", "@type": "MedicalBusiness", name: "Salud Mental Costa Rica", url: SITE_URL, medicalSpecialty: "Salud mental" }} />
+      {/* Acá había un nodo `MedicalBusiness` con name, url y
+          `medicalSpecialty: "Salud mental"`. Se sacó por tres razones.
+
+          Era una TERCERA descripción de la misma organización, suelta y sin
+          `@id`: exactamente la fragmentación que S8 vino a eliminar. La
+          organización ya está descrita una vez en el layout, con su `@id`.
+
+          `medicalSpecialty` espera un miembro del enum `MedicalSpecialty`
+          (Psychiatric, Cardiovascular, …), no texto libre. El validador de
+          schema.org lo rechazaba: "Salud mental" no es un valor válido.
+
+          Y `MedicalBusiness` sobredeclara, por el mismo motivo por el que el
+          plan descartó `Physician` para H-24: el equipo son psicólogos,
+          nutricionistas y pedagogos. Declararse negocio médico es una
+          afirmación que la mayoría del equipo no sostiene.
+
+          Si en algún momento se quiere SEO local —aparecer en el mapa—, eso
+          pide un `LocalBusiness` con dirección, coordenadas y horario reales,
+          que es otra decisión y otros datos. */}
       <HeroSection />
       <MissionVideo />
       <HomeFeatureCarousel items={carouselItems} />
