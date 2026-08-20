@@ -1,0 +1,624 @@
+<title>Cierre del plan SEO/GEO</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,600;1,300&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+  /* Paleta del proyecto: el teal de marca y el coral de acento, con neutros
+     sesgados hacia el teal para que no lean como grises heredados. */
+  :root {
+    --tinta:        #0C2223;
+    --tinta-suave:  #3A5254;
+    --tenue:        #6E8688;
+    --linea:        #D7E3E3;
+    --linea-fina:   #E8F0F0;
+    --fondo:        #FBFCFC;
+    --panel:        #FFFFFF;
+    --panel-hueco:  #F2F7F7;
+    --teal:         #235C5F;
+    --teal-claro:   #38868A;
+    --coral:        #C4553F;
+    --coral-fondo:  #FDF0EC;
+    --hecho:        #2F6B4F;
+    --hecho-fondo:  #EDF5F0;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --tinta:        #E8F2F2;
+      --tinta-suave:  #B4C9CA;
+      --tenue:        #7E9698;
+      --linea:        #24413F;
+      --linea-fina:   #1A312F;
+      --fondo:        #0B1919;
+      --panel:        #102323;
+      --panel-hueco:  #16302F;
+      --teal:         #7FC3C5;
+      --teal-claro:   #A8D6D8;
+      --coral:        #FB9078;
+      --coral-fondo:  #2E1D19;
+      --hecho:        #7DC3A0;
+      --hecho-fondo:  #142A22;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --tinta:        #E8F2F2;
+    --tinta-suave:  #B4C9CA;
+    --tenue:        #7E9698;
+    --linea:        #24413F;
+    --linea-fina:   #1A312F;
+    --fondo:        #0B1919;
+    --panel:        #102323;
+    --panel-hueco:  #16302F;
+    --teal:         #7FC3C5;
+    --teal-claro:   #A8D6D8;
+    --coral:        #FB9078;
+    --coral-fondo:  #2E1D19;
+    --hecho:        #7DC3A0;
+    --hecho-fondo:  #142A22;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--fondo);
+    color: var(--tinta);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .hoja {
+    max-width: 60rem;
+    margin: 0 auto;
+    padding: 3rem 1.5rem 6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3.5rem;
+  }
+
+  /* --- cabecera ------------------------------------------------------- */
+
+  .cabecera { display: flex; flex-direction: column; gap: 0.75rem; }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--tenue);
+  }
+
+  h1 {
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-weight: 300;
+    font-size: clamp(2.4rem, 6vw, 3.6rem);
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .entrada {
+    max-width: 40rem;
+    color: var(--tinta-suave);
+    font-size: 1.05rem;
+  }
+
+  /* --- barra de estado ------------------------------------------------ */
+
+  .estado {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 1px;
+    background: var(--linea);
+    border: 1px solid var(--linea);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .estado div { background: var(--panel); padding: 0.9rem 1rem; }
+
+  .estado dt {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--tenue);
+    margin: 0 0 0.3rem;
+  }
+
+  .estado dd {
+    margin: 0;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 1.5rem;
+    font-weight: 500;
+    line-height: 1;
+    color: var(--teal);
+  }
+
+  .estado dd small {
+    display: block;
+    font-family: "IBM Plex Sans", sans-serif;
+    font-size: 0.78rem;
+    font-weight: 400;
+    color: var(--tinta-suave);
+    margin-top: 0.35rem;
+    line-height: 1.35;
+  }
+
+  /* --- secciones ------------------------------------------------------ */
+
+  section { display: flex; flex-direction: column; gap: 1.5rem; }
+
+  .titulo-seccion { display: flex; flex-direction: column; gap: 0.4rem; }
+
+  h2 {
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-weight: 600;
+    font-size: 1.9rem;
+    line-height: 1.15;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .titulo-seccion p { margin: 0; color: var(--tinta-suave); max-width: 42rem; }
+
+  .regla { height: 2px; width: 3rem; background: var(--coral); border-radius: 2px; }
+
+  /* --- tarjetas de tarea ---------------------------------------------- */
+
+  .tareas { display: flex; flex-direction: column; gap: 0.75rem; }
+
+  .tarea {
+    background: var(--panel);
+    border: 1px solid var(--linea);
+    border-radius: 4px;
+    padding: 1.1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .tarea-cabeza {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem 0.75rem;
+  }
+
+  .tarea h3 {
+    margin: 0;
+    font-size: 1.02rem;
+    font-weight: 600;
+    line-height: 1.35;
+    flex: 1 1 18rem;
+  }
+
+  .marca {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.5rem;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+
+  .marca.minutos { background: var(--hecho-fondo); color: var(--hecho); }
+  .marca.campana { background: var(--coral-fondo); color: var(--coral); }
+  .marca.bloquea { background: var(--panel-hueco); color: var(--teal); border: 1px solid var(--linea); }
+
+  .tarea p { margin: 0; color: var(--tinta-suave); font-size: 0.95rem; }
+  .tarea p strong { color: var(--tinta); font-weight: 600; }
+
+  .porque {
+    border-left: 2px solid var(--linea);
+    padding-left: 0.9rem;
+    font-size: 0.9rem;
+    color: var(--tenue);
+  }
+
+  code, pre {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.84rem;
+  }
+
+  code { background: var(--panel-hueco); padding: 0.1rem 0.35rem; border-radius: 2px; color: var(--teal); }
+
+  pre {
+    margin: 0;
+    background: var(--panel-hueco);
+    border: 1px solid var(--linea-fina);
+    border-radius: 3px;
+    padding: 0.75rem 0.9rem;
+    overflow-x: auto;
+    color: var(--tinta);
+    line-height: 1.5;
+  }
+
+  pre code { background: none; padding: 0; color: inherit; }
+
+  /* --- tabla de deuda -------------------------------------------------- */
+
+  .envoltura-tabla { overflow-x: auto; border: 1px solid var(--linea); border-radius: 4px; background: var(--panel); }
+
+  table { width: 100%; min-width: 34rem; border-collapse: collapse; font-size: 0.92rem; }
+
+  th, td { text-align: left; padding: 0.6rem 1rem; border-bottom: 1px solid var(--linea-fina); }
+
+  thead th {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--tenue);
+    font-weight: 400;
+    background: var(--panel-hueco);
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+
+  td.cifra {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    font-weight: 500;
+    color: var(--coral);
+    white-space: nowrap;
+  }
+
+  td.cifra.cero { color: var(--hecho); }
+
+  /* --- pie -------------------------------------------------------------- */
+
+  footer {
+    border-top: 1px solid var(--linea);
+    padding-top: 1.5rem;
+    color: var(--tenue);
+    font-size: 0.88rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  a { color: var(--teal); text-underline-offset: 2px; }
+  a:focus-visible, :focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; border-radius: 2px; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .tarea { transition: border-color 120ms ease; }
+  }
+  .tarea:hover { border-color: var(--teal-claro); }
+</style>
+
+<div class="hoja">
+
+  <header class="cabecera">
+    <p class="eyebrow">Salud Mental Costa Rica · 20 de agosto de 2026</p>
+    <h1>Lo que queda en tus manos</h1>
+    <p class="entrada">
+      El trabajo técnico del plan SEO/GEO está cerrado y desplegado. Lo que sigue no lo puedo
+      hacer yo: son decisiones, textos y accesos. Está ordenado por cuánto cuesta, no por
+      importancia — arriba lo que se resuelve en minutos.
+    </p>
+  </header>
+
+  <dl class="estado">
+    <div>
+      <dt>Segmentos</dt>
+      <dd>15<small>de 16 cerrados. Falta S11.</small></dd>
+    </div>
+    <div>
+      <dt>URLs vivas</dt>
+      <dd>59<small>ninguna rota, 20 redirigen</small></dd>
+    </div>
+    <div>
+      <dt>Deuda editorial</dt>
+      <dd>28<small>piezas con algo pendiente</small></dd>
+    </div>
+    <div>
+      <dt>Agendables</dt>
+      <dd>0<small>servicios con profesional</small></dd>
+    </div>
+  </dl>
+
+  <section>
+    <div class="titulo-seccion">
+      <div class="regla"></div>
+      <h2>De una vez</h2>
+      <p>
+        Cinco cosas que se resuelven hoy. Las dos primeras son las que hacen que el sitio
+        vuelva a funcionar de verdad: hoy nadie puede entrar ni agendar.
+      </p>
+    </div>
+
+    <div class="tareas">
+
+      <article class="tarea">
+        <div class="tarea-cabeza">
+          <h3>Recuperar el acceso de las cinco cuentas</h3>
+          <span class="marca campana">Bloquea todo</span>
+        </div>
+        <p>
+          Entrá a <code>/recuperar</code> con cada correo y fijá una contraseña nueva. Son cinco
+          cuentas: la tuya, las de Andrea y Esteban, y dos más.
+        </p>
+        <p class="porque">
+          El respaldo del que restauramos no tenía los hashes de contraseña, así que les puse uno
+          que no corresponde a ninguna. Nadie puede entrar al panel hasta hacer esto — vos incluido.
+        </p>
+      </article>
+
+      <article class="tarea">
+        <div class="tarea-cabeza">
+          <h3>Recargar las asignaciones de servicio</h3>
+          <span class="marca campana">Bloquea agendar</span>
+        </div>
+        <p>
+          Desde <code>/panel/admin/servicios</code>, indicá qué profesional presta cada servicio y a
+          qué precio aprobado.
+        </p>
+        <p class="porque">
+          Es lo único que se perdió y no se pudo reponer de ninguna forma. Sin esto, los diez
+          servicios se ven pero ninguno tiene profesional ni precio, y el botón de agendar no
+          aparece en ningún perfil.
+        </p>
+      </article>
+
+      <article class="tarea">
+        <div class="tarea-cabeza">
+          <h3>Cargar las series de artículos</h3>
+          <span class="marca minutos">Un comando</span>
+        </div>
+        <p>
+          Ya está preparado y revisado. Corré primero el ensayo, mirá la lista, y aplicá:
+        </p>
+        <pre><code>node scripts/backfill-blog-taxonomy.mjs
+node scripts/backfill-blog-taxonomy.mjs --commit</code></pre>
+        <p class="porque">
+          Deja cinco series cubriendo catorce de los quince artículos, más la disciplina
+          «Psicología clínica». Solo «Lógicas comunes más allá de la dicotomía salud-enfermedad»
+          queda suelto, que es correcto: no es parte de ninguna serie.
+        </p>
+      </article>
+
+      <article class="tarea">
+        <div class="tarea-cabeza">
+          <h3>Copiar los respaldos fuera de tu máquina</h3>
+          <span class="marca minutos">2 minutos</span>
+        </div>
+        <p>
+          La carpeta <code>docs/backups/</code> pesa unos 300&nbsp;KB y está fuera de git a propósito,
+          porque lleva nombres y correos del equipo.
+        </p>
+        <p class="porque">
+          Existe en un solo lugar: tu disco. Es lo mismo que pasó el 19 de agosto, cuando lo único
+          que permitió recuperar los quince artículos fue un archivo que había quedado ahí de
+          casualidad.
+        </p>
+      </article>
+
+      <article class="tarea">
+        <div class="tarea-cabeza">
+          <h3>Pedir reindexación en Search Console</h3>
+          <span class="marca minutos">10 minutos</span>
+        </div>
+        <p>
+          Veinte URLs cambiaron de dirección: ocho artículos, un perfil, los diez servicios y
+          <code>/profesionales</code>. Todas las viejas redirigen, pero pedirlo acelera semanas.
+        </p>
+        <p class="porque">
+          Verificá antes que <code>/sitemap.xml</code> ya muestre las nuevas. Pedir reindexación con
+          el sitemap viejo es pedirle a Google que indexe URLs que redirigen.
+        </p>
+      </article>
+
+    </div>
+  </section>
+
+  <section>
+    <div class="titulo-seccion">
+      <div class="regla"></div>
+      <h2>Lo que desbloquea S11</h2>
+      <p>
+        S11 construye <code>/blog/tema/[slug]</code> y <code>/blog/autor/[slug]</code>: convierte los
+        filtros en páginas propias, indexables y citables. Es lo único del plan que no pude hacer.
+      </p>
+    </div>
+
+    <div class="tareas">
+      <article class="tarea">
+        <div class="tarea-cabeza">
+          <h3>Definir los temas</h3>
+          <span class="marca bloquea">Solo vos</span>
+        </div>
+        <p>
+          Hacen falta entre <strong>seis y diez temas</strong> con nombre y una descripción de dos o
+          tres líneas cada uno, y saber qué artículos van en cuál. Se cargan en
+          <code>/panel/admin/blog/taxonomia</code>.
+        </p>
+        <p class="porque">
+          Las series ya salen del comando de arriba, y las disciplinas también. Los temas no: son
+          una decisión editorial sobre cómo querés que se recorra la biblioteca, y no hay forma de
+          derivarla de los títulos.
+        </p>
+      </article>
+
+      <article class="tarea">
+        <div class="tarea-cabeza">
+          <h3>Escribir el texto de cada página de tema</h3>
+          <span class="marca bloquea">Solo vos</span>
+        </div>
+        <p>
+          Un par de párrafos propios por tema, no solo el listado de artículos.
+        </p>
+        <p class="porque">
+          Una página que solo lista enlaces no le da a un modelo nada que citar. El texto
+          introductorio es lo que la vuelve una respuesta y no un índice.
+        </p>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <div class="titulo-seccion">
+      <div class="regla"></div>
+      <h2>Deuda editorial</h2>
+      <p>
+        Veintiocho piezas con algo pendiente. No hace falta que lleves esta lista: el panel la
+        genera solo desde la base, en <code>/panel/admin/tareas</code>, y se va vaciando a medida
+        que cargás.
+      </p>
+    </div>
+
+    <div class="envoltura-tabla">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Qué falta</th>
+            <th scope="col">Dónde</th>
+            <th scope="col" style="text-align:right">Piezas</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Bloque extractivo de 40-60 palabras</td><td>Artículos</td><td class="cifra">15</td></tr>
+          <tr><td>Texto alternativo de la portada</td><td>Artículos</td><td class="cifra">15</td></tr>
+          <tr><td>Meta description propia</td><td>Artículos</td><td class="cifra">13</td></tr>
+          <tr><td>Meta title propio</td><td>Artículos</td><td class="cifra">13</td></tr>
+          <tr><td>Palabra clave objetivo</td><td>Artículos</td><td class="cifra">13</td></tr>
+          <tr><td>Meta title y description</td><td>Servicios</td><td class="cifra">10</td></tr>
+          <tr><td>Meta title y description</td><td>Perfiles</td><td class="cifra">3</td></tr>
+          <tr><td>Extracto</td><td>Artículos</td><td class="cifra">2</td></tr>
+          <tr><td>Colegiatura verificada</td><td>Perfiles</td><td class="cifra cero">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <article class="tarea">
+      <div class="tarea-cabeza">
+        <h3>Por dónde empezar, si hay que elegir</h3>
+      </div>
+      <p>
+        Por el <strong>bloque extractivo</strong>. Es el único de la lista que existe para que un
+        modelo pueda citarte textual: un párrafo autocontenido que responde una pregunta completa,
+        sin depender del resto del artículo.
+      </p>
+      <p class="porque">
+        Los demás campos mejoran cómo aparecés en una lista de resultados. El bloque extractivo
+        cambia si aparecés cuando alguien le pregunta a un modelo, que es de lo que trata todo el
+        plan.
+      </p>
+    </article>
+  </section>
+
+  <section>
+    <div class="titulo-seccion">
+      <div class="regla"></div>
+      <h2>Esperando algo tuyo</h2>
+      <p>Cosas que no puedo avanzar porque me falta un dato o una decisión.</p>
+    </div>
+
+    <div class="tareas">
+
+      <article class="tarea">
+        <div class="tarea-cabeza">
+          <h3>El documento con los 30 prompts</h3>
+          <span class="marca bloquea">Falta un archivo</span>
+        </div>
+        <p>
+          El plan dice que están en <code>smcr-baseline-visibilidad.md</code>, que no está en el
+          repositorio. Sin él no puedo construir la corrida guiada de medición.
+        </p>
+        <p class="porque">
+          No los invento: el set se congela doce meses para que la serie temporal sea comparable, y
+          uno inventado hoy la arruinaría desde el primer punto.
+        </p>
+      </article>
+
+      <article class="tarea">
+        <div class="tarea-cabeza">
+          <h3>Los días fijos de la rutina</h3>
+          <span class="marca bloquea">Decisión</span>
+        </div>
+        <p>
+          Qué día de la semana para la revisión de quince minutos, y qué día del mes para la corrida
+          de medición.
+        </p>
+        <p class="porque">
+          No bloquea nada: las tareas ya están en el panel y se marcan cuando se hacen. Pero un día
+          fijo es la diferencia entre una rutina y una intención.
+        </p>
+      </article>
+
+      <article class="tarea">
+        <div class="tarea-cabeza">
+          <h3>La dirección de consultorio de cada profesional</h3>
+          <span class="marca bloquea">Dato</span>
+        </div>
+        <p>
+          La tuya quedó como virtual. Andrea y Esteban pueden cargar la suya desde su panel, en
+          Lugares de atención.
+        </p>
+        <p class="porque">
+          Es la señal que usa un buscador para responder «psicólogo en San José». Hoy solo la
+          organización declara localidad.
+        </p>
+      </article>
+
+    </div>
+  </section>
+
+  <section>
+    <div class="titulo-seccion">
+      <div class="regla"></div>
+      <h2>Para más adelante</h2>
+      <p>Anotado para que no se pierda, sin urgencia.</p>
+    </div>
+
+    <div class="tareas">
+      <article class="tarea">
+        <div class="tarea-cabeza">
+          <h3>Cuando entre un médico al equipo</h3>
+        </div>
+        <p>
+          Revisar el marcado de la organización. Hoy no se declara como negocio médico a propósito:
+          el equipo son psicólogos, y afirmarlo sería una declaración que la mayoría no sostiene.
+        </p>
+      </article>
+
+      <article class="tarea">
+        <div class="tarea-cabeza">
+          <h3>Si querés aparecer en el mapa</h3>
+        </div>
+        <p>
+          El SEO local pide dirección, coordenadas y horario reales. Implica exponer una dirección
+          física, que en atención en salud mental no es una decisión menor.
+        </p>
+      </article>
+
+      <article class="tarea">
+        <div class="tarea-cabeza">
+          <h3>Las 29 imágenes que siguen sin optimizar</h3>
+        </div>
+        <p>
+          Avatares y miniaturas. Migrarlas necesita revisión visual pantalla por pantalla, con vos
+          mirando. Las portadas grandes, que son las que pesan, ya están hechas.
+        </p>
+      </article>
+    </div>
+  </section>
+
+  <footer>
+    <p>
+      Detalle de cada segmento en <code>docs/planes/</code>. Hallazgos que aparecieron fuera del
+      plan, en <code>docs/hallazgos-nuevos.md</code>. El reporte de cierre técnico, en
+      <code>docs/planes/S15-plan.md</code>.
+    </p>
+    <p>
+      Nunca corras <code>prisma migrate dev</code> ni <code>migrate reset</code> contra producción.
+    </p>
+  </footer>
+
+</div>
