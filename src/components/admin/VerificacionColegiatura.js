@@ -118,7 +118,9 @@ export default function VerificacionColegiatura({ perfil }) {
           className="mt-0.5 w-full rounded border border-slate-300 px-2 py-1"
         />
         <span className="text-[11px] text-slate-500">
-          El punto donde aparece en el sitio del colegio. Es la evidencia: sin él queda tu palabra.
+          El registro público del colegio. Si el colegio da un enlace directo a la ficha de la
+          persona, usá ese; si solo tiene buscador —como el del CPPCR— pegá el buscador y anotá la
+          matrícula, que es con lo que se busca.
         </span>
       </label>
 

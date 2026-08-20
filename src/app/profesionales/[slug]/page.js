@@ -153,9 +153,19 @@ export default async function ProfessionalPublicProfilePage({ params, searchPara
         ? { identifier: professional.licenseNumber }
         : {}),
 
-    // Solo se declara `sameAs` cuando hay una URI externa comprobable. El enlace
-    // al registro del colegio es exactamente eso.
-    ...(professional.licenseVerificationUrl ? { sameAs: [professional.licenseVerificationUrl] } : {}),
+    // `sameAs` queda deliberadamente vacío, aunque haya una URL de verificación.
+    //
+    // `sameAs` afirma "esta URL es otra representación de ESTA PERSONA". El
+    // enlace que tienen los colegios de Costa Rica —el del CPPCR, por ejemplo—
+    // es el buscador del directorio, no un permalink a la ficha: quien lo abre
+    // llega a un formulario, no a una persona. Declararlo como `sameAs` sería
+    // afirmar algo falso, y en categoría YMYL una afirmación de identidad que no
+    // se sostiene al hacer clic hace más daño que no decir nada.
+    //
+    // La URL sí se usa en `recognizedBy.url`, donde lo que se afirma es "este es
+    // el registro del colegio que emite la credencial" — que es exactamente lo
+    // que es. Si algún colegio expone un permalink por profesional, ahí sí
+    // corresponde `sameAs`.
   };
 
   return (
@@ -218,7 +228,7 @@ export default async function ProfessionalPublicProfilePage({ params, searchPara
                         rel="noopener noreferrer"
                         className="underline decoration-dotted hover:text-nv-cream"
                       >
-                        verificada en el colegio
+                        verificar en el registro del colegio
                       </a>
                     </>
                   ) : null}
