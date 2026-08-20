@@ -19,8 +19,8 @@
 import { prisma } from "@/lib/prisma";
 import { MENSAJE_REINVITACION } from "@/lib/scheduling-block";
 import { scheduleReengagement } from "@/lib/qstash";
-import {
 import { SITE_URL } from "@/lib/site-url";
+import {
   CANALES,
   DIAS_DE_SEGUIMIENTO,
   RESULTADOS_QUE_CIERRAN,
