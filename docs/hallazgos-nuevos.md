@@ -233,3 +233,52 @@ El acceso síncrono a una Promise no lanza: devuelve `undefined`. No hay error e
 consola, no hay build roto, no hay test que falle. La página responde 200 y se ve
 bien; solo hace lo incorrecto. **Es el modo de fallo más caro que existe**, y ya
 estaba documentado en la memoria del proyecto desde una vez anterior.
+
+---
+
+## HN-10 · `/panel/admin/tareas` reventaba con ReferenceError
+
+**Encontrado en:** 2026-08-20, la primera vez que alguien abrió esa página con
+sesión de admin.
+
+```
+ReferenceError: hoyEnCostaRica is not defined
+```
+
+`src/lib/frases.js` usaba `hoyEnCostaRica()` como **valor por defecto** de
+`estadoDeVigencia()`, sin importarla: la función vive en
+`psychosocial-calendar.js`.
+
+`/panel/admin/frases` la llama con argumento —`estadoDeVigencia(hoy)`— así que
+nunca falló. `/panel/admin/tareas` la llama sin argumento, y ahí el valor por
+defecto se evalúa y revienta.
+
+**No lo causó ningún cambio de esta sesión.** La línea existe desde antes del
+primer commit del plan (`4e0b123`). La página estaba rota desde siempre; lo que
+cambió es que ahora hay un admin que puede entrar a verla.
+
+### Reparado
+
+`hoyEnCostaRica` se mudó a `src/lib/timezone.js`, que es su lugar: lo necesita
+medio proyecto. `psychosocial-calendar` lo reexporta para no romper a quien lo
+importa desde ahí, y `frases.js` ahora sí lo importa.
+
+De paso se eliminó una **tercera copia** que S16 había agregado en
+`tareas-sostenidas.js` — el mismo patrón que produjo el problema.
+
+### Casi lo repito en el mismo arreglo
+
+Al consolidar escribí `export { hoyEnCostaRica as hoyCR }` y dejé
+`calcularRacha(fechas, hoy = hoyCR())`. **Un `export { x as y }` no crea el
+identificador `y` dentro del módulo**, así que eso habría reventado exactamente
+igual — y los tests no lo habrían visto, porque todos le pasan la fecha
+explícita.
+
+### Por qué nada lo detectaba
+
+Un valor por defecto solo se evalúa cuando el argumento no se pasa. Si todos los
+tests pasan la fecha, la línea nunca se ejecuta: el build compila, los tests
+pasan, y la página responde 200 hasta que alguien la abre.
+
+`tests/unit/fecha-costa-rica.test.js` llama a las tres funciones **sin
+argumentos**, que es el único llamado que ejercita el valor por defecto.

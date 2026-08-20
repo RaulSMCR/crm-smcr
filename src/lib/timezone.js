@@ -40,4 +40,25 @@ export function formatDateTimeInTZ(date, locale = "es-CR", timeZone = DEFAULT_TZ
   }).format(new Date(date));
 }
 
+const FORMATO_ISO = new Intl.DateTimeFormat("en-CA", {
+  timeZone: DEFAULT_TZ,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+/**
+ * El "hoy" del negocio, en hora de Costa Rica, como 'YYYY-MM-DD'.
+ *
+ * Vive acá y no en psychosocial-calendar porque lo necesita medio proyecto y
+ * cada módulo que lo tenía aparte terminaba con su propia copia. Peor todavía:
+ * `frases.js` lo usaba como valor por defecto de `estadoDeVigencia()` sin
+ * importarlo, así que llamar a esa función sin argumento reventaba con un
+ * ReferenceError en runtime — y eso dejó `/panel/admin/tareas` caída sin que
+ * nadie lo notara, porque nadie podía entrar como admin para verla.
+ */
+export function hoyEnCostaRica(ahora = new Date()) {
+  return FORMATO_ISO.format(ahora);
+}
+
 export { DEFAULT_TZ };

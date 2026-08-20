@@ -17,6 +17,16 @@ describe("calcularRacha", () => {
     expect(calcularRacha(["2026-08-20", "2026-08-18", "2026-08-17"], "2026-08-20")).toBe(1);
   });
 
+  it("funciona sin pasarle la fecha, usando el valor por defecto", () => {
+    // Todos los demás casos pasan la fecha explícita, así que el parámetro por
+    // defecto nunca se evaluaba y un ReferenceError ahí habría pasado los tests
+    // sin que nadie lo notara. Es exactamente cómo se coló el bug de
+    // `estadoDeVigencia()` en frases.js.
+    expect(() => calcularRacha([])).not.toThrow();
+    expect(calcularRacha([])).toBe(0);
+    expect(calcularRacha([hoyCR()])).toBe(1);
+  });
+
   it("devuelve cero si no hay nada", () => {
     expect(calcularRacha([], "2026-08-20")).toBe(0);
   });

@@ -16,7 +16,7 @@
 //   2. La revisión se trabaja con un día de anticipación, y el viernes cubre
 //      sábado, domingo y lunes. Nadie abre el panel un domingo a las 5 a.m.
 
-import { DEFAULT_TZ } from "@/lib/timezone";
+import { DEFAULT_TZ, hoyEnCostaRica } from "@/lib/timezone";
 import corpus from "@/data/frases/corpus.json";
 import calendario from "@/data/frases/dias.json";
 

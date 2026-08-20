@@ -11,6 +11,8 @@
 // exige enfrentar una página en blanco; producir es incómodo y es lo único que
 // mueve el proyecto.
 
+import { hoyEnCostaRica } from "@/lib/timezone";
+
 export const CADENCIAS = Object.freeze({
   DIARIA: "diaria",
   SEMANAL: "semanal",
@@ -136,15 +138,15 @@ export const ZONAS = Object.freeze([
   { cadencia: CADENCIAS.TRIMESTRAL, titulo: "Este trimestre", bajada: "Mirar el conjunto." },
 ]);
 
-/** Fecha en formato `YYYY-MM-DD`, en la zona de Costa Rica. */
-export function hoyCR(ahora = new Date()) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Costa_Rica",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(ahora);
-}
+// El "hoy" de Costa Rica es uno solo para todo el proyecto y vive en
+// timezone.js. Acá había una tercera copia, que es exactamente el patrón que
+// terminó dejando a frases.js usando una función que no importaba.
+//
+// Se reexporta como `hoyCR` para quien ya lo importa con ese nombre. OJO: un
+// `export { x as y }` NO crea el identificador `y` dentro del módulo, así que
+// adentro hay que seguir usando `hoyEnCostaRica` — usar `hoyCR()` acá sería
+// repetir el ReferenceError que este cambio vino a arreglar.
+export { hoyEnCostaRica as hoyCR };
 
 /**
  * Días consecutivos escribiendo, hasta hoy.
@@ -159,7 +161,7 @@ export function hoyCR(ahora = new Date()) {
  *
  * @param {string[]} fechas fechas `YYYY-MM-DD` con `escribi` completado
  */
-export function calcularRacha(fechas, hoy = hoyCR()) {
+export function calcularRacha(fechas, hoy = hoyEnCostaRica()) {
   const marcadas = new Set(fechas);
   if (!marcadas.size) return 0;
 

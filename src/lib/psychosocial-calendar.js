@@ -23,7 +23,7 @@
 //      documento se equivoca al menos una vez: dice que julio 2027 tiene cinco
 //      domingos y tiene cuatro (el 1 de julio cae jueves).
 
-import { DEFAULT_TZ } from "@/lib/timezone";
+import { DEFAULT_TZ, hoyEnCostaRica } from "@/lib/timezone";
 
 // ─── Ejes de carga ───────────────────────────────────────────────────────────
 // Escala 0–4. Los cuatro primeros miden carga sobre la persona. El quinto mide
@@ -101,17 +101,9 @@ export const VENTANAS = [
 
 // ─── Utilidades de fecha (todas sobre 'YYYY-MM-DD') ──────────────────────────
 
-const FORMATO_ISO = new Intl.DateTimeFormat("en-CA", {
-  timeZone: DEFAULT_TZ,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
-
-/** El "hoy" del negocio, en hora de Costa Rica, como 'YYYY-MM-DD'. */
-export function hoyEnCostaRica(ahora = new Date()) {
-  return FORMATO_ISO.format(ahora);
-}
+// El "hoy" vive en timezone.js. Se reexporta para no romper a quien lo importa
+// desde acá, que es como estaba hasta ahora.
+export { hoyEnCostaRica };
 
 function esIso(valor) {
   return typeof valor === "string" && /^\d{4}-\d{2}-\d{2}$/.test(valor);
