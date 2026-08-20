@@ -38,6 +38,14 @@ export function nodoOrganizacion() {
     name: NOMBRE,
     url: SITE_URL,
     logo: { '@type': 'ImageObject', url: siteUrl('logo.svg') },
+    // Domicilio de registro de la empresa. Solo localidad y país: no se declara
+    // una calle que no existe como punto de atención al público.
+    address: {
+      '@type': 'PostalAddress',
+      addressLocality: 'San José',
+      addressCountry: 'CR',
+    },
+    areaServed: { '@type': 'Country', name: 'Costa Rica' },
     description:
       'Plataforma interdisciplinaria de bienestar y salud mental en Costa Rica. Psicología, nutrición, deporte y más.',
     contactPoint: {

@@ -38,6 +38,13 @@ async function getProfessional(slug) {
       licensingBody: true,
       licenseVerifiedAt: true,
       licenseVerificationUrl: true,
+      // Consultorios para `workLocation`. Solo presenciales y activos: una sala
+      // virtual no tiene dirección, y un consultorio dado de baja no se anuncia.
+      practiceLocations: {
+        where: { isActive: true, modality: { in: ["OFFICE", "HOME"] }, address: { not: null } },
+        orderBy: { displayOrder: "asc" },
+        select: { name: true, address: true },
+      },
       bio: true,
       profileReview: true,
       rating: true,
@@ -179,6 +186,22 @@ export default async function ProfessionalPublicProfilePage({ params, searchPara
     // que el sistema sabe con certeza; los temas concretos saldrán de la
     // taxonomía cuando esté poblada.
     ...(professional.specialty ? { knowsAbout: [professional.specialty] } : {}),
+
+    // Dónde atiende. Es la señal que un buscador usa para responder "psicólogo
+    // en San José", y no la tenía nadie del equipo.
+    ...(professional.practiceLocations?.length
+      ? {
+          workLocation: professional.practiceLocations.map((l) => ({
+            "@type": "Place",
+            name: l.name,
+            // `address` va como texto y no como PostalAddress estructurado: el
+            // campo es libre y cada profesional lo escribe a su manera. Meter
+            // "San José, Costa Rica" en `streetAddress` sería declarar que una
+            // localidad es una calle. schema.org acepta Text acá.
+            address: l.address,
+          })),
+        }
+      : {}),
   };
 
   return (
