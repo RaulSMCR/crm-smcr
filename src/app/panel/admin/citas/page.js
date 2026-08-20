@@ -29,21 +29,23 @@ const PAYMENT_STATE_OPTIONS = [
   { value: "PENDING", label: "Pendientes de pago" },
 ];
 
-function getParam(searchParams, key) {
-  const value = searchParams?.[key];
+function getParam(sp, key) {
+  const value = sp?.[key];
   if (Array.isArray(value)) return String(value[0] || "");
   return String(value || "");
 }
 
 export default async function AdminCitasPage({ searchParams }) {
+  // `await`: ver la nota en cierre-fiscal. Sin esto ningún filtro se aplicaba.
+  const sp = await searchParams;
   const session = await getSession();
   if (!session || session.role !== "ADMIN") redirect("/ingresar");
 
-  const statusFilter = getParam(searchParams, "status");
-  const rescheduledByFilter = getParam(searchParams, "rescheduledBy");
-  const paymentStateFilter = getParam(searchParams, "paymentState");
-  const professionalIdFilter = getParam(searchParams, "professionalId");
-  const patientIdFilter = getParam(searchParams, "patientId");
+  const statusFilter = getParam(sp, "status");
+  const rescheduledByFilter = getParam(sp, "rescheduledBy");
+  const paymentStateFilter = getParam(sp, "paymentState");
+  const professionalIdFilter = getParam(sp, "professionalId");
+  const patientIdFilter = getParam(sp, "patientId");
 
   const all = await getAdminAppointments();
   const now = new Date();

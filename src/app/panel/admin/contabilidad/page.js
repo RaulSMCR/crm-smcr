@@ -98,19 +98,21 @@ function invoiceTypeWhere(invoiceType) {
 }
 
 export default async function AdminAccountingPage({ searchParams }) {
+  // `await`: ver la nota en cierre-fiscal. Sin esto ningún filtro se aplicaba.
+  const sp = await searchParams;
   const session = await getSession();
   if (!session || session.role !== "ADMIN") redirect("/ingresar");
 
-  const period = PERIODS.includes(String(searchParams?.period || ""))
-    ? String(searchParams.period)
+  const period = PERIODS.includes(String(sp?.period || ""))
+    ? String(sp.period)
     : "week";
-  const anchorDate = String(searchParams?.date || "") || toDateInput(new Date());
-  const fromInput = String(searchParams?.from || "");
-  const toInput = String(searchParams?.to || "");
-  const professionalId = String(searchParams?.professionalId || "");
-  const patientId = String(searchParams?.patientId || "");
-  const invoiceType = INVOICE_FILTERS.includes(String(searchParams?.invoiceType || ""))
-    ? String(searchParams.invoiceType)
+  const anchorDate = String(sp?.date || "") || toDateInput(new Date());
+  const fromInput = String(sp?.from || "");
+  const toInput = String(sp?.to || "");
+  const professionalId = String(sp?.professionalId || "");
+  const patientId = String(sp?.patientId || "");
+  const invoiceType = INVOICE_FILTERS.includes(String(sp?.invoiceType || ""))
+    ? String(sp.invoiceType)
     : "all";
 
   const range = getPeriodRange(period, anchorDate, fromInput, toInput);

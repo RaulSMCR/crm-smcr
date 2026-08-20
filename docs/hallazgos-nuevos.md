@@ -178,3 +178,58 @@ Lo que hace este hallazgo digno de anotarse no es la hora de demora: es que
 cada invalidación faltante en un bug con consecuencia, y este era el único caso
 del proyecto donde el estado público de una persona depende de una acción de
 panel.
+
+---
+
+## HN-09 · La verificación de correo rechazaba todos los enlaces
+
+**Encontrado en:** al registrarse la primera usuaria real, 2026-08-20.
+**Gravedad:** nadie podía verificar su cuenta. Ninguna persona registrada podía
+completar el alta.
+
+`src/app/verificar-email/page.js` leía el token así:
+
+```js
+const token = searchParams?.token;   // sin await
+```
+
+En Next 16 `searchParams` es una **Promise**. Leerla en forma síncrona devuelve
+`undefined` sin lanzar ningún error, así que `token` era **siempre** undefined y
+la página entraba siempre por la rama de «Enlace de verificación no válido» —
+incluso con un token perfectamente bueno en la URL.
+
+Comprobado contra producción antes de tocar nada: con token, sin token y con un
+token de formato real, la página devolvía el mismo error las tres veces.
+
+### El segundo error, encima del primero
+
+El aviso que recibe quien se registra cuando el correo no sale dice: *«solicite
+reenvío del enlace desde la pantalla de verificación»*.
+
+Esa pantalla **no ofrecía forma de solicitar nada**: mostraba «utilice el enlace
+enviado por correo» y un botón de «Volver al inicio». La única persona que llega
+sin token es exactamente la que no recibió ese correo.
+
+El formulario de reenvío existía —en `VerifyEmailClient.js`, con su endpoint en
+`/api/auth/resend-verification`— pero `page.js` cortaba antes y nunca lo montaba.
+
+### Reparado
+
+`await searchParams`, y la rama sin token ahora ofrece el reenvío en vez de un
+callejón sin salida.
+
+### El mismo bug en tres páginas más
+
+`/panel/admin/citas`, `/panel/admin/contabilidad` y
+`/panel/admin/contabilidad/cierre-fiscal` leían `searchParams` igual. Sus filtros
+—período, fechas, profesional, paciente, año y mes— **nunca se aplicaban**: cada
+consulta usaba los valores por defecto sin importar qué eligiera el usuario.
+
+Corregidas las tres.
+
+### Por qué no lo detectó nada
+
+El acceso síncrono a una Promise no lanza: devuelve `undefined`. No hay error en
+consola, no hay build roto, no hay test que falle. La página responde 200 y se ve
+bien; solo hace lo incorrecto. **Es el modo de fallo más caro que existe**, y ya
+estaba documentado en la memoria del proyecto desde una vez anterior.

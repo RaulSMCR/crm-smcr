@@ -6,11 +6,14 @@ import { closeFiscalPeriod, fileFiscalPeriod } from "@/actions/fiscal-actions";
 export const dynamic = "force-dynamic";
 
 export default async function FiscalClosingPage({ searchParams }) {
+  // `await`: en Next 16 searchParams es una Promise. Sin esto, el año y el mes
+  // caían siempre al valor por defecto y el selector no hacía nada.
+  const sp = await searchParams;
   const session = await getSession();
   if (!session || session.role !== "ADMIN") redirect("/ingresar");
   const now = new Date();
-  const year = Number(searchParams?.year || now.getFullYear());
-  const month = Number(searchParams?.month || now.getMonth() + 1);
+  const year = Number(sp?.year || now.getFullYear());
+  const month = Number(sp?.month || now.getMonth() + 1);
   const period = await prisma.fiscalPeriod.findUnique({ where: { year_month: { year, month } } });
   const label = `${year}-${String(month).padStart(2, "0")}`;
   return (
