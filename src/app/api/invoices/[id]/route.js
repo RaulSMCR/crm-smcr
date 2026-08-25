@@ -63,7 +63,7 @@ export async function GET(_request, { params }) {
     const auth = await requireAdmin();
     if (auth.error) return auth.error;
 
-    const id = String(params?.id || "");
+    const id = String((await params)?.id || "");
     if (!id) return NextResponse.json({ message: "id inválido." }, { status: 400 });
 
     const invoice = await prisma.invoice.findUnique({
@@ -87,7 +87,7 @@ export async function PUT(request, { params }) {
     const auth = await requireAdmin();
     if (auth.error) return auth.error;
 
-    const id = String(params?.id || "");
+    const id = String((await params)?.id || "");
     if (!id) return NextResponse.json({ message: "id inválido." }, { status: 400 });
 
     const current = await prisma.invoice.findUnique({

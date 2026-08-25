@@ -55,10 +55,10 @@ async function handleUpdate(req, id) {
 }
 
 export async function PATCH(req, { params }) {
-  return handleUpdate(req, params.id);
+  return handleUpdate(req, (await params).id);
 }
 
 // Para sendBeacon (POST)
 export async function POST(req, { params }) {
-  return handleUpdate(req, params.id);
+  return handleUpdate(req, (await params).id);
 }

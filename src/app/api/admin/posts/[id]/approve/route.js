@@ -19,7 +19,8 @@ export async function POST(_request, { params }) {
     }
 
     // 2) Params
-    const postId = params?.id ? String(params.id) : "";
+    const { id: rawId } = await params;
+    const postId = rawId ? String(rawId) : "";
     if (!postId) {
       return NextResponse.json({ message: "ID de post inválido" }, { status: 400 });
     }

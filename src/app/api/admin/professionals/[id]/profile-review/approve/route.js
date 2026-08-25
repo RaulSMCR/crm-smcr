@@ -14,7 +14,7 @@ export async function POST(_request, { params }) {
       return NextResponse.json({ message: "Accion no permitida" }, { status: 403 });
     }
 
-    const professionalId = String(params?.id || "");
+    const professionalId = String((await params)?.id || "");
     if (!professionalId) {
       return NextResponse.json({ message: "ID de profesional invalido" }, { status: 400 });
     }

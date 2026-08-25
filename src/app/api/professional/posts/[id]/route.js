@@ -33,7 +33,8 @@ export async function PATCH(request, { params }) {
     const professionalId = await getProfessionalId(session);
     if (!professionalId) return NextResponse.json({ message: "No autorizado" }, { status: 401 });
 
-    const id = params?.id ? String(params.id) : "";
+    const { id: rawId } = await params;
+    const id = rawId ? String(rawId) : "";
     if (!id) return NextResponse.json({ message: "ID inválido" }, { status: 400 });
 
     const body = await request.json().catch(() => ({}));
@@ -110,7 +111,8 @@ export async function DELETE(_request, { params }) {
     const professionalId = await getProfessionalId(session);
     if (!professionalId) return NextResponse.json({ message: "No autorizado" }, { status: 401 });
 
-    const id = params?.id ? String(params.id) : "";
+    const { id: rawId } = await params;
+    const id = rawId ? String(rawId) : "";
     if (!id) return NextResponse.json({ message: "ID inválido" }, { status: 400 });
 
     const existing = await prisma.post.findFirst({

@@ -17,7 +17,7 @@ function safeStr(v, max = 2000) {
 }
 
 export async function POST(req, { params }) {
-  const slug = params.slug;
+  const slug = (await params).slug;
 
   const body = await req.json().catch(() => ({}));
   const landingUrl = safeStr(body?.landingUrl, 4000);

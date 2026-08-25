@@ -14,7 +14,7 @@ export async function GET(_request, { params }) {
       return NextResponse.json({ error: "Acción no permitida" }, { status: 403 });
     }
 
-    const professionalId = params?.id;
+    const professionalId = (await params)?.id;
     if (!professionalId) return NextResponse.json({ error: "ID inválido" }, { status: 400 });
 
     const prof = await prisma.professionalProfile.findUnique({
@@ -93,7 +93,7 @@ export async function PATCH(request, { params }) {
       return NextResponse.json({ error: "Acción no permitida" }, { status: 403 });
     }
 
-    const professionalId = params?.id;
+    const professionalId = (await params)?.id;
     if (!professionalId) return NextResponse.json({ error: "ID inválido" }, { status: 400 });
 
     const body = await request.json().catch(() => ({}));

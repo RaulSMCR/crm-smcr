@@ -11,7 +11,7 @@ export default async function AdminServicioAsignacionesPage({ params }) {
   if (!session) redirect("/ingresar");
   if (session.role !== "ADMIN") redirect("/panel");
 
-  const serviceId = String(params?.id || "");
+  const serviceId = String((await params)?.id || "");
   if (!serviceId) notFound();
 
   const [service, professionals, currentAssignments] = await Promise.all([

@@ -6,7 +6,7 @@ import { cookies } from "next/headers";
 export const dynamic = "force-dynamic";
 
 export async function POST(_req, { params }) {
-  const slug = params.slug;
+  const slug = (await params).slug;
 
   const cookieStore = await cookies();
   const cookieKey = `pv_${slug}`;

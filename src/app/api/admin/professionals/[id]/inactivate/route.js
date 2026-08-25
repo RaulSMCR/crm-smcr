@@ -14,7 +14,7 @@ export async function POST(_request, { params }) {
     if (!session) return NextResponse.json({ message: "No autorizado" }, { status: 401 });
     if (session.role !== "ADMIN") return NextResponse.json({ message: "Acción no permitida" }, { status: 403 });
 
-    const professionalId = String(params?.id || "");
+    const professionalId = String((await params)?.id || "");
     if (!professionalId) return NextResponse.json({ message: "ID de profesional inválido" }, { status: 400 });
 
     const profile = await prisma.professionalProfile.findUnique({
