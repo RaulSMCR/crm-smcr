@@ -15,7 +15,7 @@ export default async function PerfilPage() {
     where: professionalProfileWhere(session),
     include: {
       serviceAssignments: { include: { service: true } },
-      user: { select: { name: true, email: true, image: true, phone: true } },
+      user: { select: { name: true, email: true, image: true, phone: true, identification: true } },
     },
   });
 

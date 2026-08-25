@@ -25,8 +25,21 @@ function isPhoneValid(v) {
 }
 
 /**
+ * Misma regla que usa el paciente en `patient-profile-actions.js`: cédula
+ * nacional, DIMEX o pasaporte, así que se acepta alfanumérico con puntos y
+ * guiones en vez de imponer el formato de la cédula tica.
+ */
+function isIdentificationValid(v) {
+  const id = String(v || "").trim();
+  if (!id) return false;
+  if (!/^[A-Za-z0-9.\-\s]+$/.test(id)) return false;
+  const compact = id.replace(/\s+/g, "");
+  return compact.length >= 5 && compact.length <= 32;
+}
+
+/**
  * UPDATE PERFIL (Profesional)
- * - User: name, phone, image
+ * - User: name, phone, identification, image
  * - ProfessionalProfile: specialty, licenseNumber, bio, profileReviewDraft
  * - ServiceAssignment:
  *    - si selecciona un servicio NUEVO => create PENDING
@@ -41,6 +54,8 @@ export async function updateProfile(formData) {
     const name = toStr(formData.get("name")).trim();
     const phoneRaw = formData.get("phone");
     const phone = normalizePhone(phoneRaw);
+    const identificationRaw = formData.get("identification");
+    const identification = toStr(identificationRaw).trim();
     const specialty = toStr(formData.get("specialty")).trim();
     const licenseNumber = toStr(formData.get("licenseNumber")).trim() || null;
     const bio = toStr(formData.get("bio")).trim() || null;
@@ -60,6 +75,15 @@ export async function updateProfile(formData) {
     if (phoneRaw !== null && phoneRaw !== undefined) {
       if (!phone) return { success: false, error: "El teléfono es obligatorio." };
       if (!isPhoneValid(phone)) return { success: false, error: "Teléfono inválido." };
+    }
+
+    // Se valida solo si el formulario mandó el campo, para no romper a quien
+    // guarde el perfil desde una pantalla que no lo incluya. Vacío es válido:
+    // borra el dato. Lo que no se acepta es un valor con formato imposible.
+    if (identificationRaw !== null && identificationRaw !== undefined && identification) {
+      if (!isIdentificationValid(identification)) {
+        return { success: false, error: "La identificación no es válida." };
+      }
     }
 
     const requestedServiceIds = (formData.getAll("serviceIds") || [])
@@ -133,6 +157,9 @@ export async function updateProfile(formData) {
             update: {
               name,
               ...(phoneRaw !== null && phoneRaw !== undefined ? { phone } : {}),
+              ...(identificationRaw !== null && identificationRaw !== undefined
+                ? { identification: identification || null }
+                : {}),
               ...(imageUrl ? { image: imageUrl } : {}),
             },
           },

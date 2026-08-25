@@ -82,6 +82,24 @@ export default async function ProfesionalDashboardPage() {
   const agendaTitle = todayAppointments.length > 0 ? "Citas de hoy" : "Próxima jornada";
   const agendaItems = todayAppointments.length > 0 ? todayAppointments : nextDayAppointments;
 
+  // Datos sin los que el perfil no opera del todo. Aparecen como aviso en la
+  // portada del panel porque esperar a que alguien los busque no funcionó: el
+  // campo puede existir en el formulario y aun así nadie lo encuentra.
+  const datosFaltantes = [
+    !profile.user?.identification && {
+      etiqueta: "su cédula o identificación",
+      porque: "sin ella no se pueden emitir sus facturas",
+    },
+    !profile.licenseNumber && {
+      etiqueta: "su número de colegiatura",
+      porque: "es lo que respalda su credencial en su ficha pública",
+    },
+    !profile.user?.image && {
+      etiqueta: "una foto de perfil",
+      porque: "su ficha pública se ve incompleta sin ella",
+    },
+  ].filter(Boolean);
+
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8">
       <div className="flex flex-col gap-2">
@@ -90,6 +108,25 @@ export default async function ProfesionalDashboardPage() {
           Bienvenida, <span className="font-medium text-slate-700">{profile.user?.name || "Profesional"}</span>. Seguimos avanzando en el cuidado de los pacientes.
         </p>
       </div>
+
+      {datosFaltantes.length > 0 ? (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5">
+          <h2 className="text-lg font-semibold text-amber-900">Falta completar su perfil</h2>
+          <ul className="mt-2 space-y-1 text-sm text-amber-900">
+            {datosFaltantes.map((dato) => (
+              <li key={dato.etiqueta}>
+                <b>{dato.etiqueta}</b> — {dato.porque}.
+              </li>
+            ))}
+          </ul>
+          <Link
+            href="/panel/profesional/perfil"
+            className="mt-3 inline-flex items-center rounded-xl bg-amber-900 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-800"
+          >
+            Completar ahora
+          </Link>
+        </div>
+      ) : null}
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3">

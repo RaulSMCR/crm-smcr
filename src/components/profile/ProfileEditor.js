@@ -96,6 +96,7 @@ export default function ProfileEditor({ profile, allServices = [] }) {
   const [form, setForm] = useState({
     name: profile.user?.name || "",
     phone: profile.user?.phone || "",
+    identification: profile.user?.identification || "",
     specialty: profile.specialty || "",
     licenseNumber: profile.licenseNumber || "",
     bio: profile.bio || "",
@@ -168,6 +169,7 @@ export default function ProfileEditor({ profile, allServices = [] }) {
       const formData = new FormData();
       formData.append("name", form.name);
       formData.append("phone", form.phone);
+      formData.append("identification", form.identification);
       formData.append("specialty", form.specialty);
       formData.append("licenseNumber", form.licenseNumber);
       formData.append("bio", form.bio);
@@ -252,6 +254,20 @@ export default function ProfileEditor({ profile, allServices = [] }) {
                 onChange={handleInputChange}
                 className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
               />
+            </div>
+
+            <div>
+              <label className="text-sm font-semibold text-slate-700">Cédula o identificación</label>
+              <input
+                name="identification"
+                value={form.identification}
+                onChange={handleInputChange}
+                placeholder="1-2345-6789"
+                className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Se usa para emitir sus facturas. Cédula nacional, DIMEX o pasaporte.
+              </p>
             </div>
 
             <div>
