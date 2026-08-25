@@ -199,6 +199,17 @@ export async function syncServiceAssignments(serviceId, professionalIds = []) {
 
     const validIds = approvedProfessionals.map((profile) => profile.id);
 
+    // Asignar en lote desde el panel del servicio también habilita a cobrar, así
+    // que arrastra el mismo requisito que la aprobación individual: nadie queda
+    // asignado sin una tarifa vigente. Acá no hay un precio negociado que usar,
+    // así que se siembra el del catálogo y el profesional lo ajusta después desde
+    // su panel (si difiere, vuelve a pasar por revisión).
+    const servicio = await prisma.service.findUnique({
+      where: { id: sid },
+      select: { price: true },
+    });
+    if (!servicio) return { error: "No se encontró el servicio." };
+
     await prisma.$transaction([
       prisma.serviceAssignment.deleteMany({
         where: {
@@ -214,7 +225,7 @@ export async function syncServiceAssignments(serviceId, professionalIds = []) {
             serviceId: sid,
             status: "APPROVED",
             reviewedAt: new Date(),
-            approvedSessionPrice: null,
+            approvedSessionPrice: servicio.price,
           },
           update: {
             status: "APPROVED",
@@ -223,6 +234,10 @@ export async function syncServiceAssignments(serviceId, professionalIds = []) {
         })
       ),
     ]);
+
+    for (const professionalId of validIds) {
+      await garantizarTarifaVigente(professionalId, sid, Number(servicio.price));
+    }
 
     revalidatePath(`/panel/admin/servicios/${sid}`);
     revalidatePath(`/panel/admin/servicios/${sid}/asignaciones`);
@@ -287,6 +302,55 @@ async function applyServiceFiscalData(serviceId, payload = {}) {
   return { success: true };
 }
 
+/**
+ * Deja al profesional con al menos una tarifa cobrable en ese servicio.
+ *
+ * El precio real vive en `ProfessionalRate` (servicio × lugar × franja) y se
+ * resuelve por cascada; la tarifa que se siembra acá es el catch-all, el último
+ * escalón: sin lugar ni franja, vale para cualquier combinación que el
+ * profesional no haya afinado.
+ *
+ * **No pisa lo que ya existe.** Si el profesional ya tiene tarifas aprobadas
+ * —quizá distintas por consultorio o por horario, que es justamente para lo que
+ * está el modelo—, aprobar de nuevo la asignación no puede aplanarlas a un solo
+ * monto. Solo actúa cuando no hay ninguna, que es el caso que dejaba fichas sin
+ * precio.
+ */
+async function garantizarTarifaVigente(professionalId, serviceId, precio) {
+  const monto = Number(precio);
+  if (!Number.isFinite(monto) || monto <= 0) return { creada: false };
+
+  const yaTiene = await prisma.professionalRate.count({
+    where: { professionalId, serviceId, status: "APPROVED", approvedPrice: { not: null } },
+  });
+  if (yaTiene > 0) return { creada: false };
+
+  // El catch-all puede existir en PENDING o REJECTED de un intento anterior: se
+  // reutiliza esa fila en vez de crear otra, porque el índice único sobre
+  // COALESCE(locationId,'')/COALESCE(timeBandId,'') solo admite un catch-all.
+  const existente = await prisma.professionalRate.findFirst({
+    where: { professionalId, serviceId, locationId: null, timeBandId: null },
+    select: { id: true },
+  });
+
+  const datos = {
+    status: "APPROVED",
+    approvedPrice: monto,
+    proposedPrice: monto,
+    reviewedAt: new Date(),
+  };
+
+  if (existente) {
+    await prisma.professionalRate.update({ where: { id: existente.id }, data: datos });
+  } else {
+    await prisma.professionalRate.create({
+      data: { professionalId, serviceId, locationId: null, timeBandId: null, ...datos },
+    });
+  }
+
+  return { creada: true };
+}
+
 export async function reviewServiceAssignment(serviceId, professionalId, payload = {}) {
   try {
     const session = await getSession();
@@ -316,6 +380,20 @@ export async function reviewServiceAssignment(serviceId, professionalId, payload
 
     if (!current) return { error: "No se encontro la solicitud." };
 
+    // Aprobar sin precio deja al profesional en el peor de los mundos: figura
+    // habilitado en el panel, pero su ficha pública no lo muestra en el servicio
+    // y la pantalla de agendar lo rechaza, sin que nada avise. Es lo que dejó a
+    // tres de cuatro profesionales publicados y sin agenda. El precio es
+    // requisito de la aprobación, no un campo opcional que se llena después.
+    const precioFinal = decision === "APPROVED" ? (approvedPrice ?? Number(current.proposedSessionPrice)) : null;
+
+    if (decision === "APPROVED" && (!Number.isFinite(precioFinal) || precioFinal <= 0)) {
+      return {
+        error:
+          "Indique el precio de la sesión para aprobar: sin precio el profesional queda habilitado pero invisible en el servicio y no se le puede agendar.",
+      };
+    }
+
     // Clasificar fiscalmente el servicio es parte de aprobarlo: aprobar sin CABYS
     // ni IVA deja al profesional habilitado para cobrar y a cada factura suya
     // marcada como incompleta ante Hacienda. Se puede resolver en este mismo paso.
@@ -329,11 +407,14 @@ export async function reviewServiceAssignment(serviceId, professionalId, payload
       data: {
         status: decision,
         reviewedAt: new Date(),
-        approvedSessionPrice:
-          decision === "APPROVED" ? approvedPrice ?? current.proposedSessionPrice ?? null : null,
+        approvedSessionPrice: precioFinal,
         adminReviewNote: note || null,
       },
     });
+
+    if (decision === "APPROVED") {
+      await garantizarTarifaVigente(pid, sid, precioFinal);
+    }
 
     revalidatePath(`/panel/admin/servicios/${sid}`);
     revalidatePath("/panel/admin/servicios");

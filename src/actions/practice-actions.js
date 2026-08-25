@@ -20,6 +20,13 @@ function revalidatePractice() {
   revalidatePath("/panel/profesional/perfil");
   revalidatePath("/panel/profesional/horarios");
   revalidatePath("/panel/admin/personal");
+  // Desde que el precio público sale de las tarifas, una tarifa que cambia
+  // cambia lo que dice la ficha del profesional y el rango del servicio. Sin
+  // esto el profesional ve su precio nuevo en el panel y el visitante sigue
+  // viendo el viejo.
+  revalidatePath("/servicios");
+  revalidatePath("/servicios/[slug]", "page");
+  revalidatePath("/profesionales/[slug]", "page");
 }
 
 /** Bloquea escrituras cuando un admin está mirando "como profesional". */
@@ -268,11 +275,23 @@ export async function proposeRate(input) {
 
     const assignment = await prisma.serviceAssignment.findUnique({
       where: { professionalId_serviceId: { professionalId, serviceId } },
-      select: { status: true },
+      select: { status: true, service: { select: { price: true } } },
     });
     if (!assignment || assignment.status !== "APPROVED") {
       return { error: "Todavía no tiene aprobado ese tipo de consulta." };
     }
+
+    // Lo que un admin revisa es la diferencia, no el trámite. Si el profesional
+    // cobra exactamente el precio de catálogo del servicio —el que el admin ya
+    // fijó— no hay nada que decidir: mandarlo a una cola de aprobación solo
+    // retrasa que su ficha muestre precio. Apartarse del catálogo sí es una
+    // decisión comercial, y esa espera revisión.
+    const precioCatalogo = Number(assignment.service?.price);
+    const coincideConCatalogo = Number.isFinite(precioCatalogo) && price === precioCatalogo;
+
+    const revision = coincideConCatalogo
+      ? { status: "APPROVED", approvedPrice: price, reviewedAt: new Date() }
+      : { status: "PENDING", reviewedAt: null };
 
     // Lugar y franja deben ser propios: si no, un profesional podría colgar una
     // tarifa del lugar de otro.
@@ -297,20 +316,19 @@ export async function proposeRate(input) {
         where: { id: existing.id },
         data: {
           proposedPrice: price,
-          status: "PENDING",
           adminReviewNote: null,
           requestedAt: new Date(),
-          reviewedAt: null,
+          ...revision,
         },
       });
     } else {
       await prisma.professionalRate.create({
-        data: { professionalId, serviceId, locationId, timeBandId, proposedPrice: price, status: "PENDING" },
+        data: { professionalId, serviceId, locationId, timeBandId, proposedPrice: price, ...revision },
       });
     }
 
     revalidatePractice();
-    return { success: true };
+    return { success: true, autoAprobada: coincideConCatalogo };
   } catch (error) {
     if (error?.code === "P2002") {
       return { error: "Ya existe una tarifa para esa combinación de lugar y franja." };

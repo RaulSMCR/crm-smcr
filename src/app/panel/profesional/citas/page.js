@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth";
 import Link from "next/link";
 import ProfessionalAppointmentsPanel from "@/components/ProfessionalAppointmentsPanel";
 import InsuranceClaimsSection from "@/components/profesional/InsuranceClaimsSection";
+import { TARIFA_VIGENTE } from "@/lib/service-pricing";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -30,7 +31,7 @@ export default async function ProfesionalCitasPage() {
       where: {
         professionalId,
         status: "APPROVED",
-        approvedSessionPrice: { not: null },
+        rates: { some: TARIFA_VIGENTE },
         service: { isActive: true },
       },
       select: {

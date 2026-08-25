@@ -21,6 +21,11 @@ function revalidateReview() {
   revalidatePath("/panel/admin/tarifas");
   revalidatePath("/panel/admin/personal");
   revalidatePath("/panel/profesional/perfil");
+  // Aprobar una tarifa es lo que la vuelve pública: mueve el precio de la ficha
+  // del profesional y el rango que muestra el servicio.
+  revalidatePath("/servicios");
+  revalidatePath("/servicios/[slug]", "page");
+  revalidatePath("/profesionales/[slug]", "page");
 }
 
 const RATE_INCLUDE = {

@@ -6,6 +6,7 @@ import ViewTracker from '@/components/tracking/ViewTracker';
 import { siteUrl } from "@/lib/site-url";
 import { defaultOgImage } from "@/lib/seo";
 import { SafeAvatar } from "@/components/SafeImage";
+import { TARIFA_VIGENTE, rangoDePrecios } from "@/lib/service-pricing";
 
 export async function generateMetadata({ params }) {
   const { id } = await params;
@@ -61,10 +62,10 @@ export default async function AgendarPage({ params, searchParams }) {
         },
       },
       serviceAssignments: {
-        where: { status: 'APPROVED', approvedSessionPrice: { not: null } },
+        where: { status: 'APPROVED', rates: { some: TARIFA_VIGENTE } },
         orderBy: [{ service: { displayOrder: 'asc' } }, { service: { title: 'asc' } }],
         select: {
-          approvedSessionPrice: true,
+          rates: { where: TARIFA_VIGENTE, select: { approvedPrice: true } },
           service: {
             select: { id: true, title: true },
           },
@@ -81,12 +82,15 @@ export default async function AgendarPage({ params, searchParams }) {
     .map((assignment) => {
       if (!assignment.service) return null;
 
-      const approvedPrice = Number(assignment.approvedSessionPrice);
-      if (!Number.isFinite(approvedPrice) || approvedPrice <= 0) return null;
+      // Precio orientativo: el definitivo lo fija la cascada al confirmar, según
+      // el lugar y la hora elegidos. Se anuncia el piso del rango para no
+      // prometer un monto menor que el que después se va a cobrar.
+      const rango = rangoDePrecios(assignment.rates);
+      if (!rango) return null;
 
       return {
         ...assignment.service,
-        displayPrice: approvedPrice,
+        displayPrice: rango.min,
       };
     })
     .filter(Boolean);

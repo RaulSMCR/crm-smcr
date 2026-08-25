@@ -2,16 +2,9 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/actions/auth-actions";
 import ProfessionalCalendarBooking from "@/components/booking/ProfessionalCalendarBooking";
+import { TARIFA_VIGENTE, rangoDePrecios, etiquetaDeRango } from "@/lib/service-pricing";
 
 export const dynamic = "force-dynamic";
-
-function formatCRC(value) {
-  return new Intl.NumberFormat("es-CR", {
-    style: "currency",
-    currency: "CRC",
-    maximumFractionDigits: 0,
-  }).format(Number(value || 0));
-}
 
 export default async function PacienteAgendarPage({ searchParams }) {
   const session = await getSession();
@@ -39,7 +32,14 @@ export default async function PacienteAgendarPage({ searchParams }) {
     }),
     prisma.serviceAssignment.findUnique({
       where: { professionalId_serviceId: { professionalId, serviceId } },
-      select: { status: true, approvedSessionPrice: true },
+      select: {
+        status: true,
+        // La tarifa definitiva la resuelve la cascada al confirmar, según el
+        // lugar y la hora que elija el paciente. Acá solo se necesita saber si
+        // hay alguna vigente —si no, no hay nada que cobrar— y qué rango
+        // anunciarle antes de que elija.
+        rates: { where: TARIFA_VIGENTE, select: { approvedPrice: true } },
+      },
     }),
     prisma.availability.findMany({
       where: { professionalId },
@@ -59,7 +59,9 @@ export default async function PacienteAgendarPage({ searchParams }) {
   if (!service?.isActive) redirect("/servicios");
   if (!professional?.isApproved || !professional.user?.isActive) redirect("/servicios");
 
-  if (!assignment || assignment.status !== "APPROVED" || assignment.approvedSessionPrice == null) {
+  const rango = rangoDePrecios(assignment?.rates);
+
+  if (!assignment || assignment.status !== "APPROVED" || !rango) {
     return (
       <div className="mx-auto max-w-4xl p-8">
         <h1 className="text-2xl font-bold text-slate-900">Agenda no disponible</h1>
@@ -94,7 +96,7 @@ export default async function PacienteAgendarPage({ searchParams }) {
         <h1 className="mt-2 text-3xl font-bold text-slate-900">Agendar cita</h1>
         <p className="mt-1 text-slate-600">
           Servicio: <b>{service.title}</b> · Duración: <b>{service.durationMin} min</b> · Tarifa aprobada:{" "}
-          <b>{formatCRC(assignment.approvedSessionPrice)}</b>
+          <b>{etiquetaDeRango(rango)}</b>
         </p>
       </div>
 

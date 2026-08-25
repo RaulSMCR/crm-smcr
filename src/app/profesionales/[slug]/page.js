@@ -8,6 +8,7 @@ import { siteUrl } from "@/lib/site-url";
 import { resolveSeo, buildMetadata } from "@/lib/seo";
 import { tituloDe } from "@/lib/disciplinas";
 import { grafo, ref, nodoMigas, idPersona, ID_ORGANIZACION } from "@/lib/jsonld";
+import { TARIFA_VIGENTE, rangoDePrecios, etiquetaDeRango } from "@/lib/service-pricing";
 import BotonAgendar from "@/components/profile/BotonAgendar";
 import { SafeAvatar } from "@/components/SafeImage";
 import WhiplashCorner from "@/components/ornaments/WhiplashCorner";
@@ -21,16 +22,6 @@ export async function generateStaticParams() {
     select: { slug: true },
   });
   return perfiles.filter((p) => p.slug).map(({ slug }) => ({ slug }));
-}
-
-function formatCRC(value) {
-  const amount = Number(value);
-  if (!Number.isFinite(amount)) return "Precio no disponible";
-  return new Intl.NumberFormat("es-CR", {
-    style: "currency",
-    currency: "CRC",
-    maximumFractionDigits: 0,
-  }).format(amount);
 }
 
 async function getProfessional(slug) {
@@ -65,13 +56,17 @@ async function getProfessional(slug) {
       serviceAssignments: {
         where: {
           status: "APPROVED",
-          approvedSessionPrice: { not: null },
           service: { is: { isActive: true } },
+          // El servicio se muestra si tiene con qué cobrarse. El precio vive en
+          // `ProfessionalRate`, no en `approvedSessionPrice` —obsoleto desde el
+          // modelo por lugar y franja—, y filtrar por el campo viejo escondía a
+          // profesionales que sí tenían tarifa vigente.
+          rates: { some: TARIFA_VIGENTE },
         },
         orderBy: [{ service: { displayOrder: "asc" } }, { service: { title: "asc" } }],
         select: {
-          approvedSessionPrice: true,
           service: { select: { id: true, title: true, description: true, durationMin: true } },
+          rates: { where: TARIFA_VIGENTE, select: { approvedPrice: true } },
         },
       },
       posts: {
@@ -127,7 +122,9 @@ export default async function ProfessionalPublicProfilePage({ params }) {
   const services = professional.serviceAssignments
     .map((assignment) => ({
       ...assignment.service,
-      price: Number(assignment.approvedSessionPrice),
+      // Un profesional puede cobrar distinto según el consultorio o la franja,
+      // así que lo que se anuncia es el rango, no un número único.
+      rango: rangoDePrecios(assignment.rates),
     }))
     .filter((service) => service?.id);
 
@@ -320,7 +317,7 @@ export default async function ProfessionalPublicProfilePage({ params }) {
                         {service.description || "Servicio disponible para agendar."}
                       </p>
                       <div className="mt-3 text-sm font-semibold text-emerald-800">
-                        {formatCRC(service.price)} - {service.durationMin} min
+                        {etiquetaDeRango(service.rango)} - {service.durationMin} min
                       </div>
                       <Link
                         href={`/agendar/${professional.id}?serviceId=${service.id}`}

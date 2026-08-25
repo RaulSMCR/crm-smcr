@@ -6,6 +6,7 @@ import { grafo, nodoListado, idServicio } from "@/lib/jsonld";
 import { siteUrl } from "@/lib/site-url";
 import SafeImage, { SafeAvatar } from "@/components/SafeImage";
 import { IMAGE_FALLBACKS } from "@/lib/images";
+import { TARIFA_VIGENTE, rangosPorServicio, etiquetaDeRango } from "@/lib/service-pricing";
 
 // Preguntas frecuentes de la página de servicios.
 //
@@ -74,6 +75,7 @@ export const revalidate = 300;
 
 export default async function ServiciosPage() {
   let services = [];
+  let rangos = new Map();
   let dbUnavailable = false;
 
   try {
@@ -96,7 +98,7 @@ export default async function ServiciosPage() {
         professionalAssignments: {
           where: {
             status: "APPROVED",
-            approvedSessionPrice: { not: null },
+            rates: { some: TARIFA_VIGENTE },
             professional: {
               is: {
                 isApproved: true,
@@ -106,7 +108,6 @@ export default async function ServiciosPage() {
           },
           take: 5,
           select: {
-            approvedSessionPrice: true,
             professional: {
               select: {
                 id: true,
@@ -119,6 +120,8 @@ export default async function ServiciosPage() {
         },
       },
     });
+
+    rangos = await rangosPorServicio(prisma, services.map((s) => s.id));
   } catch (error) {
     if (!isPrismaConnectionError(error)) throw error;
     // El aviso de «temporalmente no disponible» es correcto para un visitante y
@@ -167,15 +170,7 @@ export default async function ServiciosPage() {
           const professionals = (service.professionalAssignments || []).map(
             (assignment) => assignment.professional
           );
-          const minApprovedPrice = (service.professionalAssignments || []).reduce((min, assignment) => {
-            const current = Number(assignment?.approvedSessionPrice);
-            if (!Number.isFinite(current)) return min;
-            return min === null ? current : Math.min(min, current);
-          }, null);
-
-          const priceLabel = Number.isFinite(minApprovedPrice)
-            ? `Desde CRC ${minApprovedPrice.toLocaleString("es-CR")}`
-            : "Precio segun profesional";
+          const priceLabel = etiquetaDeRango(rangos.get(service.id));
 
           return (
             <div key={service.id} className="group flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">

@@ -10,6 +10,7 @@ import { resolveSeo, buildMetadata } from "@/lib/seo";
 import { grafo, ref, nodoMigas, idServicio, ID_ORGANIZACION } from "@/lib/jsonld";
 import SafeImage, { SafeAvatar } from "@/components/SafeImage";
 import { IMAGE_FALLBACKS } from "@/lib/images";
+import { TARIFA_VIGENTE, rangoDePrecios, rangosPorServicio, etiquetaDeRango } from "@/lib/service-pricing";
 
 export const revalidate = 3600;
 
@@ -87,7 +88,7 @@ export default async function ServiceDetailPage({ params }) {
         professionalAssignments: {
           where: {
             status: "APPROVED",
-            approvedSessionPrice: { not: null },
+            rates: { some: TARIFA_VIGENTE },
             professional: {
               is: {
                 isApproved: true,
@@ -96,7 +97,7 @@ export default async function ServiceDetailPage({ params }) {
             },
           },
           select: {
-            approvedSessionPrice: true,
+            rates: { where: TARIFA_VIGENTE, select: { approvedPrice: true } },
             professional: {
               select: {
                 id: true,
@@ -144,18 +145,14 @@ export default async function ServiceDetailPage({ params }) {
 
   const professionals = (service.professionalAssignments || []).map((assignment) => ({
     ...assignment.professional,
-    approvedSessionPrice: assignment.approvedSessionPrice,
+    rango: rangoDePrecios(assignment.rates),
   }));
 
-  const minApprovedPrice = (service.professionalAssignments || []).reduce((min, assignment) => {
-    const current = Number(assignment?.approvedSessionPrice);
-    if (!Number.isFinite(current)) return min;
-    return min === null ? current : Math.min(min, current);
-  }, null);
-
-  const priceLabel = Number.isFinite(minApprovedPrice)
-    ? `Desde CRC ${minApprovedPrice.toLocaleString("es-CR")}`
-    : "Precio segun profesional";
+  // El rango se recalcula sobre todos los profesionales del servicio, que es lo
+  // que anuncia la ficha; `professionals` ya trae a todos acá, pero se usa la
+  // misma agregación que el listado para que ambos digan siempre lo mismo.
+  const rango = (await rangosPorServicio(prisma, [service.id])).get(service.id) || null;
+  const priceLabel = etiquetaDeRango(rango);
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 p-6 md:p-10">
@@ -171,16 +168,30 @@ export default async function ServiceDetailPage({ params }) {
             // proveedor no le dice a nadie de quién se está hablando.
             provider: ref(ID_ORGANIZACION),
             areaServed: { "@type": "Country", name: "Costa Rica" },
-            offers:
-              minApprovedPrice !== null
+            // Un `Offer` con un solo `price` declara que ese es EL precio. Cuando
+            // varios profesionales cobran distinto eso es falso, y un precio que
+            // no se corresponde con lo que el usuario encuentra es motivo de
+            // sanción en Merchant/rich results. `AggregateOffer` dice la verdad:
+            // hay un piso, un techo y cuántas ofertas lo sostienen.
+            offers: rango
+              ? rango.min === rango.max
                 ? {
                     "@type": "Offer",
                     priceCurrency: "CRC",
-                    price: minApprovedPrice,
+                    price: rango.min,
                     availability: "https://schema.org/InStock",
                     url: siteUrl(`servicios/${service.slug}`),
                   }
-                : undefined,
+                : {
+                    "@type": "AggregateOffer",
+                    priceCurrency: "CRC",
+                    lowPrice: rango.min,
+                    highPrice: rango.max,
+                    offerCount: professionals.length,
+                    availability: "https://schema.org/InStock",
+                    url: siteUrl(`servicios/${service.slug}`),
+                  }
+              : undefined,
           },
           nodoMigas([
             { nombre: "Servicios", url: siteUrl("servicios") },
@@ -302,7 +313,7 @@ export default async function ServiceDetailPage({ params }) {
                   </p>
                 ) : null}
                 <p className="mt-2 text-sm font-semibold text-emerald-700">
-                  Valor de la cita: CRC {Number(professional.approvedSessionPrice).toLocaleString("es-CR")}
+                  Valor de la cita: {etiquetaDeRango(professional.rango)}
                 </p>
 
                 <Link
