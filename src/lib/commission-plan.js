@@ -129,9 +129,21 @@ export function commissionRateForConsultation(consultationNumber) {
   return tier.ratePct;
 }
 
+/**
+ * Tasa aplicable a un pago concreto.
+ *
+ * `PENALTY_50` —la multa por cancelar con menos de 24 horas o no asistir— paga
+ * la tasa que le correspondía a esa consulta por su posición en la secuencia, y
+ * no las tasas especiales de primera consulta. El desdoble 50/40 existe porque
+ * el precio de la primera consulta se cobra en dos tractos; una multa es un solo
+ * cobro, así que no hay nada que desdoblar: si se cancela tarde la primera cita,
+ * la multa paga 45%, igual que un pago único.
+ */
 export function commissionRateForPayment({ consultationNumber, paymentType = "FULL_100" }) {
   const normalized = normalizeConsultationNumber(consultationNumber);
   const type = String(paymentType || "FULL_100");
+
+  if (type === "PENALTY_50") return commissionRateForConsultation(normalized);
 
   if (normalized === 1 && FIRST_APPOINTMENT_PAYMENT_RATES[type] !== undefined) {
     return FIRST_APPOINTMENT_PAYMENT_RATES[type];
@@ -148,10 +160,33 @@ export function consultationRelationshipKey(patientId, professionalId) {
 }
 
 /**
- * Numbers completed appointments chronologically for each patient-professional
- * relationship. The sequence is independent from settlement periods.
+ * Numera cronológicamente las citas de cada relación paciente–profesional. La
+ * secuencia es independiente de los períodos de liquidación.
+ *
+ * **Qué consume una posición.** No es haber prestado la consulta, sino haberla
+ * cobrado: una cita cancelada fuera de tiempo cuya multa el paciente pagó ocupa
+ * su número igual que una consulta realizada, porque el horario se apartó y se
+ * facturó. Quien llama decide qué citas entran; acá solo se numeran. Una cita
+ * cancelada cuya multa nadie pagó no debe llegar hasta acá.
+ *
+ * **Por qué se numera por cita y no por transacción.** El adelanto y el saldo de
+ * una primera consulta son dos pagos de la MISMA consulta y comparten número: si
+ * se numerara por transacción, el saldo pasaría a ser la consulta 2 y se cobraría
+ * 35% donde corresponde 40%.
+ *
+ * **Números ya asignados.** `numerosAsignados` trae las citas que ya recibieron
+ * número en una liquidación anterior. Se respetan tal cual y el contador de esa
+ * relación arranca por encima del mayor de ellos. Es lo que impide que un pago
+ * rezagado renumere hacia atrás una liquidación ya cerrada: toma la siguiente
+ * posición libre al momento de liquidarse.
+ *
+ * @param {Array<{id:string,date:Date|string,patientId:string,professionalId:string}>} appointments
+ * @param {{numerosAsignados?: Map<string, number>}} [opciones]
+ * @returns {Map<string, number>} id de cita → número de consulta
  */
-export function buildConsultationNumberMap(appointments) {
+export function buildConsultationNumberMap(appointments, { numerosAsignados } = {}) {
+  const asignados = numerosAsignados instanceof Map ? numerosAsignados : new Map();
+
   const ordered = [...(appointments || [])].sort((left, right) => {
     const leftTime = new Date(left.date).getTime();
     const rightTime = new Date(right.date).getTime();
@@ -162,12 +197,23 @@ export function buildConsultationNumberMap(appointments) {
   const counters = new Map();
   const consultationNumbers = new Map();
 
+  // Primera pasada: los números ya emitidos mandan, y fijan desde dónde sigue
+  // cada relación. Se recorre todo antes de asignar uno nuevo, porque una cita
+  // vieja sin liquidar no puede tomar un número que ya está en uso.
   for (const appointment of ordered) {
     if (!appointment?.id) throw new Error("Cita sin identificador.");
-    const key = consultationRelationshipKey(
-      appointment.patientId,
-      appointment.professionalId
-    );
+    const asignado = asignados.get(appointment.id);
+    if (!Number.isInteger(asignado) || asignado < 1) continue;
+
+    const key = consultationRelationshipKey(appointment.patientId, appointment.professionalId);
+    consultationNumbers.set(appointment.id, asignado);
+    counters.set(key, Math.max(counters.get(key) || 0, asignado));
+  }
+
+  for (const appointment of ordered) {
+    if (consultationNumbers.has(appointment.id)) continue;
+
+    const key = consultationRelationshipKey(appointment.patientId, appointment.professionalId);
     const next = (counters.get(key) || 0) + 1;
     counters.set(key, next);
     consultationNumbers.set(appointment.id, next);

@@ -1,6 +1,21 @@
-# Anexo [__] - Esquema economico, liquidacion y pago de honorarios profesionales
+# [OBSOLETO] Anexo economico - esquema de comision progresiva por volumen mensual
 
-> **Estado histórico.** Este esquema progresivo por volumen fue sustituido en la implementación por el plan `patient-retention-2026-07`. Para nuevas contrataciones y liquidaciones, consultar `ANEXO-ECONOMICO-LIQUIDACION-PROFESIONALES-PROPUESTO.md`. Se conserva este archivo únicamente como antecedente y no debe firmarse sin revisión.
+> # ⛔ DOCUMENTO OBSOLETO — NO UTILIZAR
+>
+> **Este esquema NO se aplica y NO debe firmarse, citarse ni negociarse.**
+>
+> El modelo de comisión progresiva por volumen mensual que describe este documento **nunca se implementó en el CRM** y fue sustituido por el plan de retención por paciente `patient-retention-2026-07`. Las dos escalas son incompatibles entre sí:
+>
+> | | Este documento (obsoleto) | Esquema vigente |
+> |---|---|---|
+> | Base de la escala | Volumen facturado del PROFESIONAL en el período | Secuencia de consultas de cada relación Paciente–PROFESIONAL |
+> | Reinicio | Se reinicia cada período de liquidación | **No se reinicia nunca** |
+> | Tipo de escala | Marginal por tramos de monto | Tasa única por número de consulta |
+> | Rango de tasas | 20% → 2% | 50%/45%/40% → 10% |
+>
+> **Documento vigente: [`ANEXO-ECONOMICO-LIQUIDACION-PROFESIONALES-PROPUESTO.md`](./ANEXO-ECONOMICO-LIQUIDACION-PROFESIONALES-PROPUESTO.md).**
+>
+> Se conserva únicamente como antecedente de la negociación. Todo su contenido —tasas, tramos, ejemplos y fórmulas— debe leerse como histórico.
 
 > Documento de trabajo para incorporacion al contrato de prestacion de servicios profesionales. Debe ser revisado y ajustado por el profesional en Derecho y la persona profesional en contaduria de LAS PARTES antes de su firma. Los campos entre corchetes son editables.
 

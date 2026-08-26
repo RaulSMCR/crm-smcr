@@ -44,15 +44,19 @@ export async function generateSettlementPeriod({ periodStart, periodEnd }) {
     where: {
       status: "APPROVED",
       settlementItem: null,
-      appointment: { status: "COMPLETED" },
       OR: [
+        // Consulta prestada y cobrada.
         {
+          appointment: { status: "COMPLETED" },
           type: { in: ["BALANCE_50", "FULL_100"] },
           paidAt: { gte: periodStart, lte: periodEnd },
         },
+        // El adelanto viaja con su saldo: el 50% inicial no se liquida solo,
+        // porque hasta que no se paga el saldo no hubo consulta que cobrar.
         {
           type: "DEPOSIT_50",
           appointment: {
+            status: "COMPLETED",
             paymentTransactions: {
               some: {
                 type: "BALANCE_50",
@@ -61,6 +65,16 @@ export async function generateSettlementPeriod({ periodStart, periodEnd }) {
               },
             },
           },
+        },
+        // Multa por cancelar con menos de 24 horas o no asistir. Se liquida
+        // igual que un cobro normal: el horario se apartó y no pudo ofrecerse a
+        // nadie más, así que el profesional percibe su parte. A propósito NO se
+        // exige `appointment.status = COMPLETED`: una cita cancelada nunca
+        // llega a ese estado, y exigirlo era lo que dejaba estos cobros fuera de
+        // toda liquidación, con el 100% de la multa quedándose en la plataforma.
+        {
+          type: "PENALTY_50",
+          paidAt: { gte: periodStart, lte: periodEnd },
         },
       ],
     },
@@ -101,10 +115,24 @@ export async function generateSettlementPeriod({ periodStart, periodEnd }) {
       ])
     ).values()
   );
-  const completedAppointments = await prisma.appointment.findMany({
+  // Qué citas ocupan una posición en la secuencia: las que se cobraron, no las
+  // que se prestaron. Una consulta realizada y pagada cuenta, y una cancelada
+  // fuera de tiempo cuya multa el paciente pagó también, porque se facturó. Una
+  // cita cancelada que nadie pagó no entra: su posición queda libre para la
+  // siguiente.
+  const chargedAppointments = await prisma.appointment.findMany({
     where: {
-      status: "COMPLETED",
       OR: relationshipFilters,
+      AND: {
+        OR: [
+          { status: "COMPLETED" },
+          {
+            paymentTransactions: {
+              some: { type: "PENALTY_50", status: "APPROVED" },
+            },
+          },
+        ],
+      },
     },
     select: {
       id: true,
@@ -113,7 +141,24 @@ export async function generateSettlementPeriod({ periodStart, periodEnd }) {
       date: true,
     },
   });
-  const consultationNumbers = buildConsultationNumberMap(completedAppointments);
+
+  // Los números ya emitidos en liquidaciones anteriores son intocables: una
+  // liquidación cerrada no se renumera. Un pago que llega tarde toma la
+  // siguiente posición libre en vez de correr a las que ya se facturaron.
+  const itemsPrevios = await prisma.settlementItem.findMany({
+    where: {
+      consultationNumber: { not: null },
+      transaction: { appointmentId: { in: chargedAppointments.map((a) => a.id) } },
+    },
+    select: { consultationNumber: true, transaction: { select: { appointmentId: true } } },
+  });
+  const numerosAsignados = new Map(
+    itemsPrevios
+      .filter((item) => item.transaction?.appointmentId)
+      .map((item) => [item.transaction.appointmentId, item.consultationNumber]),
+  );
+
+  const consultationNumbers = buildConsultationNumberMap(chargedAppointments, { numerosAsignados });
 
   const grouped = new Map();
   for (const transaction of transactions) {

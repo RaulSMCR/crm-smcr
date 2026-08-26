@@ -7,6 +7,10 @@ const { prisma, getSession } = vi.hoisted(() => ({
   prisma: {
     service: { findUnique: vi.fn(), update: vi.fn() },
     serviceAssignment: { findUnique: vi.fn(), update: vi.fn() },
+    // Aprobar una asignación también garantiza que el profesional quede con una
+    // tarifa cobrable (garantizarTarifaVigente), si no la ficha se publica sin
+    // precio y sin agenda.
+    professionalRate: { count: vi.fn(), findFirst: vi.fn(), update: vi.fn(), create: vi.fn() },
     tax: { findUnique: vi.fn() },
   },
   getSession: vi.fn(),
@@ -28,6 +32,9 @@ beforeEach(() => {
   getSession.mockResolvedValue({ role: "ADMIN" });
   prisma.serviceAssignment.findUnique.mockResolvedValue({ proposedSessionPrice: 40000 });
   prisma.serviceAssignment.update.mockResolvedValue({});
+  prisma.professionalRate.count.mockResolvedValue(0);
+  prisma.professionalRate.findFirst.mockResolvedValue(null);
+  prisma.professionalRate.create.mockResolvedValue({});
   prisma.service.update.mockResolvedValue({});
   prisma.tax.findUnique.mockResolvedValue({ id: TAX });
 });
