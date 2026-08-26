@@ -11,19 +11,14 @@ import JsonLd from "@/components/JsonLd";
 import { unstable_cache } from "next/cache";
 import { grafo, nodoListado, idArticulo } from "@/lib/jsonld";
 import { resolveRedirect, TIPOS } from "@/lib/slug-redirect";
+import { buildMetadata } from "@/lib/seo";
 
-export const metadata = {
+export const metadata = buildMetadata({
   title: 'Blog de salud mental y bienestar',
   description:
     'Artículos sobre psicología, bienestar, nutrición y salud mental escritos por profesionales verificados en Costa Rica.',
-  alternates: { canonical: siteUrl('blog') },
-  openGraph: {
-    title: 'Blog de salud mental y bienestar | Salud Mental Costa Rica',
-    description:
-      'Artículos sobre psicología, bienestar, nutrición y salud mental escritos por profesionales verificados.',
-    url: siteUrl('blog'),
-  },
-};
+  path: 'blog',
+});
 
 const formatDate = (date) => {
   return new Intl.DateTimeFormat('es-CR', {

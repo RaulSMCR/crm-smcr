@@ -14,8 +14,9 @@ import {
   calculateProfessionalSettlementItem,
   commissionRateForConsultation,
   commissionRateForPayment,
+  estimateOnvoFee,
 } from "../../src/lib/commission-plan.js";
-import { splitTaxIncluded } from "../../src/lib/invoice-math.js";
+import { computeInvoiceLine, splitTaxIncluded } from "../../src/lib/invoice-math.js";
 
 /** Tabla de la cláusula 5 del anexo, transcrita a mano desde el documento. */
 const TABLA_DEL_ANEXO = [
@@ -280,5 +281,64 @@ describe("secuencia — qué consume una posición", () => {
     expect(mapa.get("a")).toBe(1);
     expect(mapa.get("b")).toBe(1); // otro profesional, secuencia propia
     expect(mapa.get("c")).toBe(2);
+  });
+});
+
+describe("cláusula 6.2 — el fijo de ONVO no se le cobra dos veces al profesional", () => {
+  it("el segundo tramo de la primera consulta no arrastra el cargo fijo", () => {
+    // ONVO cobra un fijo en dólares por transacción. Partir la primera consulta
+    // en adelanto y saldo lo dispara dos veces, y esa partición es una decisión
+    // de la plataforma: el segundo fijo lo asume ella.
+    const desglose = estimateOnvoFee(2000000, "card");
+
+    expect(desglose.fixedCents).toBeGreaterThan(0);
+    expect(desglose.totalCents).toBe(desglose.percentCents + desglose.fixedCents);
+    // Lo que se le traslada en el saldo es solo el porcentaje.
+    expect(desglose.percentCents).toBeLessThan(desglose.totalCents);
+  });
+
+  it("el porcentaje sí se traslada completo: es proporcional al dinero movido", () => {
+    const mitad = estimateOnvoFee(2000000, "card");
+    const entero = estimateOnvoFee(4000000, "card");
+    // Dos mitades suman el mismo porcentaje que el cobro entero.
+    expect(mitad.percentCents * 2).toBe(entero.percentCents);
+  });
+});
+
+describe("facturación manual — el monto escrito lleva el IVA dentro", () => {
+  it("facturar a mano una consulta da lo mismo que cobrarla", () => {
+    // El precio publicado es final: ₡40.000 con IVA 4% dentro. Facturar a mano
+    // ese mismo servicio tiene que emitir por ₡40.000, no por ₡41.600.
+    const totalEscrito = 40000;
+    const tasa = 4;
+
+    const { baseCents, taxCents } = splitTaxIncluded(Math.round(totalEscrito * 100), tasa);
+    const unitPrice = baseCents / 100;
+
+    // Lo que la API reconstruye a partir de esa línea.
+    const linea = computeInvoiceLine({ quantity: 1, unitPrice, discountPercent: 0, taxRate: tasa });
+
+    expect(linea.lineTotal).toBeCloseTo(totalEscrito, 2);
+    expect(linea.lineSubtotal).toBeCloseTo(baseCents / 100, 2);
+    expect(linea.taxAmount).toBeCloseTo(taxCents / 100, 2);
+  });
+
+  it("sin la separación previa, la API facturaría de más", () => {
+    // El defecto que se corrigió: mandar el precio publicado como unitPrice.
+    const crudo = computeInvoiceLine({ quantity: 1, unitPrice: 40000, discountPercent: 0, taxRate: 4 });
+    expect(crudo.lineTotal).toBeCloseTo(41600, 2);
+  });
+
+  it("el mismo criterio vale para otras tasas", () => {
+    for (const tasa of [0, 1, 2, 4, 13]) {
+      const { baseCents } = splitTaxIncluded(4000000, tasa);
+      const linea = computeInvoiceLine({
+        quantity: 1,
+        unitPrice: baseCents / 100,
+        discountPercent: 0,
+        taxRate: tasa,
+      });
+      expect(linea.lineTotal).toBeCloseTo(40000, 1);
+    }
   });
 });

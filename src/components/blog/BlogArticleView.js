@@ -141,7 +141,7 @@ export default function BlogArticleView({ post, slug, preview = false }) {
           </div>
           <div>
             <p className="text-sm text-gray-500 uppercase font-bold tracking-wide">Escrito por</p>
-            <h3 className="text-xl font-bold text-gray-900">{authorUser.name}</h3>
+            <p className="text-xl font-bold text-gray-900">{authorUser.name}</p>
             <p className="text-blue-600 font-medium">{post.author.specialty || "Profesional de Salud"}</p>
           </div>
           <div className="ml-auto hidden sm:block">
@@ -175,7 +175,7 @@ export default function BlogArticleView({ post, slug, preview = false }) {
             <div className="mt-3 flex items-start gap-4">
               <SafeAvatar src={authorUser.image} alt={authorUser.name} size={56} className="shrink-0" />
               <div className="min-w-0">
-                <h3 className="text-lg font-bold text-gray-900">{authorUser.name}</h3>
+                <p className="text-lg font-bold text-gray-900">{authorUser.name}</p>
                 {post.author.specialty ? (
                   <p className="text-sm font-medium text-blue-700">{post.author.specialty}</p>
                 ) : null}

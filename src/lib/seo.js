@@ -117,6 +117,30 @@ export function resolveSeo(entity = {}, fallbacks = {}) {
  *
  * @param {object} opts { title, description, path, image, imageAlt, type, noindex, keywords }
  */
+/**
+ * Título para Open Graph, con la marca al final.
+ *
+ * No la anexa si el título ya la trae: el de la home empieza con «Salud Mental
+ * Costa Rica», y concatenar a ciegas producía «Salud Mental Costa Rica —
+ * Bienestar con profesionales validados | Salud Mental Costa Rica» en la
+ * previsualización de WhatsApp y LinkedIn, justo en la página que más se
+ * comparte. La comparación ignora mayúsculas y acentos porque un título
+ * editorial puede escribir la marca de otra forma.
+ */
+function ogTitle(title) {
+  if (!title) return SITE_NAME;
+
+  const normalizar = (texto) =>
+    String(texto)
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .toLowerCase();
+
+  return normalizar(title).includes(normalizar(SITE_NAME))
+    ? title
+    : `${title} | ${SITE_NAME}`;
+}
+
 export function buildMetadata({
   title,
   description,
@@ -138,7 +162,7 @@ export function buildMetadata({
     description: cleanDescription,
     alternates: { canonical },
     openGraph: {
-      title: title ? `${title} | ${SITE_NAME}` : SITE_NAME,
+      title: ogTitle(title),
       description: cleanDescription,
       url: canonical,
       type,

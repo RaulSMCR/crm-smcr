@@ -8,19 +8,14 @@ import ProfessionalProfileCard from '@/components/ProfessionalProfileCard';
 import { siteUrl } from "@/lib/site-url";
 import JsonLd from "@/components/JsonLd";
 import { grafo, nodoListado, idPersona } from "@/lib/jsonld";
+import { buildMetadata } from "@/lib/seo";
 
-export const metadata = {
+export const metadata = buildMetadata({
   title: 'Nuestro equipo de profesionales',
   description:
     'Conocé al equipo de psicólogos, coaches, nutricionistas y especialistas en bienestar que forman parte de Salud Mental Costa Rica.',
-  alternates: { canonical: siteUrl('profesionales') },
-  openGraph: {
-    title: 'Nuestro equipo de profesionales | Salud Mental Costa Rica',
-    description:
-      'Conocé al equipo de psicólogos, coaches y especialistas en bienestar de Salud Mental Costa Rica.',
-    url: siteUrl('profesionales'),
-  },
-};
+  path: 'profesionales',
+});
 
 export const dynamic = 'force-dynamic';
 

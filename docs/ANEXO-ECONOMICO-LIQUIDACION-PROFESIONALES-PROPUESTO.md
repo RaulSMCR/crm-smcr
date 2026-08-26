@@ -124,18 +124,13 @@ En consecuencia:
 
 En ningún caso el cargo excede el 50% del valor de la cita fijado por la política publicada.
 
-#### 4.3.1.1 Tratamiento tributario del cargo — **PENDIENTE DE CRITERIO CONTABLE**
+#### 4.3.1.1 Tratamiento tributario del cargo
 
-> **Advertencia.** Un cargo por cancelación tardía **no retribuye un servicio de salud prestado**: retribuye un horario reservado que no pudo aprovecharse. Por el principio rector de corrección tributaria (cláusula 3.0), **no puede declararse con el código CABYS del servicio profesional ni con su tarifa reducida** solo porque sea lo más cómodo de emitir.
->
-> Antes del primer cobro real debe definirse, con criterio contable expreso:
->
-> 1. si el cargo es **hecho generador de IVA** o queda fuera del ámbito por tratarse de una indemnización por incumplimiento;
-> 2. de estar sujeto, **qué tarifa** le corresponde —la reducida de servicios de salud no es aplicable de oficio a una penalización—;
-> 3. **qué código CABYS** lo identifica; y
-> 4. **qué tipo de comprobante** se emite.
->
-> **Estado actual del CRM:** la transacción de multa se crea sin tasa propia y hereda el 4% por defecto, y la factura toma el CABYS y el impuesto del servicio agendado. Es decir, hoy se declararía como si la consulta se hubiera prestado. **Debe corregirse antes de procesar el primer cobro.**
+El cargo por cancelación tardía **se factura como el cobro de la consulta reservada**: con el mismo código CABYS del servicio agendado y la misma tarifa de impuesto, y se declara como un cobro percibido.
+
+El fundamento es que lo que el Paciente contrató y la PLATAFORMA reservó fue la consulta, y el cargo es la contraprestación pactada y aceptada por ese horario apartado. Ante la Administración Tributaria se declara **un cobro efectivamente percibido por el servicio contratado**, que es lo que determina el impuesto.
+
+> **Recomendación de revisión.** Se hizo notar que una penalización por incumplimiento podría, según criterio tributario, no ser hecho generador de impuesto o no corresponderle la tarifa reducida de servicios de salud. La decisión de tratarla como el cobro del servicio contratado fue tomada expresamente por la PLATAFORMA y **debe validarse con la asesoría contable antes del primer cobro real**, junto con el tipo de comprobante que corresponde emitir. Esta observación queda constando por transparencia y no altera lo dispuesto en el párrafo anterior.
 
 #### 4.3.2 Hecho generador y avance de la Secuencia
 
@@ -218,7 +213,15 @@ La estructura de cargos del procesador **no es un porcentaje simple**: combina u
 
 La PLATAFORMA **no podrá presentar como Comisión de plataforma** un costo que corresponda al procesador, ni denominar "comisión" al Costo de procesamiento en liquidaciones, reportes o comprobantes.
 
-Si el adelanto y el saldo se procesan como dos transacciones independientes, **los cargos fijos del procesador se duplican**. La Liquidación deberá identificar este efecto cuando sea aplicable.
+#### 6.3 El cargo fijo no se cobra dos veces
+
+Cuando el adelanto y el saldo se procesan como dos transacciones independientes, el **cargo fijo por transacción del procesador se duplica**. Ese segundo cargo fijo **lo asume la PLATAFORMA y no se traslada al PROFESIONAL**.
+
+El fundamento es el principio rector de justicia (cláusula 3.0): fraccionar el cobro de la primera consulta es una medida de la PLATAFORMA para asegurar la reserva y proteger al PROFESIONAL frente a una cita que no se concreta. Quien no tomó esa decisión no debe pagar su costo.
+
+El **porcentaje** del procesador sí se traslada íntegro en ambos tramos, porque es proporcional al dinero efectivamente movido y no se duplica: dos mitades generan el mismo porcentaje que un cobro entero.
+
+La Liquidación identificará el cargo fijo asumido por la PLATAFORMA cuando sea aplicable.
 
 ## 7. Fórmula de liquidación
 

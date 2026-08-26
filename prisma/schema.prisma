@@ -825,6 +825,15 @@ model Settlement {
   commissionAmt  Decimal  @db.Decimal(12, 2)
   processingFeeAmt Decimal @default(0) @db.Decimal(12, 2)
   netAmount      Decimal  @db.Decimal(12, 2)
+
+  /// Tasa de impuesto con la que se calculó el neto de este período, para que la
+  /// factura del profesional se desglose con la MISMA tasa que la liquidación.
+  /// Antes se desglosaba con un 4% fijo mientras el cálculo usaba la tasa de cada
+  /// transacción: mientras todo fuera 4% cuadraba, y con otra tasa la validación
+  /// de coincidencia exacta habría rechazado una factura correcta.
+  /// NULL cuando las líneas del período no comparten una sola tasa; en ese caso
+  /// el desglose no puede derivarse del encabezado y hay que mirar las líneas.
+  taxRatePct     Int?
   status         String   @default("OPEN")
   invoiceId      String?
   createdAt      DateTime @default(now())
@@ -849,6 +858,10 @@ model SettlementItem {
   commissionPct         Int     @default(0)
   consultationNumber    Int?
   commissionPlanVersion String?
+  /// Tasa de impuesto de la transacción que originó esta línea. Se guarda por
+  /// línea porque es el dato con el que se calculó, y una liquidación cerrada
+  /// tiene que poder recalcularse tal como se emitió.
+  taxRatePct            Int     @default(4)
   processingFeeAmt Decimal @default(0) @db.Decimal(10, 2)
   netAmount     Decimal @default(0) @db.Decimal(10, 2)
 

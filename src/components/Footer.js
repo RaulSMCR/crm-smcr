@@ -59,10 +59,22 @@ export default function Footer() {
           </ul>
 
           <div className="mt-4 flex gap-3">
-            <a aria-label="Instagram" href="#" className="text-white hover:text-accent-100">
+            <a
+              aria-label="Instagram"
+              href="https://www.instagram.com/saludmentalcostarica"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white hover:text-accent-100"
+            >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5m5 5a5 5 0 1 0 0 10 5 5 0 0 0 0-10m6.5-1.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"/></svg>
             </a>
-            <a aria-label="YouTube" href="#" className="text-white hover:text-accent-100">
+            <a
+              aria-label="YouTube"
+              href="https://www.youtube.com/@saludmentalcostarica"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white hover:text-accent-100"
+            >
               <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M10 15V9l5 3-5 3m11-3a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"/></svg>
             </a>
           </div>

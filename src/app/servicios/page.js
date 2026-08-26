@@ -4,6 +4,7 @@ import { isPrismaConnectionError, fallarSiEsBuild } from "@/lib/prisma-safe";
 import JsonLd from "@/components/JsonLd";
 import { grafo, nodoListado, idServicio } from "@/lib/jsonld";
 import { siteUrl } from "@/lib/site-url";
+import { buildMetadata } from "@/lib/seo";
 import SafeImage, { SafeAvatar } from "@/components/SafeImage";
 import { IMAGE_FALLBACKS } from "@/lib/images";
 import { TARIFA_VIGENTE, rangosPorServicio, etiquetaDeRango } from "@/lib/service-pricing";
@@ -58,18 +59,12 @@ const FAQ_SCHEMA = {
 };
 
 
-export const metadata = {
+export const metadata = buildMetadata({
   title: 'Servicios de bienestar y salud mental',
   description:
     'Psicología clínica, psiquiatría, nutrición, terapia física, musicoterapia, terapia de lenguaje y más, con profesionales de colegiatura verificada en Costa Rica.',
-  alternates: { canonical: siteUrl('servicios') },
-  openGraph: {
-    title: 'Servicios de bienestar y salud mental | Salud Mental Costa Rica',
-    description:
-      'Psicología clínica, psiquiatría, nutrición, terapia física y más, con profesionales de colegiatura verificada.',
-    url: siteUrl('servicios'),
-  },
-};
+  path: 'servicios',
+});
 
 export const revalidate = 300;
 

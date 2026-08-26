@@ -64,9 +64,6 @@ export async function submitProfessionalInvoice({
 
     const claveValidation = validateSupplierFeClave(clave, profile.user?.identification);
     if (!claveValidation.ok) return { success: false, error: claveValidation.error };
-    const { baseCents, taxCents } = splitTaxIncluded(Math.round(amt * 100), 4);
-    const baseAmount = baseCents / 100;
-    const taxAmount = taxCents / 100;
 
     const pStart = parsed.data.periodStart ?? null;
     const pEnd = parsed.data.periodEnd ?? null;
@@ -84,13 +81,24 @@ export async function submitProfessionalInvoice({
     if (settlementId) {
       settlement = await prisma.settlement.findFirst({
         where: { id: String(settlementId), professionalId: profile.id, status: "OPEN" },
-        select: { id: true, netAmount: true },
+        select: { id: true, netAmount: true, taxRatePct: true },
       });
       if (!settlement) return { success: false, error: "La liquidación no está disponible para facturar." };
       if (Math.abs(amt - Number(settlement.netAmount)) > 0.005) {
         return { success: false, error: "El monto debe coincidir exactamente con el neto de la liquidación." };
       }
     }
+
+    // La factura se desglosa con LA MISMA tasa con la que se calculó la
+    // liquidación. Antes iba un 4% fijo mientras el cálculo usaba la tasa de
+    // cada transacción: coincidían solo mientras todo fuera 4%, y con cualquier
+    // otra tasa esta misma función habría rechazado una factura correcta por no
+    // cuadrar con el neto. Sin liquidación vinculada no hay de dónde derivarla y
+    // se mantiene el 4% de los servicios de salud.
+    const taxRatePct = Number.isInteger(settlement?.taxRatePct) ? settlement.taxRatePct : 4;
+    const { baseCents, taxCents } = splitTaxIncluded(Math.round(amt * 100), taxRatePct);
+    const baseAmount = baseCents / 100;
+    const taxAmount = taxCents / 100;
 
     const invoice = await prisma.invoice.create({
       data: {
@@ -120,7 +128,7 @@ export async function submitProfessionalInvoice({
             quantity: 1,
             unitPrice: baseAmount,
             discountPercent: 0,
-            taxRate: 4,
+            taxRate: taxRatePct,
             taxAmount,
             lineSubtotal: baseAmount,
             lineTotal: amt,

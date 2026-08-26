@@ -2,6 +2,7 @@
 
 import { useCallback, useState, useTransition } from "react";
 import Toast from "@/components/ui/Toast";
+import { splitTaxIncluded } from "@/lib/invoice-math";
 import { updateSupplierInvoiceAcceptance } from "@/actions/professional-billing-actions";
 
 function toMoney(value) {
@@ -33,6 +34,25 @@ function getFeTone(feStatus) {
   }
 }
 
+const colones = (valor) =>
+  new Intl.NumberFormat("es-CR", { style: "currency", currency: "CRC", maximumFractionDigits: 2 }).format(valor);
+
+/** Cómo queda repartido el monto que se escribió: base, impuesto y total. */
+function DesgloseFactura({ amount, taxRate }) {
+  const total = Number(amount || 0);
+  const tasa = Number(taxRate || 0);
+  if (!Number.isFinite(total) || total <= 0 || !Number.isFinite(tasa) || tasa < 0) return null;
+
+  const { baseCents, taxCents } = splitTaxIncluded(Math.round(total * 100), tasa);
+
+  return (
+    <p className="mt-2 text-sm text-slate-600">
+      Se emitirá por <b>{colones(total)}</b>: base {colones(baseCents / 100)} + IVA {tasa}%{" "}
+      {colones(taxCents / 100)}.
+    </p>
+  );
+}
+
 export default function BillingInvoicesManager({
   invoices = [],
   patients = [],
@@ -51,7 +71,10 @@ export default function BillingInvoicesManager({
     dueDate: toDateInput(new Date()),
     productName: "Servicios Profesionales",
     amount: "40000",
-    taxRate: "13",
+    // 4% es la tarifa de los servicios de salud, que es lo que factura este CRM.
+    // Estaba en 13% (tarifa general): abrir la pantalla y crear sin tocar nada
+    // emitía por ₡45.200 una consulta que se cobra ₡40.000.
+    taxRate: "4",
   });
 
   function updateRowInvoice(id, patch) {
@@ -75,8 +98,15 @@ export default function BillingInvoicesManager({
     setToast(null);
     startTransition(async () => {
       try {
+        // El campo "Monto" es el total que paga el cliente, con el IVA dentro
+        // —igual que el precio publicado de un servicio—, pero una línea de
+        // factura se expresa con el precio ANTES de impuesto. Se separa acá, con
+        // la misma aritmética que usa el webhook de pagos, para que facturar a
+        // mano una consulta dé exactamente lo mismo que cobrarla.
         const amount = Number(draft.amount || 0);
         const taxRate = Number(draft.taxRate || 0);
+        const { baseCents } = splitTaxIncluded(Math.round(amount * 100), taxRate);
+        const unitPrice = baseCents / 100;
 
         const payload = await callApi("/api/invoices", "POST", {
           invoiceType: draft.invoiceType,
@@ -87,7 +117,7 @@ export default function BillingInvoicesManager({
             {
               productName: draft.productName || "Ítem",
               quantity: 1,
-              unitPrice: amount,
+              unitPrice,
               discountPercent: 0,
               taxRate,
             },
@@ -295,7 +325,7 @@ export default function BillingInvoicesManager({
               value={draft.amount}
               onChange={(e) => setDraft((s) => ({ ...s, amount: e.target.value }))}
               className="rounded-lg border border-slate-300 px-3 py-2"
-              placeholder="Monto"
+              placeholder="Monto total (IVA incluido)"
             />
             <input
               type="number"
@@ -312,6 +342,11 @@ export default function BillingInvoicesManager({
               Crear borrador
             </button>
           </div>
+
+          {/* Lo que se va a emitir, antes de emitirlo. El monto que se escribe
+              lleva el IVA dentro y la línea de factura va sin él, así que sin
+              este desglose no hay forma de notar un error de tasa a tiempo. */}
+          <DesgloseFactura amount={draft.amount} taxRate={draft.taxRate} />
         </div>
       )}
 

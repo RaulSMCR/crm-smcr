@@ -8,7 +8,7 @@ import {
   buildConsultationNumberMap,
   calculateProfessionalSettlementItem,
   cents,
-  estimateOnvoFeeCents,
+  estimateOnvoFee,
 } from "@/lib/commission-plan";
 import {
   firstIssueMessage,
@@ -28,11 +28,33 @@ async function requireAdmin() {
   return session?.role === "ADMIN" ? session : null;
 }
 
+/**
+ * Costo de procesamiento que se le traslada al profesional por esta transacción.
+ *
+ * ONVO cobra un fijo en dólares POR TRANSACCIÓN, así que cobrar la primera
+ * consulta en dos tractos —adelanto y saldo— lo paga dos veces. **Ese segundo
+ * fijo lo asume la plataforma, no el profesional** (decisión de Raúl,
+ * 2026-08-26): partir el cobro en dos es una medida de la plataforma para
+ * asegurar la reserva, y no sería justo cobrarle a él el costo de una decisión
+ * que no tomó. El porcentaje sí se traslada completo en ambos tramos, porque es
+ * proporcional al dinero efectivamente movido.
+ *
+ * Ver la cláusula 6.2 del anexo económico.
+ */
 function transactionProcessingFeeCents(transaction) {
+  const esSegundoTramo = transaction.type === "BALANCE_50";
+
   if (transaction.processingFee !== null && transaction.processingFee !== undefined) {
-    return cents(transaction.processingFee);
+    const registrado = cents(transaction.processingFee);
+    if (!esSegundoTramo) return registrado;
+    // Del costo real registrado se descuenta el fijo, que corre por cuenta de la
+    // plataforma en este tramo. Nunca baja de cero.
+    const fijo = estimateOnvoFee(cents(transaction.amount), "card").fixedCents;
+    return Math.max(0, registrado - fijo);
   }
-  return estimateOnvoFeeCents(cents(transaction.amount), "card");
+
+  const estimado = estimateOnvoFee(cents(transaction.amount), "card");
+  return esSegundoTramo ? estimado.percentCents : estimado.totalCents;
 }
 
 /**
@@ -169,6 +191,7 @@ export async function generateSettlementPeriod({ periodStart, periodEnd }) {
       commissionCents: 0,
       processingFeeCents: 0,
       netCents: 0,
+      taxRates: new Set(),
     };
     row.transactions.push(transaction);
     grouped.set(transaction.professionalId, row);
@@ -184,13 +207,18 @@ export async function generateSettlementPeriod({ periodStart, periodEnd }) {
           `No se pudo determinar la secuencia de la cita ${transaction.appointment.id}.`
         );
       }
+      const taxRatePct = transaction.taxRate || 4;
       const result = calculateProfessionalSettlementItem({
         grossCents: cents(transaction.amount),
-        taxRatePct: transaction.taxRate || 4,
+        taxRatePct,
         processingFeeCents: transactionProcessingFeeCents(transaction),
         consultationNumber,
         paymentType: transaction.type,
       });
+      result.taxRatePct = taxRatePct;
+      // Una sola tasa para todo el período, o ninguna: si las líneas difieren,
+      // el desglose de la factura no puede salir del encabezado.
+      group.taxRates.add(taxRatePct);
       group.grossCents += result.grossCents;
       group.baseCents += result.baseCents;
       group.commissionCents += result.commissionCents;
@@ -202,6 +230,7 @@ export async function generateSettlementPeriod({ periodStart, periodEnd }) {
     const effectivePct = group.baseCents > 0
       ? Math.round((group.commissionCents / group.baseCents) * 100)
       : 0;
+    const taxRatePct = group.taxRates.size === 1 ? [...group.taxRates][0] : null;
 
     await prisma.$transaction(async (tx) => {
       const settlement = await tx.settlement.upsert({
@@ -218,6 +247,7 @@ export async function generateSettlementPeriod({ periodStart, periodEnd }) {
           commissionAmt: group.commissionCents / 100,
           processingFeeAmt: group.processingFeeCents / 100,
           netAmount: group.netCents / 100,
+          taxRatePct,
         },
         create: {
           professionalId,
@@ -228,6 +258,7 @@ export async function generateSettlementPeriod({ periodStart, periodEnd }) {
           commissionAmt: group.commissionCents / 100,
           processingFeeAmt: group.processingFeeCents / 100,
           netAmount: group.netCents / 100,
+          taxRatePct,
         },
       });
 
@@ -243,6 +274,7 @@ export async function generateSettlementPeriod({ periodStart, periodEnd }) {
               commissionPct: result.ratePct,
               consultationNumber: result.consultationNumber,
               commissionPlanVersion: COMMISSION_PLAN_VERSION,
+              taxRatePct: result.taxRatePct,
               processingFeeAmt: result.processingFeeCents / 100,
               netAmount: result.professionalInvoiceCents / 100,
             },
