@@ -48,7 +48,7 @@ export default function HeroSection() {
                 letterSpacing: '-0.005em',
               }}
             >
-              Bienestar con profesionales validados
+              Psicoterapia y salud mental en Costa Rica
             </h1>
 
             {/* Sans a propósito: Cormorant es exclusivamente display. */}
@@ -61,7 +61,8 @@ export default function HeroSection() {
                 color: 'rgba(246,239,223,.86)',
               }}
             >
-              Informate y acompañate con los profesionales que aportan al cuidado de la salud mental.
+              Agendá consulta con especialistas colegiados —psicoterapia, nutrición y terapia
+              física, en línea o presencial— e informate sobre temas de salud mental.
             </p>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">

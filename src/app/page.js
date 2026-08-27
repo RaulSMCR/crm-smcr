@@ -10,9 +10,9 @@ import { buildMetadata } from "@/lib/seo";
 import { fallarSiEsBuild, enPrerender } from "@/lib/prisma-safe";
 
 export const metadata = buildMetadata({
-  title: "Salud Mental Costa Rica — Bienestar con profesionales validados",
+  title: "Psicoterapia y salud mental en Costa Rica | En línea y presencial",
   description:
-    "Plataforma interdisciplinaria de bienestar y salud mental en Costa Rica. Psicología, nutrición, deporte y más. Consultas virtuales y presenciales con profesionales verificados.",
+    "Agendá consulta con especialistas colegiados: psicoterapia, nutrición y terapia física, en línea o presencial. Informate sobre temas de salud mental.",
   path: "",
 });
 

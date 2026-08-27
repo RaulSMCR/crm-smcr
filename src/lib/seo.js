@@ -136,9 +136,18 @@ function ogTitle(title) {
       .replace(/\p{Diacritic}/gu, "")
       .toLowerCase();
 
-  return normalizar(title).includes(normalizar(SITE_NAME))
-    ? title
-    : `${title} | ${SITE_NAME}`;
+  // Se comparan las PALABRAS de la marca, no la cadena literal. Un título como
+  // «Psicoterapia y salud mental en Costa Rica» dice todo lo que dice la marca
+  // pero con un «en» en medio, así que la comparación literal no lo reconocía y
+  // producía «… en Costa Rica | En línea y presencial | Salud Mental Costa
+  // Rica»: 89 caracteres con dos separadores.
+  const palabrasMarca = normalizar(SITE_NAME).split(/\s+/).filter(Boolean);
+  const tituloNormalizado = normalizar(title);
+  const yaLaDice = palabrasMarca.every((palabra) =>
+    new RegExp(`\\b${palabra}\\b`).test(tituloNormalizado),
+  );
+
+  return yaLaDice ? title : `${title} | ${SITE_NAME}`;
 }
 
 export function buildMetadata({

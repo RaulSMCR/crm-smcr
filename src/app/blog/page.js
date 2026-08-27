@@ -13,10 +13,15 @@ import { grafo, nodoListado, idArticulo } from "@/lib/jsonld";
 import { resolveRedirect, TIPOS } from "@/lib/slug-redirect";
 import { buildMetadata } from "@/lib/seo";
 
+// El título no nombra cuadros clínicos a propósito. Encabezar con «ansiedad» y
+// «depresión» rinde en búsqueda, pero acá no habría contenido detrás: ningún
+// artículo los trata como tema. Prometerlos sería el mismo movimiento que el
+// propio blog critica —hacer que alguien se reconozca en un diagnóstico antes
+// de haber leído nada—. Cuando existan esos artículos, el título los nombra.
 export const metadata = buildMetadata({
-  title: 'Blog de salud mental y bienestar',
+  title: 'Psicoterapia y salud mental: ensayos y crítica',
   description:
-    'Artículos sobre psicología, bienestar, nutrición y salud mental escritos por profesionales verificados en Costa Rica.',
+    'Historia, escuelas y discusiones sobre la salud mental, escritas por profesionales colegiados en Costa Rica. Ensayos largos, no consejos rápidos.',
   path: 'blog',
 });
 
@@ -148,9 +153,12 @@ export default async function BlogPage({ searchParams }) {
     <main className="max-w-6xl mx-auto px-4 py-12">
       {grafoListado ? <JsonLd data={grafoListado} /> : null}
       <header className="mb-8 text-center">
-        <h1 className="text-5xl font-light text-gray-900 tracking-tight">Nuestro Blog</h1>
+        <h1 className="text-5xl font-light text-gray-900 tracking-tight">
+          Psicoterapia y salud mental: ensayos y crítica
+        </h1>
         <p className="text-lg text-gray-600 mt-3 max-w-2xl mx-auto">
-          Artículos, novedades y consejos de nuestros profesionales.
+          Historia, escuelas y discusiones sobre la salud mental, escritas por los
+          profesionales del equipo. Ensayos largos, no consejos rápidos.
         </p>
       </header>
 

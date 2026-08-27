@@ -5,6 +5,9 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { siteUrl } from "@/lib/site-url";
 import SafeImage from "@/components/SafeImage";
+import JsonLd from "@/components/JsonLd";
+import { buildMetadata } from "@/lib/seo";
+import { grafo, nodoListado, nodoMigas, idArticulo } from "@/lib/jsonld";
 
 export const revalidate = 300;
 
@@ -36,24 +39,17 @@ export async function generateMetadata({ params }) {
   const { slug } = await params;
   const series = await prisma.series.findUnique({ where: { slug: String(slug || "") }, select: { name: true, description: true } });
   if (!series) return { title: "Serie no encontrada" };
-  const canonical = siteUrl(`blog/serie/${slug}`);
-  const description = series.description || `Serie de artículos: ${series.name}.`;
 
-  return {
+  // Pasa por `buildMetadata` en vez de armar el objeto a mano: así hereda la
+  // imagen social generada por página, `twitter:card` y el canónico. El objeto
+  // manual anterior declaraba `openGraph` sin `images`, de modo que una serie
+  // compartida salía sin tarjeta.
+  return buildMetadata({
     title: `${series.name} · Serie`,
-    description,
-    alternates: { canonical },
-    // `openGraph` se declara entero y no solo `url`: el layout raíz ya no
-    // hereda una URL, pero sí hereda título y descripción genéricos del sitio,
-    // y una serie compartida en redes tiene que decir de qué serie se trata.
-    openGraph: {
-      type: "website",
-      title: `${series.name} · Serie`,
-      description,
-      url: canonical,
-      siteName: "Salud Mental Costa Rica",
-    },
-  };
+    description: series.description || `Serie de artículos: ${series.name}.`,
+    path: `blog/serie/${slug}`,
+    subtitle: "Serie",
+  });
 }
 
 export default async function SeriesPage({ params }) {
@@ -63,6 +59,28 @@ export default async function SeriesPage({ params }) {
 
   return (
     <main className="max-w-4xl mx-auto px-4 py-12">
+      {/* La serie declara qué contiene y en qué orden, apuntando al `@id` de
+          cada artículo —que está descrito en su propia página—, en vez de
+          repetir aquí los datos de cada uno. Es el mismo patrón que usa el
+          listado de servicios. */}
+      <JsonLd
+        data={grafo(
+          nodoListado({
+            id: `${siteUrl(`blog/serie/${series.slug}`)}#serie`,
+            nombre: series.name,
+            items: series.posts.map((post) => ({
+              url: siteUrl(`blog/${post.slug}`),
+              nombre: post.title,
+              id: idArticulo(post.slug),
+            })),
+          }),
+          nodoMigas([
+            { nombre: "Biblioteca", url: siteUrl("blog") },
+            { nombre: series.name, url: siteUrl(`blog/serie/${series.slug}`) },
+          ]),
+        )}
+      />
+
       <div className="mb-8">
         <Link href="/blog" className="text-sm font-semibold text-brand-700 hover:underline">← Biblioteca</Link>
         <p className="mt-4 text-xs font-bold uppercase tracking-[0.18em] text-brand-700">Serie</p>

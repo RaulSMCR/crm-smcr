@@ -10,6 +10,8 @@ import AnalyticsLoader from '@/components/AnalyticsLoader';
 import MarketingAttributionCapture from '@/components/MarketingAttributionCapture';
 import { SITE_URL, siteUrl } from '@/lib/site-url';
 import { grafo, nodoOrganizacion, nodoSitio } from '@/lib/jsonld';
+import { prisma } from '@/lib/prisma';
+import { unstable_cache } from 'next/cache';
 import { defaultOgImage } from '@/lib/seo';
 
 // Tipografía display (Art Nouveau contenido). Solo para titulares: el cuerpo
@@ -26,7 +28,28 @@ const cormorant = Cormorant_Garamond({
 // La organización y el sitio se describen UNA vez, acá, y el resto del sitio los
 // referencia por `@id`. Antes la organización aparecía en tres lugares con tres
 // formas distintas, que para un buscador son tres organizaciones.
-const GRAFO_SITIO = grafo(nodoOrganizacion(), nodoSitio());
+//
+// Las disciplinas del equipo se leen para decidir si la organización puede
+// declararse `MedicalBusiness` con su `medicalSpecialty` (ver nodoOrganizacion).
+// Va cacheado una hora: el dato cambia cuando se aprueba un profesional nuevo,
+// no en cada visita, y este layout envuelve todo el sitio.
+const disciplinasDelEquipo = unstable_cache(
+  async () => {
+    try {
+      const perfiles = await prisma.professionalProfile.findMany({
+        where: { isApproved: true, user: { is: { isActive: true } } },
+        select: { specialty: true },
+      });
+      return perfiles.map((p) => p.specialty).filter(Boolean);
+    } catch {
+      // Sin base no se inventa una especialidad: se emite la organización sin
+      // declaración médica, que es el estado seguro.
+      return [];
+    }
+  },
+  ['disciplinas-del-equipo'],
+  { revalidate: 3600, tags: ['disciplinas-del-equipo'] },
+);
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID;
@@ -38,13 +61,13 @@ const BASE_URL = SITE_URL;
 // genera en /og; antes esto apuntaba a /og-image.png, que no existía.
 const OG_POR_DEFECTO = defaultOgImage(
   'Salud Mental Costa Rica',
-  'Bienestar con profesionales validados'
+  'Psicoterapia y salud mental en Costa Rica'
 );
 
 export const metadata = {
   metadataBase: new URL(BASE_URL),
   title: {
-    default: 'Salud Mental Costa Rica — Bienestar con profesionales validados',
+    default: 'Psicoterapia y salud mental en Costa Rica | En línea y presencial',
     template: '%s | Salud Mental Costa Rica',
   },
   description:
@@ -64,21 +87,23 @@ export const metadata = {
     locale: 'es_CR',
     // Sin `url`: se hereda igual que el canónico y con el mismo efecto.
     siteName: 'Salud Mental Costa Rica',
-    title: 'Salud Mental Costa Rica — Bienestar con profesionales validados',
+    title: 'Psicoterapia y salud mental en Costa Rica | En línea y presencial',
     description:
       'Plataforma interdisciplinaria de bienestar y salud mental en Costa Rica. Psicología, nutrición, deporte y más.',
     images: [{ url: OG_POR_DEFECTO, width: 1200, height: 630, alt: 'Salud Mental Costa Rica' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Salud Mental Costa Rica — Bienestar con profesionales validados',
+    title: 'Psicoterapia y salud mental en Costa Rica | En línea y presencial',
     description:
       'Consultas virtuales y presenciales con profesionales verificados en psicología, nutrición y más.',
     images: [OG_POR_DEFECTO],
   },
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  const grafoSitio = grafo(nodoOrganizacion({ disciplinas: await disciplinasDelEquipo() }), nodoSitio());
+
   return (
     <html lang="es-CR" className={cormorant.variable}>
       {/* Google Consent Mode v2: por defecto TODO denegado, antes de cargar
@@ -109,7 +134,7 @@ export default function RootLayout({ children }) {
         {process.env.NODE_ENV === 'production' && (
           <AnalyticsLoader gaId={GA_ID} metaPixelId={META_PIXEL_ID} googleAdsId={GOOGLE_ADS_ID} />
         )}
-        <JsonLd data={GRAFO_SITIO} />
+        <JsonLd data={grafoSitio} />
         <Header />
         
         {/* flex-grow: Empuja el footer hacia abajo si el contenido es corto.

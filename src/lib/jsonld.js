@@ -28,13 +28,60 @@ export const ref = (id) => ({ '@id': id });
 const NOMBRE = 'Salud Mental Costa Rica';
 
 /**
+ * Especialidades médicas que la organización puede declarar, según qué
+ * disciplinas ejercen los profesionales publicados.
+ *
+ * Los valores son miembros del enum `MedicalSpecialty` de schema.org: texto
+ * libre como "Salud mental" lo rechaza el validador. Solo se listan las
+ * disciplinas cuyo ejercicio es médico; psicología, nutrición o pedagogía no
+ * corresponden a una especialidad médica y no entran acá.
+ */
+const ESPECIALIDAD_MEDICA_POR_DISCIPLINA = Object.freeze({
+  'Psiquiatría': 'Psychiatric',
+});
+
+/**
+ * Traduce las disciplinas del equipo a especialidades médicas declarables.
+ *
+ * Devuelve un arreglo vacío mientras no haya ningún profesional de una
+ * disciplina médica, que es lo que corresponde: declarar `medicalSpecialty`
+ * sin nadie que la ejerza es afirmar ante Google algo que el equipo no sostiene.
+ *
+ * @param {string[]} disciplinas  valores de `ProfessionalProfile.specialty`
+ */
+export function especialidadesMedicas(disciplinas = []) {
+  const codigos = new Set();
+  for (const disciplina of disciplinas) {
+    const codigo = ESPECIALIDAD_MEDICA_POR_DISCIPLINA[String(disciplina || '').trim()];
+    if (codigo) codigos.add(codigo);
+  }
+  return [...codigos];
+}
+
+/**
  * La organización. Es el único lugar donde se la describe; el resto la
  * referencia por `@id`.
+ *
+ * `medicalSpecialty` y el tipo `MedicalBusiness` se activan **solos** cuando el
+ * equipo suma un profesional de una disciplina médica. Quedó cableado en vez de
+ * comentado para que nadie tenga que acordarse: el día que se apruebe un
+ * psiquiatra, el marcado cambia en el siguiente render. Y si ese profesional se
+ * da de baja, vuelve a `Organization` sin dejar una afirmación colgada.
+ *
+ * @param {{disciplinas?: string[]}} [opciones]  disciplinas de los profesionales publicados
  */
-export function nodoOrganizacion() {
+export function nodoOrganizacion({ disciplinas = [] } = {}) {
+  const especialidades = especialidadesMedicas(disciplinas);
+
   return {
-    '@type': 'Organization',
+    // Solo se declara negocio médico cuando alguien del equipo ejerce medicina.
+    // Con un equipo de psicólogos y nutricionistas, `MedicalBusiness`
+    // sobredeclararía.
+    '@type': especialidades.length ? ['Organization', 'MedicalBusiness'] : 'Organization',
     '@id': ID_ORGANIZACION,
+    ...(especialidades.length
+      ? { medicalSpecialty: especialidades.length === 1 ? especialidades[0] : especialidades }
+      : {}),
     name: NOMBRE,
     url: SITE_URL,
     logo: { '@type': 'ImageObject', url: siteUrl('logo.svg') },

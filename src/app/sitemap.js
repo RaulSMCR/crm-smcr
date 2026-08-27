@@ -31,10 +31,10 @@ export default async function sitemap() {
     priority,
   }));
 
-  let services, professionals, posts;
+  let services, professionals, posts, series, temas;
 
   try {
-    [services, professionals, posts] = await Promise.all([
+    [services, professionals, posts, series, temas] = await Promise.all([
       prisma.service.findMany({
         where: { isActive: true, noindex: false },
         select: { slug: true, updatedAt: true },
@@ -50,6 +50,30 @@ export default async function sitemap() {
       }),
       prisma.post.findMany({
         where: { status: 'PUBLISHED', noindex: false },
+        select: { slug: true, updatedAt: true },
+      }),
+      // Las series tienen página propia en /blog/serie/[slug] y quedaban fuera
+      // del sitemap: cinco páginas indexables, con contenido agrupado y en
+      // orden, que Google solo podía encontrar por enlace interno.
+      //
+      // El filtro repite el de la página (`isActive` y posts publicados con
+      // `seriesApproved`) por la misma razón que se anotó arriba para los
+      // perfiles: anunciar una serie vacía es entregar una URL sin contenido.
+      prisma.series.findMany({
+        where: {
+          isActive: true,
+          posts: { some: { status: 'PUBLISHED', seriesApproved: true, noindex: false } },
+        },
+        select: { slug: true, updatedAt: true },
+      }),
+      // Temas: archivo transversal en /blog/tema/[slug]. Mismo criterio que las
+      // series — solo los que tienen al menos un artículo aprobado y publicado,
+      // porque la página devuelve 404 cuando queda vacía.
+      prisma.topic.findMany({
+        where: {
+          isActive: true,
+          posts: { some: { status: 'APPROVED', post: { status: 'PUBLISHED', noindex: false } } },
+        },
         select: { slug: true, updatedAt: true },
       }),
     ]);
@@ -83,5 +107,28 @@ export default async function sitemap() {
     priority: 0.8,
   }));
 
-  return [...staticEntries, ...serviceEntries, ...professionalEntries, ...postEntries];
+  // Prioridad por debajo del artículo: la serie es una puerta de entrada, pero
+  // lo que se quiere posicionar es cada ensayo.
+  const seriesEntries = series.map(({ slug, updatedAt }) => ({
+    url: `${BASE_URL}/blog/serie/${slug}`,
+    lastModified: updatedAt,
+    changeFrequency: 'monthly',
+    priority: 0.7,
+  }));
+
+  const temaEntries = temas.map(({ slug, updatedAt }) => ({
+    url: `${BASE_URL}/blog/tema/${slug}`,
+    lastModified: updatedAt,
+    changeFrequency: 'monthly',
+    priority: 0.7,
+  }));
+
+  return [
+    ...staticEntries,
+    ...serviceEntries,
+    ...professionalEntries,
+    ...postEntries,
+    ...seriesEntries,
+    ...temaEntries,
+  ];
 }
