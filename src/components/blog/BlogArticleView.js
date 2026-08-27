@@ -36,6 +36,17 @@ export default function BlogArticleView({ post, slug, preview = false }) {
   // Si el autor no tiene slug —no debería pasar— se cae al objeto embebido, que
   // es peor pero no deja el artículo sin autor.
   const autorSlug = post.author?.slug;
+
+  // El botón de agendar solo aparece si el autor realmente acepta citas: perfil
+  // aprobado, cuenta activa y al menos un servicio con tarifa vigente. Es el
+  // mismo criterio de su ficha pública. Ofrecer el botón sin comprobarlo manda
+  // al lector a una pantalla que le dice que no se puede, que es peor que no
+  // ofrecerlo. `?? false` cubre a quien llame al componente sin estos campos.
+  const puedeAgendar = Boolean(
+    post.author?.isApproved &&
+      post.author?.user?.isActive &&
+      post.author?.serviceAssignments?.length,
+  );
   const articleSchema = grafo(
     {
       "@type": "Article",
@@ -144,15 +155,23 @@ export default function BlogArticleView({ post, slug, preview = false }) {
             <p className="text-xl font-bold text-gray-900">{authorUser.name}</p>
             <p className="text-blue-600 font-medium">{post.author.specialty || "Profesional de Salud"}</p>
           </div>
-          <div className="ml-auto hidden sm:block">
-            {/* Apuntaba a /agendar/{id}: el lector que quería saber quién
-                escribía caía en un formulario de reserva. El perfil es donde
-                está la credencial verificada, y es además el nodo al que el
-                JSON-LD del artículo ya apunta como autor — el enlace visible
-                acompaña ahora al enlace semántico. */}
+          {/* Las dos salidas, en orden de compromiso: primero conocer a quien
+              escribe —donde está la credencial verificada, y el nodo al que el
+              JSON-LD ya apunta como autor—, después reservar. Antes esto era un
+              único botón que llevaba directo a la reserva, y quien solo quería
+              saber quién escribía caía en un formulario.
+
+              Deja de esconderse en móvil: era `hidden sm:block`, de modo que en
+              teléfono la tarjeta del autor no ofrecía ninguna acción. */}
+          <div className="ml-auto flex w-full flex-wrap gap-2 sm:w-auto">
             {autorSlug ? (
               <Link href={`/profesionales/${autorSlug}`} className="btn btn-outline">
                 Ver perfil
+              </Link>
+            ) : null}
+            {puedeAgendar ? (
+              <Link href={`/agendar/${post.author.id}`} className="btn btn-accent">
+                Agendar cita
               </Link>
             ) : null}
           </div>
@@ -191,6 +210,11 @@ export default function BlogArticleView({ post, slug, preview = false }) {
                   <Link href={`/profesionales/${autorSlug}`} className="text-blue-600 hover:underline">
                     Ver su perfil
                   </Link>
+                  {puedeAgendar ? (
+                    <Link href={`/agendar/${post.author.id}`} className="text-blue-600 hover:underline">
+                      Agendar una cita
+                    </Link>
+                  ) : null}
                   <Link href={`/blog?autor=${autorSlug}`} className="text-blue-600 hover:underline">
                     Sus otros artículos
                   </Link>

@@ -5,6 +5,7 @@ import { resolveRedirect, TIPOS } from '@/lib/slug-redirect';
 import { resolveSeo, buildMetadata } from "@/lib/seo";
 import BlogArticleView from "@/components/blog/BlogArticleView";
 import ArticleTaxonomy from "@/components/blog/ArticleTaxonomy";
+import { TARIFA_VIGENTE } from "@/lib/service-pricing";
 
 export const revalidate = 3600;
 
@@ -72,7 +73,20 @@ export default async function BlogPostPage({ params }) {
           licensingBody: true,
           licenseNumber: true,
           bio: true,
-          user: { select: { name: true, image: true } },
+          isApproved: true,
+          user: { select: { name: true, image: true, isActive: true } },
+          // Con esto el artículo sabe si su autor acepta citas hoy. El criterio
+          // es el mismo de su ficha pública: servicio activo con tarifa vigente.
+          // Sin el filtro, el botón de agendar llevaría a «Agenda no disponible».
+          serviceAssignments: {
+            where: {
+              status: "APPROVED",
+              service: { is: { isActive: true } },
+              rates: { some: TARIFA_VIGENTE },
+            },
+            select: { serviceId: true },
+            take: 1,
+          },
         },
       },
     },

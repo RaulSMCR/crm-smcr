@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import BlogArticleView from "@/components/blog/BlogArticleView";
+import { TARIFA_VIGENTE } from "@/lib/service-pricing";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -16,7 +17,16 @@ export default async function BlogPreviewPage({ params }) {
     where: { id: String(id || "") },
     include: {
       author: {
-        select: { id: true, slug: true, specialty: true, licensingBody: true, licenseNumber: true, bio: true, user: { select: { name: true, image: true } } },
+        select: {
+          id: true, slug: true, specialty: true, licensingBody: true, licenseNumber: true, bio: true,
+          isApproved: true,
+          user: { select: { name: true, image: true, isActive: true } },
+          serviceAssignments: {
+            where: { status: "APPROVED", service: { is: { isActive: true } }, rates: { some: TARIFA_VIGENTE } },
+            select: { serviceId: true },
+            take: 1,
+          },
+        },
       },
     },
   });
