@@ -8,16 +8,12 @@ import SeoFieldset from "@/components/admin/SeoFieldset";
 import Toast from "@/components/ui/Toast";
 import { SafeAvatar } from "@/components/SafeImage";
 import { PUBLIC_IMAGE_ACCEPT } from "@/lib/images";
+import { formatCRC as formatCRCBase } from "@/lib/service-pricing";
 
-function formatCRC(value) {
-  const amount = Number(value);
-  if (!Number.isFinite(amount)) return "No definido";
-  return new Intl.NumberFormat("es-CR", {
-    style: "currency",
-    currency: "CRC",
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
+// Formato compartido; acá un precio sin definir se muestra como "No definido".
+const formatCRC = (value) => formatCRCBase(value, { vacio: "No definido" });
+
+
 
 function badgeFor(status) {
   if (!status) return null;

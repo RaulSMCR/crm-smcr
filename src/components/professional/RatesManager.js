@@ -8,15 +8,14 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { proposeRate, deleteRate } from "@/actions/practice-actions";
 import { modalityLabel } from "@/lib/rates";
+import { formatCRC as formatCRCBase } from "@/lib/service-pricing";
+
+// Formato compartido; este componente muestra "—" cuando no hay monto.
+const formatCRC = (value) => formatCRCBase(value, { vacio: "—" });
+
 
 const ANY = "";
 
-function formatCRC(value) {
-  if (value === null || value === undefined || value === "") return "—";
-  return new Intl.NumberFormat("es-CR", { style: "currency", currency: "CRC", maximumFractionDigits: 0 }).format(
-    Number(value)
-  );
-}
 
 function StatusChip({ status }) {
   const styles = {

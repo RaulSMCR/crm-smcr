@@ -180,7 +180,7 @@ export async function POST(request) {
               insuranceTemplateUrl: true,
             },
           },
-          professional: { select: { commission: true, user: { select: { name: true, email: true } } } },
+          professional: { select: { user: { select: { name: true, email: true } } } },
         },
       })
     : [];

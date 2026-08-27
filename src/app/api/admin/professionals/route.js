@@ -45,61 +45,16 @@ export async function GET() {
   }
 }
 
-export async function POST(request) {
-  try {
-    const session = await getSession();
-    if (!session) return NextResponse.json({ message: "No autorizado" }, { status: 401 });
-    if (session.role !== "ADMIN") {
-      return NextResponse.json({ message: "Acción no permitida" }, { status: 403 });
-    }
-
-    const data = await request.json().catch(() => ({}));
-    const { professionalProfileId, email, serviceIds, isApproved } = data || {};
-
-    let profId = professionalProfileId ? String(professionalProfileId) : null;
-
-    if (!profId && email) {
-      const user = await prisma.user.findUnique({
-        where: { email: String(email) },
-        select: { id: true, professionalProfile: { select: { id: true } } },
-      });
-      profId = user?.professionalProfile?.id || null;
-    }
-
-    if (!profId) {
-      return NextResponse.json(
-        { message: "Debes enviar professionalProfileId o email de un profesional existente." },
-        { status: 400 }
-      );
-    }
-
-    const ids = Array.isArray(serviceIds) ? serviceIds.map(String).filter(Boolean) : null;
-
-    const updated = await prisma.professionalProfile.update({
-      where: { id: profId },
-      data: {
-        ...(typeof isApproved === "boolean" ? { isApproved } : {}),
-        ...(ids ? { services: { set: ids.map((id) => ({ id })) } } : {}),
-      },
-      select: {
-        id: true,
-        specialty: true,
-        isApproved: true,
-        user: { select: { name: true, email: true } },
-        services: { select: { id: true, title: true } },
-      },
-    });
-
-    return NextResponse.json({
-      id: updated.id,
-      name: updated.user?.name || "",
-      email: updated.user?.email || "",
-      profession: updated.specialty,
-      isApproved: updated.isApproved,
-      services: updated.services || [],
-    });
-  } catch (error) {
-    console.error("Error updating professional via POST:", error);
-    return NextResponse.json({ message: error.message || "Error interno" }, { status: 500 });
-  }
-}
+// El POST que vivía acá se eliminó el 2026-08-26.
+//
+// Escribía `services: { set: … }`, una relación que no existe en el schema —la
+// buena es `serviceAssignments`—, así que cualquier llamada devolvía 500. Nadie
+// lo invocaba: el único consumidor de esta ruta es el GET.
+//
+// No se arregló, se quitó. Reescribirlo habría duplicado `syncServiceAssignments`
+// (src/actions/service-actions.js), que además de asignar exige precio y siembra
+// la tarifa vigente. Un segundo camino sin esas salvaguardas reabre el defecto
+// que dejó a tres profesionales publicados sin precio y sin agenda.
+//
+// Para asignar servicios a un profesional: `syncServiceAssignments` desde el
+// panel del servicio, o `reviewServiceAssignment` para aprobar una solicitud.

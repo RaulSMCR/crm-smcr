@@ -14,15 +14,12 @@ import { trackEvent } from "@/lib/analytics";
 import { trackSchedule } from "@/lib/meta-pixel";
 import { modalityLabel } from "@/lib/rates";
 
-function formatCRC(value) {
-  if (value === null || value === undefined) return "—";
-  return new Intl.NumberFormat("es-CR", {
-    style: "currency",
-    currency: "CRC",
-    maximumFractionDigits: 0,
-  }).format(Number(value));
-}
 import { readGaClientId, readGclid } from "@/lib/analytics/client-identifiers";
+import { formatCRC as formatCRCBase } from "@/lib/service-pricing";
+
+// Formato compartido; este componente muestra "—" cuando no hay monto.
+const formatCRC = (value) => formatCRCBase(value, { vacio: "—" });
+
 
 export default function BookingInterface({ professionalId, servicePrice, serviceTitle, serviceId, professionalName }) {
   const router = useRouter();

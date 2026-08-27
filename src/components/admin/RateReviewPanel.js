@@ -7,13 +7,12 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { reviewRate, bulkApproveRates } from "@/actions/rate-review-actions";
 import { modalityLabel } from "@/lib/rates";
+import { formatCRC as formatCRCBase } from "@/lib/service-pricing";
 
-function formatCRC(value) {
-  if (value === null || value === undefined || value === "") return "—";
-  return new Intl.NumberFormat("es-CR", { style: "currency", currency: "CRC", maximumFractionDigits: 0 }).format(
-    Number(value)
-  );
-}
+// Formato compartido; este componente muestra "—" cuando no hay monto.
+const formatCRC = (value) => formatCRCBase(value, { vacio: "—" });
+
+
 
 function scopeLabel(rate) {
   const place = rate.location ? `${rate.location.name} (${modalityLabel(rate.location.modality)})` : "Cualquier lugar";

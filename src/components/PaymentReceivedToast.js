@@ -11,14 +11,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { consumirAvisosDePago } from "@/actions/payment-notice-actions";
 import { modalityLabel } from "@/lib/rates";
+import { formatCRC as formatCRCBase } from "@/lib/service-pricing";
 
-function formatCRC(monto, moneda = "CRC") {
-  return new Intl.NumberFormat("es-CR", {
-    style: "currency",
-    currency: moneda,
-    maximumFractionDigits: 0,
-  }).format(Number(monto));
-}
+// Este aviso puede llegar en otra moneda, así que la recibe como parámetro.
+const formatCRC = (monto, moneda = "CRC") => formatCRCBase(monto, { moneda });
+
+
 
 function formatFecha(iso) {
   if (!iso) return null;

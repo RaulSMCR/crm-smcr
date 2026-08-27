@@ -22,7 +22,10 @@ async function requireApprovedProfessional() {
   }
   const profile = await prisma.professionalProfile.findUnique({
     where: { userId: String(session.userId || session.sub) },
-    select: { id: true, userId: true, commission: true, isApproved: true, user: { select: { identification: true } } },
+    // `commission` no se selecciona: es un campo legado del esquema de comisión
+    // fija por profesional y ningún cálculo lo lee. Traerlo invitaba a creer que
+    // el 10% por defecto era la comisión pactada. Ver el anexo económico.
+    select: { id: true, userId: true, isApproved: true, user: { select: { identification: true } } },
   });
   if (!profile) return { error: "Perfil profesional no encontrado." };
   if (!profile.isApproved) return { error: "El perfil profesional aún no ha sido aprobado." };

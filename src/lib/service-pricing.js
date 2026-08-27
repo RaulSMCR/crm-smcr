@@ -14,12 +14,24 @@
 /** Una tarifa cuenta si un admin la aprobó y tiene monto. Sirve como `where` de Prisma. */
 export const TARIFA_VIGENTE = Object.freeze({ status: "APPROVED", approvedPrice: { not: null } });
 
-export function formatCRC(value) {
+/**
+ * Un monto en colones, como se escribe en Costa Rica.
+ *
+ * Estaba copiada en siete componentes, y las copias no eran iguales: unas
+ * devolvían "—" ante un valor vacío, otra `null` y otra aceptaba otra moneda.
+ * Por eso `vacio` y `moneda` son parámetros en vez de constantes — unificar sin
+ * ellos habría cambiado lo que se ve en pantalla en la mitad de las pantallas.
+ *
+ * @param {*} value
+ * @param {{vacio?: *, moneda?: string}} [opciones]
+ */
+export function formatCRC(value, { vacio = "Precio no disponible", moneda = "CRC" } = {}) {
+  if (value === null || value === undefined || value === "") return vacio;
   const amount = Number(value);
-  if (!Number.isFinite(amount)) return "Precio no disponible";
+  if (!Number.isFinite(amount)) return vacio;
   return new Intl.NumberFormat("es-CR", {
     style: "currency",
-    currency: "CRC",
+    currency: moneda,
     maximumFractionDigits: 0,
   }).format(amount);
 }

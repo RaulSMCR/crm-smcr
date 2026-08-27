@@ -10,15 +10,12 @@
 
 import { useEffect, useState } from "react";
 import { modalityLabel } from "@/lib/rates";
+import { formatCRC as formatCRCBase } from "@/lib/service-pricing";
 
-function formatCRC(value) {
-  if (value === null || value === undefined) return null;
-  return new Intl.NumberFormat("es-CR", {
-    style: "currency",
-    currency: "CRC",
-    maximumFractionDigits: 0,
-  }).format(Number(value));
-}
+// Formato compartido; este componente muestra null cuando no hay monto.
+const formatCRC = (value) => formatCRCBase(value, { vacio: null });
+
+
 
 function formatWhen(iso) {
   if (!iso) return null;
