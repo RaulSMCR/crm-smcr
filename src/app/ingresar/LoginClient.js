@@ -247,9 +247,15 @@ export default function LoginClient() {
   };
 
   return (
+    // La resta corresponde a la altura del encabezado público, que declara
+    // `min-h-20` (5rem). Estaba en 4rem, así que el bloque pedía 16 px más de
+    // los que quedaban y empujaba el final del formulario fuera de la ventana.
+    // Sigue siendo una dependencia frágil —el encabezado usa `flex-wrap` y en
+    // pantallas angostas crece—, y por eso el formulario lleva su propio scroll:
+    // aunque este número quede corto, el contenido se alcanza.
     <div
       className="flex w-full flex-col md:flex-row overflow-hidden"
-      style={{ minHeight: "calc(100dvh - 4rem)" }}
+      style={{ minHeight: "calc(100dvh - 5rem)" }}
     >
       {(["patient", "professional"]).map((panelKey) => {
         const config   = PANELS[panelKey];
@@ -265,7 +271,12 @@ export default function LoginClient() {
             className={[
               "relative overflow-hidden bg-surface-dark",
               phase === "choose" ? "cursor-pointer" : "",
-              "min-h-[45vh] md:min-h-0",
+              // El alto mínimo solo aplica al panel que se está viendo. En móvil
+              // los paneles se apilan en columna, y `flex: 0 0 0%` no encoge un
+              // elemento que declara `min-h-[45vh]`: el panel colapsado seguía
+              // reservando media pantalla y le robaba esa altura al formulario,
+              // que quedaba recortado justo por donde está el enlace de registro.
+              phase === "form" && !isActive ? "min-h-0" : "min-h-[45vh] md:min-h-0",
             ].join(" ")}
             style={{ ...getPanelFlex(panelKey) }}
             onHoverStart={() => phase === "choose" && setHovered(panelKey)}
@@ -295,7 +306,10 @@ export default function LoginClient() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: isDimmed ? 0.5 : 1 }}
                   exit={{ opacity: 0, transition: { duration: 0.2 } }}
-                  className="absolute inset-0 flex flex-col items-center justify-end pb-14 px-10 text-center"
+                  // Mismo criterio que el formulario: en una ventana baja el
+                  // bloque se recortaba contra el borde superior del panel.
+                  // `justify-end` sigue mandando cuando hay espacio de sobra.
+                  className="absolute inset-0 flex flex-col items-center justify-end overflow-y-auto px-6 pb-8 text-center sm:px-10 sm:pb-14"
                 >
                   {/* Narrativa — aparece solo en hover */}
                   <AnimatePresence>
@@ -353,9 +367,16 @@ export default function LoginClient() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0, transition: { duration: 0.2 } }}
-                  className="absolute inset-0 flex items-center justify-center px-6 py-10 md:px-12"
+                  // `overflow-y-auto` acá y `min-h-full` en el hijo: centrado
+                  // cuando el formulario cabe, desplazable cuando no. Antes era
+                  // un `inset-0` centrado sin scroll, de modo que en una ventana
+                  // baja el contenido se recortaba arriba y abajo por igual y no
+                  // había forma de llegar al enlace de registro.
+                  className="absolute inset-0 overflow-y-auto overscroll-contain"
                 >
-                  <PanelForm panelKey={panelKey} onBack={handleBack} registered={registered} />
+                  <div className="flex min-h-full items-center justify-center px-6 py-10 md:px-12">
+                    <PanelForm panelKey={panelKey} onBack={handleBack} registered={registered} />
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
