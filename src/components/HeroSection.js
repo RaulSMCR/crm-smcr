@@ -61,8 +61,8 @@ export default function HeroSection() {
                 color: 'rgba(246,239,223,.86)',
               }}
             >
-              Agendá consulta con especialistas colegiados —psicoterapia, nutrición y terapia
-              física, en línea o presencial— e informate sobre temas de salud mental.
+              Aprendé sobre temas de salud mental y agendá consulta con especialistas colegiados en psicología, nutrición y terapia
+              física, en línea o presencial.
             </p>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
