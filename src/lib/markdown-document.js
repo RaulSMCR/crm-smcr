@@ -1,4 +1,6 @@
 import { extractCrmMetadata } from "@/lib/editorial-metadata";
+import { limpiarAndamiajeEditorial } from "@/lib/limpieza-editorial";
+import { slugify } from "@/lib/slug";
 
 /**
  * Lee un archivo .md tal como sale de un editor externo (Obsidian, Typora, un
@@ -80,24 +82,82 @@ const FRONT_MATTER_KEYS = new Map([
 const FRONT_MATTER_LISTS = new Set(["disciplines", "topics"]);
 
 /**
- * Lo que un artículo necesita tener cargado para no quedar en deuda editorial.
- * El orden es el de la lista que se le muestra a quien importa el archivo.
- * Coincide a propósito con lo que reclama `deuda-editorial.js`: si algo se
- * exige allá y no se pide acá, el archivo pasa y la deuda aparece después.
+ * Lo que un artículo necesita tener **escrito**, porque no se puede deducir de
+ * ninguna otra parte. El orden es el de la lista que ve quien importa.
+ *
+ * No están acá el `slug` —se deriva del título— ni la fase, la serie y la parte
+ * cuando el documento las trae en su línea de cabecera: pedir lo que ya está
+ * dicho, aunque esté dicho en prosa, es trabajo inventado.
+ *
+ * `si` marca los campos que solo hacen falta bajo una condición. El alt es
+ * obligatorio, pero de una imagen que existe: reclamarlo cuando todavía no hay
+ * portada es mandar a alguien a describir una imagen que nadie eligió.
  */
 export const CAMPOS_EDITORIALES = Object.freeze([
-  { campo: "slug", etiqueta: "slug" },
   { campo: "excerpt", etiqueta: "resumen (deck)" },
   { campo: "metaTitle", etiqueta: "meta title" },
   { campo: "metaDescription", etiqueta: "meta description" },
   { campo: "focusKeyword", etiqueta: "palabra clave" },
   { campo: "extractiveBlock", etiqueta: "bloque extractivo" },
-  { campo: "coverImageAlt", etiqueta: "alt de portada" },
+  { campo: "coverImageAlt", etiqueta: "alt de portada", si: (a) => Boolean(a.coverImage) },
   { campo: "seriesName", etiqueta: "serie" },
-  { campo: "seriesOrder", etiqueta: "parte" },
+  { campo: "seriesOrder", etiqueta: "parte", si: (a) => Boolean(a.seriesName) },
   { campo: "disciplines", etiqueta: "disciplinas" },
   { campo: "topics", etiqueta: "temas" },
 ]);
+
+/**
+ * La línea de cabecera con que la matriz editorial encabeza cada artículo:
+ *
+ *     **Fase 5 · Artículo 1** · *La angustia y sus formas*
+ *     Extensión total: ~4.900 palabras. Corte en 3 partes.
+ *
+ * Ahí están la fase, el número de entrega y el nombre de la serie, dichos en
+ * prosa. Estaban desde siempre y el importador los ignoraba, así que la pantalla
+ * los pedía otra vez como si el documento no los tuviera.
+ *
+ * Solo se leen los primeros renglones del cuerpo, antes del primer separador o
+ * encabezado: más adelante el mismo documento dice "Parte 1", "Parte 2" y
+ * "Parte 3" para marcar sus cortes internos, que son otra cosa.
+ */
+export function leerCabeceraEditorial(body) {
+  const lineas = [];
+  for (const linea of String(body || "").split("\n")) {
+    if (/^\s*(?:---+|#{1,6}\s)/.test(linea)) break;
+    if (linea.trim()) lineas.push(linea);
+    if (lineas.length >= 8) break;
+  }
+
+  const cabecera = {};
+
+  for (const linea of lineas) {
+    const cortes = linea.match(/corte\s+en\s+(\d+)\s+partes?/i);
+    if (cortes && !cabecera.parts) cabecera.parts = cortes[1];
+
+    // Se le quita el marcado y se parte por el separador que usa la matriz.
+    const limpia = linea.replace(/[*_`]/g, "").trim();
+    if (!/\bfase\b/i.test(limpia)) continue;
+
+    for (const tramo of limpia.split(/\s*[·|]\s*/)) {
+      const texto = tramo.trim().replace(/[.,;]+$/, "");
+      if (!texto) continue;
+
+      if (/^fase\b/i.test(texto)) {
+        cabecera.phase ??= texto;
+        continue;
+      }
+      const entrega = texto.match(/^(?:art[íi]culo|entrega|parte)\s*(\d+)$/i);
+      if (entrega) {
+        cabecera.part ??= entrega[1];
+        continue;
+      }
+      // Lo que queda al lado de la fase y del número es el nombre de la serie.
+      cabecera.series ??= texto;
+    }
+  }
+
+  return cabecera;
+}
 
 const TEXT_EXTENSIONS = [".md", ".markdown", ".mdown", ".mdx", ".txt"];
 
@@ -218,7 +278,10 @@ export function parseMarkdownDocument(text, fileName = "") {
   const title = data.title || heading.title || titleFromFileName(fileName);
   if (!title) warnings.push("El archivo no tiene título; escribilo a mano antes de guardar.");
 
-  const content = heading.body.trim();
+  // El cuerpo se limpia DESPUÉS de leer la cabecera: primero se aprovecha lo que
+  // dice —fase, serie, entrega— y recién entonces se saca del texto publicable.
+  const limpieza = limpiarAndamiajeEditorial(heading.body);
+  const content = limpieza.contenido;
   if (!content) warnings.push("El archivo no tiene contenido después del título.");
 
   const frontMatterMetadata = {};
@@ -246,10 +309,15 @@ export function parseMarkdownDocument(text, fileName = "") {
     if (data[key] !== undefined) frontMatterMetadata[key] = data[key];
   }
 
+  // La cabecera es el último recurso: si el bloque de metadatos o el front
+  // matter dicen la fase, la serie o la parte, mandan ellos. La prosa se lee
+  // solo para no volver a pedir lo que el documento ya trae escrito.
+  const cabecera = leerCabeceraEditorial(heading.body);
+
   const crmMetadata = crm.found || Object.keys(frontMatterMetadata).length
     ? { ...(crm.metadata || {}), ...frontMatterMetadata }
     : null;
-  const pick = (key) => data[key] || crmMetadata?.[key] || null;
+  const pick = (key) => data[key] || crmMetadata?.[key] || cabecera[key] || null;
   const pickList = (key) => {
     const valor = pick(key);
     if (Array.isArray(valor)) return valor.filter(Boolean);
@@ -260,7 +328,11 @@ export function parseMarkdownDocument(text, fileName = "") {
   const parsed = {
     title: title || "",
     content,
-    slug: pick("slug"),
+    // El slug no se pide: se deriva del título y queda visible en el campo para
+    // acortarlo. Al guardar, `updateAdminPost` lo derivaba igual pero sin que
+    // nadie lo viera, así que pedirlo en el documento era friccón sin destino.
+    slug: pick("slug") || (title ? slugify(title) : null),
+    slugDerivado: !pick("slug"),
     excerpt: pick("excerpt"),
     metaTitle: pick("metaTitle"),
     metaDescription: pick("metaDescription"),
@@ -280,13 +352,16 @@ export function parseMarkdownDocument(text, fileName = "") {
     topics: pickList("topics"),
     crmMetadata,
     warnings,
+    /// Qué se sacó del cuerpo. La pantalla lo muestra: nada se quita en silencio.
+    removidos: limpieza.removidos,
   };
 
   // Qué le falta al archivo para no nacer en deuda. Se dice al importar y no al
   // publicar: corregirlo en el documento y volver a subirlo cuesta un minuto;
   // descubrirlo tres semanas después, cuando el artículo ya está indexado,
   // cuesta otra cosa.
-  parsed.faltantes = CAMPOS_EDITORIALES.filter(({ campo }) => {
+  parsed.faltantes = CAMPOS_EDITORIALES.filter(({ campo, si }) => {
+    if (si && !si(parsed)) return false;
     const valor = parsed[campo];
     return Array.isArray(valor) ? valor.length === 0 : !valor;
   }).map(({ etiqueta }) => etiqueta);

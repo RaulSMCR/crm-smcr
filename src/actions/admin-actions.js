@@ -240,6 +240,14 @@ export async function createAdminPost(input) {
     const ogImage = String(input?.ogImage || "").trim() || null;
     const focusKeyword = String(input?.focusKeyword || "").trim() || null;
     const noindex = Boolean(input?.noindex);
+    // Llegan desde el .md importado. Si no se persisten acá, el archivo los trae
+    // escritos, la pantalla dice que los detectó, y al guardar se pierden.
+    const extractiveBlock = String(input?.extractiveBlock || "").trim() || null;
+    const coverImage = String(input?.coverImage || "").trim() || null;
+    const coverImageTitle = String(input?.coverImageTitle || "").trim() || null;
+    const coverImageAlt = String(input?.coverImageAlt || "").trim().slice(0, 300) || null;
+    const coverImageAuthor = String(input?.coverImageAuthor || "").trim() || null;
+    const coverImageNote = String(input?.coverImageNote || "").trim() || null;
 
     if (!authorId) return { error: "Elegí el profesional que firma el artículo." };
     if (title.length < 4) return { error: "El título debe tener al menos 4 caracteres." };
@@ -280,6 +288,12 @@ export async function createAdminPost(input) {
         ogImage,
         focusKeyword,
         noindex,
+        extractiveBlock,
+        coverImage,
+        coverImageTitle,
+        coverImageAlt,
+        coverImageAuthor,
+        coverImageNote,
         seriesId: series?.id || null,
         seriesOrder: series?.id ? seriesOrder : null,
         seriesApproved: false,

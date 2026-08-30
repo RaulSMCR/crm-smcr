@@ -21,8 +21,13 @@ async function getPostOrNull(idParam, authorId) {
       excerpt: true,
       coverImage: true,
       coverImageTitle: true,
+      // Sin esto el editor arrancaba con el alt vacío y el PATCH lo escribía
+      // como null: cada edición del profesional borraba el texto alternativo de
+      // su portada, que es lo único que tiene quien no puede ver la imagen.
+      coverImageAlt: true,
       coverImageAuthor: true,
       coverImageNote: true,
+      extractiveBlock: true,
       status: true,
       slug: true,
       metaTitle: true,

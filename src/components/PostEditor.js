@@ -42,6 +42,7 @@ export default function PostEditor({ initial = null }) {
   const [coverImageAlt, setCoverImageAlt] = useState(initial?.coverImageAlt ?? "");
   const [coverImageAuthor, setCoverImageAuthor] = useState(initial?.coverImageAuthor ?? "");
   const [coverImageNote, setCoverImageNote] = useState(initial?.coverImageNote ?? "");
+  const [extractiveBlock, setExtractiveBlock] = useState(initial?.extractiveBlock ?? "");
   const [previewUrl, setPreviewUrl] = useState(initial?.coverImage ?? "");
   const [imageName, setImageName] = useState("");
   const [dragActive, setDragActive] = useState(false);
@@ -91,6 +92,7 @@ export default function PostEditor({ initial = null }) {
     if (Number.isInteger(parsed.seriesOrder)) setSeriesOrder(parsed.seriesOrder);
     // La portada y su crédito: el alt es obligatorio para accesibilidad y lo
     // reclama la deuda editorial, así que si el documento lo trae, se usa.
+    if (parsed.extractiveBlock) setExtractiveBlock(parsed.extractiveBlock);
     if (parsed.coverImage) setCoverImage(parsed.coverImage);
     if (parsed.coverImageAlt) setCoverImageAlt(parsed.coverImageAlt);
     if (parsed.coverImageTitle) setCoverImageTitle(parsed.coverImageTitle);
@@ -188,6 +190,7 @@ export default function PostEditor({ initial = null }) {
       ogImage: ogImage || null,
       focusKeyword: focusKeyword || null,
       noindex,
+      extractiveBlock: extractiveBlock || null,
       ...(isEdit ? {} : { seriesName: seriesName || null, seriesOrder }),
       coverImage: coverImage || null,
       coverImageTitle: coverImageTitle || null,
@@ -314,6 +317,24 @@ export default function PostEditor({ initial = null }) {
           }}
         />
       ) : null}
+
+      {/* Bloque extractivo (GEO). No es la meta description: aquella compite por
+          el clic y se corta a 160; este responde la pregunta completa para que
+          un modelo lo cite tal cual. */}
+      <div>
+        <label className="mb-1 block text-sm font-semibold text-slate-700">Bloque extractivo</label>
+        <textarea
+          value={extractiveBlock}
+          onChange={(e) => setExtractiveBlock(e.target.value)}
+          rows={4}
+          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          placeholder="Párrafo autocontenido de 40 a 60 palabras que responda la pregunta del artículo sin depender del contexto."
+        />
+        <p className="mt-1 text-xs text-slate-500">
+          {extractiveBlock.trim() ? extractiveBlock.trim().split(/\s+/).length : 0} palabras · lo
+          ideal son 40 a 60. Tiene que entenderse solo, fuera del artículo.
+        </p>
+      </div>
 
       <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
         <div>

@@ -74,6 +74,9 @@ export async function PATCH(request, { params }) {
     if ("ogImage" in body) metadata.ogImage = String(body.ogImage || "").trim() || null;
     if ("focusKeyword" in body) metadata.focusKeyword = String(body.focusKeyword || "").trim() || null;
     if ("noindex" in body) metadata.noindex = Boolean(body.noindex);
+    if ("extractiveBlock" in body) {
+      metadata.extractiveBlock = String(body.extractiveBlock || "").trim() || null;
+    }
 
     const updated = await prisma.post.update({
       where: { id },

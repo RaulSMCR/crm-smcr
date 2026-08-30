@@ -75,7 +75,10 @@ describe("parseMarkdownDocument", () => {
   it("ignora claves de front matter que no mapean a campos del CRM", () => {
     const result = parseMarkdownDocument("---\ntitle: Uno\nauthor: Alguien\ntags: [a, b]\n---\n\nTexto.");
     expect(result.title).toBe("Uno");
-    expect(result.slug).toBeNull();
+    // `author` no mapea a nada y se ignora. El slug no viene del front matter:
+    // se deriva del título, y por eso sale igual.
+    expect(result.slug).toBe("uno");
+    expect(result.slugDerivado).toBe(true);
     expect(result.content).toBe("Texto.");
   });
 
@@ -178,5 +181,79 @@ describe("parseMarkdownDocument — completitud editorial", () => {
     );
     expect(result.topics).toEqual(["angustia", "sueño"]);
     expect(result.disciplines).toEqual(["Psicología clínica"]);
+  });
+});
+
+describe("parseMarkdownDocument — lo que el documento ya trae y no hay que volver a pedir", () => {
+  const conCabecera = [
+    "# Angustia y angosto vienen de la misma raíz",
+    "",
+    "**Fase 5 · Artículo 1** · *La angustia y sus formas*",
+    "",
+    "Extensión total: ~4.900 palabras. Corte en 3 partes.",
+    "",
+    "**Parte 1: \"Un objeto de madera\"** — desde la apertura. ~1.750w.",
+    "",
+    "---",
+    "",
+    "## PARTE 1",
+    "",
+    "Texto del artículo.",
+  ].join("\n");
+
+  it("lee fase, serie y número de entrega de la línea de cabecera", () => {
+    const result = parseMarkdownDocument(conCabecera, "01-angustia.md");
+    expect(result.phase).toBe("Fase 5");
+    expect(result.seriesName).toBe("La angustia y sus formas");
+    expect(result.seriesOrder).toBe(1);
+  });
+
+  it("no confunde los cortes internos con el número de entrega", () => {
+    // Más abajo el documento dice "Parte 1", "Parte 2" y "Parte 3" para marcar
+    // sus propios cortes. Eso no es la posición del artículo en la serie.
+    const result = parseMarkdownDocument(conCabecera, "01-angustia.md");
+    expect(result.seriesOrder).toBe(1);
+  });
+
+  it("el bloque de metadatos le gana a la cabecera en prosa", () => {
+    const result = parseMarkdownDocument(
+      [conCabecera, "", "## Metadatos", "Serie: Otra serie", "Parte: 4"].join("\n"),
+      "art.md",
+    );
+    expect(result.seriesName).toBe("Otra serie");
+    expect(result.seriesOrder).toBe(4);
+  });
+
+  it("deriva el slug del título en vez de pedirlo", () => {
+    const result = parseMarkdownDocument(conCabecera, "01-angustia.md");
+    expect(result.slug).toBe("angustia-y-angosto-vienen-de-la-misma-raiz");
+    expect(result.slugDerivado).toBe(true);
+    expect(result.faltantes).not.toContain("slug");
+  });
+
+  it("respeta el slug escrito y no lo marca como derivado", () => {
+    const result = parseMarkdownDocument(
+      ["# Título largo", "", "Cuerpo.", "", "## Metadatos", "Slug: corto"].join("\n"),
+      "art.md",
+    );
+    expect(result.slug).toBe("corto");
+    expect(result.slugDerivado).toBe(false);
+  });
+
+  it("no reclama el alt de una portada que no existe", () => {
+    const sinPortada = parseMarkdownDocument("# Título\n\nCuerpo.", "art.md");
+    expect(sinPortada.faltantes).not.toContain("alt de portada");
+
+    const conPortada = parseMarkdownDocument(
+      ["# Título", "", "Cuerpo.", "", "## Metadatos", "Portada: https://x/p.webp"].join("\n"),
+      "art.md",
+    );
+    expect(conPortada.faltantes).toContain("alt de portada");
+  });
+
+  it("no reclama la parte de un artículo que no está en ninguna serie", () => {
+    const suelto = parseMarkdownDocument("# Título\n\nCuerpo.", "art.md");
+    expect(suelto.faltantes).toContain("serie");
+    expect(suelto.faltantes).not.toContain("parte");
   });
 });

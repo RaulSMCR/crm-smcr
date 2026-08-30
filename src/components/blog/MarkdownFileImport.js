@@ -17,12 +17,14 @@ export default function MarkdownFileImport({ onImport, compact = false }) {
   const [reading, setReading] = useState(false);
   const [status, setStatus] = useState(null);
   const [missing, setMissing] = useState([]);
+  const [removed, setRemoved] = useState([]);
   const [error, setError] = useState(null);
 
   async function readFile(file) {
     setError(null);
     setStatus(null);
     setMissing([]);
+    setRemoved([]);
 
     if (!file) return;
     if (!isMarkdownFileName(file.name)) {
@@ -64,6 +66,7 @@ export default function MarkdownFileImport({ onImport, compact = false }) {
       // Lo que falta se muestra aparte y no mezclado con lo que sí llegó: es
       // una lista para llevarle al documento, no un aviso más.
       setMissing(parsed.faltantes || []);
+      setRemoved(parsed.removidos || []);
     } catch (readError) {
       console.error("Error leyendo el archivo markdown:", readError);
       setError("No se pudo leer el archivo.");
@@ -123,6 +126,16 @@ export default function MarkdownFileImport({ onImport, compact = false }) {
 
       {error ? <p className="rounded border border-red-200 bg-red-50 p-2 text-xs text-red-700">{error}</p> : null}
       {status ? <p className="rounded border border-emerald-200 bg-emerald-50 p-2 text-xs text-emerald-800">{status}</p> : null}
+
+      {removed.length ? (
+        <div className="rounded border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">
+          <p className="font-semibold">Se sacó del contenido: {removed.join(", ")}.</p>
+          <p className="mt-1">
+            Son instrucciones de producción, no artículo. El cuerpo y la bibliografía quedan
+            completos.
+          </p>
+        </div>
+      ) : null}
 
       {missing.length ? (
         <div className="rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">

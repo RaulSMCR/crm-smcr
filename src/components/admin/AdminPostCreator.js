@@ -27,6 +27,12 @@ export default function AdminPostCreator({ authors = [], defaultAuthorId = "" })
     ogImage: "",
     focusKeyword: "",
     noindex: false,
+    extractiveBlock: "",
+    coverImage: "",
+    coverImageTitle: "",
+    coverImageAlt: "",
+    coverImageAuthor: "",
+    coverImageNote: "",
     seriesName: "",
     seriesOrder: null,
   });
@@ -53,6 +59,15 @@ export default function AdminPostCreator({ authors = [], defaultAuthorId = "" })
       noindex: parsed.noindex !== undefined ? Boolean(parsed.noindex) : current.noindex,
       seriesName: parsed.seriesName || current.seriesName,
       seriesOrder: Number.isInteger(parsed.seriesOrder) ? parsed.seriesOrder : current.seriesOrder,
+      // Se guardan aunque esta pantalla no los muestre: el editor completo, que
+      // se abre enseguida, es donde se revisan. Si no viajaran hasta acá, el
+      // archivo los traería escritos y se perderían al crear el borrador.
+      extractiveBlock: parsed.extractiveBlock || current.extractiveBlock,
+      coverImage: parsed.coverImage || current.coverImage,
+      coverImageAlt: parsed.coverImageAlt || current.coverImageAlt,
+      coverImageTitle: parsed.coverImageTitle || current.coverImageTitle,
+      coverImageAuthor: parsed.coverImageAuthor || current.coverImageAuthor,
+      coverImageNote: parsed.coverImageNote || current.coverImageNote,
     }));
     if (parsed.crmMetadata) {
       window.dispatchEvent(new CustomEvent("crm:editorial-metadata", { detail: parsed.crmMetadata }));
@@ -86,7 +101,9 @@ export default function AdminPostCreator({ authors = [], defaultAuthorId = "" })
       <section className="space-y-3 rounded-xl border border-blue-100 bg-blue-50/50 p-5 xl:col-span-2">
         <h2 className="text-sm font-bold text-slate-900">Cargar artículo desde un archivo .md</h2>
         <p className="text-xs text-slate-600">
-          Está disponible desde el inicio. Completa automáticamente los campos que encuentre: título, contenido, resumen, SEO y serie/parte.
+          Está disponible desde el inicio. Completa los campos que encuentre: título, contenido,
+          resumen, SEO, bloque extractivo, portada, serie/parte y clasificación de biblioteca. El
+          slug sale del título si el archivo no trae uno.
         </p>
         <MarkdownFileImport onImport={handleImport} />
       </section>

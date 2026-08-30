@@ -47,6 +47,7 @@ export async function POST(request) {
     const coverImageAlt = String(body?.coverImageAlt || "").trim().slice(0, 300) || null;
     const coverImageAuthor = String(body?.coverImageAuthor || "").trim() || null;
     const coverImageNote = String(body?.coverImageNote || "").trim() || null;
+    const extractiveBlock = String(body?.extractiveBlock || "").trim() || null;
 
     if (!title || !content) {
       return NextResponse.json({ message: "Titulo y contenido son requeridos" }, { status: 400 });
@@ -89,6 +90,7 @@ export async function POST(request) {
         coverImageAlt,
         coverImageAuthor,
         coverImageNote,
+        extractiveBlock,
         status: "DRAFT",
         authorId: String(guard.proId),
       },

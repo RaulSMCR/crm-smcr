@@ -37,9 +37,18 @@ front matter manda.
 Cada línea es `Etiqueta: valor`. Se admiten negritas, cursivas y comillas
 alrededor del valor: el importador las quita.
 
+> **Lo que no hace falta escribir.** El sistema ya lo tiene:
+>
+> - **Slug** — se deriva del título y queda editable en el campo. Escribilo solo
+>   si querés uno más corto que el título.
+> - **Fase, serie y número de entrega** — se leen de la línea de cabecera con que
+>   la matriz encabeza cada artículo: `**Fase 5 · Artículo 1** · *La angustia y
+>   sus formas*`. Escribirlos en el bloque los sobrescribe.
+> - **Alt de portada** — solo se pide cuando hay portada.
+
 | Campo | Etiquetas que se reconocen | Qué se espera |
 |---|---|---|
-| **Slug** | `Slug`, `URL` | Minúsculas, sin tildes, con guiones. Es la URL: no cambia después de publicado. |
+| **Slug** | `Slug`, `URL` | Opcional. Minúsculas, sin tildes, con guiones. Si no está, sale del título. |
 | **Resumen** | `Deck`, `Resumen`, `Excerpt`, `Bajada`, `Sumario` | 2–3 oraciones. Es lo que se ve en la biblioteca y en la tarjeta del artículo. |
 | **Meta title** | `Meta title`, `Título alternativo SEO`, `Título SEO` | ≤ 60 caracteres. Es el título del resultado de búsqueda, no el del artículo. |
 | **Meta description** | `Meta description`, `Descripción SEO` | ≤ 155 caracteres. Compite por el clic; no repite el meta title. |
@@ -99,10 +108,11 @@ Cerrá el documento con un bloque de metadatos bajo el encabezado exacto
 sin viñetas salvo donde se indique. No uses comillas ni cursivas alrededor de
 los valores.
 
+No escribas el slug, la fase, la serie ni el número de entrega: el sistema los
+saca del título y de la línea de cabecera del artículo.
+
 Escribí estos campos, todos, en este orden:
 
-Slug: (minúsculas, sin tildes, palabras separadas por guiones, máximo 60
-  caracteres; que se lea como el tema del artículo, no como su título completo)
 Deck: (2 o 3 oraciones, entre 25 y 50 palabras; es lo que se lee en la
   biblioteca antes de entrar al artículo)
 Meta title: (máximo 60 caracteres, incluyendo la palabra clave; es el título del
@@ -114,12 +124,8 @@ Bloque extractivo: (entre 40 y 60 palabras, en un solo párrafo, autocontenido:
   tiene que entenderse leído fuera del artículo, sin "como vimos", sin "en esta
   entrega" y sin pronombres que apunten a un párrafo anterior; responde la
   pregunta central del artículo con sus datos concretos)
-Alt de portada: (qué se ve en la imagen, para quien no puede verla; una oración;
-  no es el nombre de la obra ni el título del artículo)
-Fase: (la fase editorial a la que pertenece)
-Serie: (el nombre exacto de la serie, sin el número de entrega)
-Parte: (solo el número)
-Partes: (cuántas entregas son en total)
+Alt de portada: (solo si el artículo lleva portada: qué se ve en la imagen, para
+  quien no puede verla; una oración; no es el nombre de la obra ni el título)
 Disciplinas: (una o dos, separadas por coma, tomadas del vocabulario del sitio)
 Temas: (tres a seis, separados por coma, tomados del vocabulario del sitio)
 Enlaces internos sugeridos:
@@ -151,10 +157,19 @@ diga.
 
 ## E. Ejemplo completo
 
+La cabecera del artículo, que ya escribe la matriz, aporta fase, serie y entrega:
+
+```markdown
+# Angustia y angosto vienen de la misma raíz
+
+**Fase 5 · Artículo 1** · *La angustia y sus formas*
+```
+
+Y el bloque, al final, aporta el resto:
+
 ```markdown
 ## Metadatos para CRM
 
-Slug: angustia-y-angosto-misma-raiz
 Deck: Angustia y angosto son la misma palabra latina. Dos familias de lenguas sin
   parentesco entre sí nombraron la angustia como estrechez del pecho, y lo que se
   perdió al convertirla en una cantidad medible fue más que precisión.
@@ -168,10 +183,6 @@ Bloque extractivo: Angustia y angosto son la misma palabra latina: ambas vienen 
   produjo angina, ansiedad y congoja.
 Alt de portada: Un desfiladero estrecho entre dos paredes de roca, con una franja
   de cielo arriba.
-Fase: Fase 5
-Serie: La angustia y sus formas
-Parte: 1
-Partes: 3
 Disciplinas: Psicología clínica
 Temas: angustia, ansiedad, lenguaje, historia de la psicología
 Enlaces internos sugeridos:
