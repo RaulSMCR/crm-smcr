@@ -47,7 +47,7 @@ alrededor del valor: el importador las quita.
 > - **Alt de portada** — solo se pide cuando hay portada.
 
 | Campo | Etiquetas que se reconocen | Qué se espera |
-|---|---|---|
+| --- | --- | --- |
 | **Slug** | `Slug`, `URL` | Opcional. Minúsculas, sin tildes, con guiones. Si no está, sale del título. |
 | **Resumen** | `Deck`, `Resumen`, `Excerpt`, `Bajada`, `Sumario` | 2–3 oraciones. Es lo que se ve en la biblioteca y en la tarjeta del artículo. |
 | **Meta title** | `Meta title`, `Título alternativo SEO`, `Título SEO` | ≤ 60 caracteres. Es el título del resultado de búsqueda, no el del artículo. |
@@ -192,7 +192,31 @@ Enlaces internos sugeridos:
 
 ---
 
-## F. Qué mira el sistema del lado de acá
+## F. Qué se publica y qué no
+
+El campo **Contenido** del CRM tiene que quedar con el ensayo y nada más. El
+importador separa solo el andamiaje de producción, y avisa qué sacó:
+
+| Se saca del contenido | Por qué |
+| --- | --- |
+| `**Fase 5 · Artículo 1** · *Serie*` | Ya se leyó como fase, serie y entrega. |
+| `Extensión total: … Corte en 3 partes.` | Instrucción de producción. |
+| `**Parte 1: "…"** — desde … hasta …` | El plan del corte, no el texto. |
+| `## PARTE 1`, `## PARTE 2`… | Marcan dónde cortar. Los títulos del ensayo son los `###`. |
+| `**Puente:** En la entrega anterior…` | Le habla al lector de la entrega previa. |
+| `### Referencias del segmento (APA)` | **Solo si hay `## Referencias generales`**, que son su unión. |
+| El bloque de metadatos y lo que siga | Notas internas. |
+
+**Se conserva siempre:** el cuerpo, todos sus `###` y la bibliografía final. La
+bibliografía es parte del artículo. Si un documento trae referencias por segmento
+y **no** trae generales, no se toca ninguna: ahí esa es toda la bibliografía que
+hay.
+
+Nada se quita en silencio: la pantalla de importación lista lo removido.
+
+---
+
+## G. Qué mira el sistema del lado de acá
 
 - `src/lib/editorial-metadata.js` — lee el bloque y reconoce las etiquetas.
 - `src/lib/markdown-document.js` — arma el artículo y calcula `faltantes`.
