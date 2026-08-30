@@ -68,8 +68,8 @@ function limpiar(fila) {
 
 async function contar() {
   const conteos = {};
-  for (const tabla of TABLAS) {
-    conteos[tabla] = await prisma[tabla].count();
+  for (const { modelo } of TABLAS) {
+    conteos[modelo] = await prisma[modelo].count();
   }
   return conteos;
 }
@@ -94,14 +94,14 @@ async function verificar() {
   let perdidas = 0;
 
   console.log(`Comparando contra ${previo.tomadoEn}\n`);
-  for (const tabla of TABLAS) {
-    const antes = previo.conteos[tabla] ?? 0;
-    const despues = ahora[tabla] ?? 0;
+  for (const { modelo } of TABLAS) {
+    const antes = previo.conteos[modelo] ?? 0;
+    const despues = ahora[modelo] ?? 0;
     const delta = despues - antes;
     const marca = delta < 0 ? "PERDIDA" : delta > 0 ? "+" : "ok";
     if (delta < 0) perdidas += 1;
     console.log(
-      `${marca.padEnd(8)} ${tabla.padEnd(22)} ${String(antes).padStart(6)} → ${String(despues).padStart(6)}${delta ? ` (${delta > 0 ? "+" : ""}${delta})` : ""}`,
+      `${marca.padEnd(8)} ${modelo.padEnd(22)} ${String(antes).padStart(6)} → ${String(despues).padStart(6)}${delta ? ` (${delta > 0 ? "+" : ""}${delta})` : ""}`,
     );
   }
 
@@ -119,9 +119,12 @@ async function respaldar() {
 
   const conteos = await contar();
   const datos = {};
-  for (const tabla of TABLAS) {
-    const filas = await prisma[tabla].findMany();
-    datos[tabla] = filas.map(limpiar);
+  for (const { modelo, tabla } of TABLAS) {
+    // SELECT * y no findMany(): el cliente de Prisma ya conoce las columnas que
+    // la migración va a crear y pide por nombre las que todavía no existen. Un
+    // respaldo tiene que poder leer la base tal como está, no como va a quedar.
+    const filas = await prisma.$queryRawUnsafe(`SELECT * FROM "${tabla}"`);
+    datos[modelo] = filas.map(limpiar);
   }
 
   const salida = { tomadoEn: new Date().toISOString(), conteos, datos };
@@ -129,8 +132,8 @@ async function respaldar() {
   writeFileSync(ruta, JSON.stringify(salida, null, 2), "utf8");
 
   console.log(`Respaldo en ${ruta}\n`);
-  for (const tabla of TABLAS) {
-    console.log(`  ${tabla.padEnd(22)} ${conteos[tabla]}`);
+  for (const { modelo } of TABLAS) {
+    console.log(`  ${modelo.padEnd(22)} ${conteos[modelo]}`);
   }
 }
 
