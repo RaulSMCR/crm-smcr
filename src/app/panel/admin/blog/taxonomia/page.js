@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/actions/auth-actions";
 import TaxonomyManager from "@/components/admin/TaxonomyManager";
+import VocabularioParaMatriz from "@/components/admin/VocabularioParaMatriz";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,13 @@ export default async function TaxonomyAdminPage() {
             <p className="text-slate-500">Disciplinas, temas, series y temas complementarios.</p>
           </div>
         </div>
+
+        <VocabularioParaMatriz
+          disciplines={disciplines}
+          topics={topics}
+          phases={phases}
+          series={series}
+        />
 
         <TaxonomyManager
           disciplines={disciplines}

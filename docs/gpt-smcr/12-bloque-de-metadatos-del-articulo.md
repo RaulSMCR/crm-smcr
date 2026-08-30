@@ -30,6 +30,21 @@ pueden ir debajo sin riesgo de que salgan al sitio.
 También se acepta front matter YAML al inicio del archivo. Si están los dos, el
 front matter manda.
 
+Si el documento trae **más de un bloque**, se leen todos y gana el último: se le
+puede agregar un bloque actualizado al final sin borrar el anterior.
+
+### El vocabulario, para que la matriz clasifique con los nombres reales
+
+`Disciplinas`, `Temas`, `Fase` y `Serie` solo se marcan solos si el nombre existe
+en Taxonomía. Para que la matriz los use bien, tiene que conocerlos: en
+**Panel → Gestión editorial → Taxonomía** hay un bloque **«Vocabulario para la
+matriz editorial»** con la lista viva y un botón de copiar. Pegalo en la matriz
+junto al prompt.
+
+Sale de la base y no de este documento a propósito: una lista copiada acá queda
+vieja al primer tema que se agregue, y a partir de ahí la matriz propone
+etiquetas que no existen.
+
 ---
 
 ## B. Los campos

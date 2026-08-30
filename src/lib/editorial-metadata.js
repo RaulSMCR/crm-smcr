@@ -181,13 +181,44 @@ function pushValores(metadata, key, valor) {
  */
 export function extractCrmMetadata(text) {
   const source = String(text || "");
-  const header = HEADER_RE.exec(source);
-  if (!header) return { found: false, content: source, metadata: null };
 
-  const blockStart = header.index + header[1].length;
-  const block = source.slice(blockStart);
-  const lines = block.split(/\r?\n/);
+  // Puede haber más de un bloque: un documento que ya tenía "## Metadatos" y al
+  // que la matriz le agregó abajo un "## Metadatos para CRM" actualizado. Se
+  // leen todos y **gana el último**, que es el más reciente. Antes se tomaba el
+  // primero y el resto se ignoraba en silencio, que es la peor de las opciones:
+  // el archivo traía el dato, la pantalla decía que faltaba.
+  const inicios = [];
+  const buscador = new RegExp(HEADER_RE.source, "gi");
+  let encontrado;
+  while ((encontrado = buscador.exec(source)) !== null) {
+    inicios.push(encontrado.index + encontrado[1].length);
+    if (buscador.lastIndex === encontrado.index) buscador.lastIndex += 1;
+  }
+
+  if (!inicios.length) return { found: false, content: source, metadata: null };
+
   const metadata = {};
+  for (const inicio of inicios) leerBloque(source.slice(inicio), metadata);
+
+  for (const key of LIST_FIELDS) {
+    if (metadata[key] && !metadata[key].length) delete metadata[key];
+  }
+  if (metadata.part) metadata.partNumber = parsePartNumber(metadata.part);
+  if (metadata.parts) metadata.partsCount = parsePartNumber(metadata.parts);
+
+  // El contenido publicable termina donde empieza el PRIMER bloque.
+  const content = source.slice(0, inicios[0]).replace(/[\r\n\s]+$/, "");
+  return {
+    found: true,
+    content,
+    metadata,
+    raw: source.slice(inicios[0]),
+  };
+}
+
+/** Lee un bloque y vuelca sus campos en `metadata`, sobrescribiendo lo anterior. */
+function leerBloque(block, metadata) {
+  const lines = block.split(/\r?\n/);
   let currentList = null;
 
   for (const line of lines.slice(1)) {
@@ -228,18 +259,4 @@ export function extractCrmMetadata(text) {
     // pero un párrafo suelto sí: ya no pertenece al campo anterior.
     if (line.trim()) currentList = null;
   }
-
-  for (const key of LIST_FIELDS) {
-    if (metadata[key] && !metadata[key].length) delete metadata[key];
-  }
-  if (metadata.part) metadata.partNumber = parsePartNumber(metadata.part);
-  if (metadata.parts) metadata.partsCount = parsePartNumber(metadata.parts);
-
-  const content = source.slice(0, blockStart).replace(/[\r\n\s]+$/, "");
-  return {
-    found: true,
-    content,
-    metadata,
-    raw: source.slice(blockStart),
-  };
 }

@@ -134,3 +134,48 @@ describe("extractCrmMetadata — nombres que de hecho aparecen escritos", () => 
     expect(result.metadata.internalLinks).toEqual(["Índice de la Serie 4, parte 2."]);
   });
 });
+
+describe("extractCrmMetadata — más de un bloque", () => {
+  const documento = [
+    "# Artículo",
+    "",
+    "Cuerpo.",
+    "",
+    "## Metadatos",
+    "Título alternativo SEO: El título viejo",
+    "Deck: El resumen que ya estaba.",
+    "",
+    "## Verificaciones pendientes antes de publicar",
+    "- Paginación por verificar.",
+    "",
+    "## Metadatos para CRM",
+    "Meta title: El título nuevo",
+    "Meta description: La descripción que agregó la matriz.",
+    "Palabra clave: origen de la palabra angustia",
+    "Temas: angustia",
+  ].join("\n");
+
+  const result = extractCrmMetadata(documento);
+
+  it("lee todos los bloques y no solo el primero", () => {
+    // El caso real: un documento que ya tenía "## Metadatos" y al que la matriz
+    // le agregó abajo un bloque actualizado. Antes se leía el primero y el
+    // resto se ignoraba en silencio: el archivo traía el dato y la pantalla
+    // decía que faltaba.
+    expect(result.metadata.metaDescription).toBe("La descripción que agregó la matriz.");
+    expect(result.metadata.focusKeyword).toBe("origen de la palabra angustia");
+    expect(result.metadata.topics).toEqual(["angustia"]);
+  });
+
+  it("gana el último, que es el más reciente", () => {
+    expect(result.metadata.metaTitle).toBe("El título nuevo");
+  });
+
+  it("conserva lo que solo dijo el bloque viejo", () => {
+    expect(result.metadata.excerpt).toBe("El resumen que ya estaba.");
+  });
+
+  it("corta el contenido en el primer bloque", () => {
+    expect(result.content).toBe("# Artículo\n\nCuerpo.");
+  });
+});
