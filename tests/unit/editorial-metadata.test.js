@@ -48,3 +48,89 @@ describe("extractCrmMetadata", () => {
     });
   });
 });
+
+describe("extractCrmMetadata — nombres que de hecho aparecen escritos", () => {
+  it('reconoce el bloque titulado solo "## Metadatos"', () => {
+    // Es como lo titula el documento editorial real. Con el encabezado exacto
+    // "Metadatos para CRM" como única forma aceptada, el bloque entero se
+    // ignoraba en silencio y el artículo entraba sin un solo metadato.
+    const result = extractCrmMetadata(
+      ["# Artículo", "", "Texto.", "", "## Metadatos", "", "Deck: Un resumen."].join("\n"),
+    );
+    expect(result.found).toBe(true);
+    expect(result.metadata.excerpt).toBe("Un resumen.");
+    expect(result.content).toBe("# Artículo\n\nTexto.");
+  });
+
+  it('lee "Deck" como resumen y "Título alternativo SEO" como meta title', () => {
+    const result = extractCrmMetadata(
+      [
+        "## Metadatos",
+        "",
+        'Título alternativo SEO: *"Angustia y ansiedad: de dónde vienen"*.',
+        'Deck: *"Primera entrega de una serie. Lo que se perdió fue mucho más que precisión."*',
+      ].join("\n"),
+    );
+    // Se le quitan la cursiva, las comillas y el punto que quedó afuera.
+    expect(result.metadata.metaTitle).toBe("Angustia y ansiedad: de dónde vienen");
+    expect(result.metadata.excerpt).toBe(
+      "Primera entrega de una serie. Lo que se perdió fue mucho más que precisión.",
+    );
+  });
+
+  it("corta el bloque en el siguiente encabezado", () => {
+    const result = extractCrmMetadata(
+      [
+        "## Metadatos",
+        "Slug: angustia-y-angosto",
+        "",
+        "## Verificaciones pendientes antes de publicar",
+        "Meta description: esto no es un metadato, es una nota interna",
+      ].join("\n"),
+    );
+    expect(result.metadata.slug).toBe("angustia-y-angosto");
+    expect(result.metadata.metaDescription).toBeUndefined();
+  });
+
+  it("lee la taxonomía separada por comas y también en viñetas", () => {
+    const result = extractCrmMetadata(
+      [
+        "## Metadatos para CRM",
+        "Disciplinas: Psicología clínica, Psiquiatría",
+        "Temas:",
+        "- angustia",
+        "- ansiedad",
+        "* lenguaje",
+      ].join("\n"),
+    );
+    expect(result.metadata.disciplines).toEqual(["Psicología clínica", "Psiquiatría"]);
+    expect(result.metadata.topics).toEqual(["angustia", "ansiedad", "lenguaje"]);
+  });
+
+  it("lee el bloque extractivo y el crédito de la portada", () => {
+    const result = extractCrmMetadata(
+      [
+        "## Metadatos",
+        "Bloque extractivo: Angustia y angosto son la misma palabra latina.",
+        "Portada: https://example.com/portada.webp",
+        "Alt de portada: Un desfiladero estrecho entre dos paredes de roca.",
+        "Autor de la obra: Anónimo",
+      ].join("\n"),
+    );
+    expect(result.metadata.extractiveBlock).toBe(
+      "Angustia y angosto son la misma palabra latina.",
+    );
+    expect(result.metadata.coverImage).toBe("https://example.com/portada.webp");
+    expect(result.metadata.coverImageAlt).toBe(
+      "Un desfiladero estrecho entre dos paredes de roca.",
+    );
+    expect(result.metadata.coverImageAuthor).toBe("Anónimo");
+  });
+
+  it("no separa por comas los enlaces internos, que llevan comas propias", () => {
+    const result = extractCrmMetadata(
+      ["## Metadatos", "Enlaces internos sugeridos:", "- Índice de la Serie 4, parte 2."].join("\n"),
+    );
+    expect(result.metadata.internalLinks).toEqual(["Índice de la Serie 4, parte 2."]);
+  });
+});

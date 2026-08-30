@@ -365,6 +365,7 @@ export async function createAppointmentByProfessional({
             modality: booking.modality,
             locationName: booking.locationName,
             locationAddress: booking.locationAddress,
+            locationNotes: booking.locationNotes,
             timeBandName: booking.timeBandName,
             isFirstWithProfessional: isFirstWithProfessional && index === 0,
           },

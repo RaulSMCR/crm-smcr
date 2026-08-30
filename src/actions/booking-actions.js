@@ -268,6 +268,7 @@ export async function requestAppointment(
             modality: booking.modality,
             locationName: booking.locationName,
             locationAddress: booking.locationAddress,
+            locationNotes: booking.locationNotes,
             timeBandName: booking.timeBandName,
             isFirstWithProfessional: isFirstWithProfessional && index === 0,
             // Solo la primera cita de la serie lleva los identificadores.
@@ -324,6 +325,7 @@ export async function requestAppointment(
         price: pricePaid,
         locationName: booking.locationName,
         locationAddress: booking.locationAddress,
+        locationNotes: booking.locationNotes,
         modality: booking.modality,
         timeBandName: booking.timeBandName,
       },

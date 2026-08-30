@@ -169,6 +169,42 @@ describe("generateFeXml — líneas e IVA", () => {
     expect(xml).toContain("<Detalle>Dos</Detalle>");
   });
 
+  it("el Detalle dice qué se facturó y cuál consulta fue", () => {
+    // Antes ganaba el título del servicio y la descripción no salía nunca, así
+    // que la factura no decía ni la fecha de la consulta ni quién la dio.
+    const lines = [
+      {
+        quantity: 1,
+        unitPrice: 24038.46,
+        taxRate: 4,
+        taxAmount: 961.54,
+        cabysCode: "8690900000100",
+        productName: "Servicios profesionales",
+        description: "Consulta del 15 de agosto de 2026 con Licda. Ana Solano",
+        service: { title: "Consulta psicológica" },
+      },
+    ];
+    const { xml } = generateFeXml(baseInvoice, lines);
+    expect(xml).toContain(
+      "<Detalle>Servicios profesionales — Consulta del 15 de agosto de 2026 con Licda. Ana Solano</Detalle>"
+    );
+  });
+
+  it("no repite el nombre de la línea cuando la descripción es la misma", () => {
+    const lines = [
+      {
+        quantity: 1,
+        unitPrice: 1000,
+        taxRate: 4,
+        taxAmount: 40,
+        cabysCode: "111",
+        productName: "Consulta",
+        description: "Consulta",
+      },
+    ];
+    expect(generateFeXml(baseInvoice, lines).xml).toContain("<Detalle>Consulta</Detalle>");
+  });
+
   it("aborta si una línea no tiene CABYS, nombrando el servicio", () => {
     // El CABYS es el primer hijo obligatorio de LineaDetalle. Omitirlo produce
     // un XML inválido que Hacienda rechaza señalando el elemento siguiente

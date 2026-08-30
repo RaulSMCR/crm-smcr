@@ -10,6 +10,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/actions/auth-actions";
 import { paymentTypeLabel } from "@/lib/payment-requests";
+import { detalleLugarCita } from "@/lib/lugar-cita";
 
 /**
  * Devuelve los pagos acreditados que el paciente todavía no vio y los marca como
@@ -42,6 +43,8 @@ export async function consumirAvisosDePago() {
             date: true,
             paymentStatus: true,
             locationName: true,
+            locationAddress: true,
+            locationNotes: true,
             modality: true,
             service: { select: { title: true } },
             professional: { select: { user: { select: { name: true } } } },
@@ -75,7 +78,10 @@ export async function consumirAvisosDePago() {
               fecha: pago.appointment.date.toISOString(),
               servicio: pago.appointment.service?.title || "Consulta",
               profesional: pago.appointment.professional?.user?.name || null,
-              lugar: pago.appointment.locationName || null,
+              // El lugar completo, no solo el rótulo: este aviso aparece
+              // justo después de pagar y es el primer sitio donde la persona
+              // busca a dónde tiene que ir.
+              lugar: detalleLugarCita(pago.appointment),
               modalidad: pago.appointment.modality || null,
             }
           : null,

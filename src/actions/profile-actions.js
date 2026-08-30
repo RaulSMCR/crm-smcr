@@ -4,6 +4,8 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { requireProfessionalContext } from "@/lib/auth-guards";
+import { normalizarGrado } from "@/lib/grados-academicos";
+import { validarIban } from "@/lib/iban";
 
 function toStr(x) {
   if (x === undefined || x === null) return "";
@@ -57,6 +59,12 @@ export async function updateProfile(formData) {
     const identificationRaw = formData.get("identification");
     const identification = toStr(identificationRaw).trim();
     const specialty = toStr(formData.get("specialty")).trim();
+    const academicDegreeRaw = formData.get("academicDegree");
+    const academicDegree = normalizarGrado(academicDegreeRaw);
+    const domicilioRaw = formData.get("domicilio");
+    const domicilio = toStr(domicilioRaw).trim().slice(0, 200) || null;
+    const ibanRaw = formData.get("iban");
+    const ibanIngresado = toStr(ibanRaw).trim();
     const licenseNumber = toStr(formData.get("licenseNumber")).trim() || null;
     const bio = toStr(formData.get("bio")).trim() || null;
     const profileReviewDraft = toStr(formData.get("profileReviewDraft")).trim() || null;
@@ -84,6 +92,25 @@ export async function updateProfile(formData) {
       if (!isIdentificationValid(identification)) {
         return { success: false, error: "La identificación no es válida." };
       }
+    }
+
+    // Mismo criterio que la identificación: solo se valida si el formulario lo
+    // mandó. Un grado que no está en el catálogo se rechaza en vez de guardarse,
+    // porque termina impreso en un comprobante fiscal.
+    if (academicDegreeRaw !== null && academicDegreeRaw !== undefined) {
+      if (toStr(academicDegreeRaw).trim() && !academicDegree) {
+        return { success: false, error: "El título profesional no es válido." };
+      }
+    }
+
+    // Un IBAN mal tipeado no rebota: el dinero va a otra cuenta o a ninguna, y
+    // el error aparece días después. Se comprueban los dígitos de control antes
+    // de guardarlo, no cuando alguien reclame que no le llegó la liquidación.
+    let iban = null;
+    if (ibanRaw !== null && ibanRaw !== undefined && ibanIngresado) {
+      const revision = validarIban(ibanIngresado);
+      if (!revision.valido) return { success: false, error: revision.error };
+      iban = revision.iban;
     }
 
     const requestedServiceIds = (formData.getAll("serviceIds") || [])
@@ -143,6 +170,11 @@ export async function updateProfile(formData) {
           specialty,
           licenseNumber,
           bio,
+          ...(academicDegreeRaw !== null && academicDegreeRaw !== undefined
+            ? { academicDegree }
+            : {}),
+          ...(domicilioRaw !== null && domicilioRaw !== undefined ? { domicilio } : {}),
+          ...(ibanRaw !== null && ibanRaw !== undefined ? { iban } : {}),
           ...seo,
           ...(shouldSubmitReview
             ? {

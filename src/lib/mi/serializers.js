@@ -2,6 +2,8 @@
 // Formas de selección y DTOs compartidos por los endpoints /api/mi/*.
 // Envía solo lo que la PWA necesita (nunca datos clínicos ni campos internos).
 
+import { detalleLugarCita } from "@/lib/lugar-cita";
+
 export const UPCOMING_STATUSES = ["PENDING", "CONFIRMED"];
 export const ACTIVE_PAYMENT_STATUSES = ["PENDING", "LINK_SENT"];
 
@@ -13,6 +15,13 @@ export const appointmentSelect = {
   status: true,
   paymentStatus: true,
   meetLink: true,
+  // Dónde es la cita. Es la copia congelada de la cita, no el lugar vivo: si el
+  // profesional edita o borra el consultorio, la agenda sigue diciendo a dónde
+  // se citó a esta persona.
+  modality: true,
+  locationName: true,
+  locationAddress: true,
+  locationNotes: true,
   service: { select: { title: true } },
   professional: {
     select: {
@@ -33,6 +42,7 @@ export function appointmentDTO(a) {
     paymentStatus: a.paymentStatus ?? null,
     meetLink: a.meetLink ?? null,
     servicio: a.service?.title ?? null,
+    lugar: detalleLugarCita(a),
     profesional: {
       name: a.professional?.user?.name ?? null,
       image: a.professional?.user?.image ?? null,

@@ -153,11 +153,24 @@ export function modalityLabel(modality) {
 
 /** Copia congelada del lugar que se guarda en la cita. */
 export function snapshotLocation(location) {
-  if (!location) return { locationId: null, modality: null, locationName: null, locationAddress: null };
+  if (!location) {
+    return {
+      locationId: null,
+      modality: null,
+      locationName: null,
+      locationAddress: null,
+      locationNotes: null,
+    };
+  }
+  // Virtual no lleva ni dirección ni señas: las instrucciones de un lugar
+  // virtual son el enlace de la sala, y ese no se le adelanta al paciente —se lo
+  // hace llegar el profesional antes de la cita.
+  const esVirtual = location.modality === "VIRTUAL";
   return {
     locationId: location.id,
     modality: location.modality,
     locationName: location.name,
     locationAddress: location.modality === "HOME" ? null : location.address || null,
+    locationNotes: esVirtual ? null : location.instructions || null,
   };
 }

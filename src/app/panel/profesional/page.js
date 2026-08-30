@@ -61,6 +61,13 @@ export default async function ProfesionalDashboardPage() {
 
   if (!profile) redirect("/espera-aprobacion");
 
+  // Lugares presenciales sin dirección. Guardar uno así ya no se puede, pero los
+  // que se crearon antes de esa validación siguen ahí, y el paciente los recibe
+  // al agendar como un rótulo sin destino: "Consultorio Moravia" y nada más.
+  const presencialesSinDireccion = await prisma.practiceLocation.count({
+    where: { professionalId: profile.id, isActive: true, modality: "OFFICE", address: null },
+  });
+
   const assignedServices = (profile.serviceAssignments || [])
     .map((sa) => sa.service)
     .filter(Boolean);
@@ -88,7 +95,26 @@ export default async function ProfesionalDashboardPage() {
   const datosFaltantes = [
     !profile.user?.identification && {
       etiqueta: "su cédula o identificación",
-      porque: "sin ella no se pueden emitir sus facturas",
+      porque: "es con lo que se redacta su contrato de prestación de servicios",
+    },
+    !profile.academicDegree && {
+      etiqueta: "su título profesional",
+      porque: "con él aparece su nombre ante los pacientes y en el detalle de cada factura",
+    },
+    !profile.iban && {
+      etiqueta: "su cuenta IBAN",
+      porque: "es la cuenta a la que se le transfieren sus honorarios",
+    },
+    !profile.domicilio && {
+      etiqueta: "su domicilio",
+      porque: "el contrato lo necesita para individualizarlo como Parte",
+    },
+    presencialesSinDireccion > 0 && {
+      etiqueta:
+        presencialesSinDireccion === 1
+          ? "la dirección de un lugar de atención presencial"
+          : `la dirección de ${presencialesSinDireccion} lugares de atención presencial`,
+      porque: "el paciente la recibe al agendar y en cada recordatorio",
     },
     !profile.licenseNumber && {
       etiqueta: "su número de colegiatura",

@@ -89,6 +89,13 @@ export default function PostEditor({ initial = null }) {
     if (parsed.noindex !== undefined) setNoindex(Boolean(parsed.noindex));
     if (parsed.seriesName) setSeriesName(parsed.seriesName);
     if (Number.isInteger(parsed.seriesOrder)) setSeriesOrder(parsed.seriesOrder);
+    // La portada y su crédito: el alt es obligatorio para accesibilidad y lo
+    // reclama la deuda editorial, así que si el documento lo trae, se usa.
+    if (parsed.coverImage) setCoverImage(parsed.coverImage);
+    if (parsed.coverImageAlt) setCoverImageAlt(parsed.coverImageAlt);
+    if (parsed.coverImageTitle) setCoverImageTitle(parsed.coverImageTitle);
+    if (parsed.coverImageAuthor) setCoverImageAuthor(parsed.coverImageAuthor);
+    if (parsed.coverImageNote) setCoverImageNote(parsed.coverImageNote);
     if (parsed.crmMetadata) {
       window.dispatchEvent(new CustomEvent("crm:editorial-metadata", { detail: parsed.crmMetadata }));
     }

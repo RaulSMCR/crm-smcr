@@ -3,6 +3,7 @@ import { getCalendarClient } from "@/lib/google";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_TZ, formatDateTimeInTZ, toGoogleDateTime } from "@/lib/timezone";
 import { SITE_URL } from "@/lib/site-url";
+import { detalleLugarCita } from "@/lib/lugar-cita";
 
 const TZ = process.env.APP_TIMEZONE || DEFAULT_TZ;
 const FROM_EMAIL = process.env.EMAIL_FROM || process.env.NOTIFICATIONS_FROM_EMAIL || "Salud Mental Costa Rica <onboarding@resend.dev>";
@@ -21,6 +22,30 @@ const STATUS_LABELS = {
 
 function getStatusLabel(status) {
   return STATUS_LABELS[status] || status;
+}
+
+/**
+ * Dónde es la cita, dentro del correo. Va como bloque aparte y no como un ítem
+ * más de la lista porque es lo que la persona busca cuando abre el recordatorio
+ * una hora antes: la dirección, cómo llegar, y —si es virtual— cuándo le llega
+ * el enlace. Antes el correo no decía nada de esto.
+ */
+function bloqueLugar(appointment) {
+  const lugar = detalleLugarCita(appointment);
+  if (!lugar.titulo && !lugar.direccion && !lugar.aviso) return "";
+
+  const encabezado = [lugar.titulo, lugar.modalidad ? `(${lugar.modalidad})` : null]
+    .filter(Boolean)
+    .join(" ");
+
+  return `
+      <div style="margin:16px 0;padding:14px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;">
+        <p style="margin:0 0 6px;font-weight:700;color:#0f172a;">Dónde es la cita</p>
+        ${encabezado ? `<p style="margin:0;color:#0f172a;">${encabezado}</p>` : ""}
+        ${lugar.direccion ? `<p style="margin:4px 0 0;color:#0f172a;">${lugar.direccion}</p>` : ""}
+        ${lugar.comoLlegar ? `<p style="margin:4px 0 0;color:#475569;font-size:13px;">${lugar.comoLlegar}</p>` : ""}
+        ${lugar.aviso ? `<p style="margin:8px 0 0;color:#475569;font-size:13px;">${lugar.aviso}</p>` : ""}
+      </div>`;
 }
 
 function buildNotificationHtml({ recipientName, appointment, reason }) {
@@ -42,6 +67,7 @@ function buildNotificationHtml({ recipientName, appointment, reason }) {
         <li><strong>Fin:</strong> ${fechaHoraFin} (${TZ})</li>
         <li><strong>Estado:</strong> ${getStatusLabel(appointment.status)}</li>
       </ul>
+      ${bloqueLugar(appointment)}
       <p style="font-size:12px;color:#475569;">Este correo fue generado automáticamente por el sistema de agenda.</p>
     </div>
   `;

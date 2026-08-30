@@ -161,6 +161,9 @@ export async function updateAdminPost(postInput) {
     const ogImage = String(postInput?.ogImage || "").trim() || null;
     const focusKeyword = String(postInput?.focusKeyword || "").trim() || null;
     const noindex = Boolean(postInput?.noindex);
+    // Párrafo citable (GEO). Existía en la base y lo reclamaba la deuda
+    // editorial, pero no había forma de llenarlo desde ninguna pantalla.
+    const extractiveBlock = String(postInput?.extractiveBlock || "").trim() || null;
 
     if (!id) return { error: "ID de artículo requerido." };
     if (title.length < 4) return { error: "El título debe tener al menos 4 caracteres." };
@@ -199,6 +202,7 @@ export async function updateAdminPost(postInput) {
         ogImage,
         focusKeyword,
         noindex,
+        extractiveBlock,
       },
       select: { slug: true },
     });

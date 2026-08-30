@@ -14,6 +14,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { checkRateLimit, recordAttempt } from "@/lib/rate-limit";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { CONTEXTOS, VERSION_ACUERDO } from "@/lib/acuerdo";
+import { normalizarGrado } from "@/lib/grados-academicos";
 import {
   CV_UPLOAD_BUCKET,
   getCvStoragePathFromPublicUrl,
@@ -254,6 +255,7 @@ export async function registerProfessional(formData) {
   const password = String(formData.get("password") || "");
   const confirmPassword = String(formData.get("confirmPassword") || "");
   const identification = normalizeIdentification(formData.get("identification"));
+  const academicDegree = normalizarGrado(formData.get("academicDegree"));
   const specialty = String(formData.get("specialty") || "").trim();
   const bio = formData.get("bio") ? String(formData.get("bio")).trim() : null;
   const coverLetter = formData.get("coverLetter") ? String(formData.get("coverLetter")).trim() : null;
@@ -271,6 +273,10 @@ export async function registerProfessional(formData) {
   if (!isEmailValid(email)) return { error: "El correo electrónico no tiene un formato válido." };
   if (!phone) return { error: "Falta el teléfono de contacto para continuar con seguridad." };
   if (!isPhoneValid(phone)) return { error: "El teléfono no es válido. Debe incluir al menos 8 dígitos." };
+  // La cédula es el dato con el que se individualiza a la Parte en el contrato
+  // de prestación de servicios; sin ella no hay contrato que redactar.
+  if (!identification) return { error: "Falta el número de cédula o identificación." };
+  if (!academicDegree) return { error: "Falta indicar el título profesional." };
   if (!specialty) return { error: "Falta indicar la especialidad profesional." };
   if (!licenseNumber) return { error: "Falta el número de licencia o matrícula profesional." };
   if (!cvUrl) return { error: "Falta adjuntar el CV en PDF para validar credenciales profesionales." };
@@ -342,6 +348,7 @@ export async function registerProfessional(formData) {
         data: {
           userId: createdUser.id,
           specialty,
+          academicDegree,
           slug,
           bio,
           profileReviewDraft: bio || null,

@@ -27,6 +27,8 @@ import { datosFacturacionDe } from "@/lib/fiscal-identity";
 import { estimateOnvoFee } from "@/lib/commission-plan";
 import { obtenerTipoCambio } from "@/lib/exchange-rate";
 import { paymentTypeLabel } from "@/lib/payment-requests";
+import { detalleLineaFactura } from "@/lib/detalle-consulta";
+import { detalleLugarCita, lugarCitaEnUnaLinea } from "@/lib/lugar-cita";
 import { reportDepositConversion } from "@/lib/analytics/reportDepositConversion";
 import { SITE_URL } from "@/lib/site-url";
 import { sendPurchaseMeta } from "@/lib/analytics/meta-events";
@@ -160,6 +162,7 @@ export async function POST(request) {
               date: true,
               locationName: true,
               locationAddress: true,
+              locationNotes: true,
               modality: true,
               pricePaid: true,
               service: { select: { id: true, title: true, cabysCode: true, taxId: true, tax: { select: { id: true, rate: true } } } },
@@ -180,7 +183,9 @@ export async function POST(request) {
               insuranceTemplateUrl: true,
             },
           },
-          professional: { select: { user: { select: { name: true, email: true } } } },
+          professional: {
+            select: { academicDegree: true, user: { select: { name: true, email: true } } },
+          },
         },
       })
     : [];
@@ -308,8 +313,14 @@ export async function createAutoInvoice(transaction) {
     const amount = Number(transaction.amount);
     if (!amount || amount <= 0) return null;
 
-    const serviceTitle = transaction.appointment?.service?.title || "Consulta";
-    const paymentLabel = paymentTypeLabel(transaction.type);
+    // Lo que Hacienda y el paciente leen en la línea: servicios profesionales,
+    // una consulta, con su fecha y con el nombre y el título de quien atendió.
+    // El desglose del 4% incluido en lo que se pagó va abajo, en el importe.
+    const { productName, description } = detalleLineaFactura({
+      fecha: transaction.appointment?.date,
+      profesional: transaction.professional,
+      paymentType: transaction.type,
+    });
     const service = transaction.appointment?.service;
     const taxRate = Number(service?.tax?.rate ?? 4);
     const { baseCents, taxCents } = splitTaxIncluded(Math.round(amount * 100), taxRate);
@@ -362,8 +373,8 @@ export async function createAutoInvoice(transaction) {
           notes: `ONVO Pay | Enlace: ${transaction.onvoPaymentLinkId || "-"} | Evento: ${transaction.onvoEventId || "-"}${fiscalWarning ? " | ALERTA: Servicio sin CABYS/IVA configurado" : ""}`,
           lines: {
             create: {
-              productName: `${paymentLabel} - ${serviceTitle}`,
-              description: serviceTitle,
+              productName,
+              description,
               serviceId: transaction.appointment?.service?.id || transaction.appointment?.serviceId || null,
               cabysCode: service?.cabysCode || null,
               taxId: service?.taxId || null,
@@ -503,9 +514,10 @@ async function sendPaymentConfirmationEmail(transaction) {
       }).format(new Date(cita.date))
     : null;
 
-  const lugar = cita?.locationName
-    ? `${cita.locationName}${cita.locationAddress ? ` — ${cita.locationAddress}` : ""}`
-    : null;
+  // El correo que confirma el pago es el que la gente guarda: acá va la
+  // dirección completa, cómo llegar, y —si es virtual— cuándo llega el enlace.
+  const lugar = lugarCitaEnUnaLinea(cita) || null;
+  const avisoLugar = detalleLugarCita(cita).aviso;
 
   const total = cita?.pricePaid ? Number(cita.pricePaid).toLocaleString("es-CR") : null;
   const saldo =
@@ -552,6 +564,7 @@ async function sendPaymentConfirmationEmail(transaction) {
          <strong>${currency} ${amount}</strong>.</p>
 
       <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">${filas}</table>
+      ${avisoLugar ? `<p style="margin:-6px 0 16px;font-size:13px;color:#475569;">${avisoLugar}</p>` : ""}
 
       <div style="padding:14px;border:1px solid #a7f3d0;border-radius:8px;background:#ecfdf5;
                   font-size:14px;color:#065f46;">

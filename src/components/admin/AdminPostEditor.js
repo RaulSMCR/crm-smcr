@@ -19,6 +19,11 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+function countWords(value) {
+  const limpio = String(value || "").trim();
+  return limpio ? limpio.split(/\s+/).length : 0;
+}
+
 function statusLabel(status) {
   return status === "PUBLISHED" ? "Publicado" : status === "ARCHIVED" ? "Archivado" : "Borrador";
 }
@@ -128,6 +133,7 @@ export default function AdminPostEditor({ post }) {
     ogImage: post.ogImage || "",
     focusKeyword: post.focusKeyword || "",
     noindex: post.noindex ?? false,
+    extractiveBlock: post.extractiveBlock || "",
   });
 
   const busy = isPending || uploading;
@@ -152,6 +158,12 @@ export default function AdminPostEditor({ post }) {
     if (imported.metadata.ogImage) updateField("ogImage", imported.metadata.ogImage);
     if (imported.metadata.focusKeyword) updateField("focusKeyword", imported.metadata.focusKeyword);
     if (imported.metadata.noindex !== undefined) updateField("noindex", Boolean(imported.metadata.noindex));
+    if (imported.metadata.extractiveBlock) updateField("extractiveBlock", imported.metadata.extractiveBlock);
+    if (imported.metadata.coverImage) updateField("coverImage", imported.metadata.coverImage);
+    if (imported.metadata.coverImageAlt) updateField("coverImageAlt", imported.metadata.coverImageAlt);
+    if (imported.metadata.coverImageTitle) updateField("coverImageTitle", imported.metadata.coverImageTitle);
+    if (imported.metadata.coverImageAuthor) updateField("coverImageAuthor", imported.metadata.coverImageAuthor);
+    if (imported.metadata.coverImageNote) updateField("coverImageNote", imported.metadata.coverImageNote);
     window.dispatchEvent(new CustomEvent("crm:editorial-metadata", { detail: imported.metadata }));
     setNotice("Metadatos CRM detectados. Revisá y guardá los cambios.");
   }
@@ -169,6 +181,12 @@ export default function AdminPostEditor({ post }) {
       ogImage: parsed.ogImage || current.ogImage,
       focusKeyword: parsed.focusKeyword || current.focusKeyword,
       noindex: parsed.noindex !== undefined ? Boolean(parsed.noindex) : current.noindex,
+      extractiveBlock: parsed.extractiveBlock || current.extractiveBlock,
+      coverImage: parsed.coverImage || current.coverImage,
+      coverImageAlt: parsed.coverImageAlt || current.coverImageAlt,
+      coverImageTitle: parsed.coverImageTitle || current.coverImageTitle,
+      coverImageAuthor: parsed.coverImageAuthor || current.coverImageAuthor,
+      coverImageNote: parsed.coverImageNote || current.coverImageNote,
     }));
     if (parsed.crmMetadata) {
       window.dispatchEvent(new CustomEvent("crm:editorial-metadata", { detail: parsed.crmMetadata }));
@@ -337,6 +355,26 @@ export default function AdminPostEditor({ post }) {
           fallbackDescription={form.excerpt}
           onChange={updateField}
         />
+
+        {/* Bloque extractivo (GEO). No es la meta description: aquella compite
+            por el clic y se corta a 160; este responde la pregunta completa
+            para que un modelo pueda citarlo tal cual, sin recortarlo. */}
+        <div>
+          <label className="mb-1 block text-sm font-semibold text-slate-700">
+            Bloque extractivo
+          </label>
+          <textarea
+            value={form.extractiveBlock}
+            onChange={(event) => updateField("extractiveBlock", event.target.value)}
+            rows={4}
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            placeholder="Párrafo autocontenido de 40 a 60 palabras que responda la pregunta del artículo sin depender del contexto."
+          />
+          <p className="mt-1 text-xs text-slate-500">
+            {countWords(form.extractiveBlock)} palabras · lo ideal son 40 a 60. Se escribe para
+            que un modelo lo cite completo: tiene que entenderse solo, fuera del artículo.
+          </p>
+        </div>
 
         <div className="flex flex-wrap items-center gap-3 pt-2">
           <button

@@ -257,6 +257,25 @@ model ProfessionalProfile {
   specialty                String
   licenseNumber            String?
 
+  /// Título profesional (grado académico): "Lic.", "MSc.", "Dra."… Guarda el
+  /// identificador del catálogo de src/lib/grados-academicos.js, no la
+  /// abreviatura, para que cambiar cómo se abrevia no obligue a tocar filas.
+  ///
+  /// No es lo mismo que `specialty`, que es la disciplina. Este es el
+  /// tratamiento con el que la persona firma, y con el que su nombre sale en el
+  /// detalle de la factura, en el cobro de ONVO y en el contrato.
+  academicDegree           String?   @db.VarChar(24)
+
+  /// Domicilio de la persona, para individualizarla como Parte en el contrato
+  /// ("domiciliado en…"). No es la direccion del consultorio: esa vive en
+  /// PracticeLocation y puede haber varias.
+  domicilio                String?   @db.VarChar(200)
+
+  /// Cuenta IBAN a la que se le transfieren los honorarios. Es el dato que
+  /// exige la clausula 4.3 del contrato y sin el cual la liquidacion no se
+  /// puede pagar. Se guarda normalizada (sin espacios, en mayusculas).
+  iban                     String?   @db.VarChar(34)
+
   /// Verificación de colegiatura. El procedimiento es el del tamizaje previo a
   /// la entrevista: el admin revisa la matrícula en el colegio correspondiente y
   /// guarda el enlace al punto del registro público donde aparece. Sin esto,
@@ -709,6 +728,9 @@ model Appointment {
   modality        LocationModality?
   locationName    String?
   locationAddress String?
+  /// Como llegar: piso, timbre, senas. Se congela con el resto del lugar porque
+  /// el paciente la recibe al agendar y en cada recordatorio.
+  locationNotes   String?           @db.Text
   timeBandName    String?
 
   gcalEventId String?

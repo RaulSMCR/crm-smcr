@@ -4,6 +4,13 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/actions/auth-actions";
 import AdminApproveButton from "@/components/AdminApproveButton";
+import { gradoPorId } from "@/lib/grados-academicos";
+import { formatearIban } from "@/lib/iban";
+
+function tituloDelGrado(id) {
+  const grado = gradoPorId(id);
+  return grado ? `${grado.nombre} (${grado.abreviatura})` : id;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +25,9 @@ export default async function AdminPersonalPage() {
       id: true,
       slug: true,
       specialty: true,
+      academicDegree: true,
+      domicilio: true,
+      iban: true,
       profileReview: true,
       profileReviewDraft: true,
       profileReviewStatus: true,
@@ -34,6 +44,7 @@ export default async function AdminPersonalPage() {
           phone: true,
           image: true,
           isActive: true,
+          identification: true,
         },
       },
       serviceAssignments: {
@@ -95,6 +106,13 @@ export default async function AdminPersonalPage() {
                   : "bg-slate-50 text-slate-800 border-slate-200";
           const reviewPreview = p.profileReviewDraft || p.profileReview || "";
 
+          const datosContractualesFaltantes = [
+            !p.user?.identification && "cédula",
+            !p.academicDegree && "título profesional",
+            !p.domicilio && "domicilio",
+            !p.iban && "cuenta IBAN",
+          ].filter(Boolean);
+
           return (
             <div key={p.id} className="bg-white rounded-2xl border border-slate-200 p-6">
               <div className="flex items-start justify-between gap-6">
@@ -142,6 +160,22 @@ export default async function AdminPersonalPage() {
                       </Link>
                     ) : null}
 
+                    <Link
+                      href={`/panel/admin/personal/${p.id}/contrato`}
+                      className="inline-flex items-center rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50"
+                    >
+                      Generar contrato
+                    </Link>
+
+                    {datosContractualesFaltantes.length > 0 ? (
+                      <span className="text-xs text-amber-800">
+                        {/* Lo que el contrato necesita y todavía no está. Sale
+                            acá porque es mejor saberlo antes de abrirlo que
+                            descubrir las líneas en blanco al imprimirlo. */}
+                        Faltan datos para el contrato: {datosContractualesFaltantes.join(", ")}
+                      </span>
+                    ) : null}
+
                     {!p.isApproved && (
                       <div className="ml-2 flex gap-2">
                         <AdminApproveButton endpoint={`/api/admin/professionals/${p.id}/approve`} label="Aprobar" />
@@ -179,6 +213,28 @@ export default async function AdminPersonalPage() {
                 <div className="text-sm text-slate-500 whitespace-nowrap">
                   {new Date(p.createdAt).toLocaleDateString()}
                 </div>
+              </div>
+
+              {/* Los datos que la administración necesita a mano: los del
+                  contrato y los del pago. Antes había que abrir la base para
+                  saber a qué cuenta se le transfiere a alguien. */}
+              <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="text-sm font-semibold text-slate-900">Datos administrativos</div>
+                <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+                  {[
+                    ["Título profesional", p.academicDegree ? tituloDelGrado(p.academicDegree) : null],
+                    ["Cédula", p.user?.identification],
+                    ["Domicilio", p.domicilio],
+                    ["Cuenta IBAN", p.iban ? formatearIban(p.iban) : null],
+                  ].map(([etiqueta, valor]) => (
+                    <div key={etiqueta}>
+                      <dt className="text-xs uppercase tracking-wide text-slate-500">{etiqueta}</dt>
+                      <dd className={valor ? "text-slate-900" : "text-amber-800"}>
+                        {valor || "Sin registrar"}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
               </div>
 
               <div className="mt-5">

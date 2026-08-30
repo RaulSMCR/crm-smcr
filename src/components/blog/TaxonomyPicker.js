@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { suggestPostTaxonomy, approvePostTaxonomy } from "@/actions/taxonomy-actions";
 
 const norm = (s) =>
@@ -49,6 +49,50 @@ export default function TaxonomyPicker({
   const [pending, startTransition] = useTransition();
   const [notice, setNotice] = useState(null);
   const [error, setError] = useState(null);
+  const [sinReconocer, setSinReconocer] = useState([]);
+
+  // Disciplinas y temas que venían en el documento importado.
+  //
+  // Se marcan las que existen en el vocabulario y se listan aparte las que no,
+  // en vez de crearlas: el vocabulario es curado, y un término nuevo inventado
+  // por quien escribió el archivo se convertiría en una etiqueta de biblioteca
+  // sin que nadie lo haya decidido. Marcar no publica nada —quedan SUGGESTED
+  // hasta que el admin apruebe— pero ahorra volver a tipearlas.
+  useEffect(() => {
+    function onEditorialMetadata(event) {
+      const imported = event.detail || {};
+      const buscar = (vocabulario, nombres) => {
+        const encontrados = [];
+        const faltantes = [];
+        for (const nombre of nombres || []) {
+          const objetivo = norm(nombre);
+          if (!objetivo) continue;
+          const match = vocabulario.find(
+            (item) => norm(item.name) === objetivo || norm(item.slug) === objetivo,
+          );
+          if (match) encontrados.push(match.id);
+          else faltantes.push(String(nombre).trim());
+        }
+        return { encontrados, faltantes };
+      };
+
+      const d = buscar(vocab.disciplines, imported.disciplines);
+      const t = buscar(vocab.topics, imported.topics);
+
+      if (d.encontrados.length) setDisc((prev) => new Set([...prev, ...d.encontrados]));
+      if (t.encontrados.length) setTopics((prev) => new Set([...prev, ...t.encontrados]));
+
+      const noReconocidos = [...d.faltantes, ...t.faltantes];
+      setSinReconocer(noReconocidos);
+
+      if (d.encontrados.length || t.encontrados.length) {
+        setNotice("Clasificación detectada en el documento. Revisá y guardá.");
+      }
+    }
+
+    window.addEventListener("crm:editorial-metadata", onEditorialMetadata);
+    return () => window.removeEventListener("crm:editorial-metadata", onEditorialMetadata);
+  }, [vocab.disciplines, vocab.topics]);
 
   // La "pista": disciplina del vocabulario que coincide con la especialidad del
   // autor. Un clic la agrega. Solo en modo sugerencia y si aún no está.
@@ -99,6 +143,13 @@ export default function TaxonomyPicker({
 
       {error ? <div className="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700">{error}</div> : null}
       {notice ? <div className="rounded border border-emerald-200 bg-emerald-50 p-2 text-sm text-emerald-700">{notice}</div> : null}
+      {sinReconocer.length ? (
+        <div className="rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
+          El documento pedía <b>{sinReconocer.join(", ")}</b>, que no están en el vocabulario.
+          Elegí lo más cercano de acá, o agregalos primero desde Taxonomía si de verdad hacen
+          falta.
+        </div>
+      ) : null}
 
       {/* Disciplinas */}
       <div>

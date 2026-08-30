@@ -44,7 +44,9 @@ export async function sendFeEmail(invoice) {
   });
 
   const lineRows = (invoice.lines || []).map((l) => {
-    const prod    = l.product?.name || l.description || "Servicio";
+    // Mismo criterio que el XML: el nombre de la línea y su descripción son dos
+    // datos distintos y el correo tiene que decir los dos.
+    const prod    = l.productName || l.product?.name || l.description || "Servicio";
     const unitFmt = fmt.format(Number(l.unitPrice));
     const lineFmt = fmt.format(Number(l.lineTotal));
     return `<tr style="border-bottom:1px solid #e2e8f0;">
@@ -59,6 +61,17 @@ export async function sendFeEmail(invoice) {
     <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#0f172a;">
       <h2 style="color:${fueRechazada ? "#b91c1c" : "#1e40af"};">Factura Electrónica${fueRechazada ? " RECHAZADA" : " emitida"}${esPrueba ? " (PRUEBA)" : ""}</h2>
       <p>Estimado/a cliente, adjuntamos los datos de su factura electrónica emitida ante el Ministerio de Hacienda de Costa Rica.</p>
+
+      <!-- Quién emite. Va en el correo y no solo dentro del XML: quien recibe la
+           factura tiene que poder leer de quién es sin abrir el comprobante. Son
+           los mismos datos que el XML declara en <Emisor>. -->
+      <div style="margin:16px 0;padding:12px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;font-size:13px;line-height:1.6;">
+        <div style="font-weight:700;color:#0f172a;">${FE_EMISOR.nombre}</div>
+        <div style="color:#475569;">Cédula jurídica ${FE_EMISOR.identificacion}</div>
+        <div style="color:#475569;">Actividad económica ${FE_EMISOR.actividadEconomica}</div>
+        <div style="color:#475569;">${FE_EMISOR.ubicacion.otrasSenas}</div>
+        <div style="color:#475569;">Tel. +${FE_EMISOR.telefono.codigoPais} ${FE_EMISOR.telefono.numTelefono} · ${FE_EMISOR.correo}</div>
+      </div>
 
       <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">
         <tr>
@@ -76,6 +89,17 @@ export async function sendFeEmail(invoice) {
         <tr style="background:#f8fafc;">
           <td style="padding:6px 8px;color:#64748b;">Fecha</td>
           <td style="padding:6px 8px;">${date}</td>
+        </tr>
+        <!-- El impuesto va dentro de lo que la persona pagó: el total es el
+             mismo que se cobró por tarjeta. Se desglosa para que se vea que el
+             4% ya estaba adentro y no es un cargo adicional. -->
+        <tr>
+          <td style="padding:6px 8px;color:#64748b;">Subtotal</td>
+          <td style="padding:6px 8px;">${fmt.format(Number(invoice.subtotal))}</td>
+        </tr>
+        <tr style="background:#f8fafc;">
+          <td style="padding:6px 8px;color:#64748b;">IVA incluido</td>
+          <td style="padding:6px 8px;">${fmt.format(Number(invoice.taxAmount))}</td>
         </tr>
         <tr>
           <td style="padding:6px 8px;color:#64748b;">Total</td>
@@ -296,6 +320,7 @@ export async function submitInvoiceToFe(invoiceId) {
           taxAmount: true,
           lineSubtotal: true,
           lineTotal: true,
+          productName: true,
           description: true,
           cabysCode: true,
           service: { select: { title: true, cabysCode: true } },

@@ -8,6 +8,7 @@ import SeoFieldset from "@/components/admin/SeoFieldset";
 import Toast from "@/components/ui/Toast";
 import { SafeAvatar } from "@/components/SafeImage";
 import { PUBLIC_IMAGE_ACCEPT } from "@/lib/images";
+import { GRADOS_ACADEMICOS } from "@/lib/grados-academicos";
 import { formatCRC as formatCRCBase } from "@/lib/service-pricing";
 
 // Formato compartido; acá un precio sin definir se muestra como "No definido".
@@ -93,6 +94,9 @@ export default function ProfileEditor({ profile, allServices = [] }) {
     name: profile.user?.name || "",
     phone: profile.user?.phone || "",
     identification: profile.user?.identification || "",
+    academicDegree: profile.academicDegree || "",
+    domicilio: profile.domicilio || "",
+    iban: profile.iban || "",
     specialty: profile.specialty || "",
     licenseNumber: profile.licenseNumber || "",
     bio: profile.bio || "",
@@ -166,6 +170,9 @@ export default function ProfileEditor({ profile, allServices = [] }) {
       formData.append("name", form.name);
       formData.append("phone", form.phone);
       formData.append("identification", form.identification);
+      formData.append("academicDegree", form.academicDegree);
+      formData.append("domicilio", form.domicilio);
+      formData.append("iban", form.iban);
       formData.append("specialty", form.specialty);
       formData.append("licenseNumber", form.licenseNumber);
       formData.append("bio", form.bio);
@@ -262,12 +269,65 @@ export default function ProfileEditor({ profile, allServices = [] }) {
                 className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
               />
               <p className="mt-1 text-xs text-slate-500">
-                Se usa para emitir sus facturas. Cédula nacional, DIMEX o pasaporte.
+                Es el dato con el que se redacta su contrato de prestación de servicios.
+                Cédula nacional, DIMEX o pasaporte.
               </p>
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-slate-700">Especialidad (Título)</label>
+              <label className="text-sm font-semibold text-slate-700">Domicilio</label>
+              <input
+                name="domicilio"
+                value={form.domicilio}
+                onChange={handleInputChange}
+                placeholder="San José, Curridabat, Granadilla Norte"
+                className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Solo se pide porque el contrato lo exige para individualizarlo como Parte.
+                No es la dirección de su consultorio: esa se configura en Lugares de atención
+                y es la que recibe el paciente al agendar.
+              </p>
+            </div>
+
+            <div>
+              <label className="text-sm font-semibold text-slate-700">Cuenta IBAN</label>
+              <input
+                name="iban"
+                value={form.iban}
+                onChange={handleInputChange}
+                placeholder="CR21 0000 0000 0000 0000 00"
+                className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                A esta cuenta se le transfieren sus honorarios. Se verifican los dígitos de
+                control antes de guardarla.
+              </p>
+            </div>
+
+            <div>
+              <label className="text-sm font-semibold text-slate-700">Título profesional</label>
+              <select
+                name="academicDegree"
+                value={form.academicDegree}
+                onChange={handleInputChange}
+                className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
+              >
+                <option value="">Sin indicar</option>
+                {GRADOS_ACADEMICOS.map((grado) => (
+                  <option key={grado.id} value={grado.id}>
+                    {grado.nombre} ({grado.abreviatura})
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-slate-500">
+                Con este tratamiento aparece su nombre en el detalle de cada factura y en el
+                cobro que ve la persona que atiende.
+              </p>
+            </div>
+
+            <div>
+              <label className="text-sm font-semibold text-slate-700">Especialidad (disciplina)</label>
               <input
                 name="specialty"
                 value={form.specialty}

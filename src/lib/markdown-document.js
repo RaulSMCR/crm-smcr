@@ -49,6 +49,54 @@ const FRONT_MATTER_KEYS = new Map([
   ["part", "part"],
   ["series_order", "part"],
   ["series order", "part"],
+  ["partes", "parts"],
+  ["parts", "parts"],
+  ["bloque extractivo", "extractiveBlock"],
+  ["bloque_extractivo", "extractiveBlock"],
+  ["extractiveblock", "extractiveBlock"],
+  ["portada", "coverImage"],
+  ["coverimage", "coverImage"],
+  ["cover_image", "coverImage"],
+  ["alt", "coverImageAlt"],
+  ["alt de portada", "coverImageAlt"],
+  ["coverimagealt", "coverImageAlt"],
+  ["obra", "coverImageTitle"],
+  ["coverimagetitle", "coverImageTitle"],
+  ["autor de la obra", "coverImageAuthor"],
+  ["coverimageauthor", "coverImageAuthor"],
+  ["nota de la obra", "coverImageNote"],
+  ["coverimagenote", "coverImageNote"],
+  // Listas: en front matter se escriben en una línea, separadas por comas.
+  ["disciplina", "disciplines"],
+  ["disciplinas", "disciplines"],
+  ["disciplines", "disciplines"],
+  ["tema", "topics"],
+  ["temas", "topics"],
+  ["topics", "topics"],
+  ["tags", "topics"],
+]);
+
+/** Campos del front matter que se leen como lista separada por comas. */
+const FRONT_MATTER_LISTS = new Set(["disciplines", "topics"]);
+
+/**
+ * Lo que un artículo necesita tener cargado para no quedar en deuda editorial.
+ * El orden es el de la lista que se le muestra a quien importa el archivo.
+ * Coincide a propósito con lo que reclama `deuda-editorial.js`: si algo se
+ * exige allá y no se pide acá, el archivo pasa y la deuda aparece después.
+ */
+export const CAMPOS_EDITORIALES = Object.freeze([
+  { campo: "slug", etiqueta: "slug" },
+  { campo: "excerpt", etiqueta: "resumen (deck)" },
+  { campo: "metaTitle", etiqueta: "meta title" },
+  { campo: "metaDescription", etiqueta: "meta description" },
+  { campo: "focusKeyword", etiqueta: "palabra clave" },
+  { campo: "extractiveBlock", etiqueta: "bloque extractivo" },
+  { campo: "coverImageAlt", etiqueta: "alt de portada" },
+  { campo: "seriesName", etiqueta: "serie" },
+  { campo: "seriesOrder", etiqueta: "parte" },
+  { campo: "disciplines", etiqueta: "disciplinas" },
+  { campo: "topics", etiqueta: "temas" },
 ]);
 
 const TEXT_EXTENSIONS = [".md", ".markdown", ".mdown", ".mdx", ".txt"];
@@ -93,6 +141,18 @@ function parseFrontMatter(source) {
 
     const value = cleanScalar(pair[2]);
     if (!value) continue;
+
+    if (FRONT_MATTER_LISTS.has(key)) {
+      // Se admite `temas: angustia, ansiedad` y también la forma de lista de
+      // YAML escrita en una línea: `temas: [angustia, ansiedad]`.
+      data[key] = value
+        .replace(/^\[|\]$/g, "")
+        .split(/[,;]/)
+        .map((parte) => cleanScalar(parte))
+        .filter(Boolean);
+      continue;
+    }
+
     data[key] = key === "noindex" ? parseBoolean(value) : value;
   }
 
@@ -132,9 +192,13 @@ export function isMarkdownFileName(fileName) {
  * @param {string} [fileName]  nombre del archivo, usado solo como último recurso para el título
  * @returns {{ title: string, content: string, slug: string|null, excerpt: string|null,
  *            metaTitle: string|null, metaDescription: string|null, focusKeyword: string|null,
- *            ogImage: string|null, noindex: boolean, phase: string|null,
+ *            ogImage: string|null, noindex: boolean, extractiveBlock: string|null,
+ *            coverImage: string|null, coverImageAlt: string|null,
+ *            coverImageTitle: string|null, coverImageAuthor: string|null,
+ *            coverImageNote: string|null, phase: string|null,
  *            seriesName: string|null, seriesOrder: number|null,
- *            crmMetadata: object|null, warnings: string[] }}
+ *            disciplines: string[], topics: string[],
+ *            crmMetadata: object|null, warnings: string[], faltantes: string[] }}
  */
 export function parseMarkdownDocument(text, fileName = "") {
   const source = String(text || "")
@@ -169,6 +233,15 @@ export function parseMarkdownDocument(text, fileName = "") {
     "phase",
     "series",
     "part",
+    "parts",
+    "extractiveBlock",
+    "coverImage",
+    "coverImageAlt",
+    "coverImageTitle",
+    "coverImageAuthor",
+    "coverImageNote",
+    "disciplines",
+    "topics",
   ]) {
     if (data[key] !== undefined) frontMatterMetadata[key] = data[key];
   }
@@ -177,9 +250,14 @@ export function parseMarkdownDocument(text, fileName = "") {
     ? { ...(crm.metadata || {}), ...frontMatterMetadata }
     : null;
   const pick = (key) => data[key] || crmMetadata?.[key] || null;
+  const pickList = (key) => {
+    const valor = pick(key);
+    if (Array.isArray(valor)) return valor.filter(Boolean);
+    return valor ? [valor] : [];
+  };
   const partValue = pick("part");
 
-  return {
+  const parsed = {
     title: title || "",
     content,
     slug: pick("slug"),
@@ -189,10 +267,35 @@ export function parseMarkdownDocument(text, fileName = "") {
     focusKeyword: pick("focusKeyword"),
     ogImage: pick("ogImage"),
     noindex: data.noindex ?? Boolean(crmMetadata?.noindex),
+    extractiveBlock: pick("extractiveBlock"),
+    coverImage: pick("coverImage"),
+    coverImageAlt: pick("coverImageAlt"),
+    coverImageTitle: pick("coverImageTitle"),
+    coverImageAuthor: pick("coverImageAuthor"),
+    coverImageNote: pick("coverImageNote"),
     phase: pick("phase"),
     seriesName: pick("series"),
     seriesOrder: parsePartNumber(partValue),
+    disciplines: pickList("disciplines"),
+    topics: pickList("topics"),
     crmMetadata,
     warnings,
   };
+
+  // Qué le falta al archivo para no nacer en deuda. Se dice al importar y no al
+  // publicar: corregirlo en el documento y volver a subirlo cuesta un minuto;
+  // descubrirlo tres semanas después, cuando el artículo ya está indexado,
+  // cuesta otra cosa.
+  parsed.faltantes = CAMPOS_EDITORIALES.filter(({ campo }) => {
+    const valor = parsed[campo];
+    return Array.isArray(valor) ? valor.length === 0 : !valor;
+  }).map(({ etiqueta }) => etiqueta);
+
+  if (!crm.found && !Object.keys(frontMatterMetadata).length) {
+    warnings.push(
+      'El archivo no trae bloque de metadatos. Agregale un "## Metadatos para CRM" al final o un front matter YAML al inicio.',
+    );
+  }
+
+  return parsed;
 }

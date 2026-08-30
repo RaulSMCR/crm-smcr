@@ -2,6 +2,12 @@ import { prisma } from "@/lib/prisma";
 import { sendPaymentRequestEmail } from "@/lib/appointments";
 import { buildPaymentLinkUrl, createPaymentLink } from "@/lib/onvo/client";
 import { resolveBookingSelection } from "@/lib/booking-rates";
+import { nombreDelProfesional, paymentTypeLabel, rotuloCobroOnvo } from "@/lib/detalle-consulta";
+
+// El rótulo del cobro se redacta en detalle-consulta.js junto con el detalle de
+// la factura, para que digan lo mismo. Se reexporta desde acá porque media
+// docena de módulos ya lo importaban de este archivo.
+export { paymentTypeLabel };
 
 export const ACTIVE_PAYMENT_STATUSES = ["PENDING", "LINK_SENT"];
 
@@ -28,13 +34,6 @@ export function amountForPaymentType(type, totalAmount) {
   // como adelanto sobre la misma cita.
   if (type === "PENALTY_50") return splitFirstAppointmentAmount(totalAmount).deposit;
   return Number(totalAmount || 0);
-}
-
-export function paymentTypeLabel(type) {
-  if (type === "DEPOSIT_50") return "adelanto 50%";
-  if (type === "BALANCE_50") return "saldo 50%";
-  if (type === "PENALTY_50") return "cargo por cancelación tardía";
-  return "pago 100%";
 }
 
 /**
@@ -84,30 +83,33 @@ async function resolvePriceForAppointment(appointment) {
 }
 
 /**
- * Rótulo que ve el paciente en el checkout de ONVO. Incluye lugar y fecha para
- * que el cargo sea reconocible en el estado de cuenta.
- * Sin tildes ni guiones largos: ONVO devuelve el nombre con la codificación rota.
+ * Completa la cita con el profesional y su título profesional.
+ *
+ * Las citas llegan a esta función hidratadas de formas distintas según quién las
+ * trajo: unas con `professional.user.name`, otras sin el profesional del todo.
+ * El rótulo del cobro tiene que nombrar a quien atiende, y ese dato no puede
+ * depender de por dónde entró la cita, así que se completa desde la base cuando
+ * falta. Es una consulta por cobro emitido, no por cita listada.
  */
-function describeCharge(appointment, paymentType) {
-  const parts = [
-    paymentTypeLabel(paymentType),
-    appointment.service?.title || "Consulta",
-    appointment.locationName,
-    appointment.date
-      ? new Intl.DateTimeFormat("es-CR", {
-          timeZone: "America/Costa_Rica",
-          day: "numeric",
-          month: "short",
-          hour: "2-digit",
-          minute: "2-digit",
-        }).format(new Date(appointment.date))
-      : null,
-  ].filter(Boolean);
+async function conProfesional(appointment) {
+  if (appointment?.professional?.user?.name && "academicDegree" in appointment.professional) {
+    return appointment;
+  }
+  if (!appointment?.professionalId) return appointment;
 
-  return parts
-    .join(" - ")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+  // Si la consulta falla, el cobro sigue: el rótulo nombra a quien atiende, pero
+  // un rótulo incompleto es infinitamente mejor que una cita que se quedó sin
+  // enlace de pago.
+  try {
+    const professional = await prisma.professionalProfile.findUnique({
+      where: { id: appointment.professionalId },
+      select: { academicDegree: true, user: { select: { name: true } } },
+    });
+    return professional ? { ...appointment, professional } : appointment;
+  } catch (error) {
+    console.error("[payment] No se pudo leer el profesional para el rótulo:", error);
+    return appointment;
+  }
 }
 
 async function emailPaymentRequest({ appointment, paymentUrl, amount, paymentType }) {
@@ -117,16 +119,20 @@ async function emailPaymentRequest({ appointment, paymentUrl, amount, paymentTyp
     processUrl: paymentUrl,
     amount,
     serviceTitle: appointment.service?.title || "Consulta",
-    proName: appointment.professional?.user?.name || "el profesional",
+    proName: nombreDelProfesional(appointment.professional) || "el profesional",
     isFirst: appointment.isFirstWithProfessional,
     paymentType,
   });
 }
 
-export async function createPaymentRequestForAppointment(appointment, requestedType) {
-  if (!appointment?.id) {
+export async function createPaymentRequestForAppointment(appointmentEntrante, requestedType) {
+  if (!appointmentEntrante?.id) {
     return { success: false, error: "Cita invalida.", code: "INVALID_APPOINTMENT" };
   }
+
+  // Se hidrata antes de la bifurcación: el correo del enlace reenviado nombra al
+  // profesional igual que el del enlace nuevo.
+  const appointment = await conProfesional(appointmentEntrante);
 
   // Un cobro ya emitido se reenvía con SU enlace: crear uno nuevo dejaría dos
   // enlaces vivos por la misma cita y el pago podría entrar por el que no
@@ -183,7 +189,7 @@ export async function createPaymentRequestForAppointment(appointment, requestedT
   try {
     link = await createPaymentLink({
       amount,
-      description: describeCharge(appointment, requestedType),
+      description: rotuloCobroOnvo(appointment, requestedType),
       currency: "CRC",
     });
   } catch (error) {

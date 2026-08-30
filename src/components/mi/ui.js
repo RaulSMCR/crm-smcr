@@ -5,6 +5,7 @@
 // warning/danger no están definidos en CSS (ver globals.css).
 import { DEFAULT_TZ } from "@/lib/timezone";
 import { normalizeImageSrc } from "@/lib/images";
+import LugarCita from "@/components/citas/LugarCita";
 
 // ── Formateadores ────────────────────────────────────────────────────────────
 export function formatDateTime(iso) {
@@ -179,6 +180,7 @@ export function AppointmentCard({ cita, highlight = false }) {
             <p className="mt-1 text-sm text-neutral-700">{cita.servicio}</p>
           ) : null}
           <p className="mt-1 text-sm font-medium text-brand-700">{formatDateTime(cita.date)}</p>
+          <LugarCita cita={cita} compacto />
 
           {cita.meetLink ? (
             <a

@@ -205,13 +205,30 @@ describe("snapshotLocation()", () => {
       modality: "OFFICE",
       name: "Consultorio Escazú",
       address: "San Rafael, Escazú",
+      instructions: "Segundo piso, timbre 3",
     });
     expect(snap).toEqual({
       locationId: OFICINA,
       modality: "OFFICE",
       locationName: "Consultorio Escazú",
       locationAddress: "San Rafael, Escazú",
+      // Las señas se congelan con el resto: son lo que hace útil a la dirección
+      // y el paciente las recibe al agendar y en cada recordatorio.
+      locationNotes: "Segundo piso, timbre 3",
     });
+  });
+
+  it("no adelanta las instrucciones de un lugar virtual", () => {
+    // Las instrucciones de un lugar virtual son el enlace de la sala, y ese lo
+    // hace llegar el profesional antes de la cita, no el sistema al reservar.
+    const snap = snapshotLocation({
+      id: "loc_virtual",
+      modality: "VIRTUAL",
+      name: "Consulta virtual",
+      address: null,
+      instructions: "https://meet.example/sala-privada",
+    });
+    expect(snap.locationNotes).toBeNull();
   });
 
   it("no copia dirección en citas a domicilio: el lugar lo pone el paciente", () => {

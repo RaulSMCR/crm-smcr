@@ -140,3 +140,32 @@ Estas materias están dichas en más de un lugar. **Si cambia una, cambian todas
    trabajarse en equipo de forma trazable, hace falta una decisión de producto:
    el registro de la apertura existe, pero no pasa por visado.
 3. Los campos en blanco del contrato y del Anexo A.
+
+---
+
+## G. El contrato se genera desde el CRM
+
+Desde **Panel → Personal → «Generar contrato»** se imprime el contrato de un
+profesional con sus datos ya sustituidos (nombre con su título, cédula, correo y
+disciplina), la razón social y la cédula jurídica tomadas de la configuración de
+factura electrónica, y la fecha de firma en letras.
+
+Dos cosas que hay que saber antes de usarlo:
+
+1. **El `.docx` sigue siendo la fuente legal.** El generador
+   (`src/lib/contratos/contrato-profesional.js`) es una **transcripción** de ese
+   archivo. Si el `.docx` cambia —empezando por las cláusulas de las secciones A
+   y B de este documento— hay que actualizar la transcripción con él.
+2. **Se transcribe con los defectos de la sección D**, sin corregirlos. La
+   pantalla los muestra antes de imprimir, junto con la lista de lo que quedó en
+   blanco: el plazo de pago de la 4.3, la cuenta bancaria, el domicilio del
+   profesional y la fecha de finalización del plazo.
+
+El campo «Precio» del Anexo A ya sale con la remisión al Anexo económico que pide
+la sección C de este documento.
+
+Los datos del representante legal salen de tres variables de entorno
+(`EMPRESA_REPRESENTANTE_NOMBRE`, `EMPRESA_REPRESENTANTE_CEDULA`,
+`EMPRESA_REPRESENTANTE_CONDICION`). Sin ellas el contrato sale con la línea en
+blanco: quién firma por la empresa y con qué facultades no es algo que el sistema
+pueda suponer.

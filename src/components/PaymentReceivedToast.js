@@ -10,7 +10,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { consumirAvisosDePago } from "@/actions/payment-notice-actions";
-import { modalityLabel } from "@/lib/rates";
 import { formatCRC as formatCRCBase } from "@/lib/service-pricing";
 
 // Este aviso puede llegar en otra moneda, así que la recibe como parámetro.
@@ -113,15 +112,24 @@ export default function PaymentReceivedToast() {
                 </dd>
                 <dd>{formatFecha(aviso.cita.fecha)}</dd>
               </div>
-              {aviso.cita.lugar && (
+              {aviso.cita.lugar?.titulo || aviso.cita.lugar?.aviso ? (
                 <div>
                   <dt className="text-white/70">Lugar</dt>
-                  <dd>
-                    {aviso.cita.lugar}
-                    {aviso.cita.modalidad ? ` (${modalityLabel(aviso.cita.modalidad)})` : ""}
-                  </dd>
+                  {aviso.cita.lugar.titulo ? (
+                    <dd>
+                      {aviso.cita.lugar.titulo}
+                      {aviso.cita.lugar.modalidad ? ` (${aviso.cita.lugar.modalidad})` : ""}
+                    </dd>
+                  ) : null}
+                  {aviso.cita.lugar.direccion ? <dd>{aviso.cita.lugar.direccion}</dd> : null}
+                  {aviso.cita.lugar.comoLlegar ? (
+                    <dd className="text-white/70">{aviso.cita.lugar.comoLlegar}</dd>
+                  ) : null}
+                  {aviso.cita.lugar.aviso ? (
+                    <dd className="text-white/70">{aviso.cita.lugar.aviso}</dd>
+                  ) : null}
                 </div>
-              )}
+              ) : null}
             </dl>
           )}
 

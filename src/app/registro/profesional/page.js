@@ -6,6 +6,7 @@ import { registerProfessional } from "@/actions/auth-actions";
 import AuthTurnstile, { CAPTCHA_ENABLED } from "@/components/AuthTurnstile";
 import Link from "next/link";
 import { getMarketingAttributionFields, getMarketingAttributionRaw } from "@/lib/marketing-attribution-client";
+import { GRADOS_ACADEMICOS } from "@/lib/grados-academicos";
 
 function isEmailFormatValid(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim().toLowerCase());
@@ -73,6 +74,7 @@ export default function RegistroProfesionalPage() {
 
   const [form, setForm] = useState({
     name: "", email: "", phone: "", password: "", confirmPassword: "",
+    identification: "", academicDegree: "",
     specialty: "", licenseNumber: "", bio: "", coverLetter: "", introVideoUrl: "",
   });
   const [file, setFile]               = useState(null);
@@ -151,6 +153,8 @@ export default function RegistroProfesionalPage() {
     if (!String(form.email || "").trim())       { setErrorMsg("Falta el correo electrónico."); return; }
     if (!isEmailFormatValid(form.email))        { setErrorMsg("El correo no tiene un formato válido."); return; }
     if (!String(form.phone || "").trim())       { setErrorMsg("Falta el teléfono de contacto."); return; }
+    if (!String(form.identification || "").trim()) { setErrorMsg("Falta el número de cédula o identificación."); return; }
+    if (!String(form.academicDegree || "").trim()) { setErrorMsg("Falta indicar el título profesional."); return; }
     if (!String(form.specialty || "").trim())   { setErrorMsg("Falta indicar la especialidad."); return; }
     if (!String(form.licenseNumber || "").trim()) { setErrorMsg("Falta el número de licencia."); return; }
     if (!isPasswordValid)                       { setErrorMsg("Revisá los requisitos de contraseña."); return; }
@@ -270,6 +274,16 @@ export default function RegistroProfesionalPage() {
                     value={form.phone} onChange={handleChange} />
                 </div>
 
+                <div>
+                  <label className={labelClass}>Cédula o identificación</label>
+                  <input name="identification" type="text" required placeholder="1-2345-6789"
+                    className={inputClass} value={form.identification} onChange={handleChange} />
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Es el dato con el que se redacta su contrato de prestación de servicios.
+                    Cédula nacional, DIMEX o pasaporte.
+                  </p>
+                </div>
+
                 {/* Contraseñas */}
                 <div>
                   <label className={labelClass}>Contraseña</label>
@@ -303,6 +317,22 @@ export default function RegistroProfesionalPage() {
                 <h2 className="border-b border-neutral-200 pb-2 text-xs font-bold uppercase tracking-widest text-neutral-400">
                   Datos profesionales
                 </h2>
+
+                <div>
+                  <label className={labelClass}>Título profesional</label>
+                  <select name="academicDegree" required
+                    className={inputClass} value={form.academicDegree} onChange={handleChange}>
+                    <option value="">Seleccione…</option>
+                    {GRADOS_ACADEMICOS.map((grado) => (
+                      <option key={grado.id} value={grado.id}>
+                        {grado.nombre} ({grado.abreviatura})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Así aparece su nombre ante las personas que atiende y en el detalle de cada factura.
+                  </p>
+                </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>

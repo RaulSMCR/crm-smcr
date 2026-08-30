@@ -16,11 +16,13 @@ export default function MarkdownFileImport({ onImport, compact = false }) {
   const [dragActive, setDragActive] = useState(false);
   const [reading, setReading] = useState(false);
   const [status, setStatus] = useState(null);
+  const [missing, setMissing] = useState([]);
   const [error, setError] = useState(null);
 
   async function readFile(file) {
     setError(null);
     setStatus(null);
+    setMissing([]);
 
     if (!file) return;
     if (!isMarkdownFileName(file.name)) {
@@ -43,7 +45,10 @@ export default function MarkdownFileImport({ onImport, compact = false }) {
         parsed.slug ? "slug" : null,
         parsed.metaTitle || parsed.metaDescription || parsed.focusKeyword || parsed.ogImage || parsed.noindex ? "SEO" : null,
         parsed.excerpt ? "resumen" : null,
+        parsed.extractiveBlock ? "bloque extractivo" : null,
+        parsed.coverImage || parsed.coverImageAlt ? "portada" : null,
         parsed.seriesName || parsed.seriesOrder ? "serie/parte" : null,
+        parsed.disciplines?.length || parsed.topics?.length ? "taxonomía" : null,
       ].filter(Boolean);
 
       setStatus(
@@ -55,6 +60,10 @@ export default function MarkdownFileImport({ onImport, compact = false }) {
           .filter(Boolean)
           .join(" "),
       );
+
+      // Lo que falta se muestra aparte y no mezclado con lo que sí llegó: es
+      // una lista para llevarle al documento, no un aviso más.
+      setMissing(parsed.faltantes || []);
     } catch (readError) {
       console.error("Error leyendo el archivo markdown:", readError);
       setError("No se pudo leer el archivo.");
@@ -114,6 +123,17 @@ export default function MarkdownFileImport({ onImport, compact = false }) {
 
       {error ? <p className="rounded border border-red-200 bg-red-50 p-2 text-xs text-red-700">{error}</p> : null}
       {status ? <p className="rounded border border-emerald-200 bg-emerald-50 p-2 text-xs text-emerald-800">{status}</p> : null}
+
+      {missing.length ? (
+        <div className="rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
+          <p className="font-semibold">El documento no trae: {missing.join(", ")}.</p>
+          <p className="mt-1">
+            Se puede llenar a mano acá, pero conviene pedirlo en el documento y volver a
+            subirlo: así queda igual en el archivo y en el sitio.
+          </p>
+        </div>
+      ) : null}
+
       <p className="text-xs text-slate-500">
         Se reconocen el front matter YAML (<span className="font-mono">title</span>,{" "}
         <span className="font-mono">slug</span>, <span className="font-mono">meta_description</span>…), el bloque

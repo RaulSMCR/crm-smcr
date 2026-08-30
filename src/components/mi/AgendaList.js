@@ -14,6 +14,7 @@ import {
   confirmCurrentAppointmentByPatient,
 } from "@/actions/patient-booking-actions";
 import Toast from "@/components/ui/Toast";
+import LugarCita from "@/components/citas/LugarCita";
 import {
   SectionHeader,
   Card,
@@ -39,6 +40,7 @@ function CitaInfo({ cita }) {
           <p className="mt-1 text-sm text-neutral-700">{cita.service.title}</p>
         ) : null}
         <p className="mt-1 text-sm font-medium text-brand-700">{formatDateTime(cita.date)}</p>
+        <LugarCita cita={cita} compacto />
       </div>
     </div>
   );

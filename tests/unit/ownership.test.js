@@ -21,6 +21,9 @@ const {
     appointment: { findUnique: vi.fn(), update: vi.fn() },
     paymentTransaction: { findFirst: vi.fn(), create: vi.fn() },
     serviceAssignment: { findUnique: vi.fn() },
+    // El rótulo del cobro nombra al profesional con su título, así que el cobro
+    // completa la cita desde la base antes de crear el enlace.
+    professionalProfile: { findUnique: vi.fn() },
   },
   libGetSession: vi.fn(),
   actionsGetSession: vi.fn(),
@@ -79,6 +82,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   prisma.appointment.update.mockResolvedValue({});
   prisma.paymentTransaction.create.mockResolvedValue({});
+  prisma.professionalProfile.findUnique.mockResolvedValue({
+    academicDegree: "licenciada",
+    user: { name: "Ana Solano" },
+  });
 });
 
 describe("cobrarCita — pertenencia del profesional (SEC-03)", () => {

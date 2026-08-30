@@ -13,6 +13,7 @@ import {
   confirmCurrentAppointmentByPatient,
 } from "@/actions/patient-booking-actions";
 import { SafeAvatar } from "@/components/SafeImage";
+import LugarCita from "@/components/citas/LugarCita";
 
 const CANCELLED_STATUSES = new Set(["CANCELLED_BY_USER", "CANCELLED_BY_PRO"]);
 const ACTIVE_PAYMENT_STATUSES = new Set(["PENDING", "LINK_SENT"]);
@@ -270,6 +271,10 @@ export default function UserAppointmentsPanel({
                 {formatTimeInTZ(appointment.date)} hs
               </div>
             </div>
+
+            {/* A dónde ir. El panel mostraba la fecha y la hora pero no el
+                lugar, así que la dirección quedaba solo en el correo. */}
+            <LugarCita cita={appointment} />
           </div>
         </div>
 

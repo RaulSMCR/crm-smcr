@@ -9,7 +9,7 @@
 // sus atributos de accesibilidad para que se comporten igual.
 
 import { useEffect, useState } from "react";
-import { modalityLabel } from "@/lib/rates";
+import { detalleLugarCita } from "@/lib/lugar-cita";
 import { formatCRC as formatCRCBase } from "@/lib/service-pricing";
 
 // Formato compartido; este componente muestra null cuando no hay monto.
@@ -45,8 +45,9 @@ export default function BookingConfirmationToast({ confirmation, onDismiss, auto
 
   const price = formatCRC(confirmation.price);
   const when = formatWhen(confirmation.startsAt);
-  const place = confirmation.locationName;
-  const modality = modalityLabel(confirmation.modality);
+  const lugar = detalleLugarCita(confirmation);
+  const place = lugar.titulo;
+  const modality = lugar.modalidad;
 
   return (
     <div
@@ -80,16 +81,20 @@ export default function BookingConfirmationToast({ confirmation, onDismiss, auto
           </div>
         )}
 
-        {place && (
+        {(place || lugar.aviso) && (
           <div>
             <dt className="text-white/70">Lugar</dt>
-            <dd className="font-medium">
-              {place}
-              {modality ? ` (${modality})` : ""}
-            </dd>
-            {confirmation.locationAddress && (
-              <dd className="text-white/70">{confirmation.locationAddress}</dd>
-            )}
+            {place ? (
+              <dd className="font-medium">
+                {place}
+                {modality ? ` (${modality})` : ""}
+              </dd>
+            ) : null}
+            {/* La dirección exacta: hasta ahora el paciente veía solo el rótulo
+                del lugar y tenía que preguntar a dónde ir. */}
+            {lugar.direccion ? <dd className="text-white/90">{lugar.direccion}</dd> : null}
+            {lugar.comoLlegar ? <dd className="text-white/70">{lugar.comoLlegar}</dd> : null}
+            {lugar.aviso ? <dd className="mt-1 text-white/70">{lugar.aviso}</dd> : null}
           </div>
         )}
 

@@ -298,9 +298,21 @@ export function generateFeXml(invoice, lines) {
 
     lineEl.ele("Cantidad").txt(fmt5(qty));
     lineEl.ele("UnidadMedida").txt(uom);
-    lineEl.ele("Detalle").txt(
-      (line.product?.name || line.service?.title || line.description || `Servicio ${idx + 1}`).substring(0, 200)
-    );
+
+    // El Detalle es lo único de la línea que una persona lee, y hasta ahora se
+    // quedaba con el primer nombre que encontrara: si la línea tenía servicio
+    // enlazado, el título del servicio ganaba y la descripción —donde está la
+    // fecha de la consulta y el profesional que la dio— no salía nunca. Ahora se
+    // dicen las dos cosas: qué se facturó y cuál consulta fue.
+    const nombreLinea = line.productName || line.product?.name || line.service?.title || "";
+    const detalleLinea =
+      [nombreLinea, line.description]
+        .map((parte) => String(parte || "").trim())
+        .filter(Boolean)
+        .filter((parte, i, todas) => todas.indexOf(parte) === i)
+        .join(" — ") || `Servicio ${idx + 1}`;
+
+    lineEl.ele("Detalle").txt(detalleLinea.substring(0, 200));
     lineEl.ele("PrecioUnitario").txt(fmt5(uprice));
     lineEl.ele("MontoTotal").txt(fmt5(montoTotal));
 
