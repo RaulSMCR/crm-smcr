@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
-import Link from "next/link";
 import HeroSection from "@/components/HeroSection";
-import CategorySection from "@/components/CategorySection";
+import HomeServicesAndBlog from "@/components/HomeServicesAndBlog";
+import HomeTeamBand from "@/components/HomeTeamBand";
 import MissionVideo from "@/components/MissionVideo";
 import HomeFeatureCarousel from "@/components/HomeFeatureCarousel";
 import ProfessionalCtaSection from "@/components/ProfessionalCtaSection";
@@ -103,9 +103,23 @@ function normalizeCarouselItems(items = []) {
 export default async function HomePage() {
   let categoriesToShow = FALLBACK_CATEGORIES;
   let carouselItems = [];
+  // El índice del blog y la banda del equipo no tienen respaldo estático a
+  // propósito: si la base no responde, sus componentes no se dibujan. Inventar
+  // artículos o personas que quizá no existan sería peor que no mostrarlos.
+  let latestPosts = [];
+  let teamMembers = [];
 
   try {
-    const dbPromise = Promise.all([
+    // Dos grupos con presupuestos separados, y no uno solo, porque no todo pesa
+    // igual. Los servicios y el carrusel SON la home: si no llegan hay que
+    // degradar, y en el build hay que fallar. El índice del blog y la banda del
+    // equipo son accesorios; que tarden no puede costarle la home a nadie.
+    //
+    // Importa que el pool es de una sola conexión: las consultas no corren en
+    // paralelo aunque se lancen juntas, se encolan. Meter las cuatro en un solo
+    // `Promise.all` con un solo límite hacía que las dos accesorias empujaran a
+    // las críticas fuera del presupuesto y la home entera cayera al respaldo.
+    const consultasCriticas = Promise.all([
       prisma.service.findMany({
         take: 4,
         orderBy: [{ displayOrder: "asc" }, { title: "asc" }],
@@ -176,17 +190,70 @@ export default async function HomePage() {
       }),
     ]);
 
+    // Función y no promesa: las accesorias no se lanzan hasta que las críticas
+    // terminaron. Lanzadas a la vez no solo se encolan, contienden — medido
+    // contra la base real, las cuatro juntas tardan más que las dos críticas
+    // solas y arrastraban la home entera al respaldo. Que el índice del blog
+    // llegue tarde es aceptable; que los servicios no lleguen, no.
+    const pedirAccesorias = () => Promise.all([
+      // Los cuatro más recientes: la columna angosta es un índice de novedad,
+      // no una curaduría. La curaduría ya tiene su lugar en el carrusel, que se
+      // arma a mano desde el panel.
+      prisma.post.findMany({
+        where: { status: "PUBLISHED" },
+        orderBy: { createdAt: "desc" },
+        take: 4,
+        select: {
+          slug: true,
+          title: true,
+          createdAt: true,
+          author: { select: { user: { select: { name: true } } } },
+        },
+      }),
+      // Cinco es el equipo completo de hoy, así que la banda no deja a nadie
+      // afuera. Si el equipo crece pasa a ser una muestra por antigüedad, y el
+      // enlace a /profesionales carga con el resto.
+      prisma.professionalProfile.findMany({
+        where: { isApproved: true, user: { is: { isActive: true } } },
+        orderBy: { createdAt: "asc" },
+        take: 5,
+        select: {
+          id: true,
+          slug: true,
+          specialty: true,
+          licenseNumber: true,
+          user: { select: { name: true, image: true } },
+        },
+      }),
+    ]);
+
     // El límite de 4 s existe para que un visitante no espere a una base lenta.
     // En el build no hay nadie esperando, y sí hay quince workers consultando a
     // la vez: aplicarlo ahí solo produce fallas por contención propia.
+    const PRESUPUESTO_MS = 4000;
+
     const [dbServices, dbCarouselItems] = enPrerender()
-      ? await dbPromise
+      ? await consultasCriticas
       : await Promise.race([
-          dbPromise,
+          consultasCriticas,
           new Promise((_, reject) => {
-            setTimeout(() => reject(new Error("Timeout DB")), 4000);
+            setTimeout(() => reject(new Error("Timeout DB")), PRESUPUESTO_MS);
           }),
         ]);
+
+    // Las accesorias tienen su propio presupuesto y vencen resolviendo vacío en
+    // lugar de rechazar: un índice que no llegó a tiempo no puede tumbar la home
+    // ni hacer fallar el build. El catch cubre el otro caso —que la consulta
+    // falle, no que tarde— por la misma razón.
+    const [dbPosts, dbProfessionals] = await (enPrerender()
+      ? pedirAccesorias()
+      : Promise.race([
+          pedirAccesorias(),
+          new Promise((resolve) => {
+            setTimeout(() => resolve([[], []]), PRESUPUESTO_MS);
+          }),
+        ])
+    ).catch(() => [[], []]);
 
     if (dbServices && dbServices.length > 0) {
       categoriesToShow = dbServices.map((service, index) => ({
@@ -203,6 +270,24 @@ export default async function HomePage() {
     }
 
     carouselItems = normalizeCarouselItems(dbCarouselItems);
+
+    // `createdAt` se serializa acá. El índice es un componente de servidor y
+    // podría recibir el Date crudo, pero eso lo ataría a seguir siéndolo.
+    latestPosts = (dbPosts || []).map((post) => ({
+      slug: post.slug,
+      title: post.title,
+      authorName: post.author?.user?.name || "Redacción",
+      createdAt: post.createdAt ? post.createdAt.toISOString() : null,
+    }));
+
+    teamMembers = (dbProfessionals || []).map((professional) => ({
+      id: professional.id,
+      slug: professional.slug || "",
+      name: professional.user?.name || "Profesional",
+      image: professional.user?.image || "",
+      specialty: professional.specialty || "",
+      licenseNumber: professional.licenseNumber || "",
+    }));
   } catch (error) {
     // En una petición real la home degrada a las categorías por defecto y sigue
     // en pie, que es lo que corresponde. En el build, no: ese estado degradado
@@ -235,17 +320,8 @@ export default async function HomePage() {
       <HeroSection />
       <MissionVideo />
       <HomeFeatureCarousel items={carouselItems} />
-      <CategorySection categories={categoriesToShow} title="Nuestros Servicios" />
-      <div className="bg-surface px-4 pb-16">
-        <div className="container mx-auto flex justify-center">
-          <Link
-            href="/servicios"
-            className="inline-flex items-center justify-center rounded-xl bg-brand-700 px-6 py-3 text-sm font-semibold text-white shadow-card hover:bg-brand-800"
-          >
-            Otros servicios
-          </Link>
-        </div>
-      </div>
+      <HomeServicesAndBlog categories={categoriesToShow} posts={latestPosts} />
+      <HomeTeamBand professionals={teamMembers} />
       <ProfessionalCtaSection />
     </div>
   );
