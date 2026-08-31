@@ -25,7 +25,11 @@ const formatoFecha = new Intl.DateTimeFormat("es-CR", {
 function BlogIndex({ posts }) {
   return (
     <div>
-      <h2 className="text-3xl font-bold text-brand-900">Del blog</h2>
+      <h2 className="text-3xl font-bold text-brand-900">
+        <Link href="/blog" className="text-brand-900 no-underline hover:underline">
+          Del blog
+        </Link>
+      </h2>
       <p className="mt-2 text-sm text-neutral-700">
         Historia, escuelas y discusiones sobre la salud mental, escritas por el equipo.
       </p>
@@ -65,11 +69,15 @@ function BlogIndex({ posts }) {
         ))}
       </ol>
 
+      {/* El texto visible es "Más" por pedido, pero suelto no dice a dónde
+          lleva: leído por un lector de pantalla, fuera del bloque, es solo
+          "más". El aria-label lo nombra sin cambiar lo que se ve. */}
       <Link
         href="/blog"
+        aria-label="Más artículos del blog"
         className="mt-6 inline-flex items-center gap-1 text-sm font-semibold text-brand-800 no-underline hover:underline"
       >
-        Ir a la biblioteca
+        Más
         <span aria-hidden="true">→</span>
       </Link>
     </div>
@@ -100,7 +108,11 @@ export default function HomeServicesAndBlog({ categories = [], posts = [] }) {
           }
         >
           <div>
-            <h2 className="text-3xl font-bold text-brand-900">Nuestros servicios</h2>
+            <h2 className="text-3xl font-bold text-brand-900">
+              <Link href="/servicios" className="text-brand-900 no-underline hover:underline">
+                Nuestros servicios
+              </Link>
+            </h2>
             <p className="mt-2 text-sm text-neutral-700">
               Atención con especialistas colegiados, en línea o presencial.
             </p>
@@ -113,9 +125,10 @@ export default function HomeServicesAndBlog({ categories = [], posts = [] }) {
 
             <Link
               href="/servicios"
+              aria-label="Más servicios"
               className="mt-8 inline-flex items-center gap-1 text-sm font-semibold text-brand-800 no-underline hover:underline"
             >
-              Otros servicios
+              Más
               <span aria-hidden="true">→</span>
             </Link>
           </div>

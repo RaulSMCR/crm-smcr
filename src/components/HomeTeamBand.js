@@ -74,21 +74,18 @@ export default function HomeTeamBand({ professionals = [] }) {
   return (
     <section className="nv-panel px-4 py-16">
       <div className="container mx-auto">
-        <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="text-3xl font-bold text-white">Nuestros profesionales</h2>
-            <p className="mt-2 text-sm text-white/80">
-              Cada perfil declara su colegiatura y los servicios que atiende.
-            </p>
-          </div>
-
-          <Link
-            href="/profesionales"
-            className="inline-flex w-fit items-center gap-1 text-sm font-semibold text-white no-underline hover:underline"
-          >
-            Ver todo el equipo
-            <span aria-hidden="true">→</span>
-          </Link>
+        <div className="mb-8">
+          {/* El destino es /profesionales y no /nosotros: esa URL vieja es un
+              301 permanente hacia acá desde S9, así que enlazarla sería
+              mandar a todo el mundo por un salto de más. */}
+          <h2 className="text-3xl font-bold text-white">
+            <Link href="/profesionales" className="text-white no-underline hover:underline">
+              Nuestros profesionales
+            </Link>
+          </h2>
+          <p className="mt-2 text-sm text-white/80">
+            Cada perfil declara su colegiatura y los servicios que atiende.
+          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-5">
@@ -96,6 +93,15 @@ export default function HomeTeamBand({ professionals = [] }) {
             <TeamCard key={professional.id} professional={professional} />
           ))}
         </div>
+
+        <Link
+          href="/profesionales"
+          aria-label="Más profesionales"
+          className="mt-8 inline-flex items-center gap-1 text-sm font-semibold text-white no-underline hover:underline"
+        >
+          Más
+          <span aria-hidden="true">→</span>
+        </Link>
       </div>
     </section>
   );
