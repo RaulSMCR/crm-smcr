@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SafeAvatar } from "@/components/SafeImage";
+import FichaProfesionalDialog from "@/components/FichaProfesionalDialog";
 
 /**
  * Banda del equipo, de ancho completo y debajo de la capa dividida.
@@ -25,41 +26,40 @@ function TeamCard({ professional }) {
     ? `/profesionales/${professional.slug}`
     : `/agendar/${professional.id}`;
 
-  // La tarjeta dejó de ser un solo enlace envolvente: agendar es una acción
-  // distinta de ver el perfil, y un ancla no puede anidarse dentro de otra. La
-  // foto, el nombre y la especialidad siguen siendo una sola zona clicable
-  // hacia el perfil; agendar va aparte, debajo, como acción propia.
+  // Tres destinos distintos en una tarjeta: la foto amplía la ficha, el nombre
+  // va al perfil y el botón va a agendar. Por eso dejó de ser un solo enlace
+  // envolvente —además, un ancla no puede anidarse dentro de otra.
   return (
     <article className="flex flex-col items-center rounded-2xl bg-neutral-50 p-6 text-center shadow-card transition-transform duration-300 hover:-translate-y-1">
-      <Link
-        href={href}
-        className="group flex flex-col items-center no-underline hover:no-underline"
+      <FichaProfesionalDialog
+        professional={professional}
+        triggerClassName="relative h-28 w-28 overflow-hidden rounded-full border-4 border-white bg-brand-100 shadow-card transition hover:ring-2 hover:ring-accent-500"
       >
-        <div className="relative h-28 w-28 overflow-hidden rounded-full border-4 border-white bg-brand-100 shadow-card">
-          {professional.image ? (
-            <SafeAvatar
-              src={professional.image}
-              name={nombre}
-              alt={`Foto de ${nombre}`}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-4xl font-bold text-brand-800">
-              {inicialDe(nombre)}
-            </div>
-          )}
-        </div>
+        {professional.image ? (
+          <SafeAvatar
+            src={professional.image}
+            name={nombre}
+            alt={`Foto de ${nombre}`}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <span className="flex h-full w-full items-center justify-center text-4xl font-bold text-brand-800">
+            {inicialDe(nombre)}
+          </span>
+        )}
+      </FichaProfesionalDialog>
 
-        <h3 className="mt-4 text-base font-bold leading-snug text-neutral-950 group-hover:text-brand-800">
+      <Link href={href} className="no-underline hover:no-underline">
+        <h3 className="mt-4 text-base font-bold leading-snug text-neutral-950 hover:text-brand-800 hover:underline">
           {nombre}
         </h3>
-
-        {professional.specialty ? (
-          <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-accent-900">
-            {professional.specialty}
-          </p>
-        ) : null}
       </Link>
+
+      {professional.specialty ? (
+        <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-accent-900">
+          {professional.specialty}
+        </p>
+      ) : null}
 
       {professional.licenseNumber ? (
         <p className="mt-2 text-xs text-neutral-600">

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import SafeImage, { SafeAvatar } from "@/components/SafeImage";
+import FichaProfesionalDialog from "@/components/FichaProfesionalDialog";
 import { IMAGE_FALLBACKS } from "@/lib/images";
 
 const FALLBACK_ARTICLE_IMAGE =
@@ -36,15 +37,18 @@ function ProfessionalAvatar({ professional }) {
   const name = professional?.name || "Profesional";
 
   return (
-    <div className="relative mx-auto h-36 w-36 overflow-hidden rounded-full border-4 border-white bg-brand-100 shadow-card md:h-44 md:w-44">
+    <FichaProfesionalDialog
+      professional={professional}
+      triggerClassName="relative mx-auto block h-36 w-36 overflow-hidden rounded-full border-4 border-white bg-brand-100 shadow-card transition hover:ring-2 hover:ring-accent-500 md:h-44 md:w-44"
+    >
       {image ? (
         <SafeAvatar src={image} name={name} className="h-full w-full object-cover" />
       ) : (
-        <div className="flex h-full w-full items-center justify-center text-5xl font-bold text-brand-800">
+        <span className="flex h-full w-full items-center justify-center text-5xl font-bold text-brand-800">
           {initialFor(name)}
-        </div>
+        </span>
       )}
-    </div>
+    </FichaProfesionalDialog>
   );
 }
 

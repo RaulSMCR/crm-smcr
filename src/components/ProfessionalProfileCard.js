@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { SafeAvatar } from "@/components/SafeImage";
+import FichaProfesionalDialog from "@/components/FichaProfesionalDialog";
 
 export default function ProfessionalProfileCard({ professional }) {
   const publicHref = professional.slug ? `/profesionales/${professional.slug}` : `/agendar/${professional.id}`;
@@ -10,10 +11,18 @@ export default function ProfessionalProfileCard({ professional }) {
   return (
     <article className="flex flex-col overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:shadow-md">
       <div className="relative h-32 bg-gradient-to-r from-blue-50 to-indigo-50">
-        <Link
-          href={publicHref}
-          className="absolute -bottom-12 left-1/2 flex h-24 w-24 -translate-x-1/2 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-white shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          aria-label={`Ver perfil de ${professional.user.name}`}
+        {/* La foto amplía la ficha en vez de navegar al perfil. Ir al perfil
+            sigue estando a un clic, en el botón "Ver perfil" de más abajo. */}
+        <FichaProfesionalDialog
+          professional={{
+            id: professional.id,
+            slug: professional.slug,
+            name: professional.user.name,
+            image: professional.user.image,
+            specialty: professional.specialty,
+            licenseNumber: professional.licenseNumber,
+          }}
+          triggerClassName="absolute -bottom-12 left-1/2 flex h-24 w-24 -translate-x-1/2 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-white shadow-md transition hover:ring-2 hover:ring-accent-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           {professional.user.image ? (
             <SafeAvatar
@@ -26,7 +35,7 @@ export default function ProfessionalProfileCard({ professional }) {
               {professional.user.name.charAt(0)}
             </span>
           )}
-        </Link>
+        </FichaProfesionalDialog>
       </div>
 
       <div className="flex flex-grow flex-col px-6 pb-6 pt-14 text-center">
