@@ -59,9 +59,16 @@ export default async function AdminPersonalPage() {
     },
   });
 
-  const pendingProfileReviews = professionals.filter(
-    (p) => p.profileReviewStatus === "PENDING" && p.profileReviewDraft
-  ).length;
+  // El criterio es el borrador, no el estado. Un borrador que difiere de lo
+  // publicado es algo que alguien tiene que resolver, tenga el estado que
+  // tenga: si solo se cuentan los PENDING, un borrador que quedó con otro
+  // estado no aparece por ningún lado —ni acá ni en los botones de abajo— y no
+  // hay forma de aprobarlo ni de descartarlo.
+  const tieneBorradorSinResolver = (p) =>
+    Boolean(p.profileReviewDraft) &&
+    p.profileReviewDraft.trim() !== String(p.profileReview || "").trim();
+
+  const pendingProfileReviews = professionals.filter(tieneBorradorSinResolver).length;
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8">
@@ -284,7 +291,7 @@ export default async function AdminPersonalPage() {
                   <p className="mt-2 text-xs font-semibold text-rose-800">Nota: {p.profileReviewAdminNote}</p>
                 ) : null}
 
-                {profileReviewStatus === "PENDING" && p.profileReviewDraft ? (
+                {tieneBorradorSinResolver(p) ? (
                   <div className="mt-4 flex flex-wrap gap-2">
                     <AdminApproveButton
                       endpoint={`/api/admin/professionals/${p.id}/profile-review/approve`}

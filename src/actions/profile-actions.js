@@ -145,13 +145,24 @@ export async function updateProfile(formData) {
     if (!existingProfile) return { success: false, error: "Perfil profesional no encontrado." };
 
     const selectedIds = new Set(validServices.map((s) => s.id));
-    const previousReviewDraft =
-      existingProfile.profileReviewDraft ?? existingProfile.profileReview ?? null;
-    const reviewChanged = profileReviewDraft !== previousReviewDraft;
-    const resubmittingRejected =
-      existingProfile.profileReviewStatus === "REJECTED" && Boolean(profileReviewDraft);
-    const shouldSubmitReview =
-      formData.has("profileReviewDraft") && (reviewChanged || resubmittingRejected);
+
+    // Una sola regla: hay algo que revisar cuando el texto que el profesional
+    // tiene en el editor NO es el que está publicado.
+    //
+    // Antes se comparaba contra `profileReviewDraft ?? profileReview`, y eso
+    // abría dos huecos. Con un borrador guardado, el texto nuevo se comparaba
+    // contra ese borrador y no contra lo publicado, así que un cambio real
+    // podía darse por no-cambio y el guardado devolvía "Perfil guardado
+    // correctamente" sin haber enviado nada a revisión. Y al revés: un borrador
+    // idéntico a lo publicado quedaba almacenado con estado APPROVED, invisible
+    // para el admin —que solo veía los PENDING— y visible para el profesional,
+    // que abría el editor con un texto que la página pública no mostraba.
+    const resenaPublicada = toStr(existingProfile.profileReview).trim() || null;
+    const tocaLaResena = formData.has("profileReviewDraft");
+    const resenaPendiente = tocaLaResena && profileReviewDraft !== resenaPublicada;
+    // El profesional mandó exactamente lo publicado: no hay nada que aprobar, y
+    // cualquier borrador que hubiera quedado dando vueltas se limpia acá.
+    const resenaSinCambios = tocaLaResena && !resenaPendiente;
 
     // Leer asignaciones actuales
     const currentAssignments = await prisma.serviceAssignment.findMany({
@@ -176,12 +187,19 @@ export async function updateProfile(formData) {
           ...(domicilioRaw !== null && domicilioRaw !== undefined ? { domicilio } : {}),
           ...(ibanRaw !== null && ibanRaw !== undefined ? { iban } : {}),
           ...seo,
-          ...(shouldSubmitReview
+          ...(resenaPendiente
             ? {
                 profileReviewDraft,
                 profileReviewStatus: "PENDING",
                 profileReviewSubmittedAt: new Date(),
                 profileReviewReviewedAt: null,
+                profileReviewAdminNote: null,
+              }
+            : {}),
+          ...(resenaSinCambios
+            ? {
+                profileReviewDraft: null,
+                profileReviewStatus: resenaPublicada ? "APPROVED" : "EMPTY",
                 profileReviewAdminNote: null,
               }
             : {}),
@@ -321,7 +339,15 @@ export async function updateProfile(formData) {
       revalidatePath(`/profesionales/${existingProfile.slug || session.slug}`);
     }
 
-    return { success: true, profileReviewPending: shouldSubmitReview };
+    return {
+      success: true,
+      profileReviewPending: resenaPendiente,
+      // Para que el aviso al profesional distinga "guardé el perfil" de "la
+      // reseña no viajó": decir solo "guardado" cuando la reseña no se envió es
+      // indistinguible de haberla enviado, y es la razón por la que esto se
+      // leía como que la reseña no se actualizaba.
+      profileReviewSinCambios: resenaSinCambios,
+    };
   } catch (error) {
     console.error("Error updating profile:", error);
     const msg = String(error?.message ?? "");

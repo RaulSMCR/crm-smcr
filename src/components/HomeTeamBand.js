@@ -25,35 +25,41 @@ function TeamCard({ professional }) {
     ? `/profesionales/${professional.slug}`
     : `/agendar/${professional.id}`;
 
+  // La tarjeta dejó de ser un solo enlace envolvente: agendar es una acción
+  // distinta de ver el perfil, y un ancla no puede anidarse dentro de otra. La
+  // foto, el nombre y la especialidad siguen siendo una sola zona clicable
+  // hacia el perfil; agendar va aparte, debajo, como acción propia.
   return (
-    <Link
-      href={href}
-      className="group flex flex-col items-center rounded-2xl bg-neutral-50 p-6 text-center no-underline shadow-card transition-transform duration-300 hover:-translate-y-1 hover:no-underline"
-    >
-      <div className="relative h-28 w-28 overflow-hidden rounded-full border-4 border-white bg-brand-100 shadow-card">
-        {professional.image ? (
-          <SafeAvatar
-            src={professional.image}
-            name={nombre}
-            alt={`Foto de ${nombre}`}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-4xl font-bold text-brand-800">
-            {inicialDe(nombre)}
-          </div>
-        )}
-      </div>
+    <article className="flex flex-col items-center rounded-2xl bg-neutral-50 p-6 text-center shadow-card transition-transform duration-300 hover:-translate-y-1">
+      <Link
+        href={href}
+        className="group flex flex-col items-center no-underline hover:no-underline"
+      >
+        <div className="relative h-28 w-28 overflow-hidden rounded-full border-4 border-white bg-brand-100 shadow-card">
+          {professional.image ? (
+            <SafeAvatar
+              src={professional.image}
+              name={nombre}
+              alt={`Foto de ${nombre}`}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-4xl font-bold text-brand-800">
+              {inicialDe(nombre)}
+            </div>
+          )}
+        </div>
 
-      <h3 className="mt-4 text-base font-bold leading-snug text-neutral-950 group-hover:text-brand-800">
-        {nombre}
-      </h3>
+        <h3 className="mt-4 text-base font-bold leading-snug text-neutral-950 group-hover:text-brand-800">
+          {nombre}
+        </h3>
 
-      {professional.specialty ? (
-        <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-accent-900">
-          {professional.specialty}
-        </p>
-      ) : null}
+        {professional.specialty ? (
+          <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-accent-900">
+            {professional.specialty}
+          </p>
+        ) : null}
+      </Link>
 
       {professional.licenseNumber ? (
         <p className="mt-2 text-xs text-neutral-600">
@@ -61,10 +67,24 @@ function TeamCard({ professional }) {
         </p>
       ) : null}
 
-      <span className="mt-4 text-xs font-semibold text-brand-800 group-hover:underline">
+      {/* Coral y no teal: es la única acción de conversión de la banda, y el
+          coral es el acento reservado para eso. El "Ver perfil" queda como
+          enlace discreto para no competir con ella. */}
+      <Link
+        href={`/agendar/${professional.id}`}
+        aria-label={`Agendar cita con ${nombre}`}
+        className="mt-4 inline-flex w-full items-center justify-center rounded-lg bg-accent-700 px-4 py-2 text-sm font-semibold text-white no-underline transition hover:bg-accent-800 hover:no-underline"
+      >
+        Agendar cita
+      </Link>
+
+      <Link
+        href={href}
+        className="mt-2 text-xs font-semibold text-brand-800 no-underline hover:underline"
+      >
         Ver perfil →
-      </span>
-    </Link>
+      </Link>
+    </article>
   );
 }
 

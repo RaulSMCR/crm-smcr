@@ -243,6 +243,9 @@ export default function HomeFeatureCarousel({ items = [] }) {
 
   const active = slides[index] || slides[0];
   const meta = KIND_META[active.kind];
+  const masDeLaPieza = active.kind.startsWith("ARTICLE")
+    ? { href: "/blog", etiqueta: "Más artículos del blog" }
+    : { href: "/profesionales", etiqueta: "Más profesionales" };
 
   return (
     <section
@@ -309,6 +312,21 @@ export default function HomeFeatureCarousel({ items = [] }) {
             })}
           </div>
         ) : null}
+
+        {/* El "Más" de las otras tres secciones apunta siempre al mismo lado,
+            porque cada una lista una sola cosa. Acá la placa mezcla artículos y
+            perfiles, así que un destino fijo dejaría afuera la mitad de lo que
+            se está mostrando: sigue a la pieza activa. */}
+        <div className="mt-6 flex justify-center">
+          <Link
+            href={masDeLaPieza.href}
+            aria-label={masDeLaPieza.etiqueta}
+            className="inline-flex items-center gap-1 text-sm font-semibold text-brand-800 no-underline hover:underline"
+          >
+            Más
+            <span aria-hidden="true">→</span>
+          </Link>
+        </div>
       </div>
     </section>
   );

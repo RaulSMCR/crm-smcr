@@ -79,9 +79,23 @@ export default async function AdminDashboard() {
     prisma.post.count({ where: { status: "DRAFT" } }),
     prisma.service.count({ where: { isActive: true } }),
     prisma.user.count({ where: whereApprovedProsUsers }),
-    prisma.professionalProfile.count({
-      where: { profileReviewStatus: "PENDING", profileReviewDraft: { not: null } },
-    }),
+    // Mismo criterio que /panel/admin/personal: cuenta el borrador que difiere
+    // de lo publicado, no el estado. Va como findMany y se filtra en memoria
+    // porque Prisma no sabe comparar dos columnas entre sí en un `where`, y son
+    // pocas filas: el equipo entero cabe en una consulta.
+    prisma.professionalProfile
+      .findMany({
+        where: { profileReviewDraft: { not: null } },
+        select: { profileReview: true, profileReviewDraft: true },
+      })
+      .then(
+        (filas) =>
+          filas.filter(
+            (fila) =>
+              String(fila.profileReviewDraft || "").trim() !==
+              String(fila.profileReview || "").trim()
+          ).length
+      ),
     prisma.homeCarouselItem.count({ where: { isActive: true } }),
     prisma.appointment.count({ where: { status: { in: ["PENDING", "CONFIRMED"] } } }),
     prisma.invoice.count({ where: { status: { in: ["DRAFT", "OPEN"] } } }),

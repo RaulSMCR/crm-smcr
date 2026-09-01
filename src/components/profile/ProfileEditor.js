@@ -195,7 +195,9 @@ export default function ProfileEditor({ profile, allServices = [] }) {
         setToast({
           message: result.profileReviewPending
             ? "Perfil guardado. La reseña pública quedó en revisión administrativa."
-            : "Perfil guardado correctamente.",
+            : result.profileReviewSinCambios
+              ? "Perfil guardado. La reseña es idéntica a la publicada, así que no se envió a revisión."
+              : "Perfil guardado correctamente.",
           type: "success",
         });
         router.refresh();
