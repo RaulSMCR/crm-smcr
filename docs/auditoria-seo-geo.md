@@ -391,7 +391,7 @@ son props de React de `LibraryBar`, no atributos RDFa.
     "https://www.instagram.com/saludmentalcostarica",
     "https://www.facebook.com/saludmentalcostarica",
     "https://www.linkedin.com/company/saludmentalcostarica",
-    "https://www.youtube.com/@saludmentalcostarica"
+    "https://www.youtube.com/@SMCR506"
   ]
 }
 ```
