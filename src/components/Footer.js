@@ -1,5 +1,6 @@
 import Link from "next/link";
 import LogoTile from "@/components/brand/LogoTile";
+import { PHONE_URL, WHATSAPP_DISPLAY, WHATSAPP_URL } from "@/lib/contact-info";
 
 export default function Footer() {
   return (
@@ -52,8 +53,18 @@ export default function Footer() {
               </a>
             </li>
             <li>
-              <a href="tel:+50671291909" className="text-neutral-100 hover:text-accent-100">
-                +506 71291909
+              <a
+                href={WHATSAPP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-neutral-100 hover:text-accent-100"
+              >
+                WhatsApp: {WHATSAPP_DISPLAY}
+              </a>
+            </li>
+            <li>
+              <a href={PHONE_URL} className="text-neutral-100 hover:text-accent-100">
+                Llamar: {WHATSAPP_DISPLAY}
               </a>
             </li>
           </ul>

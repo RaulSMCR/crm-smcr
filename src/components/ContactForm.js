@@ -5,6 +5,7 @@ import Toast from "@/components/ui/Toast";
 import AuthTurnstile, { CAPTCHA_ENABLED } from "@/components/AuthTurnstile";
 import { trackEvent } from "@/lib/analytics";
 import { trackContact } from "@/lib/meta-pixel";
+import { WHATSAPP_DISPLAY } from "@/lib/contact-info";
 import { getMarketingAttributionRaw } from "@/lib/marketing-attribution-client";
 
 export default function ContactForm() {
@@ -61,7 +62,7 @@ export default function ContactForm() {
         setCaptchaToken("");
         turnstileRef.current?.reset();
         setToast({
-          message: "Despejaremos su consulta tan pronto sea posible. Gracias por contactarnos.",
+          message: `Despejaremos su consulta tan pronto sea posible. También podés escribirnos por WhatsApp al ${WHATSAPP_DISPLAY}.`,
           type: "success",
         });
       } else {

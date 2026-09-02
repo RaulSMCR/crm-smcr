@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import { login } from "@/actions/auth-actions";
 import AuthTurnstile, { CAPTCHA_ENABLED } from "@/components/AuthTurnstile";
+import { WHATSAPP_DISPLAY, WHATSAPP_URL } from "@/lib/contact-info";
 import Link from "next/link";
 
 function safeNextPath(nextValue) {
@@ -130,6 +131,13 @@ function PanelForm({ panelKey, onBack, registered }) {
               <li>Revisá tu correo, incluida la carpeta de spam.</li>
               <li>El coordinador agendará una entrevista por WhatsApp.</li>
             </ol>
+            <p className="mt-3 text-xs text-brand-200">
+              Si necesitás ayuda, escribinos por{" "}
+              <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="font-semibold underline hover:text-white">
+                WhatsApp al {WHATSAPP_DISPLAY}
+              </a>
+              .
+            </p>
           </motion.div>
         )}
         {!isProfessionalRegistered && isGenericRegistered && (
@@ -137,6 +145,13 @@ function PanelForm({ panelKey, onBack, registered }) {
             className="mb-5 rounded-xl border border-brand-400/30 bg-brand-950/60 p-4 text-sm text-brand-100 backdrop-blur-sm"
           >
             Cuenta creada con éxito. Revisá tu correo para verificarla.
+            <p className="mt-2 text-xs text-brand-200">
+              Si necesitás ayuda, escribinos por{" "}
+              <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="font-semibold underline hover:text-white">
+                WhatsApp al {WHATSAPP_DISPLAY}
+              </a>
+              .
+            </p>
           </motion.div>
         )}
         {error && (

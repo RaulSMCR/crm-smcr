@@ -1,5 +1,5 @@
 import ContactForm from "@/components/ContactForm";
-import { getSession } from "@/lib/auth";
+import { PHONE_URL, WHATSAPP_DISPLAY, WHATSAPP_URL } from "@/lib/contact-info";
 import { siteUrl } from "@/lib/site-url";
 
 export const metadata = {
@@ -14,8 +14,7 @@ export const metadata = {
   },
 };
 
-export default async function ContactoPage() {
-  const session = await getSession();
+export default function ContactoPage() {
   return (
     <div className="bg-surface py-12">
       <div className="container mx-auto px-6">
@@ -38,17 +37,24 @@ export default async function ContactoPage() {
                 contacto@saludmentalcostarica.com
               </a>
             </div>
-            {session && (
-              <div>
-                <h3 className="text-xl font-semibold text-brand-900">WhatsApp / Teléfono</h3>
-                <a
-                  href="tel:+50671291909"
-                  className="font-medium text-brand-800 hover:text-brand-900"
-                >
-                  +506 71291909
+            <div>
+              <h3 className="text-xl font-semibold text-brand-900">WhatsApp</h3>
+              <a
+                href={WHATSAPP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-brand-800 hover:text-brand-900"
+              >
+                {WHATSAPP_DISPLAY}
+              </a>
+              <p className="mt-1 text-sm text-neutral-600">
+                También podés llamarnos al{" "}
+                <a href={PHONE_URL} className="font-medium text-brand-800 hover:text-brand-900">
+                  {WHATSAPP_DISPLAY}
                 </a>
-              </div>
-            )}
+                .
+              </p>
+            </div>
           </div>
 
           <div>

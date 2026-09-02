@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { registerProfessional } from "@/actions/auth-actions";
 import AuthTurnstile, { CAPTCHA_ENABLED } from "@/components/AuthTurnstile";
 import Link from "next/link";
+import { WHATSAPP_DISPLAY, WHATSAPP_URL } from "@/lib/contact-info";
 import { getMarketingAttributionFields, getMarketingAttributionRaw } from "@/lib/marketing-attribution-client";
 import { GRADOS_ACADEMICOS } from "@/lib/grados-academicos";
 
@@ -268,10 +269,17 @@ export default function RegistroProfesionalPage() {
                 </div>
 
                 <div>
-                  <label className={labelClass}>Teléfono móvil</label>
+                  <label className={labelClass}>Teléfono móvil / WhatsApp</label>
                   <input name="phone" type="tel" required inputMode="tel" autoComplete="tel"
                     placeholder="+506 8888 8888" className={inputClass}
                     value={form.phone} onChange={handleChange} />
+                  <p className="mt-1 text-xs text-neutral-500">
+                    ¿Tenés preguntas sobre la postulación? Escribinos por{" "}
+                    <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-brand-700 underline hover:text-brand-900">
+                      WhatsApp al {WHATSAPP_DISPLAY}
+                    </a>
+                    .
+                  </p>
                 </div>
 
                 <div>

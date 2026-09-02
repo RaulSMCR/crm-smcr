@@ -7,6 +7,7 @@ import AuthTurnstile, { CAPTCHA_ENABLED } from "@/components/AuthTurnstile";
 import Link from "next/link";
 import { trackEvent } from "@/lib/analytics";
 import { trackLead } from "@/lib/meta-pixel";
+import { WHATSAPP_DISPLAY, WHATSAPP_URL } from "@/lib/contact-info";
 import { getMarketingAttributionFields, getMarketingAttributionRaw } from "@/lib/marketing-attribution-client";
 import { VERSION_ACUERDO } from "@/lib/acuerdo";
 
@@ -199,10 +200,17 @@ export default function RegistroUsuarioPage() {
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className={labelClass}>Teléfono</label>
+                  <label className={labelClass}>Teléfono / WhatsApp</label>
                   <input name="phone" type="tel" required inputMode="tel"
                     placeholder="+506 8888 8888" className={inputClass}
                     value={form.phone} onChange={handleChange} />
+                  <p className="mt-1 text-xs text-neutral-500">
+                    ¿Necesitás ayuda con el registro? Escribinos por{" "}
+                    <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-brand-700 underline hover:text-brand-900">
+                      WhatsApp al {WHATSAPP_DISPLAY}
+                    </a>
+                    .
+                  </p>
                 </div>
 
                 <div>
