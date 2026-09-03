@@ -3,15 +3,28 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 
+/** Lo que ve el profesional cuando administración no escribe nada. Es el peor
+ * caso, no el normal: no dice qué corregir. */
+const NOTA_POR_DEFECTO = "Revisá el contenido de la reseña y volvé a enviarlo para aprobación.";
+const NOTA_MAX = 1000;
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function POST(_request, { params }) {
+export async function POST(request, { params }) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ message: "No autorizado" }, { status: 401 });
     if (session.role !== "ADMIN") {
       return NextResponse.json({ message: "Accion no permitida" }, { status: 403 });
+    }
+
+    let adminNote = "";
+    try {
+      const body = await request.json();
+      adminNote = String(body?.adminNote || "").trim().slice(0, NOTA_MAX);
+    } catch {
+      // Sin cuerpo o JSON inválido: se envía la nota genérica.
     }
 
     const professionalId = String((await params)?.id || "");
@@ -37,7 +50,7 @@ export async function POST(_request, { params }) {
       data: {
         profileReviewStatus: "REJECTED",
         profileReviewReviewedAt: new Date(),
-        profileReviewAdminNote: "Revise el contenido de la resena y vuelva a enviarlo para aprobacion.",
+        profileReviewAdminNote: adminNote || NOTA_POR_DEFECTO,
       },
       select: { id: true, slug: true, profileReviewStatus: true },
     });

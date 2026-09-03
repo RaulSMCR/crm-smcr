@@ -4,6 +4,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/actions/auth-actions";
 import AdminApproveButton from "@/components/AdminApproveButton";
+import ResenaExpandible from "@/components/admin/ResenaExpandible";
+import PedirAjustesResena from "@/components/admin/PedirAjustesResena";
 import { gradoPorId } from "@/lib/grados-academicos";
 import { formatearIban } from "@/lib/iban";
 
@@ -280,9 +282,7 @@ export default async function AdminPersonalPage() {
                 </div>
 
                 {reviewPreview ? (
-                  <p className="mt-3 line-clamp-4 whitespace-pre-line text-sm text-slate-700">
-                    {reviewPreview}
-                  </p>
+                  <ResenaExpandible texto={reviewPreview} />
                 ) : (
                   <p className="mt-3 text-sm text-slate-600">El profesional todavía no cargó una reseña pública.</p>
                 )}
@@ -299,14 +299,7 @@ export default async function AdminPersonalPage() {
                       pendingLabel="Aprobando..."
                       successMessage="Reseña aprobada y publicada."
                     />
-                    <AdminApproveButton
-                      endpoint={`/api/admin/professionals/${p.id}/profile-review/reject`}
-                      label="Pedir ajustes"
-                      pendingLabel="Marcando..."
-                      buttonClassName="bg-rose-700 hover:bg-rose-800"
-                      confirmMessage="¿Solicitar ajustes antes de publicar esta reseña?"
-                      successMessage="La reseña quedó marcada para ajustes."
-                    />
+                    <PedirAjustesResena endpoint={`/api/admin/professionals/${p.id}/profile-review/reject`} />
                   </div>
                 ) : null}
               </div>
