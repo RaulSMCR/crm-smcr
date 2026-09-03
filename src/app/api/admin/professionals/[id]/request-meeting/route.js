@@ -4,6 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { resend } from "@/lib/resend";
 
+/** Buzón que atiende administración. El From es no-reply, así que sin esto la
+ * respuesta que el propio correo pide cae en un buzón que nadie lee. */
+const MEETING_REPLY_TO = "contacto@saludmentalcostarica.com";
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -29,6 +33,7 @@ export async function POST(_request, { params }) {
       await resend.emails.send({
         from: "Salud Mental Costa Rica <no-reply@saludmentalcostarica.com>",
         to: profile.user.email,
+        replyTo: MEETING_REPLY_TO,
         subject: "Avanzamos: solicitud de reunión con administración",
         html: `
           <div style="font-family: Arial, sans-serif; line-height:1.5; color:#0f172a; max-width:600px; margin:0 auto;">
@@ -40,6 +45,8 @@ export async function POST(_request, { params }) {
             </p>
             <p>
               Respondé este correo con los días y horas que te sirvan, y lo agendamos.
+              Tu respuesta llega a
+              <a href="mailto:${MEETING_REPLY_TO}">${MEETING_REPLY_TO}</a>.
             </p>
           </div>
         `,
