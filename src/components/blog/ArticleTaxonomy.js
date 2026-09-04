@@ -15,7 +15,7 @@ async function getData(post) {
   });
   const topics = await prisma.postTopic.findMany({
     where: { postId: post.id, status: "APPROVED" },
-    select: { topic: { select: { id: true, name: true, slug: true } } },
+    select: { topic: { select: { id: true, name: true, slug: true, status: true } } },
   });
 
   // Navegación de serie (solo si la serie está aprobada para este post).
@@ -49,12 +49,25 @@ async function getData(post) {
   const topicIds = topics.map((t) => t.topic.id);
   let complementary = [];
   let complementaryPosts = [];
+  let clusterPosts = [];
   if (topicIds.length) {
+    clusterPosts = await prisma.post.findMany({
+      where: {
+        status: "PUBLISHED",
+        noindex: false,
+        id: { not: post.id },
+        topics: { some: { status: "APPROVED", topicId: { in: topicIds } } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 6,
+      select: { id: true, slug: true, title: true, excerpt: true },
+    });
+
     const links = await prisma.topicComplement.findMany({
       where: { OR: [{ fromId: { in: topicIds } }, { toId: { in: topicIds } }] },
       select: {
-        from: { select: { id: true, name: true, slug: true } },
-        to: { select: { id: true, name: true, slug: true } },
+        from: { select: { id: true, name: true, slug: true, status: true } },
+        to: { select: { id: true, name: true, slug: true, status: true } },
       },
     });
     const seen = new Set(topicIds);
@@ -83,15 +96,18 @@ async function getData(post) {
     series,
     complementary,
     complementaryPosts,
+    clusterPosts,
   };
 }
 
 export default async function ArticleTaxonomy({ post }) {
-  const { disciplines, topics, series, complementary, complementaryPosts } = await getData(post);
+  const { disciplines, topics, series, complementary, complementaryPosts, clusterPosts } = await getData(post);
 
   const hasAnything =
-    disciplines.length || topics.length || series || complementary.length;
+    disciplines.length || topics.length || series || complementary.length || clusterPosts.length;
   if (!hasAnything) return null;
+
+  const topicHref = (topic) => topic.status === "PUBLISHED" ? `/${topic.slug}` : `/blog/tema/${topic.slug}`;
 
   return (
     <section className="mx-auto mt-4 max-w-3xl space-y-8 px-4 pb-12">
@@ -136,7 +152,7 @@ export default async function ArticleTaxonomy({ post }) {
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Temas</span>
               {topics.map((t) => (
-                <Link key={t.slug} href={`/blog/tema/${t.slug}`} style={{ backgroundColor: "#fff" }} className="rounded-nv border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:border-brand-400">
+                <Link key={t.slug} href={topicHref(t)} style={{ backgroundColor: "#fff" }} className="rounded-nv border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:border-brand-400">
                   {t.name}
                 </Link>
               ))}
@@ -151,7 +167,7 @@ export default async function ArticleTaxonomy({ post }) {
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Temas complementarios</span>
             {complementary.map((t) => (
-              <Link key={t.slug} href={`/blog/tema/${t.slug}`} style={{ backgroundColor: "#fff" }} className="rounded-nv border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:border-brand-400">
+              <Link key={t.slug} href={topicHref(t)} style={{ backgroundColor: "#fff" }} className="rounded-nv border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:border-brand-400">
                 {t.name}
               </Link>
             ))}
@@ -165,6 +181,20 @@ export default async function ArticleTaxonomy({ post }) {
               ))}
             </ul>
           ) : null}
+        </div>
+      ) : null}
+
+      {clusterPosts.length ? (
+        <div className="rounded-2xl border border-brand-200 bg-brand-50 p-5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Lecturas del mismo tema</p>
+          <ul className="mt-3 space-y-3">
+            {clusterPosts.map((p) => (
+              <li key={p.id}>
+                <Link href={`/blog/${p.slug}`} className="font-semibold text-brand-800 hover:underline">{p.title}</Link>
+                {p.excerpt ? <p className="mt-1 text-sm text-slate-600">{p.excerpt}</p> : null}
+              </li>
+            ))}
+          </ul>
         </div>
       ) : null}
     </section>

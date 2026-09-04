@@ -83,6 +83,49 @@ enum PostStatus {
   ARCHIVED
 }
 
+enum TopicStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum TopicSectionType {
+  HERO
+  USER_SITUATIONS
+  EDITORIAL_INTRO
+  FEATURED_ARTICLES
+  EXPLORE_TOPIC
+  PERSPECTIVES
+  VIDEO
+  PODCAST
+  FAQ
+  PROFESSIONALS
+  SERVICES
+  RELATED_TOPICS
+  CTA
+  CUSTOM_RICH_TEXT
+}
+
+enum TopicPostRole {
+  PRIMARY
+  SUPPORTING
+}
+
+enum TopicPerspectiveStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum TopicRelationType {
+  RELATED
+}
+
+enum DisciplineStatus {
+  ACTIVE
+  ARCHIVED
+}
+
 enum InvoiceType {
   CUSTOMER_INVOICE
   SUPPLIER_INVOICE
@@ -227,11 +270,11 @@ model User {
   pushSubscriptions   PushSubscription[]
 
   acuerdosAceptados   AceptacionAcuerdo[]
-  contactosReenganche ContactoReenganche[] @relation("ContactosDelPaciente")
-  casosComoPaciente   Caso[]               @relation("CasosDelPaciente")
-  casosVisados        Caso[]               @relation("CasosVisados")
-  eventosDeCaso       CasoEvento[]         @relation("EventosDelActor")
-  notasDeCaso         CasoNota[]           @relation("NotasDelAutor")
+  contactosReenganche ContactoReenganche[]    @relation("ContactosDelPaciente")
+  casosComoPaciente   Caso[]                  @relation("CasosDelPaciente")
+  casosVisados        Caso[]                  @relation("CasosVisados")
+  eventosDeCaso       CasoEvento[]            @relation("EventosDelActor")
+  notasDeCaso         CasoNota[]              @relation("NotasDelAutor")
   // Back-relation necesaria para que borrar un usuario se lleve sus acuses de
   // lectura y no queden huérfanos.
   messageReceipts     AdminMessageRecipient[]
@@ -250,12 +293,12 @@ model ProfessionalProfile {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  slug                     String    @unique
+  slug          String  @unique
   /// Disciplina, no cargo. Los valores válidos están en src/lib/disciplinas.js;
   /// `tituloDe()` convierte esto en el `jobTitle` del JSON-LD, que nombra a
   /// quien ejerce y no al campo del saber.
-  specialty                String
-  licenseNumber            String?
+  specialty     String
+  licenseNumber String?
 
   /// Título profesional (grado académico): "Lic.", "MSc.", "Dra."… Guarda el
   /// identificador del catálogo de src/lib/grados-academicos.js, no la
@@ -264,17 +307,17 @@ model ProfessionalProfile {
   /// No es lo mismo que `specialty`, que es la disciplina. Este es el
   /// tratamiento con el que la persona firma, y con el que su nombre sale en el
   /// detalle de la factura, en el cobro de ONVO y en el contrato.
-  academicDegree           String?   @db.VarChar(24)
+  academicDegree String? @db.VarChar(24)
 
   /// Domicilio de la persona, para individualizarla como Parte en el contrato
   /// ("domiciliado en…"). No es la direccion del consultorio: esa vive en
   /// PracticeLocation y puede haber varias.
-  domicilio                String?   @db.VarChar(200)
+  domicilio String? @db.VarChar(200)
 
   /// Cuenta IBAN a la que se le transfieren los honorarios. Es el dato que
   /// exige la clausula 4.3 del contrato y sin el cual la liquidacion no se
   /// puede pagar. Se guarda normalizada (sin espacios, en mayusculas).
-  iban                     String?   @db.VarChar(34)
+  iban String? @db.VarChar(34)
 
   /// Verificación de colegiatura. El procedimiento es el del tamizaje previo a
   /// la entrevista: el admin revisa la matrícula en el colegio correspondiente y
@@ -302,14 +345,14 @@ model ProfessionalProfile {
 
   // SEO editorial: si van vacíos, el metadata se deriva del contenido (ver src/lib/seo.js)
   metaTitle       String?
-  metaDescription String?  @db.Text
+  metaDescription String? @db.Text
   ogImage         String?
   focusKeyword    String?
-  noindex         Boolean  @default(false)
+  noindex         Boolean @default(false)
 
   isApproved Boolean @default(false)
 
-  commission Int      @default(10)
+  commission Int @default(10)
 
   // ✅ Lo que tu código espera
   serviceAssignments  ServiceAssignment[]
@@ -358,6 +401,7 @@ model Service {
 
   // ✅ Lo que tu código espera
   professionalAssignments ServiceAssignment[]
+  topicServices           TopicService[]
 
   cabysCode String?
   taxId     String?
@@ -365,10 +409,10 @@ model Service {
 
   // SEO editorial: si van vacíos, el metadata se deriva del contenido (ver src/lib/seo.js)
   metaTitle       String?
-  metaDescription String?  @db.Text
+  metaDescription String? @db.Text
   ogImage         String?
   focusKeyword    String?
-  noindex         Boolean  @default(false)
+  noindex         Boolean @default(false)
 
   appointments Appointment[]
   invoiceLines InvoiceLine[]
@@ -437,12 +481,12 @@ model InvoiceSequence {
 }
 
 model Invoice {
-  id             String       @id @default(cuid())
+  id             String      @id @default(cuid())
   invoiceNumber  String
   invoiceType    InvoiceType
   feNumber       String?
   feClave        String?
-  feStatus       FEStatus     @default(PENDING)
+  feStatus       FEStatus    @default(PENDING)
   feErrorMessage String?
 
   /// Comprobante firmado tal cual se envió a Hacienda, y la respuesta que devolvió.
@@ -450,8 +494,8 @@ model Invoice {
   /// años y entregarle el XML al receptor, así que sin esto no había ni copia.
   /// Van en la base y no en Storage porque pesan ~8 KB y evitan depender de
   /// permisos de buckets.
-  feXml          String? @db.Text
-  feRespuestaXml String? @db.Text
+  feXml          String?      @db.Text
+  feRespuestaXml String?      @db.Text
   documentType   DocumentType @default(FACTURA_ELECTRONICA)
 
   contactId       String
@@ -627,15 +671,15 @@ model PracticeLocation {
   name         String /// Rótulo visible al paciente, ej. "Consultorio Escazú"
   modality     LocationModality
   address      String?
-  instructions String? @db.Text /// Cómo llegar, piso, timbre, o el enlace de la sala virtual
-  isActive     Boolean @default(true)
-  displayOrder Int     @default(0)
+  instructions String?          @db.Text /// Cómo llegar, piso, timbre, o el enlace de la sala virtual
+  isActive     Boolean          @default(true)
+  displayOrder Int              @default(0)
 
   professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
 
-  rates            ProfessionalRate[]
+  rates             ProfessionalRate[]
   availabilityLinks AvailabilityLocation[]
-  appointments     Appointment[]
+  appointments      Appointment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -756,7 +800,7 @@ model Appointment {
   parentAppointment   Appointment?  @relation("FollowUps", fields: [parentAppointmentId], references: [id], onDelete: SetNull)
   followUps           Appointment[] @relation("FollowUps")
 
-  isFirstWithProfessional Boolean              @default(false)
+  isFirstWithProfessional Boolean @default(false)
 
   /// Cuándo se aplicó la multa por aviso tardío o inasistencia. Evita
   /// cobrarla dos veces si se vuelve a marcar el mismo estado.
@@ -766,10 +810,12 @@ model Appointment {
   // adelanto, que se confirma server-side días después). Ver src/lib/analytics.
   gaClientId String? // client_id de GA4 (cookie _ga) o sintético estable
   gaGclid    String? // gclid del anuncio de Google Ads, si vino en la URL
+  /// Hub temático de primera entrada al flujo de agendamiento, cuando existe.
+  topicSlug  String? @db.VarChar(80)
 
-  paymentTransactions     PaymentTransaction[]
-  invoices                Invoice[]            @relation("AppointmentInvoices")
-  insuranceClaim          InsuranceClaim?
+  paymentTransactions PaymentTransaction[]
+  invoices            Invoice[]            @relation("AppointmentInvoices")
+  insuranceClaim      InsuranceClaim?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -789,16 +835,16 @@ model PaymentTransaction {
   professionalId String
   patientId      String
 
-  type     PaymentTransactionType
-  amount   Decimal                @db.Decimal(10, 2)
+  type   PaymentTransactionType
+  amount Decimal                @db.Decimal(10, 2)
 
   /// Cuándo se le avisó al paciente que este pago se acreditó. Queda en NULL
   /// hasta que efectivamente lo ve: así el aviso lo espera aunque no estuviera
   /// conectado al momento de pagar, y no se repite una vez mostrado.
   patientNotifiedAt DateTime?
-  currency String                 @default("CRC")
-  taxRate  Int                    @default(4)
-  processingFee Decimal?          @db.Decimal(10, 2)
+  currency          String    @default("CRC")
+  taxRate           Int       @default(4)
+  processingFee     Decimal?  @db.Decimal(10, 2)
 
   /// ONVO cobra un fijo POR TRANSACCIÓN en dólares (US$0.35 con tarjeta), no en
   /// colones. Se guarda el monto en dólares y el tipo de cambio con el que se
@@ -838,15 +884,15 @@ model PaymentTransaction {
 }
 
 model Settlement {
-  id             String   @id @default(cuid())
-  professionalId String
-  periodStart    DateTime
-  periodEnd      DateTime
-  grossAmount    Decimal  @db.Decimal(12, 2)
-  commissionPct  Int
-  commissionAmt  Decimal  @db.Decimal(12, 2)
-  processingFeeAmt Decimal @default(0) @db.Decimal(12, 2)
-  netAmount      Decimal  @db.Decimal(12, 2)
+  id               String   @id @default(cuid())
+  professionalId   String
+  periodStart      DateTime
+  periodEnd        DateTime
+  grossAmount      Decimal  @db.Decimal(12, 2)
+  commissionPct    Int
+  commissionAmt    Decimal  @db.Decimal(12, 2)
+  processingFeeAmt Decimal  @default(0) @db.Decimal(12, 2)
+  netAmount        Decimal  @db.Decimal(12, 2)
 
   /// Tasa de impuesto con la que se calculó el neto de este período, para que la
   /// factura del profesional se desglose con la MISMA tasa que la liquidación.
@@ -855,11 +901,11 @@ model Settlement {
   /// de coincidencia exacta habría rechazado una factura correcta.
   /// NULL cuando las líneas del período no comparten una sola tasa; en ese caso
   /// el desglose no puede derivarse del encabezado y hay que mirar las líneas.
-  taxRatePct     Int?
-  status         String   @default("OPEN")
-  invoiceId      String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  taxRatePct Int?
+  status     String   @default("OPEN")
+  invoiceId  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
   invoice      Invoice?            @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
@@ -884,8 +930,8 @@ model SettlementItem {
   /// línea porque es el dato con el que se calculó, y una liquidación cerrada
   /// tiene que poder recalcularse tal como se emitió.
   taxRatePct            Int     @default(4)
-  processingFeeAmt Decimal @default(0) @db.Decimal(10, 2)
-  netAmount     Decimal @default(0) @db.Decimal(10, 2)
+  processingFeeAmt      Decimal @default(0) @db.Decimal(10, 2)
+  netAmount             Decimal @default(0) @db.Decimal(10, 2)
 
   settlement  Settlement         @relation(fields: [settlementId], references: [id], onDelete: Cascade)
   transaction PaymentTransaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)
@@ -930,10 +976,10 @@ model Post {
 
   // SEO editorial: si van vacíos, el metadata se deriva del contenido (ver src/lib/seo.js)
   metaTitle       String?
-  metaDescription String?  @db.Text
+  metaDescription String? @db.Text
   ogImage         String?
   focusKeyword    String?
-  noindex         Boolean  @default(false)
+  noindex         Boolean @default(false)
 
   authorId String
   author   ProfessionalProfile @relation(fields: [authorId], references: [id], onDelete: Cascade)
@@ -1204,9 +1250,9 @@ model Carousel {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  assets CarouselAsset[]
-  versions CarouselVersion[] @relation("CarouselVersions")
-  activeVersion CarouselVersion? @relation("CarouselActiveVersion", fields: [activeVersionId], references: [id], onDelete: SetNull)
+  assets         CarouselAsset[]
+  versions       CarouselVersion[]       @relation("CarouselVersions")
+  activeVersion  CarouselVersion?        @relation("CarouselActiveVersion", fields: [activeVersionId], references: [id], onDelete: SetNull)
   approvalEvents CarouselApprovalEvent[]
 
   @@index([status])
@@ -1234,21 +1280,21 @@ model CarouselAsset {
 }
 
 model CarouselVersion {
-  id             String   @id @default(cuid())
-  carouselId     String
-  number         Int
-  spec           Json
-  specHash       String
+  id              String   @id @default(cuid())
+  carouselId      String
+  number          Int
+  spec            Json
+  specHash        String
   parentVersionId String?
-  comment        String?  @db.Text
-  source         String   @default("MANUAL")
-  createdBy      String
-  createdAt      DateTime @default(now())
+  comment         String?  @db.Text
+  source          String   @default("MANUAL")
+  createdBy       String
+  createdAt       DateTime @default(now())
 
-  carousel       Carousel          @relation("CarouselVersions", fields: [carouselId], references: [id], onDelete: Cascade)
-  activeCarousel Carousel?          @relation("CarouselActiveVersion")
-  parent         CarouselVersion?  @relation("CarouselVersionParent", fields: [parentVersionId], references: [id], onDelete: SetNull)
-  children       CarouselVersion[] @relation("CarouselVersionParent")
+  carousel       Carousel                @relation("CarouselVersions", fields: [carouselId], references: [id], onDelete: Cascade)
+  activeCarousel Carousel?               @relation("CarouselActiveVersion")
+  parent         CarouselVersion?        @relation("CarouselVersionParent", fields: [parentVersionId], references: [id], onDelete: SetNull)
+  children       CarouselVersion[]       @relation("CarouselVersionParent")
   assets         CarouselVersionAsset[]
   approvalEvents CarouselApprovalEvent[]
 
@@ -1280,14 +1326,14 @@ model CarouselVersionAsset {
 }
 
 model CarouselApprovalEvent {
-  id        String   @id @default(cuid())
+  id         String   @id @default(cuid())
   carouselId String
-  versionId String
-  slideId   String
-  status    String
-  actorId   String
-  comment   String?  @db.Text
-  createdAt DateTime @default(now())
+  versionId  String
+  slideId    String
+  status     String
+  actorId    String
+  comment    String?  @db.Text
+  createdAt  DateTime @default(now())
 
   carousel Carousel        @relation(fields: [carouselId], references: [id], onDelete: Cascade)
   version  CarouselVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
@@ -1330,28 +1376,50 @@ model Phase {
 }
 
 model Discipline {
-  id       String  @id @default(cuid())
-  name     String  @unique
-  slug     String  @unique
-  order    Int     @default(0)
-  isActive Boolean @default(true)
+  id          String           @id @default(cuid())
+  name        String           @unique
+  slug        String           @unique
+  description String?          @db.Text
+  status      DisciplineStatus @default(ACTIVE)
+  order       Int              @default(0)
+  isActive    Boolean          @default(true)
 
-  posts PostDiscipline[]
+  posts        PostDiscipline[]
+  perspectives TopicPerspective[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([isActive, order])
+  @@index([status, isActive])
 }
 
 model Topic {
-  id       String  @id @default(cuid())
-  name     String  @unique
-  slug     String  @unique
-  order    Int     @default(0)
-  isActive Boolean @default(true)
+  id              String      @id @default(cuid())
+  name            String      @unique
+  slug            String      @unique
+  title           String?
+  subtitle        String?
+  excerpt         String?     @db.Text
+  status          TopicStatus @default(DRAFT)
+  heroImage       String?
+  heroImageAlt    String?     @db.VarChar(300)
+  introVideoUrl   String?
+  podcastUrl      String?
+  metaTitle       String?
+  metaDescription String?     @db.Text
+  featured        Boolean     @default(false)
+  publishedAt     DateTime?
+  order           Int         @default(0)
+  isActive        Boolean     @default(true)
 
-  posts PostTopic[]
+  posts         PostTopic[]
+  sections      TopicSection[]
+  services      TopicService[]
+  perspectives  TopicPerspective[]
+  relationsFrom TopicRelation[]    @relation("TopicRelationSource")
+  relationsTo   TopicRelation[]    @relation("TopicRelationTarget")
+  faqs          TopicFaq[]
 
   // Temas complementarios (relación curada por el admin, no simétrica en la
   // tabla pero se consulta en ambos sentidos). "ansiedad" complementa "sueño".
@@ -1362,6 +1430,7 @@ model Topic {
   updatedAt DateTime @updatedAt
 
   @@index([isActive, order])
+  @@index([status, isActive])
 }
 
 model TopicComplement {
@@ -1375,6 +1444,97 @@ model TopicComplement {
 
   @@unique([fromId, toId])
   @@index([toId])
+}
+
+/// Composición segura de un hub. `config` solo contiene parámetros de
+/// presentación definidos por el renderer; nunca HTML ni lógica ejecutable.
+model TopicSection {
+  id        String           @id @default(cuid())
+  topicId   String
+  type      TopicSectionType
+  title     String?
+  body      String?          @db.Text
+  position  Int              @default(0)
+  isVisible Boolean          @default(true)
+  config    Json?
+
+  topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([topicId, position])
+  @@index([topicId, isVisible, position])
+}
+
+model TopicService {
+  topicId   String
+  serviceId String
+  featured  Boolean @default(false)
+  position  Int     @default(0)
+
+  topic   Topic   @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([topicId, serviceId])
+  @@index([serviceId])
+  @@index([topicId, featured, position])
+}
+
+model TopicPerspective {
+  id           String                 @id @default(cuid())
+  topicId      String
+  disciplineId String
+  title        String
+  content      String                 @db.Text
+  position     Int                    @default(0)
+  status       TopicPerspectiveStatus @default(DRAFT)
+
+  topic      Topic      @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  discipline Discipline @relation(fields: [disciplineId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([topicId, status, position])
+  @@index([disciplineId])
+}
+
+model TopicRelation {
+  id            String            @id @default(cuid())
+  sourceTopicId String
+  targetTopicId String
+  relationType  TopicRelationType @default(RELATED)
+  position      Int               @default(0)
+
+  sourceTopic Topic @relation("TopicRelationSource", fields: [sourceTopicId], references: [id], onDelete: Cascade)
+  targetTopic Topic @relation("TopicRelationTarget", fields: [targetTopicId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sourceTopicId, targetTopicId, relationType])
+  @@index([targetTopicId, relationType])
+  @@index([sourceTopicId, position])
+}
+
+model TopicFaq {
+  id        String  @id @default(cuid())
+  topicId   String
+  question  String
+  answer    String  @db.Text
+  position  Int     @default(0)
+  isVisible Boolean @default(true)
+
+  topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([topicId, isVisible, position])
 }
 
 model Series {
@@ -1412,9 +1572,12 @@ model PostDiscipline {
 }
 
 model PostTopic {
-  postId  String
-  topicId String
-  status  TagStatus @default(SUGGESTED)
+  postId   String
+  topicId  String
+  status   TagStatus     @default(SUGGESTED)
+  role     TopicPostRole @default(SUPPORTING)
+  featured Boolean       @default(false)
+  position Int           @default(0)
 
   post  Post  @relation(fields: [postId], references: [id], onDelete: Cascade)
   topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
@@ -1423,6 +1586,7 @@ model PostTopic {
 
   @@id([postId, topicId])
   @@index([topicId, status])
+  @@index([topicId, role, featured, position])
 }
 
 // ─── Frase diaria ────────────────────────────────────────────────────────────
@@ -1431,9 +1595,9 @@ model PostTopic {
 // que cambia: qué eligió el admin cada día y qué fuentes ya se verificaron.
 
 enum PhrasePickStatus {
-  APPROVED    // elegida entre las candidatas del día
+  APPROVED // elegida entre las candidatas del día
   SUBSTITUTED // traída de otro punto del corpus porque ninguna candidata servía
-  SKIPPED     // ese día no se publica frase
+  SKIPPED // ese día no se publica frase
 }
 
 model DailyPhrasePick {
@@ -1503,7 +1667,7 @@ model PhraseSourceCheck {
 // lugar para que alguien describa una crisis.
 
 enum MessageTargetKind {
-  ALL      // todos los usuarios activos
+  ALL // todos los usuarios activos
   AUDIENCE // una o varias de las audiencias registradas (MR26, HR26, MRJ, HRJ)
 }
 
@@ -1528,12 +1692,12 @@ model AdminMessage {
   targetAudiences String?
 
   // Filtro por citas. Se activa si hay profesionales, servicios o ventana.
-  targetProfessionals String?
-  targetServices      String?
+  targetProfessionals    String?
+  targetServices         String?
   // "UPCOMING" (citas futuras activas) | "PAST" (ya ocurridas) | "ANY".
-  targetWindow        String?
+  targetWindow           String?
   // Para UPCOMING: cuántos días hacia adelante mirar. Null = sin tope.
-  targetWindowDays    Int?
+  targetWindowDays       Int?
   // Si las citas canceladas cuentan como "agendó". Para un aviso de servicio
   // suelen contar; para una promoción a clientes, no.
   targetIncludeCancelled Boolean @default(false)
@@ -1649,11 +1813,11 @@ model ContactoReenganche {
   appointmentId String?
 
   /// EMAIL | WHATSAPP | LLAMADA | PRESENCIAL
-  canal String @db.VarChar(16)
+  canal      String  @db.VarChar(16)
   /// Distingue el correo que sale solo de lo que hizo una persona.
   automatico Boolean @default(false)
   /// 0 = el mismo día, 1 = a los tres días, 2 = a los diez.
-  intento Int @default(0)
+  intento    Int     @default(0)
 
   /// SIN_RESPUESTA | RESPONDIO | REAGENDO | NO_CONTINUA
   resultado String? @db.VarChar(24)
@@ -1706,7 +1870,7 @@ model Caso {
   abiertoAt DateTime @default(now())
 
   /// ALTA | BAJA. Resumen de `tipoCierre`, para listar sin interpretar.
-  resultado String? @db.VarChar(8)
+  resultado  String? @db.VarChar(8)
   /// ALTA_POR_OBJETIVOS | ALTA_CON_SEGUIMIENTO | BAJA_POR_ABANDONO |
   /// BAJA_A_SOLICITUD | BAJA_POR_DERIVACION | BAJA_POR_CRITERIO_PROFESIONAL
   tipoCierre String? @db.VarChar(32)
@@ -1789,7 +1953,7 @@ model CasoEvento {
 
   /// APERTURA | CIERRE_PROPUESTO | VISADO | VISADO_DEVUELTO | REAPERTURA |
   /// LECTURA_DIRECCION_CLINICA | COPIA_SOLICITADA
-  tipo   String  @db.VarChar(32)
+  tipo    String  @db.VarChar(32)
   detalle String? @db.Text
 
   actorId String?
@@ -1827,7 +1991,6 @@ model SlugRedirect {
   /// Para encadenar saltos y para el --revert de S4.
   @@index([entityType, toSlug])
 }
-
 
 /// Registro de las tareas sostenidas del panel (S16).
 ///

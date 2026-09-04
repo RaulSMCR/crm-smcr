@@ -15,6 +15,7 @@ export const TIPOS = Object.freeze({
   POST: "post",
   PROFESIONAL: "professional",
   SERVICIO: "service",
+  TOPIC: "topic",
 });
 
 const TIPOS_VALIDOS = new Set(Object.values(TIPOS));

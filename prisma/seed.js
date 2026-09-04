@@ -87,6 +87,24 @@ async function seedHealthTax() {
   console.log("Tax IVA 4% lista.");
 }
 
+async function seedTopicHubs() {
+  const hubs = [
+    { name: "Ansiedad", slug: "ansiedad" },
+    { name: "Estrés laboral", slug: "estres-laboral" },
+    { name: "Ejercicio y salud mental", slug: "ejercicio-salud-mental" },
+  ];
+
+  for (const hub of hubs) {
+    await prisma.topic.upsert({
+      where: { slug: hub.slug },
+      update: {},
+      create: { ...hub, status: "DRAFT", isActive: true },
+    });
+  }
+
+  console.log("Topics del MVP listos como borradores estructurales.");
+}
+
 async function main() {
   const primary = await upsertAdmin("ADMIN", {
     email: "contacto@saludmentalcostarica.com",
@@ -107,6 +125,7 @@ async function main() {
 
   await seedInvoiceSequences();
   await seedHealthTax();
+  await seedTopicHubs();
 
   // No se imprime la contraseña: quien corre el seed ya la conoce, la puso él, y
   // dejarla en el log de un despliegue es regalarla.

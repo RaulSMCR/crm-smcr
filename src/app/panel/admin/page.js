@@ -175,6 +175,13 @@ export default async function AdminDashboard() {
             tone="accent"
           />
           <DashboardCard
+            href="/panel/admin/temas"
+            title="Hubs temáticos"
+            description="Landings, perspectivas, artículos, servicios y enlaces del grafo editorial."
+            count={undefined}
+            tone="accent"
+          />
+          <DashboardCard
             href="/panel/admin/personal"
             title="Personal"
             description="Directorio de profesionales y vínculos."

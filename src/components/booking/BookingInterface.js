@@ -16,6 +16,7 @@ import { modalityLabel } from "@/lib/rates";
 
 import { readGaClientId, readGclid } from "@/lib/analytics/client-identifiers";
 import { formatCRC as formatCRCBase } from "@/lib/service-pricing";
+import { getTopicAttribution } from "@/lib/topic-attribution-client";
 
 // Formato compartido; este componente muestra "—" cuando no hay monto.
 const formatCRC = (value) => formatCRCBase(value, { vacio: "—" });
@@ -124,12 +125,12 @@ export default function BookingInterface({ professionalId, servicePrice, service
       serviceId,
       recurrenceRule,
       recurrenceCount,
-      { gaClientId: readGaClientId(), gaGclid: readGclid() },
+      { gaClientId: readGaClientId(), gaGclid: readGclid(), topicSlug: getTopicAttribution() },
       locationId
     );
 
     if (result.success) {
-      trackEvent('schedule_appointment', { service: serviceTitle, professional: professionalName });
+      trackEvent('schedule_appointment', { service: serviceTitle, professional: professionalName, topic_slug: getTopicAttribution() || undefined });
       trackSchedule();
       setConflict(null);
 

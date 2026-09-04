@@ -49,7 +49,7 @@ export async function reportDepositConversion(transactionId) {
   // 2) Cargar datos para el evento (con los identificadores de la cita).
   const tx = await prisma.paymentTransaction.findUnique({
     where: { id },
-    include: { appointment: { select: { gaClientId: true, gaGclid: true } } },
+    include: { appointment: { select: { gaClientId: true, gaGclid: true, topicSlug: true } } },
   });
 
   const clientId = tx?.appointment?.gaClientId || deterministicClientId(id);
@@ -61,6 +61,7 @@ export async function reportDepositConversion(transactionId) {
     transactionId: id,
     value: Number(tx?.amount ?? 0),
     currency: tx?.currency || "CRC",
+    topicSlug: tx?.appointment?.topicSlug || undefined,
   });
 
   // 3) Si falló el envío, liberar el claim para reintentar más tarde.

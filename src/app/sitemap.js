@@ -31,10 +31,10 @@ export default async function sitemap() {
     priority,
   }));
 
-  let services, professionals, posts, series, temas;
+  let services, professionals, posts, series, temas, topicHubs;
 
   try {
-    [services, professionals, posts, series, temas] = await Promise.all([
+    [services, professionals, posts, series, temas, topicHubs] = await Promise.all([
       prisma.service.findMany({
         where: { isActive: true, noindex: false },
         select: { slug: true, updatedAt: true },
@@ -74,6 +74,10 @@ export default async function sitemap() {
           isActive: true,
           posts: { some: { status: 'APPROVED', post: { status: 'PUBLISHED', noindex: false } } },
         },
+        select: { slug: true, updatedAt: true },
+      }),
+      prisma.topic.findMany({
+        where: { status: 'PUBLISHED', isActive: true },
         select: { slug: true, updatedAt: true },
       }),
     ]);
@@ -123,6 +127,13 @@ export default async function sitemap() {
     priority: 0.7,
   }));
 
+  const topicHubEntries = topicHubs.map(({ slug, updatedAt }) => ({
+    url: `${BASE_URL}/${slug}`,
+    lastModified: updatedAt,
+    changeFrequency: 'weekly',
+    priority: 0.9,
+  }));
+
   return [
     ...staticEntries,
     ...serviceEntries,
@@ -130,5 +141,6 @@ export default async function sitemap() {
     ...postEntries,
     ...seriesEntries,
     ...temaEntries,
+    ...topicHubEntries,
   ];
 }

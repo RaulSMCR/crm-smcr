@@ -154,6 +154,7 @@ export async function requestAppointment(
   // cita de la serie (es la que genera el adelanto y, por tanto, la conversión).
   const gaClientId = String(attribution?.gaClientId || "").slice(0, 120) || null;
   const gaGclid = String(attribution?.gaGclid || "").slice(0, 200) || null;
+  const topicSlug = String(attribution?.topicSlug || "").trim().toLowerCase().slice(0, 80) || null;
   const session = await getSession();
 
   if (!session || !session.sub) {
@@ -274,6 +275,7 @@ export async function requestAppointment(
             // Solo la primera cita de la serie lleva los identificadores.
             gaClientId: index === 0 ? gaClientId : null,
             gaGclid: index === 0 ? gaGclid : null,
+            topicSlug: index === 0 ? topicSlug : null,
           },
           select: { id: true }
         })

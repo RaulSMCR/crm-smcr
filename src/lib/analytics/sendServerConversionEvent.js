@@ -15,6 +15,7 @@ const GA4_ENDPOINT = "https://www.google-analytics.com/mp/collect";
  * @param {number} opts.value          Monto de la conversión.
  * @param {string} [opts.currency]     Moneda ISO (default CRC).
  * @param {string} [opts.eventName]    Nombre del evento GA4 (default "deposit_paid").
+ * @param {string} [opts.topicSlug]    Hub temático de origen, si existe.
  * @returns {Promise<boolean>} true si GA4 aceptó el evento.
  */
 export async function sendServerConversionEvent({
@@ -24,6 +25,7 @@ export async function sendServerConversionEvent({
   value,
   currency = "CRC",
   eventName = "deposit_paid",
+  topicSlug,
 }) {
   const measurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
   const apiSecret = process.env.GA4_API_SECRET;
@@ -51,6 +53,7 @@ export async function sendServerConversionEvent({
           value: Number.isFinite(numericValue) ? numericValue : 0,
           currency,
           ...(gclid ? { gclid: String(gclid) } : {}),
+          ...(topicSlug ? { topic_slug: String(topicSlug).slice(0, 80) } : {}),
         },
       },
     ],

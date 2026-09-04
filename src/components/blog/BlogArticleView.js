@@ -7,6 +7,7 @@ import MarkdownRenderer from "@/components/MarkdownRenderer";
 import { siteUrl } from "@/lib/site-url";
 import { defaultOgImage } from "@/lib/seo";
 import { grafo, ref, nodoMigas, idArticulo, idPersona, ID_SITIO, ID_ORGANIZACION } from "@/lib/jsonld";
+import TopicTrackedLink from "@/components/topic/TopicTrackedLink";
 
 const formatDate = (date) =>
   new Intl.DateTimeFormat("es-CR", { day: "numeric", month: "long", year: "numeric" }).format(new Date(date));
@@ -176,6 +177,25 @@ export default function BlogArticleView({ post, slug, preview = false }) {
             ) : null}
           </div>
         </div>
+
+        {post.topics?.length ? (
+          <nav aria-label="Tema principal del artículo" className="mb-10 rounded-2xl border border-brand-200 bg-brand-50 p-5">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand-700">Este artículo forma parte de</p>
+            <div className="mt-2 flex flex-wrap gap-3">
+              {post.topics.map(({ role, topic }) => (
+                <TopicTrackedLink
+                  key={topic.id}
+                  href={`/${topic.slug}`}
+                  eventName="click_article_topic"
+                  eventParams={{ topic_slug: topic.slug, content_type: "topic_hub", source_page: `/blog/${slug}` }}
+                  className="font-semibold text-brand-800 hover:underline"
+                >
+                  {topic.name}{role === "PRIMARY" ? " · tema principal" : ""}
+                </TopicTrackedLink>
+              ))}
+            </div>
+          </nav>
+        ) : null}
 
         {/* Cuerpo del Artículo (markdown → formato) */}
         <div className="prose prose-lg prose-blue max-w-none text-gray-700 leading-relaxed">

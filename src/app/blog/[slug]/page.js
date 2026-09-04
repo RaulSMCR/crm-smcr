@@ -89,6 +89,11 @@ export default async function BlogPostPage({ params }) {
           },
         },
       },
+      topics: {
+        where: { status: "APPROVED", topic: { status: "PUBLISHED", isActive: true } },
+        orderBy: [{ role: "asc" }, { position: "asc" }],
+        select: { role: true, topic: { select: { id: true, name: true, slug: true, status: true } } },
+      },
     },
   });
 
