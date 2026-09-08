@@ -15,49 +15,75 @@ const prisma = new PrismaClient();
  * abierta en silencio.
  */
 function resolveAdminConfig(prefix, defaults) {
-  const password = process.env[`${prefix}_PASSWORD`];
-  if (!password) {
-    throw new Error(
-      `Falta ${prefix}_PASSWORD. El seed no inventa contraseñas: pasala por variable de entorno.`,
-    );
-  }
   return {
     email: (process.env[`${prefix}_EMAIL`] || defaults.email).toLowerCase().trim(),
-    password,
+    password: process.env[`${prefix}_PASSWORD`],
     name: process.env[`${prefix}_NAME`] || defaults.name,
     phone: process.env[`${prefix}_PHONE`] || defaults.phone,
   };
 }
 
+/**
+ * El seed se corre para otras cosas —tablas nuevas, catálogos, hubs— y el admin
+ * ya existe casi siempre. Cuando existe, su contraseña NO se toca: el 2026-09-04
+ * un `db:seed` para crear los Topic hubs rehasheó la contraseña del admin con el
+ * `ADMIN_PASSWORD` que había en esa terminal y dejó a la única cuenta ADMIN
+ * fuera del sitio. Rotar la contraseña tiene que ser una decisión explícita, no
+ * el efecto secundario de sembrar tres temas.
+ *
+ * Para rotarla a propósito: `ADMIN_PASSWORD_ROTATE=1` junto con `ADMIN_PASSWORD`.
+ * Para restablecerla habiendo perdido el acceso:
+ * `scripts/restablecer-password-admin.mjs`.
+ */
 async function upsertAdmin(prefix, defaults) {
   const config = resolveAdminConfig(prefix, defaults);
+  const datosBase = {
+    name: config.name,
+    role: "ADMIN",
+    phone: config.phone,
+    emailVerified: true,
+    isActive: true,
+  };
+
+  const existente = await prisma.user.findUnique({
+    where: { email: config.email },
+    select: { id: true },
+  });
+
+  const rotar = process.env[`${prefix}_PASSWORD_ROTATE`] === "1";
+
+  if (existente && !rotar) {
+    const admin = await prisma.user.update({
+      where: { id: existente.id },
+      data: datosBase,
+      select: { id: true, email: true, role: true, createdAt: true },
+    });
+    return { admin, config, passwordTocada: false };
+  }
+
+  if (!config.password) {
+    const motivo = rotar
+      ? `${prefix}_PASSWORD_ROTATE=1 exige ${prefix}_PASSWORD`
+      : `Falta ${prefix}_PASSWORD`;
+    throw new Error(`${motivo}. El seed no inventa contraseñas: pasala por variable de entorno.`);
+  }
+
   const passwordHash = await bcrypt.hash(config.password, 12);
 
   const admin = await prisma.user.upsert({
     where: { email: config.email },
-    update: {
-      name: config.name,
-      role: "ADMIN",
-      passwordHash,
-      phone: config.phone,
-      emailVerified: true,
-      isActive: true,
-    },
+    update: { ...datosBase, passwordHash },
     create: {
-      name: config.name,
+      ...datosBase,
       email: config.email,
       passwordHash,
-      phone: config.phone,
-      role: "ADMIN",
-      emailVerified: true,
-      isActive: true,
       acquisitionChannel: "Seed",
       campaignName: `${prefix} Seed`,
     },
     select: { id: true, email: true, role: true, createdAt: true },
   });
 
-  return { admin, config };
+  return { admin, config, passwordTocada: true };
 }
 
 async function seedInvoiceSequences() {
@@ -128,9 +154,11 @@ async function main() {
   await seedTopicHubs();
 
   // No se imprime la contraseña: quien corre el seed ya la conoce, la puso él, y
-  // dejarla en el log de un despliegue es regalarla.
-  console.log("Admin listo:", primary.config.email);
-  if (secondary) console.log("Admin 2 listo:", secondary.config.email);
+  // dejarla en el log de un despliegue es regalarla. Sí se dice si se tocó, que
+  // es justo lo que antes pasaba en silencio.
+  const estado = (r) => (r.passwordTocada ? "contraseña escrita" : "contraseña intacta");
+  console.log(`Admin listo: ${primary.config.email} (${estado(primary)}).`);
+  if (secondary) console.log(`Admin 2 listo: ${secondary.config.email} (${estado(secondary)}).`);
   else console.log("Admin 2: omitido (sin ADMIN2_PASSWORD).");
 }
 
