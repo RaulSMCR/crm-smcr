@@ -11,6 +11,7 @@ import {
 import { sendPaymentLinkOnCompletion } from "@/actions/payment-actions";
 import { scheduleReminder } from "@/lib/qstash";
 import { buildSlots } from "@/lib/appointment-slots";
+import { listBlocksInWindow, blocksToIntervals } from "@/lib/schedule-blocks";
 import { createPaymentRequestForAppointment } from "@/lib/payment-requests";
 import { resolveBookingSelection } from "@/lib/booking-rates";
 import { MOTIVOS_BLOQUEO } from "@/lib/rescheduling-policy";
@@ -29,6 +30,7 @@ import {
   buildOccurrenceEnds,
   CANCELLED_APPOINTMENT_STATUSES as CANCELLED_STATUSES,
   findRecurringConflict as findOverlappingOccurrence,
+  findSingleSlotConflict,
   formatConflictDate,
 } from "@/lib/booking-conflicts";
 
@@ -76,7 +78,7 @@ async function findSuggestedCalendarDateForConflict({
   const searchEnd = new Date(searchStart);
   searchEnd.setDate(searchEnd.getDate() + 45);
 
-  const [availability, bookedAppointments] = await Promise.all([
+  const [availability, bookedAppointments, scheduleBlocks] = await Promise.all([
     prisma.availability.findMany({
       where: { professionalId },
       orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
@@ -91,6 +93,7 @@ async function findSuggestedCalendarDateForConflict({
       select: { date: true, endDate: true },
       orderBy: { date: "asc" },
     }),
+    listBlocksInWindow({ professionalId, from: searchStart, to: searchEnd }),
   ]);
 
   if (!availability.length) return null;
@@ -98,10 +101,13 @@ async function findSuggestedCalendarDateForConflict({
   const days = buildSlots({
     availability,
     durationMin,
-    booked: bookedAppointments.map((item) => ({
-      startISO: item.date.toISOString(),
-      endISO: item.endDate.toISOString(),
-    })),
+    booked: [
+      ...bookedAppointments.map((item) => ({
+        startISO: item.date.toISOString(),
+        endISO: item.endDate.toISOString(),
+      })),
+      ...blocksToIntervals(scheduleBlocks),
+    ],
     daysAhead: 45,
     now: searchStart,
   });
@@ -855,16 +861,15 @@ export async function createFollowUpAppointment(parentAppointmentId, startISO) {
 
     if (isNaN(newStart.getTime())) return { error: "Fecha inválida." };
 
-    const conflict = await prisma.appointment.findFirst({
-      where: {
-        professionalId,
-        status: { notIn: CANCELLED_STATUSES },
-        date: { lt: newEnd },
-        endDate: { gt: newStart },
-      },
+    // Por el módulo central, para que el seguimiento tampoco caiga sobre un
+    // bloqueo de agenda del profesional.
+    const conflict = await findSingleSlotConflict({
+      professionalId,
+      start: newStart,
+      end: newEnd,
     });
 
-    if (conflict) return { error: "Conflicto: ya existe una cita en ese horario." };
+    if (conflict) return { error: "Conflicto: ese horario no está disponible." };
 
     const created = await prisma.appointment.create({
       data: {

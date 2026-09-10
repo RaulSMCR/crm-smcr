@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession, professionalProfileWhere } from "@/lib/auth";
@@ -59,7 +60,7 @@ export default async function IntegracionesPage({ searchParams }) {
           </svg>
           <div>
             <h2 className="font-semibold text-slate-800">Google Calendar</h2>
-            <p className="text-xs text-slate-500">Sincronización bidireccional de citas</p>
+            <p className="text-xs text-slate-500">Sus citas del CRM, publicadas en su calendario</p>
           </div>
           <div className="ml-auto">
             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
@@ -74,7 +75,18 @@ export default async function IntegracionesPage({ searchParams }) {
 
         <p className="text-sm text-slate-600">
           Al conectar su cuenta de Google, las citas creadas, modificadas o canceladas desde el sistema
-          se reflejarán automáticamente en su Google Calendar. También se enviarán invitaciones a los pacientes.
+          se reflejarán automáticamente en su Google Calendar, con un enlace de Google Meet para la sesión.
+          También se enviarán invitaciones a los pacientes.
+        </p>
+
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <strong className="font-semibold">Tenga presente:</strong> la sincronización va en un solo
+          sentido, del sistema hacia Google. Si bloquea horas directamente en su Google Calendar, el
+          sistema no se entera y podría seguir ofreciendo ese espacio. Para cerrar disponibilidad, use{" "}
+          <Link href="/panel/profesional/horarios" className="underline underline-offset-2">
+            Horarios
+          </Link>
+          .
         </p>
 
         <GoogleConnectButton isConnected={isConnected} />

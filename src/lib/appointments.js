@@ -328,7 +328,38 @@ function buildGoogleEvent(appointment) {
         ? { email: appointment.professional.user.email, displayName: appointment.professional?.user?.name || "Profesional" }
         : null,
     ].filter(Boolean),
+    // Sin esto Google no crea sala de Meet y `hangoutLink` vuelve siempre
+    // vacío: el paciente veía el botón "Unirse a la videollamada" apuntando a
+    // la página del evento en Calendar, no a una sesión.
+    //
+    // `requestId` es estable a propósito. Google ignora una createRequest cuyo
+    // id ya vio, así que reenviarla en cada patch no duplica la sala; de paso
+    // le agrega Meet a las citas creadas antes de este cambio.
+    conferenceData: {
+      createRequest: {
+        requestId: `smcr-${appointment.id}`,
+        conferenceSolutionKey: { type: "hangoutsMeet" },
+      },
+    },
   };
+}
+
+/**
+ * Saca el enlace de videollamada de la respuesta de Google.
+ *
+ * Nunca cae a `htmlLink`: eso es la página del evento en Calendar, y usarla
+ * como `meetLink` es lo que hacía que el botón de videollamada mintiera. Si no
+ * hay sala, se devuelve null y el botón simplemente no se muestra.
+ *
+ * La creación de la conferencia es asíncrona: si el insert responde con la
+ * solicitud todavía en `pending`, el enlace llega en el siguiente patch.
+ */
+function extractMeetLink(event) {
+  if (event?.hangoutLink) return event.hangoutLink;
+  const videoEntry = event?.conferenceData?.entryPoints?.find(
+    (point) => point.entryPointType === "video"
+  );
+  return videoEntry?.uri || null;
 }
 
 export async function syncGoogleCalendarEvent(appointment) {
@@ -361,12 +392,13 @@ export async function syncGoogleCalendarEvent(appointment) {
         eventId: appointment.gcalEventId,
         requestBody: payload,
         sendUpdates: "all",
+        conferenceDataVersion: 1,
       });
 
       await prisma.appointment.update({
         where: { id: appointment.id },
         data: {
-          meetLink: updated.data.hangoutLink || updated.data.htmlLink || appointment.meetLink || null,
+          meetLink: extractMeetLink(updated.data) || appointment.meetLink || null,
         },
       });
       return;
@@ -376,13 +408,14 @@ export async function syncGoogleCalendarEvent(appointment) {
       calendarId: "primary",
       requestBody: payload,
       sendUpdates: "all",
+      conferenceDataVersion: 1,
     });
 
     await prisma.appointment.update({
       where: { id: appointment.id },
       data: {
         gcalEventId: created.data.id || null,
-        meetLink: created.data.hangoutLink || created.data.htmlLink || null,
+        meetLink: extractMeetLink(created.data),
       },
     });
   } catch (error) {

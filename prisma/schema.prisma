@@ -358,8 +358,9 @@ model ProfessionalProfile {
   serviceAssignments  ServiceAssignment[]
   paymentTransactions PaymentTransaction[]
 
-  availability Availability[]
-  posts        Post[]
+  availability   Availability[]
+  scheduleBlocks ScheduleBlock[]
+  posts          Post[]
 
   practiceLocations PracticeLocation[]
   timeBands         ProfessionalTimeBand[]
@@ -646,6 +647,34 @@ model Availability {
 
   @@unique([professionalId, dayOfWeek, startTime, endTime])
   @@index([professionalId, dayOfWeek])
+}
+
+/// Un rango puntual en el que el profesional NO atiende: vacaciones, un viaje,
+/// una urgencia, un feriado propio.
+///
+/// `Availability` dice cuándo atiende en una semana tipo; esto le resta
+/// excepciones a esa semana. Se guarda como instantes absolutos (UTC) y no como
+/// texto "YYYY-MM-DD HH:mm", para que el solapamiento se evalúe igual que el de
+/// las citas y no haya que reinterpretar zonas horarias en cada consulta.
+///
+/// Un bloqueo de día completo es simplemente 00:00–24:00 en hora de Costa Rica.
+model ScheduleBlock {
+  id             String @id @default(cuid())
+  professionalId String
+
+  startsAt DateTime
+  endsAt   DateTime
+
+  /// Opcional y solo para el profesional: nunca se le muestra al paciente, que
+  /// únicamente ve que el horario no está disponible.
+  reason String? @db.VarChar(200)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([professionalId, startsAt, endsAt])
 }
 
 /// Qué lugares se ofrecen en cada bloque de disponibilidad. El conflicto de agenda

@@ -7,6 +7,20 @@ function overlaps(aStart, aEnd, bStart, bEnd) {
   return aStart < bEnd && aEnd > bStart;
 }
 
+/**
+ * Arma los horarios ofrecibles a partir de la disponibilidad semanal.
+ *
+ * `booked` son los intervalos ocupados **por cualquier motivo**: citas ya
+ * tomadas y bloqueos de agenda del profesional (`ScheduleBlock`). Se mezclan a
+ * propósito en una sola lista, porque a quien mira los horarios le da lo mismo
+ * por qué un rato no está libre, y porque tener un solo canal evita que una
+ * pantalla nueva se olvide de restar los bloqueos. Quien arma esta lista es el
+ * server component o la server action que consulta la base.
+ *
+ * Ojo: esto solo decide qué se *muestra*. La verificación que impide reservar
+ * sobre un rato ocupado vive en `@/lib/booking-conflicts` y corre en el
+ * servidor al confirmar.
+ */
 export function buildSlots({ availability = [], durationMin = 60, booked = [], daysAhead = 14, now = new Date() }) {
   const bookedIntervals = booked.map((item) => ({
     start: new Date(item.startISO).getTime(),

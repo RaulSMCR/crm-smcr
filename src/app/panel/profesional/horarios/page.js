@@ -4,6 +4,8 @@ import { getSession, professionalProfileWhere } from "@/lib/auth";
 import { getAvailability } from "@/actions/availability-actions";
 import { listPracticeLocations } from "@/actions/practice-actions";
 import AvailabilityForm from "@/components/AvailabilityForm";
+import ScheduleBlockManager from "@/components/ScheduleBlockManager";
+import { listScheduleBlocks } from "@/actions/schedule-block-actions";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_TZ } from "@/lib/timezone";
@@ -32,6 +34,9 @@ export default async function HorariosPage() {
   // ninguno en un bloque, se ofrecen todos.
   const locationsRes = await listPracticeLocations();
   const locations = (locationsRes?.data || []).filter((location) => location.isActive);
+
+  const blocksRes = await listScheduleBlocks();
+  const scheduleBlocks = blocksRes?.success ? blocksRes.data : [];
 
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-6">
@@ -67,6 +72,8 @@ export default async function HorariosPage() {
       )}
 
       <AvailabilityForm initialData={availabilityData} locations={locations} />
+
+      <ScheduleBlockManager initialBlocks={scheduleBlocks} />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 ﻿import { prisma } from "@/lib/prisma";
+import { listBlocksInWindow, blocksToIntervals } from "@/lib/schedule-blocks";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import Link from "next/link";
@@ -17,7 +18,10 @@ export default async function ProfesionalCitasPage() {
   const professionalId = String(session.professionalProfileId || "");
   if (!professionalId) redirect("/panel/profesional/perfil");
 
-  const [appointments, serviceAssignments, availability, futureAppointments, patients, pendingSignedClaimsRaw, pendingTemplatePatientsRaw] = await Promise.all([
+  const blockWindowFrom = new Date();
+  const blockWindowTo = new Date(blockWindowFrom.getTime() + 60 * 24 * 60 * 60 * 1000);
+
+  const [appointments, serviceAssignments, availability, futureAppointments, patients, pendingSignedClaimsRaw, pendingTemplatePatientsRaw, scheduleBlocks] = await Promise.all([
     prisma.appointment.findMany({
       where: { professionalId },
       orderBy: { date: "asc" },
@@ -85,6 +89,7 @@ export default async function ProfesionalCitasPage() {
       },
       select: { id: true, name: true, insurancePatientFormUrl: true },
     }),
+    listBlocksInWindow({ professionalId, from: blockWindowFrom, to: blockWindowTo }),
   ]);
 
   const initialAppointments = appointments.map((appointment) => ({
@@ -99,10 +104,14 @@ export default async function ProfesionalCitasPage() {
   const bookingContext = {
     services: serviceAssignments.map((assignment) => assignment.service).filter(Boolean),
     availability,
-    booked: futureAppointments.map((appointment) => ({
-      startISO: appointment.date.toISOString(),
-      endISO: appointment.endDate.toISOString(),
-    })),
+    // Citas tomadas y bloqueos de agenda en una sola lista de ratos ocupados.
+    booked: [
+      ...futureAppointments.map((appointment) => ({
+        startISO: appointment.date.toISOString(),
+        endISO: appointment.endDate.toISOString(),
+      })),
+      ...blocksToIntervals(scheduleBlocks),
+    ],
     patients,
   };
 

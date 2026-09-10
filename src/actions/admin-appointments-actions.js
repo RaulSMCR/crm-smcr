@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { sendAppointmentNotifications, syncGoogleCalendarEvent } from "@/lib/appointments";
 import { sendPaymentLinkOnCompletion } from "@/actions/payment-actions";
+import { findSingleSlotConflict } from "@/lib/booking-conflicts";
 
 const ADMIN_ALLOWED_STATUSES = new Set([
   "PENDING",
@@ -152,18 +153,17 @@ export async function adminRescheduleAppointment(appointmentId, newDatetime) {
     return { success: false, error: "Fecha inválida." };
   }
 
-  const conflict = await prisma.appointment.findFirst({
-    where: {
-      professionalId: existing.professionalId,
-      id: { not: id },
-      status: { notIn: ["CANCELLED_BY_USER", "CANCELLED_BY_PRO"] },
-      date: { lt: newEnd },
-      endDate: { gt: newStart },
-    },
+  // Pasa por el módulo central para que también respete los bloqueos de agenda
+  // del profesional, no solo las citas ya tomadas.
+  const conflict = await findSingleSlotConflict({
+    professionalId: existing.professionalId,
+    start: newStart,
+    end: newEnd,
+    ignoreAppointmentId: id,
   });
 
   if (conflict) {
-    return { success: false, error: "Conflicto: ya existe una cita en ese horario para este profesional." };
+    return { success: false, error: "Conflicto: ese horario no está disponible para este profesional." };
   }
 
   const updated = await prisma.appointment.update({

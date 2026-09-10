@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { listBlocksInWindow, blocksToIntervals } from "@/lib/schedule-blocks";
 import { getSession } from "@/actions/auth-actions";
 import ProfessionalCalendarBooking from "@/components/booking/ProfessionalCalendarBooking";
 import { TARIFA_VIGENTE, rangoDePrecios, etiquetaDeRango } from "@/lib/service-pricing";
@@ -18,7 +19,12 @@ export default async function PacienteAgendarPage({ searchParams }) {
   const serviceId = String(params?.serviceId ?? "");
   if (!professionalId || !serviceId) redirect("/servicios");
 
-  const [service, professional, assignment, availability, appts] = await Promise.all([
+  // Ventana holgada: buildSlots ofrece 14 días por defecto, pero los modales de
+  // reprogramación miran más lejos. Traer de más acá es una consulta indexada.
+  const blockWindowFrom = new Date();
+  const blockWindowTo = new Date(blockWindowFrom.getTime() + 60 * 24 * 60 * 60 * 1000);
+
+  const [service, professional, assignment, availability, appts, blocks] = await Promise.all([
     prisma.service.findUnique({
       where: { id: serviceId },
       select: { id: true, slug: true, title: true, durationMin: true, isActive: true },
@@ -57,6 +63,7 @@ export default async function PacienteAgendarPage({ searchParams }) {
       select: { date: true, endDate: true },
       orderBy: { date: "asc" },
     }),
+    listBlocksInWindow({ professionalId, from: blockWindowFrom, to: blockWindowTo }),
   ]);
 
   if (!service?.isActive) redirect("/servicios");
@@ -80,12 +87,17 @@ export default async function PacienteAgendarPage({ searchParams }) {
     );
   }
 
-  const booked = appts
-    .filter((a) => a?.date && a?.endDate)
-    .map((a) => ({
-      startISO: a.date.toISOString(),
-      endISO: a.endDate.toISOString(),
-    }));
+  // Citas tomadas y bloqueos van en la misma lista: ambos son ratos que no se
+  // ofrecen. Al paciente nunca se le dice cuál de los dos es.
+  const booked = [
+    ...appts
+      .filter((a) => a?.date && a?.endDate)
+      .map((a) => ({
+        startISO: a.date.toISOString(),
+        endISO: a.endDate.toISOString(),
+      })),
+    ...blocksToIntervals(blocks),
+  ];
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-6 md:p-10">

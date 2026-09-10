@@ -39,15 +39,58 @@ export function buildOverlapWhere({ professionalId, minStart, maxEnd, ignoreAppo
   };
 }
 
-/** Devuelve `{ index, start }` de la primera ocurrencia traslapada, o `null`. */
+/**
+ * Devuelve `{ index, start }` de la primera ocurrencia traslapada, o `null`.
+ *
+ * Considera dos cosas que ocupan la agenda: las citas ya tomadas y los bloqueos
+ * que el profesional declaró (`ScheduleBlock`). La verificación de bloqueos vive
+ * acá, y no en cada llamador, porque este módulo es el único punto por el que
+ * pasan las seis vías de reserva del sistema; ponerla en la interfaz que arma
+ * los horarios no alcanzaría, porque una pestaña vieja o una llamada directa a
+ * la server action se saltarían el filtro.
+ *
+ * Los bloqueos se representan como intervalos ocupados, igual que las citas: a
+ * quien reserva le da lo mismo por qué el rato no está libre.
+ */
 export async function findRecurringConflict({ professionalId, starts, ends, ignoreAppointmentId }) {
   if (!starts.length) return null;
 
   const { minStart, maxEnd } = buildOverlapWindow(starts, ends);
-  const existingAppointments = await prisma.appointment.findMany({
-    where: buildOverlapWhere({ professionalId, minStart, maxEnd, ignoreAppointmentId }),
-    select: { date: true, endDate: true },
-  });
+  const [existingAppointments, blocks] = await Promise.all([
+    prisma.appointment.findMany({
+      where: buildOverlapWhere({ professionalId, minStart, maxEnd, ignoreAppointmentId }),
+      select: { date: true, endDate: true },
+    }),
+    prisma.scheduleBlock.findMany({
+      where: {
+        professionalId,
+        startsAt: { lt: maxEnd },
+        endsAt: { gt: minStart },
+      },
+      select: { startsAt: true, endsAt: true },
+    }),
+  ]);
 
-  return findConflictInOccurrences(existingAppointments, starts, ends);
+  const occupied = [
+    ...existingAppointments,
+    ...blocks.map((block) => ({ date: block.startsAt, endDate: block.endsAt })),
+  ];
+
+  return findConflictInOccurrences(occupied, starts, ends);
+}
+
+/**
+ * La misma verificación para un único horario.
+ *
+ * Existe para que los llamadores que agendan una sola cita no repitan a mano la
+ * consulta de solapamiento y se olviden de los bloqueos, que fue justo lo que
+ * pasaba en `admin-appointments-actions` y en el seguimiento de `agenda-actions`.
+ */
+export async function findSingleSlotConflict({ professionalId, start, end, ignoreAppointmentId }) {
+  return findRecurringConflict({
+    professionalId,
+    starts: [start],
+    ends: [end],
+    ignoreAppointmentId,
+  });
 }
