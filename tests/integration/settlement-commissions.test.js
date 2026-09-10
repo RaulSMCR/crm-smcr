@@ -220,6 +220,38 @@ describe("patient-retention settlement generation", () => {
     expect(llamada.data.consultationNumber).toBe(2);
   });
 
+  it("only lets a paid appointment consume a position in the sequence", async () => {
+    prisma.paymentTransaction.findMany.mockResolvedValue([
+      {
+        id: "full-1",
+        patientId: "patient-1",
+        professionalId: "professional-1",
+        type: "FULL_100",
+        amount: 40000,
+        taxRate: 4,
+        processingFee: 0,
+        paidAt: new Date("2026-07-10T18:00:00.000Z"),
+        appointment,
+      },
+    ]);
+    prisma.appointment.findMany.mockResolvedValue([appointment]);
+    transactionClient.settlementItem.aggregate.mockResolvedValue({
+      _sum: { commissionAmt: 0 },
+    });
+
+    await generateSettlementPeriod({ periodStart, periodEnd });
+
+    // Lo que consume una posición es haber cobrado, no que el profesional haya
+    // marcado la cita como realizada: en el CRM esa marca precede al enlace del
+    // saldo, así que toda consulta pasa por "completada y sin pagar". Exigir
+    // COMPLETED le regalaba una posición a la cita que nadie llegó a pagar.
+    const [{ where }] = prisma.appointment.findMany.mock.calls[0];
+    expect(where.AND).toEqual({
+      paymentTransactions: { some: { status: "APPROVED" } },
+    });
+    expect(JSON.stringify(where)).not.toContain("COMPLETED");
+  });
+
   it("does not create settlements when the period has no eligible completed payments", async () => {
     prisma.paymentTransaction.findMany.mockResolvedValue([]);
 

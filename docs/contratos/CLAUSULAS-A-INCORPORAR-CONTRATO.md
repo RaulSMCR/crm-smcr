@@ -79,10 +79,17 @@ obligación es de él y no de ella.
 > **cincuenta por ciento (50%)** del valor de la cita y la suspensión temporal de
 > la agenda del Usuario.
 >
-> El cargo por cancelación tardía o inasistencia **no constituye una consulta
-> efectiva**: no devenga comisión de plataforma ni avanza la secuencia de
-> consultas del Usuario. Su distribución entre las Partes es la establecida en el
-> Anexo económico.
+> **[NUEVA] 4.5.** El cargo por cancelación tardía o inasistencia **se liquida
+> como cualquier otro cobro**. El Profesional percibe la parte que le
+> corresponde, porque el horario reservado quedó apartado para ese Usuario y no
+> pudo ofrecerse a otro. La comisión de SaludMentalCR se calcula con la tasa que
+> correspondía a esa consulta según su posición en la secuencia, y el cargo
+> **consume esa posición**.
+>
+> Lo que hace avanzar la secuencia es el **pago**, no la realización de la
+> consulta: si el Usuario no paga el cargo, la posición no se consume y queda
+> disponible para la siguiente cita. El detalle del cálculo es el establecido en
+> el Anexo económico.
 
 ---
 
@@ -97,6 +104,9 @@ secuencia de consultas. En ese campo debe consignarse:
 > este Contrato y prevalece en todo lo relativo a comisión, costo de
 > procesamiento, liquidación y monto facturable.*
 
+El anexo que se firma es
+[`ANEXO-ECONOMICO-COMISIONES-PROFESIONALES.md`](../ANEXO-ECONOMICO-COMISIONES-PROFESIONALES.md).
+
 ---
 
 ## D. Correcciones de forma del contrato
@@ -110,7 +120,7 @@ corregirse antes de la firma:
 | 2 | Existe una cláusula **2.2 sin 2.1** | Renumerar o incorporar la 2.1 faltante. |
 | 3 | El encabezado llama **«Proveedor»** al Profesional; el articulado lo llama **«Profesional»** | Unificar en un solo término. |
 | 4 | El Anexo A trae preimpreso **«dos mil veinticuatro (2024)»** | Actualizar el año. |
-| 5 | Plazo de pago de la cláusula **4.3 en blanco** | Completarlo con **el mismo número de días** que la cláusula 8.2 del Anexo económico. Si difieren, cada parte podrá invocar el que le convenga. |
+| 5 | Plazo de pago de la cláusula **4.3 en blanco** | Consignar **cinco (5) días hábiles**, que es el plazo de la cláusula 13.2 del Anexo económico. Si difieren, cada parte podrá invocar el que le convenga. |
 | 6 | Cuenta bancaria del Anexo A en blanco | Completarla: la cláusula 4.3 exige transferencia electrónica a esa cuenta. |
 
 ---
@@ -121,25 +131,32 @@ Estas materias están dichas en más de un lugar. **Si cambia una, cambian todas
 
 | Materia | Contrato | Anexo económico | Términos y Condiciones | Código |
 |---|---|---|---|---|
-| Expediente y secreto profesional | cláusula 6 (nueva, sección A) | cláusula 10.1 | sección «Tu expediente es tuyo y de tu profesional» | modelo `Caso` |
-| Registro de apertura, alta y baja | cláusula 6.3 y 6.4 (nuevas) | cláusula 10.2 | misma sección | `Caso`, `CasoNota` |
-| 24 horas / 50% / pausa de agenda | cláusula 4.4 (nueva, sección B) | cláusula 4.3 | sección de citas y cancelaciones | `src/lib/rescheduling-policy.js` |
+| Expediente y secreto profesional | cláusula 6 (nueva, sección A) | cláusula 16.3 | sección «Tu expediente es tuyo y de tu profesional» | modelo `Caso` |
+| Registro de apertura, alta y baja | cláusula 6.3 y 6.4 (nuevas) | cláusula 16.4 | misma sección | `Caso`, `CasoNota` |
+| 24 horas / 50% / pausa de agenda | cláusula 4.4 (nueva, sección B) | cláusula 6.2 | sección de citas y cancelaciones | `src/lib/rescheduling-policy.js` |
+| El cargo por cancelación se liquida y consume posición | cláusula 4.5 (nueva, sección B) | cláusulas 7 y 4.2 | no aplica | `commission-plan.js`, `settlement-actions.js`, `detalle-consulta.js` |
 | Escala de comisión | remite al Anexo | cláusula 5 | no aplica | `src/lib/commission-plan.js` |
-| Plazo de pago | cláusula 4.3 | cláusula 8.2 | no aplica | no aplica |
-| Traslado del costo de procesamiento | cláusula 4.2 (ya existe) | cláusula 6.2 | no aplica | `settlement-actions.js` |
+| Plazo de pago — **cinco (5) días hábiles** | cláusula 4.3 | cláusula 13.2 | no aplica | no aplica |
+| Traslado del costo de procesamiento | cláusula 4.2 (ya existe) | cláusula 8.2 | no aplica | `settlement-actions.js` |
 
 ---
 
 ## F. Lo que queda pendiente de decisión
 
-1. **Distribución del cargo por cancelación tardía** entre SaludMentalCR y el
-   Profesional. La política publicada fija el 50% que paga el Usuario, pero no
-   dice a quién le queda. Sin ese dato la Liquidación no puede procesarlo.
-2. **Visado de la apertura.** El CRM hoy visa únicamente el **cierre** del caso
+> **Decidido el 10 de setiembre de 2026 — distribución del cargo por cancelación
+> tardía.** Siempre que un Usuario paga, el Profesional con quien agendó recibe
+> su parte y la relación avanza en la tabla de comisiones. El cargo se liquida
+> igual que cualquier otro cobro, a la tasa de la posición que ocupaba esa
+> consulta, y consume esa posición. Es lo que ya hacía el CRM
+> (`src/lib/commission-plan.js`, `src/actions/settlement-actions.js`) y lo que
+> dice la cláusula 7.1 del Anexo económico; queda escrito además en la
+> cláusula 4.5 de la sección B de este documento.
+
+1. **Visado de la apertura.** El CRM hoy visa únicamente el **cierre** del caso
    (`estado: PENDIENTE_VISADO` → `CERRADO`). Si la apertura también debe
    trabajarse en equipo de forma trazable, hace falta una decisión de producto:
    el registro de la apertura existe, pero no pasa por visado.
-3. Los campos en blanco del contrato y del Anexo A.
+2. Los campos en blanco del contrato y del Anexo A.
 
 ---
 

@@ -3,7 +3,7 @@
 // `commission-plan.test.js` prueba que las funciones se comporten como se
 // diseñaron. Este archivo prueba algo distinto y complementario: que lo que el
 // código calcula sea exactamente lo que el PROFESIONAL firmó en
-// `docs/ANEXO-ECONOMICO-LIQUIDACION-PROFESIONALES-PROPUESTO.md`. Si alguien
+// `docs/ANEXO-ECONOMICO-COMISIONES-PROFESIONALES.md`. Si alguien
 // cambia una tasa en el código sin tocar el anexo, o al revés, acá se rompe.
 //
 // Plan de referencia: patient-retention-2026-07.
@@ -100,7 +100,7 @@ describe("anexo económico — cláusula 5.1, primera consulta", () => {
   });
 });
 
-describe("anexo económico — cláusula 7, fórmula de liquidación", () => {
+describe("anexo económico — cláusula 9, fórmula de liquidación", () => {
   it("calcula la base sin impuesto dividiendo entre 1,04", () => {
     const item = calculateProfessionalSettlementItem({
       grossCents: BRUTO_40K,
@@ -177,7 +177,7 @@ describe("anexo económico — cláusula 7, fórmula de liquidación", () => {
   });
 });
 
-describe("anexo económico — cláusula 8.1, la factura debe igualar la liquidación", () => {
+describe("anexo económico — cláusula 11.2, la factura debe igualar la liquidación", () => {
   it("el monto exigido al profesional es el que la liquidación guarda como neto", () => {
     const item = calculateProfessionalSettlementItem({
       grossCents: BRUTO_40K,
@@ -218,7 +218,7 @@ describe("anexo económico — cláusula 8.1, la factura debe igualar la liquida
   });
 });
 
-describe("anexo económico — cláusula 4.3, multa por cancelación tardía", () => {
+describe("anexo económico — cláusula 7, cargo por cancelación tardía", () => {
   it("cobra la tasa de la posición en la secuencia, no las de primera consulta", () => {
     // Una multa es un solo cobro: no hay adelanto ni saldo que desdoblar.
     expect(commissionRateForPayment({ consultationNumber: 1, paymentType: "PENALTY_50" })).toBe(45);
@@ -284,7 +284,7 @@ describe("secuencia — qué consume una posición", () => {
   });
 });
 
-describe("cláusula 6.2 — el fijo de ONVO no se le cobra dos veces al profesional", () => {
+describe("cláusula 8.4 — el fijo de ONVO no se le cobra dos veces al profesional", () => {
   it("el segundo tramo de la primera consulta no arrastra el cargo fijo", () => {
     // ONVO cobra un fijo en dólares por transacción. Partir la primera consulta
     // en adelanto y saldo lo dispara dos veces, y esa partición es una decisión
