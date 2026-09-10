@@ -9,6 +9,7 @@ import {
 } from "@/actions/patient-booking-actions";
 import {
   buildSlots,
+  findWarningForRange,
   formatDayLong,
   formatSelectedLabel,
   formatSlotTime,
@@ -38,6 +39,7 @@ export default function ProfessionalCalendarBooking({
   durationMin,
   availability,
   booked,
+  warnings = [],
 }) {
   const router = useRouter();
   const [selectedISO, setSelectedISO] = useState("");
@@ -66,6 +68,17 @@ export default function ProfessionalCalendarBooking({
   // tica se agrega al confirmar, para que nadie se presente a la hora que no es.
   const zonaPaciente = viewerTimeZone();
   const muestraEquivalencia = zonaPaciente !== CR_TZ;
+
+  // Un feriado no cierra la agenda: el profesional puede atender y el paciente
+  // puede pedir. Pero se avisa antes de confirmar, porque la experiencia dice
+  // que se reserva igual y después no se viene.
+  const avisoDelHorario = selectedISO
+    ? findWarningForRange(
+        warnings,
+        selectedISO,
+        new Date(new Date(selectedISO).getTime() + durationMin * 60000).toISOString()
+      )
+    : null;
 
   useEffect(() => {
     if (!selectedISO) {
@@ -225,6 +238,13 @@ export default function ProfessionalCalendarBooking({
               ? `${formatSelectedLabel(new Date(selectedISO), zonaPaciente)} (${timeZoneAbbr(zonaPaciente, new Date(selectedISO))})`
               : "—"}
           </b>
+          {avisoDelHorario && (
+            <span className="mt-2 block rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-normal text-amber-900">
+              <strong className="font-semibold">Ese día es feriado</strong>
+              {avisoDelHorario.summary ? `: ${avisoDelHorario.summary}.` : "."} Puede agendar igual,
+              pero confirme con el profesional que va a atender, y asegúrese de poder asistir.
+            </span>
+          )}
           {selectedISO && muestraEquivalencia && (
             <span className="mt-1 block text-xs text-slate-500">
               Equivale a las {formatSlotTime(new Date(selectedISO), CR_TZ)} en Costa Rica, donde

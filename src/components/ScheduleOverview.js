@@ -33,6 +33,13 @@ const ESTILOS = {
     punto: "bg-violet-500",
     rotulo: "Ocupado en su Google Calendar",
   },
+  // El aviso se dibuja rayado y translúcido a propósito: tiene que leerse como
+  // una advertencia sobre un horario que sigue disponible, no como algo tomado.
+  aviso: {
+    caja: "border-dashed border-rose-400 bg-rose-100/50 text-rose-900",
+    punto: "border border-dashed border-rose-400 bg-rose-100",
+    rotulo: "Feriado — avisa, no bloquea",
+  },
 };
 
 function hhmm(minutos) {
@@ -207,7 +214,9 @@ export default function ScheduleOverview({ initialData = null }) {
                     />
                   ))}
 
-                  {dia.busy.map((banda, i) => {
+                  {[...dia.busy]
+                    .sort((a, b) => (a.kind === "aviso" ? -1 : 0) - (b.kind === "aviso" ? -1 : 0))
+                    .map((banda, i) => {
                     const estilo = ESTILOS[banda.kind] || ESTILOS.bloqueo;
                     const alto = ((banda.endMin - banda.startMin) / total) * 100;
 
@@ -235,8 +244,9 @@ export default function ScheduleOverview({ initialData = null }) {
       </div>
 
       <p className="text-xs text-slate-500">
-        El blanco es la franja que usted declaró y está libre. Pase el cursor sobre cualquier bloque
-        para ver el detalle.
+        El blanco es la franja que usted declaró y está libre. Lo rayado en rojo es un feriado: el
+        horario sigue disponible y usted puede atender, pero al paciente se le avisa antes de
+        confirmar. Pase el cursor sobre cualquier bloque para ver el detalle.
       </p>
     </div>
   );

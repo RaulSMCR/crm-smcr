@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { listBlocksInWindow, blocksToIntervals } from "@/lib/schedule-blocks";
-import { fetchBusyForProfessional } from "@/lib/google-busy";
+import { fetchBusyForProfessional, fetchWarningsForProfessional } from "@/lib/google-busy";
 import { getSession } from "@/actions/auth-actions";
 import ProfessionalCalendarBooking from "@/components/booking/ProfessionalCalendarBooking";
 import { TARIFA_VIGENTE, rangoDePrecios, etiquetaDeRango } from "@/lib/service-pricing";
@@ -69,6 +69,13 @@ export default async function PacienteAgendarPage({ searchParams }) {
 
   // Lo que el profesional ya tenga agendado en su propio Google Calendar.
   // Vacío si no conectó Google o si Google no responde.
+  const avisos = await fetchWarningsForProfessional({
+    prisma,
+    professionalId,
+    from: blockWindowFrom,
+    to: blockWindowTo,
+  });
+
   const googleBusy = await fetchBusyForProfessional({
     prisma,
     professionalId,
@@ -136,6 +143,7 @@ export default async function PacienteAgendarPage({ searchParams }) {
         durationMin={service.durationMin}
         availability={availability}
         booked={booked}
+        warnings={avisos}
       />
     </div>
   );

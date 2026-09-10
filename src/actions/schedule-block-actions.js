@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { requireProfessionalProfileId } from "@/lib/auth-guards";
 import { blockRangeToInstants } from "@/lib/schedule-blocks";
-import { fetchBusyForProfessional } from "@/lib/google-busy";
+import { fetchBusyForProfessional, fetchWarningsForProfessional } from "@/lib/google-busy";
 import { buildScheduleOverview } from "@/lib/schedule-overview";
 import { crAddDays, crDay } from "@/lib/appointment-slots";
 
@@ -173,13 +173,16 @@ export async function getScheduleOverview({ weekOffset = 0, days = 7 } = {}) {
       }),
     ]);
 
-    const googleBusy = await fetchBusyForProfessional({
-      prisma,
-      professionalId,
-      from,
-      to,
-      excludeEventIds: appointments.map((cita) => cita.gcalEventId),
-    });
+    const [googleBusy, avisos] = await Promise.all([
+      fetchBusyForProfessional({
+        prisma,
+        professionalId,
+        from,
+        to,
+        excludeEventIds: appointments.map((cita) => cita.gcalEventId),
+      }),
+      fetchWarningsForProfessional({ prisma, professionalId, from, to }),
+    ]);
 
     const overview = buildScheduleOverview({
       fromYMD,
@@ -199,6 +202,11 @@ export async function getScheduleOverview({ weekOffset = 0, days = 7 } = {}) {
         startISO: evento.startISO,
         endISO: evento.endISO,
         label: evento.summary || "Evento de Google",
+      })),
+      warnings: avisos.map((aviso) => ({
+        startISO: aviso.startISO,
+        endISO: aviso.endISO,
+        label: aviso.summary || "Feriado",
       })),
     });
 

@@ -372,6 +372,14 @@ model ProfessionalProfile {
   /// `freeBusyReader` —el que se tiene sobre calendarios compartidos ajenos,
   /// donde no se pueden leer eventos pero sí saber que el rato está tomado.
   googleBusyCalendarIds String[] @default([])
+
+  /// Calendarios que **no** bloquean, solo advierten: feriados, sobre todo.
+  ///
+  /// Cada quien es libre de agendar cuando quiera, pero un feriado predice
+  /// ausencias: el paciente reserva igual y no se presenta. Cerrar el día sería
+  /// decidir por el profesional; no decir nada deja que la ausencia ocurra. Se
+  /// avisa a los dos y que cada quien resuelva.
+  googleWarnCalendarIds String[] @default([])
   posts          Post[]
 
   practiceLocations PracticeLocation[]

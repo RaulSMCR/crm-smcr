@@ -10,3 +10,8 @@
 ALTER TABLE "ProfessionalProfile"
     ADD COLUMN "googleCalendarId" TEXT,
     ADD COLUMN "googleBusyCalendarIds" TEXT[] DEFAULT ARRAY[]::TEXT[];
+
+-- Calendarios que advierten en vez de bloquear (feriados). Un feriado no ocupa
+-- la agenda del profesional, pero sí predice que el paciente no se presente.
+ALTER TABLE "ProfessionalProfile"
+    ADD COLUMN "googleWarnCalendarIds" TEXT[] DEFAULT ARRAY[]::TEXT[];

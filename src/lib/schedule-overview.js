@@ -72,6 +72,7 @@ export function buildScheduleOverview({
   appointments = [],
   blocks = [],
   googleBusy = [],
+  warnings = [],
   now = new Date(),
 }) {
   const ocupados = [
@@ -83,6 +84,11 @@ export function buildScheduleOverview({
     ),
     ...googleBusy.map((item) =>
       tramosPorDia(item.startISO, item.endISO, { kind: "google", label: item.label || "Evento de Google" })
+    ),
+    // Los avisos van en la misma lista de bandas para dibujarse, pero con su
+    // propio `kind`: no ocupan, advierten. El generador de horarios ni los ve.
+    ...warnings.map((item) =>
+      tramosPorDia(item.startISO, item.endISO, { kind: "aviso", label: item.label || "Feriado" })
     ),
   ].flat();
 

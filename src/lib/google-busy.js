@@ -289,3 +289,35 @@ export async function fetchBusyForProfessional({ prisma, professionalId, from, t
 
   return [...propios, ...extras];
 }
+
+/**
+ * Lo que **advierte** sin bloquear: feriados, sobre todo.
+ *
+ * Se devuelve aparte de lo ocupado a propósito. Un feriado no le ocupa la
+ * agenda al profesional —puede atender si quiere, y el paciente puede pedir
+ * cita— pero predice ausencias, así que las dos partes tienen que verlo antes
+ * de confirmar. Mezclarlo con `busy` habría cerrado el día por su cuenta.
+ *
+ * Se lee sin respetar la marca "Disponible" de Google: los feriados vienen
+ * todos marcados así y no aportarían nada.
+ */
+export async function fetchWarningsForProfessional({ prisma, professionalId, from, to }) {
+  if (!professionalId) return [];
+
+  const profile = await prisma.professionalProfile.findUnique({
+    where: { id: String(professionalId) },
+    select: { googleRefreshToken: true, googleWarnCalendarIds: true },
+  });
+
+  if (!profile?.googleRefreshToken) return [];
+  const ids = profile.googleWarnCalendarIds || [];
+  if (!ids.length) return [];
+
+  return fetchCalendariosExtra({
+    refreshToken: profile.googleRefreshToken,
+    calendarIds: ids,
+    from,
+    to,
+  });
+}
+

@@ -227,4 +227,24 @@ export function crDay(date) {
   return diaCR(date instanceof Date ? date : new Date(date));
 }
 
+/**
+ * ¿Cae este rato dentro de alguna advertencia? Devuelve la primera que lo pisa.
+ *
+ * Vive en este módulo, y no junto a la lectura de Google, porque lo usa el
+ * componente de reserva en el navegador: importarlo desde ahí arrastraría
+ * `googleapis` entero al bundle del cliente y rompería la compilación.
+ */
+export function findWarningForRange(warnings, startISO, endISO) {
+  const inicio = new Date(startISO).getTime();
+  const fin = new Date(endISO).getTime();
+
+  return (
+    (warnings || []).find((aviso) => {
+      const a = new Date(aviso.startISO).getTime();
+      const b = new Date(aviso.endISO).getTime();
+      return inicio < b && fin > a;
+    }) || null
+  );
+}
+
 export { CR_TZ };

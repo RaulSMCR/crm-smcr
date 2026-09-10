@@ -113,6 +113,7 @@ export async function listarCalendariosGoogle() {
         googleRefreshToken: true,
         googleCalendarId: true,
         googleBusyCalendarIds: true,
+        googleWarnCalendarIds: true,
       },
     });
 
@@ -139,6 +140,7 @@ export async function listarCalendariosGoogle() {
         calendarios,
         calendarioDeTrabajo: profile.googleCalendarId || "primary",
         tambienOcupan: profile.googleBusyCalendarIds || [],
+        soloAvisan: profile.googleWarnCalendarIds || [],
       },
     };
   } catch (error) {
@@ -148,7 +150,11 @@ export async function listarCalendariosGoogle() {
 }
 
 /** 5) Guardar qué calendario usa y cuáles más le ocupan la agenda */
-export async function guardarCalendariosGoogle({ calendarioDeTrabajo, tambienOcupan = [] }) {
+export async function guardarCalendariosGoogle({
+  calendarioDeTrabajo,
+  tambienOcupan = [],
+  soloAvisan = [],
+}) {
   try {
     const professionalId = await requireProfessionalProfileId();
 
@@ -161,11 +167,21 @@ export async function guardarCalendariosGoogle({ calendarioDeTrabajo, tambienOcu
         .filter((id) => id !== deTrabajo)
     )];
 
+    // Un calendario no puede bloquear y avisar a la vez: si está en las dos
+    // listas, gana avisar, que es la opción que no le cierra la agenda a nadie.
+    const avisos = [...new Set(
+      (Array.isArray(soloAvisan) ? soloAvisan : [])
+        .map((id) => String(id || "").trim())
+        .filter(Boolean)
+        .filter((id) => id !== deTrabajo)
+    )];
+
     await prisma.professionalProfile.update({
       where: { id: String(professionalId) },
       data: {
         googleCalendarId: deTrabajo === "primary" ? null : deTrabajo,
-        googleBusyCalendarIds: extras,
+        googleBusyCalendarIds: extras.filter((id) => !avisos.includes(id)),
+        googleWarnCalendarIds: avisos,
       },
     });
 
