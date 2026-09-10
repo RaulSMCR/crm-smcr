@@ -7,6 +7,9 @@ import {
   formatDayTab,
   formatSelectedLabel,
   formatSlotTime,
+  timeZoneAbbr,
+  viewerTimeZone,
+  CR_TZ,
 } from "@/lib/appointment-slots";
 import { RECURRENCE_RULES } from "@/lib/appointment-recurrence";
 import RecurrenceFields from "@/components/appointments/RecurrenceFields";
@@ -49,6 +52,11 @@ export default function RescheduleAppointmentModal({ appointment, onClose }) {
       booked: data.booked,
     });
   }, [data]);
+
+  // Esta pantalla la usa el paciente, que puede estar en cualquier huso. Las
+  // horas se muestran en su reloj y se aclara la equivalencia tica.
+  const zonaPaciente = viewerTimeZone();
+  const muestraEquivalencia = zonaPaciente !== CR_TZ;
 
   const activeDay = days[selectedDayIdx] ?? null;
 
@@ -121,7 +129,7 @@ export default function RescheduleAppointmentModal({ appointment, onClose }) {
                       : "border-slate-300 text-slate-800 hover:bg-slate-100"
                   }`}
                 >
-                  {formatDayTab(dayItem.day)}
+                  {formatDayTab(dayItem.day, CR_TZ)}
                 </button>
               ))}
             </div>
@@ -142,7 +150,7 @@ export default function RescheduleAppointmentModal({ appointment, onClose }) {
                           : "border-slate-300 text-slate-800 hover:border-blue-600 hover:bg-blue-600 hover:text-white"
                       }`}
                     >
-                      {formatSlotTime(slot.start)}
+                      {formatSlotTime(slot.start, zonaPaciente)}
                     </button>
                   );
                 })}
@@ -151,7 +159,16 @@ export default function RescheduleAppointmentModal({ appointment, onClose }) {
 
             {selectedISO && (
               <div className="rounded-xl border-l-4 border-blue-600 bg-slate-50 px-4 py-2 text-sm text-slate-800">
-                Nuevo horario: <strong>{formatSelectedLabel(new Date(selectedISO))}</strong>
+                Nuevo horario:{" "}
+                <strong>
+                  {formatSelectedLabel(new Date(selectedISO), zonaPaciente)}{" "}
+                  ({timeZoneAbbr(zonaPaciente, new Date(selectedISO))})
+                </strong>
+                {muestraEquivalencia && (
+                  <span className="mt-1 block text-xs text-slate-500">
+                    Equivale a las {formatSlotTime(new Date(selectedISO), CR_TZ)} en Costa Rica.
+                  </span>
+                )}
               </div>
             )}
 

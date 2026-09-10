@@ -7,7 +7,15 @@ import {
   createAppointmentForPatient,
   getSlotOptionsForPatient,
 } from "@/actions/patient-booking-actions";
-import { buildSlots } from "@/lib/appointment-slots";
+import {
+  buildSlots,
+  formatDayLong,
+  formatSelectedLabel,
+  formatSlotTime,
+  timeZoneAbbr,
+  viewerTimeZone,
+  CR_TZ,
+} from "@/lib/appointment-slots";
 import { RECURRENCE_RULES } from "@/lib/appointment-recurrence";
 import RecurrenceFields from "@/components/appointments/RecurrenceFields";
 import BookingConfirmationToast from "@/components/booking/BookingConfirmationToast";
@@ -52,6 +60,12 @@ export default function ProfessionalCalendarBooking({
     () => buildSlots({ availability, durationMin, booked, daysAhead: 14 }),
     [availability, durationMin, booked]
   );
+
+  // Los cupos son instantes absolutos anclados a Costa Rica; acá se muestran en
+  // el reloj de quien está agendando, que es con el que vive. La equivalencia
+  // tica se agrega al confirmar, para que nadie se presente a la hora que no es.
+  const zonaPaciente = viewerTimeZone();
+  const muestraEquivalencia = zonaPaciente !== CR_TZ;
 
   useEffect(() => {
     if (!selectedISO) {
@@ -158,15 +172,16 @@ export default function ProfessionalCalendarBooking({
           </div>
         ) : (
           <div className="mt-6 space-y-6">
+            {muestraEquivalencia && (
+              <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs text-slate-600">
+                Las horas se muestran en su hora local ({timeZoneAbbr(zonaPaciente)}). El profesional
+                atiende desde Costa Rica.
+              </p>
+            )}
             {days.map(({ day, slots }) => (
               <div key={day.toISOString()}>
                 <div className="text-sm font-semibold text-slate-800">
-                  {day.toLocaleDateString("es-CR", {
-                    weekday: "long",
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
+                  {formatDayLong(day, CR_TZ)}
                 </div>
 
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -185,10 +200,7 @@ export default function ProfessionalCalendarBooking({
                             : "border-slate-200 text-slate-800 hover:bg-slate-50"
                         }`}
                       >
-                        {slot.start.toLocaleTimeString("es-CR", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        {formatSlotTime(slot.start, zonaPaciente)}
                       </button>
                     );
                   })}
@@ -208,7 +220,17 @@ export default function ProfessionalCalendarBooking({
 
         <div className="mt-3 text-sm text-slate-700">
           Horario seleccionado:{" "}
-          <b>{selectedISO ? new Date(selectedISO).toLocaleString("es-CR") : "—"}</b>
+          <b>
+            {selectedISO
+              ? `${formatSelectedLabel(new Date(selectedISO), zonaPaciente)} (${timeZoneAbbr(zonaPaciente, new Date(selectedISO))})`
+              : "—"}
+          </b>
+          {selectedISO && muestraEquivalencia && (
+            <span className="mt-1 block text-xs text-slate-500">
+              Equivale a las {formatSlotTime(new Date(selectedISO), CR_TZ)} en Costa Rica, donde
+              atiende el profesional.
+            </span>
+          )}
         </div>
 
         {selectedISO && (

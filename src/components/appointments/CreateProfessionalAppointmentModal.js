@@ -172,7 +172,8 @@ export default function CreateProfessionalAppointmentModal({
 
         {selectedISO && (
           <div className="rounded-xl border-l-4 border-blue-600 bg-slate-50 px-4 py-2 text-sm text-slate-800">
-            Horario elegido: <strong>{formatSelectedLabel(new Date(selectedISO))}</strong>
+            Horario elegido: <strong>{formatSelectedLabel(new Date(selectedISO))}</strong>{" "}
+            <span className="text-slate-500">(hora de Costa Rica)</span>
           </div>
         )}
 

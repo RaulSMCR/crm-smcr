@@ -164,7 +164,8 @@ export default function ProfessionalRescheduleModal({ appointment, onClose, onSu
 
             {selectedISO && (
               <div className="rounded-xl border-l-4 border-blue-600 bg-slate-50 px-4 py-2 text-sm text-slate-800">
-                Nuevo horario: <strong>{formatSelectedLabel(new Date(selectedISO))}</strong>
+                Nuevo horario: <strong>{formatSelectedLabel(new Date(selectedISO))}</strong>{" "}
+                <span className="text-slate-500">(hora de Costa Rica)</span>
               </div>
             )}
 
