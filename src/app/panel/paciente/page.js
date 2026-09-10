@@ -144,9 +144,12 @@ export default async function PacientePanelPage({ searchParams }) {
       : null;
 
   const userForClient = { ...user, birthDate: birthDateForInput(user.birthDate) };
-  const created = String(searchParams?.created || "") === "1";
-  const appointmentAction = String(searchParams?.appointmentAction || "");
-  const appointmentId = String(searchParams?.appointmentId || "");
+  // Next 16: `searchParams` es una Promise; sin `await` los avisos posteriores
+  // a agendar, reprogramar o cancelar no se mostraban nunca.
+  const params = await searchParams;
+  const created = String(params?.created || "") === "1";
+  const appointmentAction = String(params?.appointmentAction || "");
+  const appointmentId = String(params?.appointmentId || "");
   const pendingPaymentsCount = appointments.filter((appointment) => {
     const tx = appointment.paymentTransactions?.[0];
     return appointment.paymentStatus !== "PAID" && ["PENDING", "LINK_SENT"].includes(tx?.status);

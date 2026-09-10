@@ -12,7 +12,10 @@ export default async function PagoResultadoPage({ searchParams }) {
   if (!session) redirect("/ingresar");
   if (session.role !== "USER") redirect("/panel");
 
-  const ref = String(searchParams?.ref || "").trim();
+  // Next 16: `searchParams` es una Promise. Sin `await`, `ref` quedaba vacío
+  // y la pantalla nunca encontraba la PaymentTransaction del pago ONVO.
+  const params = await searchParams;
+  const ref = String(params?.ref || "").trim();
 
   let transaction = null;
   if (ref) {

@@ -17,8 +17,12 @@ export default async function IntegracionesPage({ searchParams }) {
   if (!profile) redirect("/panel/profesional");
 
   const isConnected = !!profile.googleRefreshToken;
-  const successParam = searchParams?.success;
-  const errorParam = searchParams?.error;
+
+  // Next 16: `searchParams` es una Promise. Sin `await`, los avisos del
+  // callback (conectado / error) no se mostraban nunca.
+  const params = await searchParams;
+  const successParam = params?.success;
+  const errorParam = params?.error;
 
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-6">

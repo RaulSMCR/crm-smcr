@@ -28,8 +28,11 @@ export default async function ProfesionalContabilidadPage({ searchParams }) {
   const defaultTo = new Date();
   defaultTo.setHours(23, 59, 59, 999);
 
-  const rangeFrom = parseDateParam(searchParams?.from, defaultFrom);
-  const rangeTo = parseDateParam(searchParams?.to, defaultTo);
+  // Next 16: `searchParams` es una Promise; sin `await` el rango elegido se
+  // ignoraba en silencio y siempre se liquidaban los últimos 90 días.
+  const params = await searchParams;
+  const rangeFrom = parseDateParam(params?.from, defaultFrom);
+  const rangeTo = parseDateParam(params?.to, defaultTo);
 
   const [profile, transactions, submittedInvoices, settlements] = await Promise.all([
     prisma.professionalProfile.findUnique({

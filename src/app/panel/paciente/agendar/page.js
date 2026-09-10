@@ -11,8 +11,11 @@ export default async function PacienteAgendarPage({ searchParams }) {
   if (!session) redirect("/ingresar");
   if (session.role !== "USER") redirect("/panel");
 
-  const professionalId = String(searchParams?.professionalId ?? "");
-  const serviceId = String(searchParams?.serviceId ?? "");
+  // Next 16: `searchParams` es una Promise; sin `await` ambos quedaban vacíos
+  // y todo intento de agendar rebotaba a /servicios.
+  const params = await searchParams;
+  const professionalId = String(params?.professionalId ?? "");
+  const serviceId = String(params?.serviceId ?? "");
   if (!professionalId || !serviceId) redirect("/servicios");
 
   const [service, professional, assignment, availability, appts] = await Promise.all([
