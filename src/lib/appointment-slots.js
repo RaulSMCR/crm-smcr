@@ -189,4 +189,42 @@ export function formatSelectedLabel(date, timeZone = CR_TZ) {
   }).format(date);
 }
 
+/**
+ * Un instante, leído en el calendario y el reloj de Costa Rica.
+ *
+ * Devuelve el día como 'YYYY-MM-DD' y los minutos transcurridos desde la
+ * medianoche tica. Es lo que necesita cualquier vista que dibuje bandas de
+ * ocupación: sin esto habría que reinterpretar husos en cada componente.
+ */
+export function crParts(date) {
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: CR_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date instanceof Date ? date : new Date(date));
+
+  const v = Object.fromEntries(partes.map((parte) => [parte.type, parte.value]));
+  // A medianoche, `hour12: false` puede devolver "24" en algunos entornos.
+  const hora = Number(v.hour) % 24;
+
+  return {
+    ymd: `${v.year}-${v.month}-${v.day}`,
+    minutes: hora * 60 + Number(v.minute),
+  };
+}
+
+/** Suma días a un 'YYYY-MM-DD' de Costa Rica. */
+export function crAddDays(ymd, cantidad) {
+  return sumarDias(ymd, cantidad);
+}
+
+/** El día calendario tico de un instante, como 'YYYY-MM-DD'. */
+export function crDay(date) {
+  return diaCR(date instanceof Date ? date : new Date(date));
+}
+
 export { CR_TZ };

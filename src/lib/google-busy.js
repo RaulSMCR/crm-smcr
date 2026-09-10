@@ -59,7 +59,14 @@ function toInterval(event) {
   const end = new Date(endRaw);
   if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) return null;
 
-  return { startISO: start.toISOString(), endISO: end.toISOString() };
+  return {
+    startISO: start.toISOString(),
+    endISO: end.toISOString(),
+    // El título solo lo consume la vista de agenda del propio profesional. Las
+    // rutas de reserva lo ignoran: ahí un intervalo ocupado es un intervalo
+    // ocupado, sin importar qué diga.
+    summary: event.summary || "",
+  };
 }
 
 /**

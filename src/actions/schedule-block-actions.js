@@ -5,6 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { requireProfessionalProfileId } from "@/lib/auth-guards";
 import { blockRangeToInstants } from "@/lib/schedule-blocks";
+import { fetchBusyForProfessional } from "@/lib/google-busy";
+import { buildScheduleOverview } from "@/lib/schedule-overview";
+import { crAddDays, crDay } from "@/lib/appointment-slots";
 
 /**
  * Bloqueos de agenda del profesional.
@@ -124,4 +127,101 @@ export async function deleteScheduleBlock(id) {
     console.error("Error eliminando bloqueo de agenda:", error);
     return { success: false, error: "No se pudo eliminar el bloqueo." };
   }
+}
+
+const CANCELADAS = ["CANCELLED_BY_USER", "CANCELLED_BY_PRO"];
+
+/**
+ * La agenda del profesional para dibujarla: franja declarada, citas del sistema,
+ * bloqueos manuales y lo ocupado en su Google Calendar.
+ *
+ * `weekOffset` corre la ventana de a siete días desde hoy.
+ */
+export async function getScheduleOverview({ weekOffset = 0, days = 7 } = {}) {
+  try {
+    const professionalId = await requireProfessionalProfileId();
+
+    const desplazamiento = Number(weekOffset) || 0;
+    const fromYMD = crAddDays(crDay(new Date()), desplazamiento * 7);
+    // El fin es exclusivo: el primer instante del día siguiente al último.
+    const from = new Date(`${fromYMD}T00:00:00-06:00`);
+    const to = new Date(`${crAddDays(fromYMD, days)}T00:00:00-06:00`);
+
+    const [availability, appointments, blocks] = await Promise.all([
+      prisma.availability.findMany({
+        where: { professionalId },
+        select: { dayOfWeek: true, startTime: true, endTime: true },
+      }),
+      prisma.appointment.findMany({
+        where: {
+          professionalId,
+          status: { notIn: CANCELADAS },
+          date: { lt: to },
+          endDate: { gt: from },
+        },
+        select: {
+          date: true,
+          endDate: true,
+          gcalEventId: true,
+          patient: { select: { name: true } },
+          service: { select: { title: true } },
+        },
+      }),
+      prisma.scheduleBlock.findMany({
+        where: { professionalId, startsAt: { lt: to }, endsAt: { gt: from } },
+        select: { startsAt: true, endsAt: true, reason: true },
+      }),
+    ]);
+
+    const googleBusy = await fetchBusyForProfessional({
+      prisma,
+      professionalId,
+      from,
+      to,
+      excludeEventIds: appointments.map((cita) => cita.gcalEventId),
+    });
+
+    const overview = buildScheduleOverview({
+      fromYMD,
+      days,
+      availability,
+      appointments: appointments.map((cita) => ({
+        startISO: cita.date.toISOString(),
+        endISO: cita.endDate.toISOString(),
+        label: cita.patient?.name || cita.service?.title || "Cita",
+      })),
+      blocks: blocks.map((bloque) => ({
+        startISO: bloque.startsAt.toISOString(),
+        endISO: bloque.endsAt.toISOString(),
+        label: bloque.reason || "Bloqueo",
+      })),
+      googleBusy: googleBusy.map((evento) => ({
+        startISO: evento.startISO,
+        endISO: evento.endISO,
+        label: evento.summary || "Evento de Google",
+      })),
+    });
+
+    return {
+      success: true,
+      data: {
+        ...overview,
+        weekOffset: desplazamiento,
+        // Si el profesional no conectó Google, la vista lo dice en vez de
+        // mostrar una capa vacía que parecería "no tengo nada agendado".
+        googleConectado: googleBusy.length > 0 || (await tieneGoogle(professionalId)),
+      },
+    };
+  } catch (error) {
+    console.error("Error armando la vista de agenda:", error);
+    return { success: false, error: "No se pudo cargar la agenda." };
+  }
+}
+
+async function tieneGoogle(professionalId) {
+  const profile = await prisma.professionalProfile.findUnique({
+    where: { id: String(professionalId) },
+    select: { googleRefreshToken: true },
+  });
+  return Boolean(profile?.googleRefreshToken);
 }
