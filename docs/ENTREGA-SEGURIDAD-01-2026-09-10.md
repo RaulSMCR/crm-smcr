@@ -2,6 +2,8 @@
 
 Fecha: 10 de septiembre de 2026.
 
+**Actualización:** los bloqueos de pruebas, lint y build descritos aquí se resolvieron en la [segunda entrega](ENTREGA-SEGURIDAD-02-2026-09-10.md). Este documento conserva el diagnóstico de la primera entrega.
+
 Las tres correcciones acordadas están implementadas y tienen 22 pruebas específicas aprobadas. La entrega está preparada para revisión local. Todavía no está publicada ni reúne todas las condiciones para desplegar.
 
 ## Qué cambia para el proyecto

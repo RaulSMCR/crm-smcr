@@ -45,7 +45,7 @@ const accentScale = {
   DEFAULT: 'rgb(var(--accent-600) / <alpha-value>)',
 };
 
-export default {
+const config = {
   content: [
     './src/**/*.{js,jsx,ts,tsx,mdx}',
     './app/**/*.{js,jsx,ts,tsx,mdx}',
@@ -187,3 +187,5 @@ export default {
     require('@tailwindcss/forms'),
   ],
 };
+
+export default config;

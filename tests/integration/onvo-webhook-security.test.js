@@ -238,4 +238,17 @@ describe("Webhook ONVO: autenticación, privacidad y continuidad", () => {
     }));
     expectPrivateDataAbsent();
   });
+
+  it("no confirma un pago no conciliado si no pudo guardar la evidencia", async () => {
+    const POST = await handler();
+    mocks.db.unmatchedPayment.upsert.mockRejectedValue(Object.assign(
+      new Error(EMAIL + MARKER), { code: "P2024" },
+    ));
+    const response = await POST(request());
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ ok: false });
+    expect(mocks.send).not.toHaveBeenCalled();
+    expect(mocks.db.appointment.update).not.toHaveBeenCalled();
+    expectPrivateDataAbsent();
+  });
 });

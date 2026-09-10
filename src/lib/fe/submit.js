@@ -10,10 +10,9 @@
 
 import { prisma } from "@/lib/prisma";
 import { FE_EMISOR } from "@/lib/fe/config";
-import { Resend } from "resend";
+import { resend } from "@/lib/resend";
 import { assertFeConfig } from "@/lib/fe/config.js";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL = process.env.EMAIL_FROM || "Salud Mental Costa Rica <onboarding@resend.dev>";
 const FE_REAL_API_URL = process.env.FE_API_URL || null;
 

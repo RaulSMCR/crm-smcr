@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const findMany = vi.fn();
-vi.mock("@/lib/prisma", () => ({ prisma: { appointment: { findMany: (...args) => findMany(...args) } } }));
+const findBlocks = vi.fn();
+const fetchBusy = vi.fn();
+vi.mock("@/lib/prisma", () => ({ prisma: {
+  appointment: { findMany: (...args) => findMany(...args) },
+  scheduleBlock: { findMany: (...args) => findBlocks(...args) },
+} }));
+vi.mock("@/lib/google-busy", () => ({ fetchBusyForProfessional: (...args) => fetchBusy(...args) }));
 
 const {
   buildOccurrenceEnds,
@@ -15,7 +21,9 @@ const {
 const at = (day, hour) => new Date(2026, 6, day, hour, 0, 0);
 
 beforeEach(() => {
-  findMany.mockReset();
+  findMany.mockReset().mockResolvedValue([]);
+  findBlocks.mockReset().mockResolvedValue([]);
+  fetchBusy.mockReset().mockResolvedValue([]);
 });
 
 describe("buildOccurrenceEnds", () => {
@@ -90,7 +98,7 @@ describe("buildOverlapWhere", () => {
 });
 
 describe("findRecurringConflict", () => {
-  it("consulta una sola vez con la ventana de toda la serie", async () => {
+  it("consulta citas, bloqueos y eventos propios con la ventana de toda la serie", async () => {
     findMany.mockResolvedValue([]);
     const starts = [at(6, 9), at(13, 9), at(20, 9)];
     const ends = buildOccurrenceEnds(starts, 60);
@@ -98,16 +106,28 @@ describe("findRecurringConflict", () => {
     const result = await findRecurringConflict({ professionalId: "p1", starts, ends });
 
     expect(result).toBeNull();
-    expect(findMany).toHaveBeenCalledTimes(1);
+    expect(findMany).toHaveBeenCalledTimes(2);
     expect(findMany.mock.calls[0][0].where).toMatchObject({
       professionalId: "p1",
       date: { lt: new Date(2026, 6, 20, 10, 0) },
       endDate: { gt: at(6, 9) },
     });
+    expect(findBlocks).toHaveBeenCalledTimes(1);
+    expect(findBlocks.mock.calls[0][0].where).toEqual({
+      professionalId: "p1", startsAt: { lt: at(20, 10) }, endsAt: { gt: at(6, 9) },
+    });
+    expect(findMany.mock.calls[1][0]).toEqual({
+      where: { professionalId: "p1", gcalEventId: { not: null }, date: { lt: at(20, 10) }, endDate: { gt: at(6, 9) } },
+      select: { gcalEventId: true },
+    });
+    expect(fetchBusy).toHaveBeenCalledTimes(1);
+    expect(fetchBusy).toHaveBeenCalledWith(expect.objectContaining({
+      professionalId: "p1", from: at(6, 9), to: at(20, 10), excludeEventIds: [],
+    }));
   });
 
   it("devuelve la ocurrencia traslapada de una serie recurrente", async () => {
-    findMany.mockResolvedValue([{ date: new Date(2026, 6, 13, 9, 30), endDate: new Date(2026, 6, 13, 10, 30) }]);
+    findMany.mockResolvedValueOnce([{ date: new Date(2026, 6, 13, 9, 30), endDate: new Date(2026, 6, 13, 10, 30) }]);
     const starts = [at(6, 9), at(13, 9), at(20, 9)];
     const ends = buildOccurrenceEnds(starts, 60);
 
@@ -117,12 +137,26 @@ describe("findRecurringConflict", () => {
   it("no consulta la base cuando la serie viene vacía", async () => {
     expect(await findRecurringConflict({ professionalId: "p1", starts: [], ends: [] })).toBeNull();
     expect(findMany).not.toHaveBeenCalled();
+    expect(findBlocks).not.toHaveBeenCalled();
+    expect(fetchBusy).not.toHaveBeenCalled();
   });
 
   it("propaga ignoreAppointmentId al filtro", async () => {
-    findMany.mockResolvedValue([]);
+    findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([{ gcalEventId: "own_event" }]);
     const starts = [at(6, 9)];
     await findRecurringConflict({ professionalId: "p1", starts, ends: buildOccurrenceEnds(starts, 60), ignoreAppointmentId: "a1" });
     expect(findMany.mock.calls[0][0].where.id).toEqual({ not: "a1" });
+    expect(findMany.mock.calls[1][0].where.id).toBeUndefined();
+    expect(fetchBusy).toHaveBeenCalledWith(expect.objectContaining({ excludeEventIds: ["own_event"] }));
+  });
+
+  it.each(["bloqueo", "Google"])("impide la reserva cuando la segunda ocurrencia choca con %s", async (source) => {
+    const start = new Date(2026, 6, 13, 9, 30);
+    const end = new Date(2026, 6, 13, 10, 30);
+    if (source === "bloqueo") findBlocks.mockResolvedValue([{ startsAt: start, endsAt: end }]);
+    else fetchBusy.mockResolvedValue([{ startISO: start.toISOString(), endISO: end.toISOString() }]);
+    const starts = [at(6, 9), at(13, 9), at(20, 9)];
+    expect(await findRecurringConflict({ professionalId: "p1", starts, ends: buildOccurrenceEnds(starts, 60) }))
+      .toEqual({ index: 1, start: at(13, 9) });
   });
 });

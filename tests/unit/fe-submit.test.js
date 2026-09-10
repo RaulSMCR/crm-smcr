@@ -17,7 +17,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 // ── Mock de Resend ────────────────────────────────────────────────────────────
-// submit.js hace: import { Resend } from "resend"; const resend = new Resend(...).
+// submit.js usa el cliente compartido de lib/resend, que instancia este SDK.
 const sendMock = vi.fn().mockResolvedValue({ error: null });
 vi.mock("resend", () => ({
   Resend: class {

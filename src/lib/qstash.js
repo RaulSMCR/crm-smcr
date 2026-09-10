@@ -1,10 +1,6 @@
 import { Client } from "@upstash/qstash";
 import { SITE_URL } from "@/lib/site-url";
 
-const qstash = new Client({
-  token: process.env.QSTASH_TOKEN,
-});
-
 // `APP_URL` primero porque es la variable privada que usa el worker; el resto
 // sale de site-url.js, que ya acepta las cuatro públicas y tiene el dominio
 // correcto como último recurso. Antes caía a "https://crm-smcr.vercel.app", un
@@ -32,6 +28,7 @@ export async function scheduleReminder({ appointmentId, type, sendAt }) {
 
   try {
     console.log(`[QStash] Scheduling ${type} for ${appointmentId} delay: ${delaySec}s URL: ${APP_URL}/api/reminders/send`);
+    const qstash = new Client({ token: process.env.QSTASH_TOKEN });
     const result = await qstash.publishJSON({
       url: `${APP_URL}/api/reminders/send`,
       delay: delaySec,
@@ -66,6 +63,7 @@ export async function scheduleReengagement({ patientId, appointmentId, intento, 
   if (delaySec <= 0) return;
 
   try {
+    const qstash = new Client({ token: process.env.QSTASH_TOKEN });
     await qstash.publishJSON({
       url: `${APP_URL}/api/reenganche/send`,
       delay: delaySec,

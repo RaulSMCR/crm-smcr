@@ -442,6 +442,8 @@ async function recordUnmatchedPayment({ eventId, onvoLinkId, amount, currency, c
     });
   } catch (err) {
     logOnvoWebhook("error", "UNMATCHED_SAVE_FAILED", { eventId, error: err });
+    // No confirmar recepción si se perdió la evidencia para conciliar el pago.
+    throw err;
   }
 }
 

@@ -134,7 +134,7 @@ export default function PostMarketingTracker({ slug, title }) {
       clearInterval(interval);
       flush();
     };
-  }, [slug]);
+  }, [slug, title]);
 
   return null;
 }

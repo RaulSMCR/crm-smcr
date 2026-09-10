@@ -1,4 +1,4 @@
-import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
+import { withQstashSignature } from "@/lib/qstash-webhook";
 import { NextResponse } from "next/server";
 import { enviarSeguimiento } from "@/lib/reenganche";
 
@@ -34,4 +34,4 @@ async function handler(req) {
   }
 }
 
-export const POST = verifySignatureAppRouter(handler);
+export const POST = withQstashSignature(handler);
