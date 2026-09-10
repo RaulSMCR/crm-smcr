@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession, professionalProfileWhere } from "@/lib/auth";
 import GoogleConnectButton from "@/components/admin/GoogleConnectButton";
+import GoogleCalendarPicker from "@/components/admin/GoogleCalendarPicker";
 
 export const dynamic = "force-dynamic";
 
@@ -91,6 +92,8 @@ export default async function IntegracionesPage({ searchParams }) {
         </p>
 
         <GoogleConnectButton isConnected={isConnected} />
+
+        {isConnected && <GoogleCalendarPicker />}
       </div>
     </div>
   );

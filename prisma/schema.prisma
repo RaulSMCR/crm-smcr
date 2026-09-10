@@ -360,6 +360,18 @@ model ProfessionalProfile {
 
   availability   Availability[]
   scheduleBlocks ScheduleBlock[]
+
+  /// El calendario de Google en el que este profesional realmente trabaja.
+  /// La app publica ahí sus citas y lee de ahí lo que le ocupa la agenda.
+  /// `null` significa "primary", que es donde escribía antes de que esto
+  /// existiera: quien nunca elija no cambia de comportamiento.
+  googleCalendarId String?
+
+  /// Otros calendarios que también le ocupan el tiempo, solo de lectura.
+  /// Se consultan por `freebusy`, que funciona incluso con acceso de
+  /// `freeBusyReader` —el que se tiene sobre calendarios compartidos ajenos,
+  /// donde no se pueden leer eventos pero sí saber que el rato está tomado.
+  googleBusyCalendarIds String[] @default([])
   posts          Post[]
 
   practiceLocations PracticeLocation[]

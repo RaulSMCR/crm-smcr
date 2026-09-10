@@ -13,12 +13,16 @@ import { getCalendarClient } from "@/lib/google";
  * tenga que saber de dónde salieron.
  */
 
+/** Donde escribía la app antes de que el calendario fuera configurable. */
+export const CALENDARIO_POR_DEFECTO = "primary";
+
 /**
- * Se consulta el calendario principal, que es el mismo donde la app publica.
- * Mirar todos los calendarios de la cuenta traería cumpleaños y suscripciones
- * ajenas al ejercicio profesional.
+ * `freebusy` rechaza la consulta con `tooManyCalendarsRequested` cuando se le
+ * pasan muchos calendarios de golpe, y lo hace devolviendo cero bloques por
+ * calendario en vez de un error claro: parece que no hay nada ocupado. Se
+ * consulta en lotes chicos para que eso no pueda pasar.
  */
-const CALENDAR_ID = "primary";
+const LOTE_FREEBUSY = 5;
 
 /** Google puede tardar; ocho segundos es más de lo que nadie espera mirando una pantalla. */
 const TIMEOUT_MS = 8000;
@@ -87,6 +91,7 @@ export async function fetchGoogleBusyIntervals({
   from,
   to,
   excludeEventIds = [],
+  calendarId = CALENDARIO_POR_DEFECTO,
 }) {
   if (!refreshToken || !from || !to) return [];
 
@@ -96,7 +101,7 @@ export async function fetchGoogleBusyIntervals({
 
     const response = await calendar.events.list(
       {
-        calendarId: CALENDAR_ID,
+        calendarId,
         timeMin: new Date(from).toISOString(),
         timeMax: new Date(to).toISOString(),
         // Expande las series: una supervisión semanal tiene que ocupar todas
@@ -123,26 +128,104 @@ export async function fetchGoogleBusyIntervals({
 }
 
 /**
- * Igual que la anterior, pero resolviendo el token desde el perfil.
+ * Los ratos ocupados en los calendarios que el profesional marcó como "también
+ * me ocupan", vía `freebusy`.
  *
- * Corta antes de tocar la red si el profesional no conectó Google, que es el
- * caso de la mayoría: así la funcionalidad no le cuesta latencia a quien no la
- * usa.
+ * Se usa `freebusy` y no `events.list` porque estos suelen ser calendarios
+ * compartidos por terceros, sobre los que se tiene acceso `freeBusyReader`: ahí
+ * `events.list` devuelve 403 y solo se puede saber que el rato está tomado, sin
+ * título ni detalle. Como la app nunca escribe en ellos, no hace falta excluir
+ * eventos propios.
+ */
+async function fetchFreeBusy({ refreshToken, calendarIds, from, to }) {
+  const ids = [...new Set((calendarIds || []).filter(Boolean))];
+  if (!ids.length) return [];
+
+  const intervalos = [];
+
+  try {
+    const calendar = getCalendarClient(refreshToken);
+
+    for (let i = 0; i < ids.length; i += LOTE_FREEBUSY) {
+      const lote = ids.slice(i, i + LOTE_FREEBUSY);
+
+      const response = await calendar.freebusy.query(
+        {
+          requestBody: {
+            timeMin: new Date(from).toISOString(),
+            timeMax: new Date(to).toISOString(),
+            items: lote.map((id) => ({ id })),
+          },
+        },
+        { timeout: TIMEOUT_MS }
+      );
+
+      for (const id of lote) {
+        const entrada = response.data.calendars?.[id];
+
+        // Un calendario dado de baja o inaccesible responde `notFound`. Se
+        // registra y se sigue: un calendario roto no puede tumbar la agenda.
+        if (entrada?.errors?.length) {
+          console.warn("Calendario de Google no consultable:", id, entrada.errors[0]?.reason);
+          continue;
+        }
+
+        for (const rango of entrada?.busy || []) {
+          intervalos.push({
+            startISO: new Date(rango.start).toISOString(),
+            endISO: new Date(rango.end).toISOString(),
+            summary: "",
+          });
+        }
+      }
+    }
+  } catch (error) {
+    console.error("No se pudo consultar freebusy:", { message: error?.message, code: error?.code });
+  }
+
+  return intervalos;
+}
+
+/**
+ * Todo lo que le ocupa la agenda al profesional en Google, resolviendo la
+ * configuración desde su perfil.
+ *
+ * Corta antes de tocar la red si no conectó Google, que es el caso de la
+ * mayoría: así la funcionalidad no le cuesta latencia a quien no la usa.
  */
 export async function fetchBusyForProfessional({ prisma, professionalId, from, to, excludeEventIds }) {
   if (!professionalId) return [];
 
   const profile = await prisma.professionalProfile.findUnique({
     where: { id: String(professionalId) },
-    select: { googleRefreshToken: true },
+    select: {
+      googleRefreshToken: true,
+      googleCalendarId: true,
+      googleBusyCalendarIds: true,
+    },
   });
 
   if (!profile?.googleRefreshToken) return [];
 
-  return fetchGoogleBusyIntervals({
-    refreshToken: profile.googleRefreshToken,
-    from,
-    to,
-    excludeEventIds,
-  });
+  const calendarioDeTrabajo = profile.googleCalendarId || CALENDARIO_POR_DEFECTO;
+
+  const [propios, extras] = await Promise.all([
+    fetchGoogleBusyIntervals({
+      refreshToken: profile.googleRefreshToken,
+      from,
+      to,
+      excludeEventIds,
+      calendarId: calendarioDeTrabajo,
+    }),
+    fetchFreeBusy({
+      refreshToken: profile.googleRefreshToken,
+      // El de trabajo ya se leyó arriba con detalle; incluirlo de nuevo
+      // duplicaría cada banda en la vista de agenda.
+      calendarIds: (profile.googleBusyCalendarIds || []).filter((id) => id !== calendarioDeTrabajo),
+      from,
+      to,
+    }),
+  ]);
+
+  return [...propios, ...extras];
 }

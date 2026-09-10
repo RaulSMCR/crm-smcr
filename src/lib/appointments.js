@@ -354,6 +354,17 @@ function buildGoogleEvent(appointment) {
  * La creación de la conferencia es asíncrona: si el insert responde con la
  * solicitud todavía en `pending`, el enlace llega en el siguiente patch.
  */
+/**
+ * ¿El error de Google dice que el evento no está donde se lo buscó?
+ *
+ * Google responde 404 cuando el evento no existe en ese calendario y 410 cuando
+ * ya fue eliminado. Los dos significan lo mismo para nosotros.
+ */
+function esEventoInexistente(error) {
+  const codigo = error?.code || error?.response?.status;
+  return codigo === 404 || codigo === 410;
+}
+
 function extractMeetLink(event) {
   if (event?.hangoutLink) return event.hangoutLink;
   const videoEntry = event?.conferenceData?.entryPoints?.find(
@@ -369,12 +380,28 @@ export async function syncGoogleCalendarEvent(appointment) {
   try {
     const calendar = getCalendarClient(refreshToken);
 
+    // El calendario de trabajo se resuelve acá y no viaja en `appointment`
+    // porque los quince llamadores traen el perfil con distintos `select`, y
+    // bastaba que uno olvidara el campo para publicar en el calendario
+    // equivocado sin que nada fallara.
+    const profile = await prisma.professionalProfile.findUnique({
+      where: { id: String(appointment.professionalId) },
+      select: { googleCalendarId: true },
+    });
+    const calendarId = profile?.googleCalendarId || "primary";
+
     if (CANCELLED_STATUSES.has(appointment.status)) {
       if (appointment.gcalEventId) {
-        await calendar.events.delete({
-          calendarId: "primary",
-          eventId: appointment.gcalEventId,
-        });
+        try {
+          await calendar.events.delete({
+            calendarId,
+            eventId: appointment.gcalEventId,
+          });
+        } catch (error) {
+          // Si el evento ya no está —borrado a mano, o quedó en el calendario
+          // anterior tras cambiar el de trabajo— el objetivo ya se cumplió.
+          if (!esEventoInexistente(error)) throw error;
+        }
 
         await prisma.appointment.update({
           where: { id: appointment.id },
@@ -387,25 +414,36 @@ export async function syncGoogleCalendarEvent(appointment) {
     const payload = buildGoogleEvent(appointment);
 
     if (appointment.gcalEventId) {
-      const updated = await calendar.events.patch({
-        calendarId: "primary",
-        eventId: appointment.gcalEventId,
-        requestBody: payload,
-        sendUpdates: "all",
-        conferenceDataVersion: 1,
-      });
+      try {
+        const updated = await calendar.events.patch({
+          calendarId,
+          eventId: appointment.gcalEventId,
+          requestBody: payload,
+          sendUpdates: "all",
+          conferenceDataVersion: 1,
+        });
 
-      await prisma.appointment.update({
-        where: { id: appointment.id },
-        data: {
-          meetLink: extractMeetLink(updated.data) || appointment.meetLink || null,
-        },
-      });
-      return;
+        await prisma.appointment.update({
+          where: { id: appointment.id },
+          data: {
+            meetLink: extractMeetLink(updated.data) || appointment.meetLink || null,
+          },
+        });
+        return;
+      } catch (error) {
+        if (!esEventoInexistente(error)) throw error;
+        // El id apunta a un evento que no vive en este calendario: pasa la
+        // primera vez que se sincroniza una cita vieja después de cambiar el
+        // calendario de trabajo. Se cae al alta, más abajo, que lo recrea donde
+        // corresponde.
+        console.warn(
+          `Evento ${appointment.gcalEventId} no existe en ${calendarId}; se recrea la cita ${appointment.id}.`
+        );
+      }
     }
 
     const created = await calendar.events.insert({
-      calendarId: "primary",
+      calendarId,
       requestBody: payload,
       sendUpdates: "all",
       conferenceDataVersion: 1,

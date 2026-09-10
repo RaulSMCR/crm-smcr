@@ -3,6 +3,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { getOAuth2Client } from "@/lib/google-oauth";
+import { getCalendarClient } from "@/lib/google";
 import { revalidatePath } from "next/cache";
 import { requireProfessionalProfileId } from "@/lib/auth-guards";
 
@@ -101,3 +102,79 @@ export async function guardarCredencialesGoogle(code) {
   }
 }
 
+/** 4) Los calendarios de la cuenta, para que el profesional elija cuáles cuentan */
+export async function listarCalendariosGoogle() {
+  try {
+    const professionalId = await requireProfessionalProfileId();
+
+    const profile = await prisma.professionalProfile.findUnique({
+      where: { id: String(professionalId) },
+      select: {
+        googleRefreshToken: true,
+        googleCalendarId: true,
+        googleBusyCalendarIds: true,
+      },
+    });
+
+    if (!profile?.googleRefreshToken) {
+      return { success: false, error: "Conecte Google Calendar primero.", data: [] };
+    }
+
+    const calendar = getCalendarClient(profile.googleRefreshToken);
+    const response = await calendar.calendarList.list({ maxResults: 250 });
+
+    const calendarios = (response.data.items || []).map((item) => ({
+      id: item.id,
+      nombre: item.summary || item.id,
+      esPrimary: Boolean(item.primary),
+      // `owner` y `writer` permiten publicar; con `reader` o `freeBusyReader`
+      // solo se puede mirar, así que no sirven como calendario de trabajo.
+      puedeEscribir: item.accessRole === "owner" || item.accessRole === "writer",
+      acceso: item.accessRole || "",
+    }));
+
+    return {
+      success: true,
+      data: {
+        calendarios,
+        calendarioDeTrabajo: profile.googleCalendarId || "primary",
+        tambienOcupan: profile.googleBusyCalendarIds || [],
+      },
+    };
+  } catch (error) {
+    console.error("Error listando calendarios de Google:", error);
+    return { success: false, error: "No se pudieron leer sus calendarios.", data: [] };
+  }
+}
+
+/** 5) Guardar qué calendario usa y cuáles más le ocupan la agenda */
+export async function guardarCalendariosGoogle({ calendarioDeTrabajo, tambienOcupan = [] }) {
+  try {
+    const professionalId = await requireProfessionalProfileId();
+
+    const deTrabajo = String(calendarioDeTrabajo || "").trim() || "primary";
+    const extras = [...new Set(
+      (Array.isArray(tambienOcupan) ? tambienOcupan : [])
+        .map((id) => String(id || "").trim())
+        .filter(Boolean)
+        // El de trabajo ya se lee con detalle; repetirlo duplicaría cada banda.
+        .filter((id) => id !== deTrabajo)
+    )];
+
+    await prisma.professionalProfile.update({
+      where: { id: String(professionalId) },
+      data: {
+        googleCalendarId: deTrabajo === "primary" ? null : deTrabajo,
+        googleBusyCalendarIds: extras,
+      },
+    });
+
+    revalidatePath("/panel/profesional/integraciones");
+    revalidatePath("/panel/profesional/horarios");
+    revalidatePath("/panel/profesional/citas");
+    return { success: true };
+  } catch (error) {
+    console.error("Error guardando calendarios de Google:", error);
+    return { success: false, error: "No se pudo guardar la selección." };
+  }
+}
