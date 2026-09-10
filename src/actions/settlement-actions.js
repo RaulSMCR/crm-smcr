@@ -39,7 +39,7 @@ async function requireAdmin() {
  * que no tomó. El porcentaje sí se traslada completo en ambos tramos, porque es
  * proporcional al dinero efectivamente movido.
  *
- * Ver la cláusula 6.2 del anexo económico.
+ * Ver la cláusula 6.3 del anexo económico.
  */
 function transactionProcessingFeeCents(transaction) {
   const esSegundoTramo = transaction.type === "BALANCE_50";
@@ -138,22 +138,23 @@ export async function generateSettlementPeriod({ periodStart, periodEnd }) {
     ).values()
   );
   // Qué citas ocupan una posición en la secuencia: las que se cobraron, no las
-  // que se prestaron. Una consulta realizada y pagada cuenta, y una cancelada
-  // fuera de tiempo cuya multa el paciente pagó también, porque se facturó. Una
-  // cita cancelada que nadie pagó no entra: su posición queda libre para la
-  // siguiente.
+  // que se prestaron. Lo que consume una posición es que el paciente HAYA
+  // PAGADO —cláusula 4.3.2 del anexo—, así que basta con una transacción
+  // aprobada, del tipo que sea: una consulta pagada cuenta, y una cancelada
+  // fuera de tiempo cuya multa el paciente pagó también, porque se cobró. Una
+  // cita que nadie pagó no entra: su posición queda libre para la siguiente.
+  //
+  // Antes se usaba `status: COMPLETED` como sustituto de "se cobró", y no lo es:
+  // el profesional marca la cita como realizada ANTES de que salga el enlace del
+  // saldo (`sendPaymentLinkOnCompletion`), así que toda consulta pasa por un
+  // estado "completada y sin pagar". Si el paciente nunca pagaba, esa cita se
+  // quedaba con un número para siempre y empujaba a las siguientes hacia tramos
+  // más baratos: una posición regalada por un cobro que nunca ocurrió.
   const chargedAppointments = await prisma.appointment.findMany({
     where: {
       OR: relationshipFilters,
       AND: {
-        OR: [
-          { status: "COMPLETED" },
-          {
-            paymentTransactions: {
-              some: { type: "PENALTY_50", status: "APPROVED" },
-            },
-          },
-        ],
+        paymentTransactions: { some: { status: "APPROVED" } },
       },
     },
     select: {

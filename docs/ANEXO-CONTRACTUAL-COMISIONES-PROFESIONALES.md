@@ -4,6 +4,14 @@
 **Versión del plan:** `patient-retention-2026-07`  
 **Fecha de vigencia:** [día] de [mes] de [año]
 
+> ⚠️ **Existe un segundo anexo económico en este repositorio.**
+> [`ANEXO-ECONOMICO-LIQUIDACION-PROFESIONALES-PROPUESTO.md`](./ANEXO-ECONOMICO-LIQUIDACION-PROFESIONALES-PROPUESTO.md)
+> cubre la misma materia y es el que `tests/unit/anexo-economico.test.js` ancla
+> cláusula por cláusula al código, y el que cita por su título el generador de
+> contratos (`src/lib/contratos/contrato-profesional.js`). **Antes de firmar hay
+> que decidir cuál de los dos se usa y retirar el otro**: dos anexos vigentes
+> sobre la misma materia es una contradicción esperando a ocurrir.
+
 > **Instrucción de completitud:** antes de firmar, deben completarse los campos entre corchetes y verificarse los datos por la asesoría jurídica y contable de las partes. Este documento está diseñado para incorporarse al contrato principal de prestación de servicios profesionales; no lo sustituye.
 
 Entre **[RAZÓN SOCIAL DE LA PLATAFORMA]**, cédula jurídica número **[________]**, representada en este acto por **[NOMBRE DEL REPRESENTANTE]**, mayor, [estado civil], [profesión u oficio], vecino/a de [________], portador/a de la cédula número [________], en adelante la **PLATAFORMA**; y **[NOMBRE COMPLETO DEL PROFESIONAL]**, [tipo de identificación] número **[________]**, en adelante el **PROFESIONAL**; conjuntamente denominados las **PARTES**, se acuerda el presente Anexo al Contrato de Prestación de Servicios Profesionales celebrado el **[fecha del contrato principal]**, conforme a las siguientes cláusulas:
@@ -29,30 +37,37 @@ Para efectos de este Anexo:
 | **Paciente** | Persona usuaria que reserva o recibe un servicio del PROFESIONAL mediante la PLATAFORMA. |
 | **Relación paciente–profesional** | Vínculo individual entre un paciente y el PROFESIONAL. La secuencia de consultas se mantiene aunque cambie el servicio contratado o el período de liquidación. |
 | **Consulta efectiva** | Servicio prestado, cobrado, conciliado y no sujeto a reembolso, reversión, contracargo o ajuste pendiente. |
+| **Cobro liquidable** | Todo pago del paciente aprobado, conciliado y no reversado. Comprende las Consultas efectivas **y** los cargos por cancelación tardía o inasistencia. Es el hecho que genera Comisión de plataforma y hace avanzar la secuencia. |
+| **Cargo por cancelación tardía** | Cargo del 50% del valor de la cita que la política publicada aplica al paciente que cancela con menos de 24 horas o no asiste. |
 | **Monto bruto cobrado** | Total cobrado al paciente por la consulta, incluidos los impuestos indirectos que correspondan. |
 | **Base sin impuesto** | Monto bruto cobrado menos el impuesto indirecto aplicable. Cuando la tasa aplicable sea 4%, se calcula como `monto bruto / 1,04`. |
 | **Adelanto** | Pago parcial realizado por el paciente para reservar una primera consulta. |
 | **Costo de procesamiento** | Cargo registrado por el procesador de pagos, incluidos porcentajes, cargos fijos, conversiones y demás conceptos que correspondan al medio de pago utilizado. |
 | **Comisión de plataforma** | Retribución de la PLATAFORMA por sus servicios tecnológicos, administrativos, de captación, operación, soporte y servicios conexos. |
 | **Liquidación** | Estado de cuenta que detalla las consultas, cobros, impuestos, comisiones, costos de procesamiento, ajustes y monto neto facturable por el PROFESIONAL. |
+| **Costo de procesamiento trasladable** | Porción del Costo de procesamiento que, conforme a la cláusula 6, se deduce del monto del PROFESIONAL. No coincide con el Costo de procesamiento cuando opera la cláusula 6.6. |
 | **Neto profesional antes de impuesto propio** | Base sin impuesto menos la Comisión de plataforma y menos el Costo de procesamiento trasladable. |
 | **Factura profesional** | Comprobante electrónico que el PROFESIONAL emite a la PLATAFORMA por el monto exacto indicado en la Liquidación, más el impuesto que corresponda a dicha factura. |
 
 ## 3. Condiciones para generar comisión
 
-3.1. La Comisión de plataforma se genera únicamente sobre Consultas efectivas.
+3.1. La Comisión de plataforma se genera sobre los Cobros liquidables. **Lo que la devenga es el pago del paciente, no la prestación de la consulta**: todo cobro que el paciente pague por un enlace de pago del PROFESIONAL le genera a este su parte.
 
-3.2. No se genera Comisión de plataforma por una cita que no haya sido realizada. Los reembolsos, reversos, contracargos y ajustes se tratarán conforme a la cláusula 9.
+3.2. Un cobro reembolsado, reversado o con contracargo no devenga Comisión de plataforma. Los reembolsos, reversos, contracargos y ajustes se tratarán conforme a la cláusula 9.
 
-3.3. La secuencia se calcula cronológicamente para cada relación paciente–profesional, con base en las consultas efectivas. La secuencia no se reinicia al comenzar una nueva Liquidación, al cambiar de servicio ni al cambiar el precio.
+3.3. La secuencia se calcula cronológicamente para cada relación paciente–profesional, con base en los Cobros liquidables. La secuencia no se reinicia al comenzar una nueva Liquidación, al cambiar de servicio ni al cambiar el precio.
 
-3.4. La PLATAFORMA conservará en el CRM el número de consulta utilizado, la tasa aplicada y la versión del plan económico correspondiente a cada registro de liquidación.
+3.4. Una posición de la secuencia se consume cuando el paciente pagó el cobro correspondiente y el pago fue aprobado y conciliado, aunque la consulta no se haya prestado. **Una cita que nadie pagó no consume posición**: su número queda disponible para la siguiente cita de la relación. Que el PROFESIONAL haya marcado la cita como realizada no basta por sí solo, porque en el flujo del CRM esa marca precede al cobro del saldo.
+
+3.5. El adelanto y el saldo de una misma consulta comparten posición: son dos pagos de la misma consulta y no la hacen avanzar dos veces.
+
+3.6. La PLATAFORMA conservará en el CRM el número de consulta utilizado, la tasa aplicada y la versión del plan económico correspondiente a cada registro de liquidación.
 
 ## 4. Escala de Comisión de plataforma
 
-La Comisión se calcula sobre la Base sin impuesto de cada Consulta efectiva, conforme a la siguiente escala:
+La Comisión se calcula sobre la Base sin impuesto de cada Cobro liquidable, conforme a la siguiente escala:
 
-| Consulta efectiva dentro de la relación paciente–profesional | Comisión de plataforma |
+| Posición en la secuencia de la relación paciente–profesional | Comisión de plataforma |
 |---:|---:|
 | Primera consulta | 45% si se cobra en un solo pago. Si se cobra mediante adelanto y saldo, 50% sobre la base del adelanto y 40% sobre la base del saldo. |
 | Segunda consulta | 35% |
@@ -71,11 +86,15 @@ Comisión de la primera consulta =
 
 4.2. Cuando el adelanto y el saldo sean iguales, la comisión efectiva sobre la Base sin impuesto total será equivalente al 45%.
 
-4.3. La tasa aplicable a cada pago y a cada consulta se conservará como parte de la trazabilidad de la Liquidación. La versión vigente de este esquema es `patient-retention-2026-07`.
+4.3. **Cargo por cancelación tardía o inasistencia.** El cargo se liquida como cualquier otro cobro: el PROFESIONAL percibe su parte, porque el horario reservado quedó apartado para ese paciente y no pudo ofrecerse a otro. La Comisión de plataforma se calcula con la tasa que correspondía a esa consulta según su posición en la secuencia —si la cita cancelada era la tercera de la relación, la tasa es 30%— y el cargo consume esa posición conforme a la cláusula 3.4.
+
+Al cargo no se le aplican las tasas desdobladas de la primera consulta: es un cobro único, así que si se cancela tarde la primera cita la tasa es 45%, la misma del pago único. El cargo nunca excede el 50% del valor de la cita fijado por la política publicada.
+
+4.4. La tasa aplicable a cada pago y a cada consulta se conservará como parte de la trazabilidad de la Liquidación. La versión vigente de este esquema es `patient-retention-2026-07`.
 
 ## 5. Fórmula de liquidación
 
-Para cada Consulta efectiva se aplicarán las siguientes fórmulas, con redondeo a dos decimales de colón costarricense:
+Para cada Cobro liquidable se aplicarán las siguientes fórmulas, con redondeo a dos decimales de colón costarricense. El cálculo interno se efectúa en céntimos enteros para evitar arrastre de error:
 
 ```text
 Base sin impuesto = Monto bruto cobrado / (1 + tasa de impuesto aplicable)
@@ -124,7 +143,11 @@ Sin considerar el Costo de procesamiento, el resultado sería:
 
 6.4. Cuando el procesador todavía no haya entregado el dato definitivo, el CRM podrá utilizar la estimación registrada para la transacción. Si posteriormente se determina una diferencia, esta podrá reflejarse como ajuste en una Liquidación posterior, con identificación de su causa y monto.
 
-6.5. La referencia económica o estimación utilizada por el CRM no sustituye el costo efectivamente documentado por el procesador cuando este se encuentre disponible.
+6.5. La referencia económica o estimación utilizada por el CRM no sustituye el costo efectivamente documentado por el procesador cuando este se encuentre disponible. La Liquidación indicará si el costo mostrado es el real del procesador o una estimación.
+
+6.6. **El cargo fijo por transacción no se traslada dos veces.** Cuando el adelanto y el saldo de la primera consulta se procesan como dos transacciones independientes, el cargo fijo por transacción del procesador se duplica. Ese segundo cargo fijo lo asume la PLATAFORMA y no se traslada al PROFESIONAL: fraccionar el cobro es una medida de la PLATAFORMA para asegurar la reserva, y quien no tomó esa decisión no debe pagar su costo. El porcentaje del procesador sí se traslada íntegro en ambos tramos, porque es proporcional al dinero efectivamente movido y no se duplica. La Liquidación identificará el cargo fijo asumido por la PLATAFORMA cuando sea aplicable.
+
+6.7. La PLATAFORMA no podrá presentar como Comisión de plataforma un costo que corresponda al procesador, ni denominar «comisión» al Costo de procesamiento en liquidaciones, reportes o comprobantes.
 
 ## 7. Períodos y contenido de la Liquidación
 
@@ -143,10 +166,11 @@ Sin considerar el Costo de procesamiento, el resultado sería:
 6. impuesto indirecto cobrado al paciente;
 7. Base sin impuesto;
 8. tasa y monto de la Comisión de plataforma;
-9. Costo de procesamiento trasladable;
+9. Costo de procesamiento trasladable, indicando si es real o estimado;
 10. reembolsos, contracargos, reversos y ajustes;
-11. Neto profesional antes de impuesto propio; y
-12. monto exacto de la Factura profesional.
+11. Neto profesional antes de impuesto propio;
+12. monto exacto de la Factura profesional; y
+13. la versión del plan económico con la que se calculó cada línea.
 
 7.3. La Liquidación no constituye por sí misma una factura ni un anticipo. Solo incluye servicios que cumplan las condiciones de la cláusula 3.
 

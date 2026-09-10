@@ -24,9 +24,15 @@ import { nombreConGrado } from "@/lib/grados-academicos";
 export const PRODUCTO_SERVICIOS_PROFESIONALES = "Servicios profesionales";
 
 /**
- * El cargo por avisar tarde o no asistir **no es una consulta efectiva** —así lo
- * dice el Anexo económico— así que no puede facturarse con el mismo rótulo. No
- * devengó comisión ni avanzó la secuencia de consultas de nadie.
+ * El cargo por avisar tarde o no asistir lleva rótulo propio porque no hubo
+ * consulta prestada: la factura debe decir qué se cobró de verdad.
+ *
+ * Lo que NO cambia es el resto. El cargo se liquida como cualquier otro cobro
+ * —el profesional percibe su parte y la relación avanza en la escala de
+ * comisión, cláusulas 4.3.1 y 4.3.2 del anexo económico— y se factura con el
+ * MISMO CABYS y la MISMA tarifa de impuesto del servicio agendado (cláusula
+ * 4.3.1.1), que es lo que hace el webhook al construir la línea. Cambia el
+ * rótulo, no el tratamiento.
  */
 export const PRODUCTO_CARGO_CANCELACION = "Cargo por cancelación tardía";
 

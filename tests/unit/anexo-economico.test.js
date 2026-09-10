@@ -284,7 +284,7 @@ describe("secuencia — qué consume una posición", () => {
   });
 });
 
-describe("cláusula 6.2 — el fijo de ONVO no se le cobra dos veces al profesional", () => {
+describe("cláusula 6.3 — el fijo de ONVO no se le cobra dos veces al profesional", () => {
   it("el segundo tramo de la primera consulta no arrastra el cargo fijo", () => {
     // ONVO cobra un fijo en dólares por transacción. Partir la primera consulta
     // en adelanto y saldo lo dispara dos veces, y esa partición es una decisión

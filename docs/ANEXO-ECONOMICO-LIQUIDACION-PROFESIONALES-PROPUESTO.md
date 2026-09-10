@@ -213,7 +213,7 @@ La estructura de cargos del procesador **no es un porcentaje simple**: combina u
 
 La PLATAFORMA **no podrá presentar como Comisión de plataforma** un costo que corresponda al procesador, ni denominar "comisión" al Costo de procesamiento en liquidaciones, reportes o comprobantes.
 
-#### 6.3 El cargo fijo no se cobra dos veces
+### 6.3 El cargo fijo no se cobra dos veces
 
 Cuando el adelanto y el saldo se procesan como dos transacciones independientes, el **cargo fijo por transacción del procesador se duplica**. Ese segundo cargo fijo **lo asume la PLATAFORMA y no se traslada al PROFESIONAL**.
 
