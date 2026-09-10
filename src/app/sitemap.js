@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { SITE_URL as BASE_URL } from '@/lib/site-url';
+import { getPublishedHubTopics, hubLastModified } from '@/lib/hub-raul';
 
 // Sin esto, Next resuelve el sitemap en el build y lo sirve congelado hasta el
 // siguiente despliegue: un artículo publicado un martes no aparecía hasta que
@@ -19,6 +20,9 @@ const STATIC_PAGES = [
   { url: '/terminos',    priority: 0.6, changeFrequency: 'yearly'  },
   { url: '/privacidad',  priority: 0.6, changeFrequency: 'yearly'  },
   { url: '/cookies',     priority: 0.6, changeFrequency: 'yearly'  },
+  { url: '/raul-olmedo', priority: 0.9, changeFrequency: 'weekly' },
+  { url: '/raul-olmedo/tratamiento-breve-15-sesiones', priority: 0.8, changeFrequency: 'monthly' },
+  { url: '/ayuda-inmediata', priority: 0.5, changeFrequency: 'yearly' },
 ];
 
 export default async function sitemap() {
@@ -134,6 +138,13 @@ export default async function sitemap() {
     priority: 0.9,
   }));
 
+  const raulTopicEntries = getPublishedHubTopics().map(({ slug }) => ({
+    url: `${BASE_URL}/raul-olmedo/${slug}`,
+    lastModified: hubLastModified(`raul-olmedo/${slug}`),
+    changeFrequency: 'monthly',
+    priority: 0.8,
+  }));
+
   return [
     ...staticEntries,
     ...serviceEntries,
@@ -141,6 +152,7 @@ export default async function sitemap() {
     ...postEntries,
     ...seriesEntries,
     ...temaEntries,
-    ...topicHubEntries,
+    ...topicHubEntries.filter(({ url }) => !url.includes('/raul-olmedo')),
+    ...raulTopicEntries,
   ];
 }

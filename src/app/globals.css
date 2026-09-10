@@ -77,6 +77,95 @@
   }
 }
 
+@keyframes monstera-open {
+  from { opacity: 0; transform: scale(0.72) rotate(-9deg); }
+  to { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+.monstera-art {
+  display: grid;
+  place-items: center;
+  max-width: 320px;
+  margin-inline: auto;
+}
+
+.monstera-art svg {
+  width: min(100%, 320px);
+  height: auto;
+}
+
+.monstera-leaf {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: monstera-open 1.15s cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+.hub-raul-hero {
+  background:
+    radial-gradient(circle at 15% 20%, rgba(62, 131, 132, 0.35), transparent 32%),
+    linear-gradient(135deg, #12383A 0%, #1E4F52 100%);
+}
+
+.hub-kicker {
+  color: var(--teal);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.hub-heading {
+  margin-top: 0.5rem;
+  color: var(--teal-deep);
+  font-family: var(--font-display);
+  font-size: clamp(2.25rem, 4vw, 3.5rem);
+  font-weight: 300;
+  line-height: 1;
+}
+
+.hub-raul-card {
+  display: block;
+  border: 1px solid rgba(30, 79, 82, 0.2);
+  border-radius: var(--radius-nv);
+  background: var(--cream-hi);
+  padding: 1.5rem;
+  transition: border-color 180ms ease, transform 180ms ease;
+}
+
+.hub-raul-card:hover {
+  border-color: var(--coral);
+  transform: translateY(-2px);
+}
+
+.hub-raul-feature {
+  display: grid;
+  gap: 2rem;
+  border-radius: var(--radius-nv);
+  background: var(--teal-deep);
+  padding: 2rem;
+}
+
+.hub-mobile-actions {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 40;
+  display: flex;
+  gap: 0.5rem;
+  border-top: 1px solid rgba(246, 239, 223, 0.25);
+  background: rgba(18, 56, 58, 0.96);
+  padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 768px) {
+  .hub-raul-feature {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: end;
+    padding: 2.5rem;
+  }
+}
+
 /* ── Carousel slide fade-in ─────────────────────────────────────────────────*/
 @keyframes carousel-fade-in {
   from { opacity: 0; }

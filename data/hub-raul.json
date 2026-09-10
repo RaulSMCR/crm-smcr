@@ -1,0 +1,62 @@
+{
+  "nombre": "Raúl Olmedo",
+  "titulo": "Psicoanálisis para lo que te pasa hoy",
+  "precio_crc": 40000,
+  "duracion_min": 50,
+  "modalidad": "en línea",
+  "url_agenda": "/profesionales/raul-olmedo",
+  "url_perfil": "/profesionales/raul-olmedo",
+  "whatsapp": "50671291909",
+  "credencial": {
+    "colegio": "Colegio de Profesionales en Psicología de Costa Rica",
+    "numero": "8270",
+    "url_verificacion": ""
+  },
+  "temas": [
+    {
+      "slug": "ataque-de-panico",
+      "titulo": "Ataque de pánico",
+      "resumen": "Entender lo que ocurre en el cuerpo y abrir un espacio para trabajarlo.",
+      "publicado": true
+    },
+    {
+      "slug": "duelo",
+      "titulo": "Duelo",
+      "resumen": "Acompañar una pérdida sin reducirla a una receta ni a un calendario.",
+      "publicado": true
+    },
+    {
+      "slug": "estres-laboral-y-burnout",
+      "titulo": "Estrés laboral y burnout",
+      "resumen": "Cuando sostener el trabajo empieza a costar más de lo que se puede nombrar.",
+      "publicado": false
+    },
+    {
+      "slug": "dependencia-emocional",
+      "titulo": "Dependencia emocional",
+      "resumen": "Revisar los vínculos, la separación y el lugar que cada persona ocupa.",
+      "publicado": false
+    },
+    {
+      "slug": "conflictos-de-pareja",
+      "titulo": "Conflictos de pareja",
+      "resumen": "Escuchar lo que se repite en una relación y encontrar palabras para abordarlo.",
+      "publicado": false
+    },
+    {
+      "slug": "migracion-y-desarraigo",
+      "titulo": "Migración y desarraigo",
+      "resumen": "El trabajo psíquico de vivir entre lugares, pérdidas y nuevos comienzos.",
+      "publicado": false
+    },
+    {
+      "slug": "terapia-para-la-ansiedad",
+      "titulo": "Terapia para la ansiedad",
+      "resumen": "Un espacio orientado a la consulta, distinto de la información general sobre ansiedad.",
+      "publicado": false
+    }
+  ],
+  "herramientas_habilitadas": [],
+  "serie_destacada": "la-angustia-y-sus-formas",
+  "actualizado": "2026-09-10"
+}

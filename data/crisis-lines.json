@@ -1,0 +1,23 @@
+{
+  "lineas": [
+    {
+      "nombre": "Emergencias",
+      "numero": "911",
+      "detalle": "Si hay peligro inmediato, llamá al 911.",
+      "horario": "Atención de emergencias"
+    },
+    {
+      "nombre": "Línea Aquí Estoy",
+      "numero": "800-2737869",
+      "detalle": "Colegio de Profesionales en Psicología de Costa Rica.",
+      "horario": "Por completar"
+    },
+    {
+      "nombre": "PANI",
+      "numero": "1147",
+      "detalle": "Para personas menores de edad.",
+      "horario": "Línea de atención del PANI"
+    }
+  ],
+  "ultima_verificacion": "2026-09-10"
+}
