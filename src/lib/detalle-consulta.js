@@ -29,9 +29,9 @@ export const PRODUCTO_SERVICIOS_PROFESIONALES = "Servicios profesionales";
  *
  * Lo que NO cambia es el resto. El cargo se liquida como cualquier otro cobro
  * —el profesional percibe su parte y la relación avanza en la escala de
- * comisión, cláusulas 4.3.1 y 4.3.2 del anexo económico— y se factura con el
+ * comisión, cláusulas 7.1 y 4.2 del anexo económico— y se factura con el
  * MISMO CABYS y la MISMA tarifa de impuesto del servicio agendado (cláusula
- * 4.3.1.1), que es lo que hace el webhook al construir la línea. Cambia el
+ * 7.6), que es lo que hace el webhook al construir la línea. Cambia el
  * rótulo, no el tratamiento.
  */
 export const PRODUCTO_CARGO_CANCELACION = "Cargo por cancelación tardía";

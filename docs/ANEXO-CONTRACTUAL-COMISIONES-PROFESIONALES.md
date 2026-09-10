@@ -4,13 +4,12 @@
 **Versión del plan:** `patient-retention-2026-07`  
 **Fecha de vigencia:** [día] de [mes] de [año]
 
-> ⚠️ **Existe un segundo anexo económico en este repositorio.**
-> [`ANEXO-ECONOMICO-LIQUIDACION-PROFESIONALES-PROPUESTO.md`](./ANEXO-ECONOMICO-LIQUIDACION-PROFESIONALES-PROPUESTO.md)
-> cubre la misma materia y es el que `tests/unit/anexo-economico.test.js` ancla
-> cláusula por cláusula al código, y el que cita por su título el generador de
-> contratos (`src/lib/contratos/contrato-profesional.js`). **Antes de firmar hay
-> que decidir cuál de los dos se usa y retirar el otro**: dos anexos vigentes
-> sobre la misma materia es una contradicción esperando a ocurrir.
+> # ⛔ DOCUMENTO SUSTITUIDO — NO UTILIZAR
+>
+> Su contenido fue consolidado en
+> [`ANEXO-ECONOMICO-COMISIONES-PROFESIONALES.md`](./ANEXO-ECONOMICO-COMISIONES-PROFESIONALES.md), que es la **versión definitiva** del anexo de comisiones.
+> Este archivo se conserva únicamente como antecedente de la negociación: no debe
+> firmarse, citarse ni negociarse.
 
 > **Instrucción de completitud:** antes de firmar, deben completarse los campos entre corchetes y verificarse los datos por la asesoría jurídica y contable de las partes. Este documento está diseñado para incorporarse al contrato principal de prestación de servicios profesionales; no lo sustituye.
 

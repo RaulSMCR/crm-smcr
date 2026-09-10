@@ -1,5 +1,12 @@
 # Anexo [__] - Esquema económico, liquidación y pago de honorarios profesionales
 
+> # ⛔ DOCUMENTO SUSTITUIDO — NO UTILIZAR
+>
+> Su contenido fue consolidado en
+> [`ANEXO-ECONOMICO-COMISIONES-PROFESIONALES.md`](./ANEXO-ECONOMICO-COMISIONES-PROFESIONALES.md), que es la **versión definitiva** del anexo de comisiones.
+> Este archivo se conserva únicamente como antecedente de la negociación: no debe
+> firmarse, citarse ni negociarse.
+
 > **Documento de trabajo.** Requiere revisión y aprobación de las partes, de la asesoría jurídica y de la asesoría contable. No sustituye un contrato principal ni constituye asesoría legal, tributaria o contable. Los campos entre corchetes **[__]** deben completarse antes de la firma.
 >
 > **Alineación técnica.** El cálculo descrito en este Anexo corresponde exactamente al plan implementado en el CRM bajo la versión `patient-retention-2026-07` (`src/lib/commission-plan.js`). Cualquier modificación de tasas o fórmulas debe hacerse en ambos lugares a la vez y con una nueva versión de plan.

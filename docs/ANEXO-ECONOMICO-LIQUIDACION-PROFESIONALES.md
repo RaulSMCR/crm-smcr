@@ -13,7 +13,7 @@
 > | Tipo de escala | Marginal por tramos de monto | Tasa única por número de consulta |
 > | Rango de tasas | 20% → 2% | 50%/45%/40% → 10% |
 >
-> **Documento vigente: [`ANEXO-ECONOMICO-LIQUIDACION-PROFESIONALES-PROPUESTO.md`](./ANEXO-ECONOMICO-LIQUIDACION-PROFESIONALES-PROPUESTO.md).**
+> **Documento vigente: [`ANEXO-ECONOMICO-COMISIONES-PROFESIONALES.md`](./ANEXO-ECONOMICO-COMISIONES-PROFESIONALES.md).**
 >
 > Se conserva únicamente como antecedente de la negociación. Todo su contenido —tasas, tramos, ejemplos y fórmulas— debe leerse como histórico.
 

@@ -39,7 +39,7 @@ async function requireAdmin() {
  * que no tomó. El porcentaje sí se traslada completo en ambos tramos, porque es
  * proporcional al dinero efectivamente movido.
  *
- * Ver la cláusula 6.3 del anexo económico.
+ * Ver la cláusula 8.4 del anexo económico.
  */
 function transactionProcessingFeeCents(transaction) {
   const esSegundoTramo = transaction.type === "BALANCE_50";
@@ -139,7 +139,7 @@ export async function generateSettlementPeriod({ periodStart, periodEnd }) {
   );
   // Qué citas ocupan una posición en la secuencia: las que se cobraron, no las
   // que se prestaron. Lo que consume una posición es que el paciente HAYA
-  // PAGADO —cláusula 4.3.2 del anexo—, así que basta con una transacción
+  // PAGADO —cláusula 4.2 del anexo—, así que basta con una transacción
   // aprobada, del tipo que sea: una consulta pagada cuenta, y una cancelada
   // fuera de tiempo cuya multa el paciente pagó también, porque se cobró. Una
   // cita que nadie pagó no entra: su posición queda libre para la siguiente.
