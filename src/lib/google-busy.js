@@ -36,10 +36,16 @@ const TIMEOUT_MS = 8000;
  * - Un evento que el profesional rechazó no le ocupa el tiempo.
  * - Los cancelados llegan igual cuando se piden instancias sueltas.
  */
-function ocupaAgenda(event) {
+/** 'YYYY-MM-DD' → medianoche de Costa Rica, no de UTC. */
+function anclarDiaCompleto(fecha) {
+  if (!fecha) return null;
+  return /^\d{4}-\d{2}-\d{2}$/.test(fecha) ? `${fecha}T00:00:00${CR_OFFSET}` : fecha;
+}
+
+function ocupaAgenda(event, { respetarDisponible = true } = {}) {
   if (!event) return false;
   if (event.status === "cancelled") return false;
-  if (event.transparency === "transparent") return false;
+  if (respetarDisponible && event.transparency === "transparent") return false;
 
   const selfAttendee = event.attendees?.find((attendee) => attendee.self);
   if (selfAttendee?.responseStatus === "declined") return false;
@@ -48,15 +54,27 @@ function ocupaAgenda(event) {
 }
 
 /**
+ * Costa Rica no aplica horario de verano, así que el offset es siempre -06:00.
+ * Es la zona del negocio y la misma en que el profesional declara su franja.
+ */
+const CR_OFFSET = "-06:00";
+
+/**
  * Convierte el par start/end de Google en instantes.
  *
- * Los eventos con hora traen `dateTime`; los de día completo traen `date` como
- * 'YYYY-MM-DD', y en ese caso el `end` de Google es exclusivo, así que el rango
- * ya queda bien sin ajustarlo.
+ * Los eventos con hora traen `dateTime`, que ya lleva su propio offset. Los de
+ * día completo traen `date` como 'YYYY-MM-DD' pelado, y ahí está la trampa:
+ * `new Date("2026-09-15")` lo interpreta como medianoche **UTC**, que en Costa
+ * Rica son las seis de la tarde del día anterior. Un feriado quedaba corrido
+ * seis horas —bloqueaba la tarde del 14 y dejaba abierta la del 15—, así que se
+ * ancla explícitamente a la hora tica.
+ *
+ * El `end` de los de día completo es exclusivo en Google, y al anclar los dos
+ * extremos igual el rango cubre exactamente el día calendario tico.
  */
 function toInterval(event) {
-  const startRaw = event.start?.dateTime || event.start?.date;
-  const endRaw = event.end?.dateTime || event.end?.date;
+  const startRaw = event.start?.dateTime || anclarDiaCompleto(event.start?.date);
+  const endRaw = event.end?.dateTime || anclarDiaCompleto(event.end?.date);
   if (!startRaw || !endRaw) return null;
 
   const start = new Date(startRaw);
@@ -92,6 +110,7 @@ export async function fetchGoogleBusyIntervals({
   to,
   excludeEventIds = [],
   calendarId = CALENDARIO_POR_DEFECTO,
+  respetarDisponible = true,
 }) {
   if (!refreshToken || !from || !to) return [];
 
@@ -114,11 +133,16 @@ export async function fetchGoogleBusyIntervals({
 
     return (response.data.items || [])
       .filter((event) => !excluded.has(event.id))
-      .filter(ocupaAgenda)
+      .filter((event) => ocupaAgenda(event, { respetarDisponible }))
       .map(toInterval)
       .filter(Boolean);
   } catch (error) {
+    // 403 significa que sobre este calendario solo se puede consultar
+    // disponibilidad. Se propaga para que el llamador use `freebusy`.
+    if (error?.code === 403 || error?.response?.status === 403) throw error;
+
     console.error("No se pudo leer el calendario de Google:", {
+      calendarId,
       message: error?.message,
       code: error?.code,
       reason: error?.response?.data?.error,
@@ -129,14 +153,50 @@ export async function fetchGoogleBusyIntervals({
 
 /**
  * Los ratos ocupados en los calendarios que el profesional marcó como "también
- * me ocupan", vía `freebusy`.
+ * me ocupan".
  *
- * Se usa `freebusy` y no `events.list` porque estos suelen ser calendarios
- * compartidos por terceros, sobre los que se tiene acceso `freeBusyReader`: ahí
- * `events.list` devuelve 403 y solo se puede saber que el rato está tomado, sin
- * título ni detalle. Como la app nunca escribe en ellos, no hace falta excluir
- * eventos propios.
+ * Se intenta `events.list` primero y se cae a `freebusy` solo si Google
+ * responde 403. El orden importa: sobre los calendarios públicos de feriados se
+ * tiene acceso `reader`, y ahí `freebusy` responde `notFound` —no un error
+ * visible, sino cero bloques— mientras que `events.list` funciona sin problema.
+ * Hacerlo al revés dejaba los feriados sin aportar nada en silencio.
+ *
+ * Estos calendarios se leen **sin respetar la marca "Disponible"** de Google.
+ * Los feriados vienen todos marcados así, y filtrarlos los habría dejado en
+ * cero: si el profesional se tomó el trabajo de marcar un calendario como algo
+ * que le ocupa el tiempo, eso ya es la declaración de intención.
  */
+async function fetchCalendariosExtra({ refreshToken, calendarIds, from, to }) {
+  const ids = [...new Set((calendarIds || []).filter(Boolean))];
+  if (!ids.length) return [];
+
+  const intervalos = [];
+  const soloDisponibilidad = [];
+
+  for (const id of ids) {
+    try {
+      const eventos = await fetchGoogleBusyIntervals({
+        refreshToken,
+        from,
+        to,
+        calendarId: id,
+        respetarDisponible: false,
+      });
+      intervalos.push(...eventos);
+    } catch (error) {
+      // 403: solo se puede consultar disponibilidad. Va al lote de freebusy.
+      soloDisponibilidad.push(id);
+    }
+  }
+
+  if (soloDisponibilidad.length) {
+    intervalos.push(...(await fetchFreeBusy({ refreshToken, calendarIds: soloDisponibilidad, from, to })));
+  }
+
+  return intervalos;
+}
+
+/** Disponibilidad pura, para los calendarios donde no se pueden leer eventos. */
 async function fetchFreeBusy({ refreshToken, calendarIds, from, to }) {
   const ids = [...new Set((calendarIds || []).filter(Boolean))];
   if (!ids.length) return [];
@@ -217,7 +277,7 @@ export async function fetchBusyForProfessional({ prisma, professionalId, from, t
       excludeEventIds,
       calendarId: calendarioDeTrabajo,
     }),
-    fetchFreeBusy({
+    fetchCalendariosExtra({
       refreshToken: profile.googleRefreshToken,
       // El de trabajo ya se leyó arriba con detalle; incluirlo de nuevo
       // duplicaría cada banda en la vista de agenda.
