@@ -1,5 +1,6 @@
 ﻿import { prisma } from "@/lib/prisma";
 import { listBlocksInWindow, blocksToIntervals } from "@/lib/schedule-blocks";
+import { fetchBusyForProfessional } from "@/lib/google-busy";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import Link from "next/link";
@@ -59,7 +60,7 @@ export default async function ProfesionalCitasPage() {
         status: { notIn: ["CANCELLED_BY_USER", "CANCELLED_BY_PRO"] },
         date: { gte: new Date() },
       },
-      select: { date: true, endDate: true },
+      select: { date: true, endDate: true, gcalEventId: true },
       orderBy: { date: "asc" },
     }),
     prisma.user.findMany({
@@ -92,6 +93,14 @@ export default async function ProfesionalCitasPage() {
     listBlocksInWindow({ professionalId, from: blockWindowFrom, to: blockWindowTo }),
   ]);
 
+  const googleBusy = await fetchBusyForProfessional({
+    prisma,
+    professionalId,
+    from: blockWindowFrom,
+    to: blockWindowTo,
+    excludeEventIds: futureAppointments.map((appointment) => appointment.gcalEventId),
+  });
+
   const initialAppointments = appointments.map((appointment) => ({
     ...appointment,
     user: appointment.patient,
@@ -111,6 +120,7 @@ export default async function ProfesionalCitasPage() {
         endISO: appointment.endDate.toISOString(),
       })),
       ...blocksToIntervals(scheduleBlocks),
+      ...googleBusy,
     ],
     patients,
   };

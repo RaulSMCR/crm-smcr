@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { listBlocksInWindow, blocksToIntervals } from "@/lib/schedule-blocks";
+import { fetchBusyForProfessional } from "@/lib/google-busy";
 import { getSession } from "@/actions/auth-actions";
 import ProfessionalCalendarBooking from "@/components/booking/ProfessionalCalendarBooking";
 import { TARIFA_VIGENTE, rangoDePrecios, etiquetaDeRango } from "@/lib/service-pricing";
@@ -60,11 +61,21 @@ export default async function PacienteAgendarPage({ searchParams }) {
         status: { notIn: ["CANCELLED_BY_USER", "CANCELLED_BY_PRO"] },
         date: { gte: new Date() },
       },
-      select: { date: true, endDate: true },
+      select: { date: true, endDate: true, gcalEventId: true },
       orderBy: { date: "asc" },
     }),
     listBlocksInWindow({ professionalId, from: blockWindowFrom, to: blockWindowTo }),
   ]);
+
+  // Lo que el profesional ya tenga agendado en su propio Google Calendar.
+  // Vacío si no conectó Google o si Google no responde.
+  const googleBusy = await fetchBusyForProfessional({
+    prisma,
+    professionalId,
+    from: blockWindowFrom,
+    to: blockWindowTo,
+    excludeEventIds: appts.map((a) => a.gcalEventId),
+  });
 
   if (!service?.isActive) redirect("/servicios");
   if (!professional?.isApproved || !professional.user?.isActive) redirect("/servicios");
@@ -97,6 +108,7 @@ export default async function PacienteAgendarPage({ searchParams }) {
         endISO: a.endDate.toISOString(),
       })),
     ...blocksToIntervals(blocks),
+    ...googleBusy,
   ];
 
   return (

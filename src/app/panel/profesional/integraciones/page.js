@@ -60,7 +60,7 @@ export default async function IntegracionesPage({ searchParams }) {
           </svg>
           <div>
             <h2 className="font-semibold text-slate-800">Google Calendar</h2>
-            <p className="text-xs text-slate-500">Sus citas del CRM, publicadas en su calendario</p>
+            <p className="text-xs text-slate-500">Sincronización en ambos sentidos</p>
           </div>
           <div className="ml-auto">
             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
@@ -79,14 +79,15 @@ export default async function IntegracionesPage({ searchParams }) {
           También se enviarán invitaciones a los pacientes.
         </p>
 
-        <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <strong className="font-semibold">Tenga presente:</strong> la sincronización va en un solo
-          sentido, del sistema hacia Google. Si bloquea horas directamente en su Google Calendar, el
-          sistema no se entera y podría seguir ofreciendo ese espacio. Para cerrar disponibilidad, use{" "}
+        <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          <strong className="font-semibold">La sincronización va en los dos sentidos.</strong> Lo que
+          tenga ocupado en su Google Calendar deja de ofrecerse acá, aunque lo haya agendado por
+          fuera del sistema. Los eventos marcados como <em>Disponible</em> en Google, y los que haya
+          rechazado, no cuentan como ocupados. También puede cerrar horas desde{" "}
           <Link href="/panel/profesional/horarios" className="underline underline-offset-2">
             Horarios
           </Link>
-          .
+          , que funciona conecte Google o no.
         </p>
 
         <GoogleConnectButton isConnected={isConnected} />

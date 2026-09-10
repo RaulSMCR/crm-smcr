@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { fetchBusyForProfessional } from "@/lib/google-busy";
 
 export const CANCELLED_APPOINTMENT_STATUSES = ["CANCELLED_BY_USER", "CANCELLED_BY_PRO"];
 
@@ -56,7 +57,7 @@ export async function findRecurringConflict({ professionalId, starts, ends, igno
   if (!starts.length) return null;
 
   const { minStart, maxEnd } = buildOverlapWindow(starts, ends);
-  const [existingAppointments, blocks] = await Promise.all([
+  const [existingAppointments, blocks, ownEvents] = await Promise.all([
     prisma.appointment.findMany({
       where: buildOverlapWhere({ professionalId, minStart, maxEnd, ignoreAppointmentId }),
       select: { date: true, endDate: true },
@@ -69,11 +70,35 @@ export async function findRecurringConflict({ professionalId, starts, ends, igno
       },
       select: { startsAt: true, endsAt: true },
     }),
+    // Los eventos que la app misma publicó en Google, para no contarlos dos
+    // veces. Se pide la ventana completa —sin `ignoreAppointmentId`— porque
+    // justamente la cita que se está moviendo es la que hay que excluir del
+    // lado de Google para que no choque contra su propio evento.
+    prisma.appointment.findMany({
+      where: {
+        professionalId,
+        gcalEventId: { not: null },
+        date: { lt: maxEnd },
+        endDate: { gt: minStart },
+      },
+      select: { gcalEventId: true },
+    }),
   ]);
+
+  // Lo que el profesional tenga agendado por fuera del sistema. Si no conectó
+  // Google, o si Google no responde, esto vuelve vacío y el resto sigue igual.
+  const googleBusy = await fetchBusyForProfessional({
+    prisma,
+    professionalId,
+    from: minStart,
+    to: maxEnd,
+    excludeEventIds: ownEvents.map((appointment) => appointment.gcalEventId),
+  });
 
   const occupied = [
     ...existingAppointments,
     ...blocks.map((block) => ({ date: block.startsAt, endDate: block.endsAt })),
+    ...googleBusy.map((busy) => ({ date: new Date(busy.startISO), endDate: new Date(busy.endISO) })),
   ];
 
   return findConflictInOccurrences(occupied, starts, ends);

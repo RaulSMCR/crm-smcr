@@ -12,6 +12,7 @@ import { sendPaymentLinkOnCompletion } from "@/actions/payment-actions";
 import { scheduleReminder } from "@/lib/qstash";
 import { buildSlots } from "@/lib/appointment-slots";
 import { listBlocksInWindow, blocksToIntervals } from "@/lib/schedule-blocks";
+import { fetchBusyForProfessional } from "@/lib/google-busy";
 import { createPaymentRequestForAppointment } from "@/lib/payment-requests";
 import { resolveBookingSelection } from "@/lib/booking-rates";
 import { MOTIVOS_BLOQUEO } from "@/lib/rescheduling-policy";
@@ -90,13 +91,21 @@ async function findSuggestedCalendarDateForConflict({
         status: { notIn: CANCELLED_STATUSES },
         date: { gte: searchStart, lt: searchEnd },
       },
-      select: { date: true, endDate: true },
+      select: { date: true, endDate: true, gcalEventId: true },
       orderBy: { date: "asc" },
     }),
     listBlocksInWindow({ professionalId, from: searchStart, to: searchEnd }),
   ]);
 
   if (!availability.length) return null;
+
+  const googleBusy = await fetchBusyForProfessional({
+    prisma,
+    professionalId,
+    from: searchStart,
+    to: searchEnd,
+    excludeEventIds: bookedAppointments.map((item) => item.gcalEventId),
+  });
 
   const days = buildSlots({
     availability,
@@ -107,6 +116,7 @@ async function findSuggestedCalendarDateForConflict({
         endISO: item.endDate.toISOString(),
       })),
       ...blocksToIntervals(scheduleBlocks),
+      ...googleBusy,
     ],
     daysAhead: 45,
     now: searchStart,
