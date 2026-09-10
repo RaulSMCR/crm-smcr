@@ -121,7 +121,13 @@ export function buildScheduleOverview({
     // grilla a 24 horas y aplastaría las horas en que realmente se atiende:
     // esas se dibujan igual, recortadas por el alto de la columna, y se leen
     // como lo que son, el día entero ocupado.
-    for (const banda of [...available, ...busy.filter((b) => b.endMin - b.startMin < LARGA)]) {
+    // Los avisos quedan fuera del encuadre: son de día completo y estirarían la
+    // grilla a 24 horas para no aportar ninguna hora concreta.
+    const paraEncuadrar = busy.filter(
+      (b) => b.kind !== "aviso" && b.endMin - b.startMin < LARGA
+    );
+
+    for (const banda of [...available, ...paraEncuadrar]) {
       if (banda.startMin < minGrilla) minGrilla = banda.startMin;
       if (banda.endMin > maxGrilla) maxGrilla = banda.endMin;
     }
