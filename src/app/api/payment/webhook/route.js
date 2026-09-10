@@ -2,8 +2,8 @@
 // Webhook de ONVO Pay — ruta pública verificada por secreto compartido.
 //
 // ONVO envía un POST cuando cambia el estado de un cobro. Siempre respondemos
-// 200 para que no reintente: los problemas se registran y se alertan, no se
-// devuelven como error.
+// 200 para eventos atendidos. Los avisos no autenticados o malformados se
+// rechazan sin efectos; los errores de procesamiento reciben una respuesta genérica.
 //
 // Configuración en el dashboard de ONVO:
 //   URL:     https://{dominio}/api/payment/webhook
@@ -19,6 +19,7 @@ import { verifyOnvoWebhookSecret } from "@/lib/onvo/webhook";
 import { buildPaymentLinkUrl } from "@/lib/onvo/client";
 import { matchTransaction } from "@/lib/onvo/match-payment";
 import { normalizeOnvoEvent } from "@/lib/onvo/event";
+import { escapePaymentAlertValue, logOnvoWebhook } from "@/lib/onvo/observability";
 import { resend } from "@/lib/resend";
 import { submitInvoiceToFe } from "@/lib/fe/submit";
 import { sendInsuranceProSignAlert } from "@/lib/insurance-mail";
@@ -63,53 +64,39 @@ const FROM_EMAIL = process.env.EMAIL_FROM || "Salud Mental Costa Rica <onboardin
  * Recibe notificaciones de pago de ONVO Pay.
  */
 export async function POST(request) {
-  let rawBody;
-  let payload;
-
-  try {
-    rawBody = await request.text();
-    payload = JSON.parse(rawBody);
-  } catch {
-    console.error("[ONVO webhook] Body JSON inválido.");
-    return NextResponse.json({ ok: false, message: "Invalid body" }, { status: 200 });
+  // Autenticar antes de leer el cuerpo, acceder a datos o enviar notificaciones.
+  if (!ONVO_WEBHOOK_SECRET) {
+    logOnvoWebhook("error", "AUTH_CONFIG_MISSING");
+    return NextResponse.json({ ok: false }, { status: 503 });
   }
-
-  const ip =
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    request.headers.get("x-real-ip") ||
-    "unknown";
 
   const secretHeader = request.headers.get("x-webhook-secret") || "";
-
-  console.log("[ONVO webhook] Recibido desde IP:", ip, "| tipo:", payload?.type);
-
-  // ── 0. Volcado del evento crudo ──────────────────────────────────────────
-  // Se conserva a propósito: ONVO no ofrece forma de consultar un evento pasado
-  // (no hay endpoint que liste pagos), así que este log es la única copia si algo
-  // sale mal. Buscar "ONVO RAW" en los logs. No se vuelcan los headers completos
-  // porque incluyen el secreto compartido.
-  console.log("[ONVO RAW] body:", rawBody);
-
-  // ── 1. Verificar origen (secreto compartido) ─────────────────────────────
-  if (!ONVO_WEBHOOK_SECRET) {
-    console.error("[ONVO webhook] ONVO_WEBHOOK_SECRET no configurada.");
-    return NextResponse.json({ ok: false }, { status: 200 });
-  }
-
   const isValid = verifyOnvoWebhookSecret(secretHeader, ONVO_WEBHOOK_SECRET);
   if (!isValid) {
-    console.error("[ONVO webhook] Secreto inválido. Descartando notificación.");
-    // Alertar al admin, pero NO persistir: el payload no es confiable (PAY-01).
-    await sendAdminPaymentAlert({
-      subject: "⚠ Webhook ONVO con firma inválida",
-      reason: "INVALID_SIGNATURE",
-      eventId: payload?.data?.id,
-      onvoLinkId: payload?.data?.paymentLinkId,
-      amount: payload?.data?.amountTotal,
-      currency: payload?.data?.currency,
-      email: payload?.data?.customerEmail,
-    }).catch((e) => console.error("[ONVO webhook] Error alertando firma inválida:", e));
-    return NextResponse.json({ ok: false, message: "Invalid signature" }, { status: 200 });
+    logOnvoWebhook("warn", "AUTH_REJECTED");
+    return NextResponse.json({ ok: false }, { status: 401 });
+  }
+
+  const trace = {};
+  try {
+    return await processAuthenticatedWebhook(request, trace);
+  } catch (error) {
+    logOnvoWebhook("error", "PROCESSING_FAILED", { ...trace, error });
+    return NextResponse.json({ ok: false }, { status: 500 });
+  }
+}
+
+async function processAuthenticatedWebhook(request, trace) {
+  let payload;
+  try {
+    payload = await request.json();
+    if (!payload || typeof payload !== "object" || Array.isArray(payload) ||
+        !payload.data || typeof payload.data !== "object" || Array.isArray(payload.data)) {
+      throw new Error("Invalid event shape");
+    }
+  } catch {
+    logOnvoWebhook("warn", "BODY_INVALID");
+    return NextResponse.json({ ok: false, message: "Invalid body" }, { status: 400 });
   }
 
   // ── 2. Extraer datos del evento ──────────────────────────────────────────
@@ -127,8 +114,13 @@ export async function POST(request) {
     customerEmail: eventCustomerEmail,
   } = evento;
 
+  Object.assign(trace, { eventId, onvoLinkId });
+  // La evidencia autenticada de conciliación queda en la BD; no se duplica
+  // en logs con correos, datos del cliente, cabeceras o contenido del evento.
+  logOnvoWebhook("info", "RECEIVED", { eventId, onvoLinkId, status: evento.resultado });
+
   if (!eventId) {
-    console.warn(`[ONVO webhook] Evento "${eventType}" sin identificador de objeto, ignorando.`);
+    logOnvoWebhook("warn", "EVENT_ID_MISSING");
     return NextResponse.json({ ok: true }, { status: 200 });
   }
 
@@ -138,7 +130,7 @@ export async function POST(request) {
     prisma.unmatchedPayment.findUnique({ where: { onvoEventId: eventId } }),
   ]);
   if (alreadyProcessed || alreadyUnmatched) {
-    console.log("[ONVO webhook] Evento ya procesado:", eventId);
+    logOnvoWebhook("info", "ALREADY_PROCESSED", { eventId });
     return NextResponse.json({ ok: true }, { status: 200 });
   }
 
@@ -200,9 +192,7 @@ export async function POST(request) {
   if (matchResult.unmatchedReason) {
     // `unmatchedDetail` trae el diagnóstico cuando lo hay (p. ej. divisor de monto mal configurado).
     const unmatchedReason = matchResult.unmatchedDetail || matchResult.unmatchedReason;
-    console.warn(
-      `[ONVO webhook] Pago no conciliado (${unmatchedReason}) enlace=${onvoLinkId} evento=${eventId}`
-    );
+    logOnvoWebhook("warn", "UNMATCHED", { eventId, onvoLinkId, reason: matchResult.unmatchedReason });
     await recordUnmatchedPayment({
       eventId,
       onvoLinkId,
@@ -219,8 +209,7 @@ export async function POST(request) {
       onvoLinkId,
       amount: eventAmount,
       currency: eventCurrency,
-      email: eventCustomerEmail,
-    }).catch((e) => console.error("[ONVO webhook] Error alertando pago no conciliado:", e));
+    }).catch((error) => logOnvoWebhook("error", "UNMATCHED_ALERT_FAILED", { eventId, error }));
     // NO tocar ninguna cita.
     return NextResponse.json({ ok: true }, { status: 200 });
   }
@@ -264,7 +253,10 @@ export async function POST(request) {
       data: { paymentStatus: nextPaymentStatus },
     });
 
-    console.log(`[ONVO webhook] Cita ${processedTransaction.appointmentId} -> paymentStatus: ${nextPaymentStatus}`);
+    logOnvoWebhook("info", "APPOINTMENT_PAYMENT_UPDATED", {
+      eventId, transactionId: processedTransaction.id,
+      appointmentId: processedTransaction.appointmentId, status: nextPaymentStatus,
+    });
 
     const [invoiceResult] = await Promise.allSettled([
       createAutoInvoice(processedTransaction),
@@ -279,7 +271,7 @@ export async function POST(request) {
       // creó, el envío a Hacienda nunca ocurrió y nadie recibió el comprobante.
       after(() =>
         submitInvoiceToFe(invoiceId).catch((e) =>
-          console.error("[ONVO webhook] Error en submitInvoiceToFe:", e)
+          logOnvoWebhook("error", "FE_SUBMIT_FAILED", { invoiceId, error: e })
         )
       );
     }
@@ -288,7 +280,7 @@ export async function POST(request) {
     // Idempotente: no reenvía si ya se contabilizó (ver reportDepositConversion).
     if (processedTransaction.type === "DEPOSIT_50") {
       reportDepositConversion(processedTransaction.id).catch((e) =>
-        console.error("[ONVO webhook] Error reportando conversión GA4:", e)
+        logOnvoWebhook("error", "DEPOSIT_CONVERSION_FAILED", { transactionId: processedTransaction.id, error: e })
       );
       // Purchase a Meta CAPI (fire-and-forget). Dedup por eventId purchase:<txId>.
       after(() => sendPurchaseMeta(processedTransaction.id));
@@ -296,7 +288,7 @@ export async function POST(request) {
 
     if (nextPaymentStatus === "PAID") {
       handleInsuranceClaim(processedTransaction, paidAt).catch((e) =>
-        console.error("[ONVO webhook] Error en handleInsuranceClaim:", e)
+        logOnvoWebhook("error", "INSURANCE_CLAIM_FAILED", { transactionId: processedTransaction.id, error: e })
       );
     }
   } else if (newStatus === "REJECTED") {
@@ -337,8 +329,7 @@ export async function createAutoInvoice(transaction) {
         onvoLinkId: transaction.onvoPaymentLinkId,
         amount,
         currency: transaction.currency || "CRC",
-        email: process.env.ADMIN_ALERT_EMAIL || process.env.EMAIL_FROM,
-      }).catch((e) => console.error("[ONVO webhook] Error alertando configuración fiscal:", e));
+      }).catch((error) => logOnvoWebhook("error", "FISCAL_ALERT_FAILED", { transactionId: transaction.id, error }));
     }
 
     let finalInvoiceId = null;
@@ -420,10 +411,10 @@ export async function createAutoInvoice(transaction) {
       finalInvoiceId = invoice.id;
     });
 
-    console.log(`[ONVO webhook] Factura auto-creada para transacción ${transaction.id}`);
+    logOnvoWebhook("info", "AUTO_INVOICE_CREATED", { transactionId: transaction.id, invoiceId: finalInvoiceId });
     return finalInvoiceId;
   } catch (err) {
-    console.error("[ONVO webhook] Error en createAutoInvoice:", err);
+    logOnvoWebhook("error", "AUTO_INVOICE_FAILED", { transactionId: transaction.id, error: err });
     return null;
   }
 }
@@ -450,22 +441,22 @@ async function recordUnmatchedPayment({ eventId, onvoLinkId, amount, currency, c
       },
     });
   } catch (err) {
-    console.error("[ONVO webhook] Error registrando UnmatchedPayment:", err);
+    logOnvoWebhook("error", "UNMATCHED_SAVE_FAILED", { eventId, error: err });
   }
 }
 
 /**
- * Envía una alerta al administrador sobre un pago problemático (no conciliado
- * o con firma inválida). No toca ninguna cita.
+ * Alerta de incidencias autenticadas, con referencias para consultar el panel.
+ * No incluye la identidad del pagador y escapa los valores interpolados.
  */
-async function sendAdminPaymentAlert({ subject, reason, eventId, onvoLinkId, amount, currency, email }) {
+async function sendAdminPaymentAlert({ subject, reason, eventId, onvoLinkId, amount, currency }) {
   const to = process.env.ADMIN_ALERT_EMAIL || process.env.EMAIL_FROM;
   if (!to || !process.env.RESEND_API_KEY) {
-    console.error("[ONVO webhook] No se pudo alertar al admin: falta ADMIN_ALERT_EMAIL/EMAIL_FROM o RESEND_API_KEY.");
+    logOnvoWebhook("error", "ADMIN_ALERT_UNAVAILABLE", { eventId });
     return;
   }
 
-  const safe = (v) => (v == null || v === "" ? "—" : String(v));
+  const safe = escapePaymentAlertValue;
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#0f172a;">
       <h2 style="color:#b91c1c;">Pago ONVO requiere revisión</h2>
@@ -475,7 +466,6 @@ async function sendAdminPaymentAlert({ subject, reason, eventId, onvoLinkId, amo
         <tr style="background:#f8fafc;"><td style="padding:6px 8px;color:#64748b;">Evento ONVO</td><td style="padding:6px 8px;">${safe(eventId)}</td></tr>
         <tr><td style="padding:6px 8px;color:#64748b;">Enlace de pago</td><td style="padding:6px 8px;">${safe(onvoLinkId)}</td></tr>
         <tr style="background:#f8fafc;"><td style="padding:6px 8px;color:#64748b;">Monto</td><td style="padding:6px 8px;">${safe(amount)} ${safe(currency)}</td></tr>
-        <tr><td style="padding:6px 8px;color:#64748b;">Correo del pagador</td><td style="padding:6px 8px;">${safe(email)}</td></tr>
       </table>
       <p style="font-size:13px;color:#475569;">Acción: concilie el pago manualmente en el panel de ONVO y con la cita correspondiente.</p>
       <p style="font-size:12px;color:#94a3b8;margin-top:24px;">Alerta automática del sistema de pagos de Salud Mental Costa Rica.</p>
@@ -487,7 +477,7 @@ async function sendAdminPaymentAlert({ subject, reason, eventId, onvoLinkId, amo
     subject,
     html,
   });
-  if (error) console.error("[ONVO webhook] Error enviando alerta al admin:", error);
+  if (error) logOnvoWebhook("error", "ADMIN_ALERT_FAILED", { eventId, error });
 }
 
 // ── Emails ───────────────────────────────────────────────────────────────────
@@ -591,7 +581,7 @@ async function sendPaymentConfirmationEmail(transaction) {
     html,
   });
 
-  if (error) console.error("[ONVO webhook] Error enviando email confirmación:", error);
+  if (error) logOnvoWebhook("error", "PAYMENT_CONFIRMATION_EMAIL_FAILED", { transactionId: transaction.id, error });
 }
 
 // ── Reclamo de seguro ────────────────────────────────────────────────────────
@@ -620,7 +610,7 @@ async function handleInsuranceClaim(transaction, paidAt) {
     },
   });
 
-  console.log(`[ONVO webhook] InsuranceClaim ${claim.id} → status: ${claimStatus}`);
+  logOnvoWebhook("info", "INSURANCE_CLAIM_UPDATED", { claimId: claim.id, status: claimStatus });
 
   if (claimStatus === "PENDING_SIGNED_FORM") {
     const proEmail = transaction.professional?.user?.email;
@@ -631,7 +621,7 @@ async function handleInsuranceClaim(transaction, paidAt) {
         insuranceName: patient.insuranceName,
         paymentDate: paidAt,
         templateUrl,
-      }).catch((e) => console.error("[ONVO webhook] Error enviando alerta de seguro al profesional:", e));
+      }).catch((error) => logOnvoWebhook("error", "INSURANCE_ALERT_FAILED", { claimId: claim.id, error }));
     }
   }
 }
@@ -668,5 +658,5 @@ async function sendPaymentFailedEmail(transaction) {
     html,
   });
 
-  if (error) console.error("[ONVO webhook] Error enviando email fallo:", error);
+  if (error) logOnvoWebhook("error", "PAYMENT_FAILED_EMAIL_FAILED", { transactionId: transaction.id, error });
 }

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { getAdminPostForEditor } from "@/lib/admin-post-editor";
 import { getSession } from "@/actions/auth-actions";
 import AdminPostEditor from "@/components/admin/AdminPostEditor";
 import TaxonomyPicker from "@/components/blog/TaxonomyPicker";
@@ -17,10 +17,7 @@ export default async function AdminBlogEditPage({ params }) {
   if (!session || session.role !== "ADMIN") redirect("/ingresar");
 
   const { id } = await params;
-  const post = await prisma.post.findUnique({
-    where: { id: String(id || "") },
-    include: { author: { include: { user: true } } },
-  });
+  const post = await getAdminPostForEditor(String(id || ""));
 
   if (!post) notFound();
 
