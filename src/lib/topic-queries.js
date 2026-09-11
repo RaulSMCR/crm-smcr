@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { TARIFA_VIGENTE, rangoDePrecios } from "@/lib/service-pricing";
+import { SELECT_TARIFA_PUBLICA, TARIFA_VIGENTE, rangoDePrecios } from "@/lib/service-pricing";
 
 const PUBLIC_TOPIC_SELECT = {
   id: true,
@@ -51,7 +51,7 @@ const PUBLIC_SERVICE_SELECT = {
       },
     },
     select: {
-      rates: { where: TARIFA_VIGENTE, select: { approvedPrice: true } },
+      rates: { where: TARIFA_VIGENTE, select: SELECT_TARIFA_PUBLICA },
       professional: {
         select: {
           id: true,

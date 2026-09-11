@@ -274,6 +274,8 @@ model User {
   insuranceClaims     InsuranceClaim[]     @relation("PatientInsuranceClaims")
   leads               Lead[]
   pushSubscriptions   PushSubscription[]
+  /// Precios con que entró por una escalera de precios, uno por consulta y profesional.
+  priceLadderEnrollments PriceLadderEnrollment[]
 
   acuerdosAceptados   AceptacionAcuerdo[]
   contactosReenganche ContactoReenganche[]    @relation("ContactosDelPaciente")
@@ -689,7 +691,8 @@ model ServiceAssignment {
   /// de esa cita, no de forma estática por asignación. Ver src/lib/onvo/client.js.
   onvoPaymentLinkId String?
 
-  rates ProfessionalRate[]
+  rates        ProfessionalRate[]
+  priceLadders PriceLadder[]
 
   // ✅ usados por admin/profile-actions
   requestedAt DateTime  @default(now())
@@ -858,6 +861,82 @@ model ProfessionalRate {
   @@index([timeBandId])
 }
 
+/// Estado de una escalera de precios. APPROVED es la que rige; ENDED, una que
+/// terminó por completarse o por ser reemplazada.
+enum PriceLadderStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ENDED
+}
+
+/// Escalera de precios de lanzamiento de una consulta: el precio general sube
+/// por escalones a medida que pacientes nuevos pagan su adelanto. La propone el
+/// profesional y la aprueba un admin. Las reglas viven en src/lib/price-ladder.js.
+///
+/// Solo puede haber una APPROVED por consulta. Lo garantiza el índice único
+/// parcial `PriceLadder_una_aprobada_por_consulta`, que Prisma no sabe declarar:
+/// no recrearlo sin el `WHERE`.
+model PriceLadder {
+  id              String            @id @default(cuid())
+  professionalId  String
+  serviceId       String
+  status          PriceLadderStatus @default(PENDING)
+  adminReviewNote String?           @db.Text
+  requestedAt     DateTime          @default(now())
+  reviewedAt      DateTime?
+  endedAt         DateTime?
+
+  assignment ServiceAssignment @relation(fields: [professionalId, serviceId], references: [professionalId, serviceId], onDelete: Cascade)
+  tiers      PriceLadderTier[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([professionalId, serviceId, status])
+  @@index([status])
+}
+
+/// Un escalón: rige a `price` hasta que `capacity` pacientes nuevos pagan su
+/// adelanto. `seatsTaken` puede superar `capacity`: quien reservó a este precio
+/// lo conserva aunque el escalón se llene antes de que pague.
+model PriceLadderTier {
+  id         String  @id @default(cuid())
+  ladderId   String
+  position   Int
+  price      Decimal @db.Decimal(10, 2)
+  capacity   Int
+  seatsTaken Int     @default(0)
+
+  ladder       PriceLadder             @relation(fields: [ladderId], references: [id], onDelete: Cascade)
+  enrollments  PriceLadderEnrollment[]
+  appointments Appointment[]
+
+  @@unique([ladderId, position])
+}
+
+/// El precio con que un paciente entró por una escalera, y que conserva en todas
+/// sus sesiones de esa consulta con ese profesional. Vive aparte de la escalera a
+/// propósito: si la escalera se reemplaza o la tarifa se borra, el paciente sigue
+/// pagando lo que aceptó.
+model PriceLadderEnrollment {
+  id             String   @id @default(cuid())
+  patientId      String
+  professionalId String
+  serviceId      String
+  tierId         String?
+  /// Cita cuyo adelanto ocupó el cupo.
+  appointmentId  String?
+  price          Decimal  @db.Decimal(10, 2)
+  createdAt      DateTime @default(now())
+
+  patient User             @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  tier    PriceLadderTier? @relation(fields: [tierId], references: [id], onDelete: SetNull)
+
+  @@unique([patientId, professionalId, serviceId])
+  @@index([tierId])
+}
+
 model Appointment {
   id String @id @default(cuid())
 
@@ -913,6 +992,12 @@ model Appointment {
 
   isFirstWithProfessional Boolean @default(false)
 
+  /// Escalón de la escalera de precios con que se congeló `pricePaid`. Solo lo
+  /// lleva la primera cita de un paciente nuevo; el cupo se ocupa recién cuando
+  /// se acredita su pago (ver src/lib/price-ladder-server.js).
+  priceTierId String?
+  priceTier   PriceLadderTier? @relation(fields: [priceTierId], references: [id], onDelete: SetNull)
+
   /// Cuándo se aplicó la multa por aviso tardío o inasistencia. Evita
   /// cobrarla dos veces si se vuelve a marcar el mismo estado.
   penaltyAppliedAt DateTime?
@@ -937,6 +1022,7 @@ model Appointment {
   @@index([serviceId])
   @@index([status])
   @@index([parentAppointmentId])
+  @@index([priceTierId])
 }
 
 model PaymentTransaction {

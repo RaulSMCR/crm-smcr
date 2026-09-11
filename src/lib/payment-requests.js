@@ -57,6 +57,7 @@ async function resolveFallbackPrice(appointment) {
     serviceId: appointment.serviceId,
     startsAt: new Date(appointment.date),
     locationId: appointment.locationId || null,
+    patientId: appointment.patientId || null,
   });
 
   return selection?.data?.pricePaid ? Number(selection.data.pricePaid) : 0;

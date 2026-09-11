@@ -30,6 +30,7 @@ import { paymentTypeLabel } from "@/lib/payment-requests";
 import { detalleLineaFactura } from "@/lib/detalle-consulta";
 import { detalleLugarCita, lugarCitaEnUnaLinea } from "@/lib/lugar-cita";
 import { reportDepositConversion } from "@/lib/analytics/reportDepositConversion";
+import { ocuparCupoDeEscalera } from "@/lib/price-ladder-server";
 import { SITE_URL } from "@/lib/site-url";
 import { sendPurchaseMeta } from "@/lib/analytics/meta-events";
 import { after } from "next/server";
@@ -265,6 +266,11 @@ export async function POST(request) {
     });
 
     console.log(`[ONVO webhook] Cita ${processedTransaction.appointmentId} -> paymentStatus: ${nextPaymentStatus}`);
+
+    // Primera cita de un paciente nuevo reservada en un escalón de la escalera de
+    // precios: el pago ocupa su cupo y lo deja con ese precio. Idempotente ante
+    // los reintentos de ONVO y nunca lanza.
+    await ocuparCupoDeEscalera(processedTransaction.appointmentId);
 
     const [invoiceResult] = await Promise.allSettled([
       createAutoInvoice(processedTransaction),

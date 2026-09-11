@@ -10,7 +10,7 @@ import { resolveSeo, buildMetadata } from "@/lib/seo";
 import { grafo, ref, nodoMigas, idServicio, ID_ORGANIZACION } from "@/lib/jsonld";
 import SafeImage, { SafeAvatar } from "@/components/SafeImage";
 import { IMAGE_FALLBACKS } from "@/lib/images";
-import { TARIFA_VIGENTE, rangoDePrecios, rangosPorServicio, etiquetaDeRango } from "@/lib/service-pricing";
+import { SELECT_TARIFA_PUBLICA, TARIFA_VIGENTE, rangoDePrecios, rangosPorServicio, etiquetaDeRango } from "@/lib/service-pricing";
 
 export const revalidate = 3600;
 
@@ -97,7 +97,7 @@ export default async function ServiceDetailPage({ params }) {
             },
           },
           select: {
-            rates: { where: TARIFA_VIGENTE, select: { approvedPrice: true } },
+            rates: { where: TARIFA_VIGENTE, select: SELECT_TARIFA_PUBLICA },
             professional: {
               select: {
                 id: true,

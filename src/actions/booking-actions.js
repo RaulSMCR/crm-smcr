@@ -219,6 +219,8 @@ export async function requestAppointment(
         serviceId,
         startsAt: startDateTime,
         locationId,
+        // Quién reserva decide si le toca un escalón de la escalera de precios.
+        patientId: session.sub,
       });
       if (selection.error) return { error: selection.error };
       booking = selection.data;
@@ -283,6 +285,9 @@ export async function requestAppointment(
             locationNotes: booking.locationNotes,
             timeBandName: booking.timeBandName,
             isFirstWithProfessional: isFirstWithProfessional && index === 0,
+            // El escalón de la escalera va solo en la primera cita: es la que
+            // paga el adelanto y ocupa el cupo.
+            priceTierId: index === 0 ? (booking.priceTierId ?? null) : null,
             // Solo la primera cita de la serie lleva los identificadores.
             gaClientId: index === 0 ? gaClientId : null,
             gaGclid: index === 0 ? gaGclid : null,
@@ -371,13 +376,21 @@ export async function getSlotOptions(professionalId, dateString, timeString, ser
     );
     const startsAt = fromZonedTime(localDateTime, "America/Costa_Rica");
 
-    const { options, timeBand } = await getBookingOptions({ professionalId, serviceId, startsAt });
+    // Quién mira decide el precio: un paciente nuevo —o alguien sin sesión— ve el
+    // escalón vigente de la escalera, quien ya entró ve su precio y el resto la
+    // tarifa normal.
+    const session = await getSession();
+    const { options, timeBand } = await getBookingOptions({
+      professionalId,
+      serviceId,
+      startsAt,
+      patientId: session?.sub ? String(session.sub) : null,
+    });
 
     // Si es su primera cita con este profesional, se le cobra el 50% por
     // adelantado y tiene que saberlo antes de confirmar. Y si es la segunda, se
     // le recuerdan las reglas de cancelación: ahí deja de estar probando y pasa
     // a sostener un proceso. Ver lib/acuerdo.
-    const session = await getSession();
     const previas = session?.sub
       ? await prisma.appointment.count({
           where: {

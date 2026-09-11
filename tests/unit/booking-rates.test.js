@@ -12,6 +12,9 @@ const { prisma } = vi.hoisted(() => ({
     professionalTimeBand: { findMany: vi.fn() },
     practiceLocation: { findMany: vi.fn(), findFirst: vi.fn() },
     availability: { findMany: vi.fn() },
+    priceLadder: { findFirst: vi.fn() },
+    priceLadderEnrollment: { findUnique: vi.fn() },
+    appointment: { count: vi.fn() },
   },
 }));
 
@@ -30,11 +33,28 @@ const MATUTINO = { id: "band_am", name: "Matutino", startTime: "07:00", endTime:
 // 2026-09-01T15:00:00Z = martes 09:00 en Costa Rica → franja matutina.
 const MARTES_9AM = new Date("2026-09-01T15:00:00Z");
 
+// 10 pacientes nuevos a ₡30.000 y 10 a ₡35.000.
+const ESCALERA = {
+  id: "esc",
+  tiers: [
+    { id: "t1", position: 1, price: 30000, capacity: 10, seatsTaken: 0 },
+    { id: "t2", position: 2, price: 35000, capacity: 10, seatsTaken: 0 },
+  ],
+};
+
 function rate(overrides) {
   return { id: "r", locationId: null, timeBandId: null, status: "APPROVED", approvedPrice: 40000, ...overrides };
 }
 
-function setup({ rates = [], bands = [MATUTINO], locations = [OFICINA, VIRTUAL], availability = [] } = {}) {
+function setup({
+  rates = [],
+  bands = [MATUTINO],
+  locations = [OFICINA, VIRTUAL],
+  availability = [],
+  escalera = null,
+  inscripcion = null,
+  previas = 0,
+} = {}) {
   prisma.professionalRate.findMany.mockResolvedValue(rates);
   prisma.professionalTimeBand.findMany.mockResolvedValue(bands);
   prisma.practiceLocation.findMany.mockResolvedValue(locations);
@@ -42,6 +62,9 @@ function setup({ rates = [], bands = [MATUTINO], locations = [OFICINA, VIRTUAL],
   prisma.practiceLocation.findFirst.mockImplementation(async ({ where }) =>
     locations.find((loc) => loc.id === where.id) || null
   );
+  prisma.priceLadder.findFirst.mockResolvedValue(escalera);
+  prisma.priceLadderEnrollment.findUnique.mockResolvedValue(inscripcion);
+  prisma.appointment.count.mockResolvedValue(previas);
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -133,6 +156,7 @@ describe("resolveBookingSelection()", () => {
     expect(res.data).toMatchObject({
       pricePaid: 32000,
       rateId: "virtual",
+      priceTierId: null,
       locationId: VIRTUAL.id,
       modality: "VIRTUAL",
       locationName: "Virtual",
@@ -198,5 +222,63 @@ describe("resolveBookingSelection()", () => {
     });
 
     expect(res.error).toMatch(/precio aprobado/i);
+  });
+});
+
+describe("escalera de precios al agendar", () => {
+  const base = { professionalId: PRO, serviceId: SVC, startsAt: MARTES_9AM };
+
+  it("un paciente nuevo reserva al escalón vigente y la cita guarda el escalón", async () => {
+    setup({ rates: [rate({ id: "general" })], locations: [OFICINA], escalera: ESCALERA, previas: 0 });
+
+    const res = await resolveBookingSelection({ ...base, patientId: "pac_nuevo" });
+
+    expect(res.data).toMatchObject({ pricePaid: 30000, rateId: "general", priceTierId: "t1" });
+  });
+
+  it("quien ya entró en la escalera conserva su precio", async () => {
+    setup({
+      rates: [rate({ id: "general" })],
+      locations: [OFICINA],
+      escalera: { ...ESCALERA, tiers: ESCALERA.tiers.map((t) => ({ ...t, seatsTaken: 10 })) },
+      inscripcion: { price: 30000 },
+      previas: 3,
+    });
+
+    const res = await resolveBookingSelection({ ...base, patientId: "pac_inscripto" });
+
+    expect(res.data).toMatchObject({ pricePaid: 30000, priceTierId: null });
+  });
+
+  it("un paciente que ya se atendía antes paga la tarifa normal", async () => {
+    setup({ rates: [rate({ id: "general" })], locations: [OFICINA], escalera: ESCALERA, previas: 2 });
+
+    const res = await resolveBookingSelection({ ...base, patientId: "pac_antiguo" });
+
+    expect(res.data).toMatchObject({ pricePaid: 40000, priceTierId: null });
+  });
+
+  it("sin sesión se muestra el precio de un paciente nuevo", async () => {
+    setup({ rates: [rate({ id: "general" })], locations: [OFICINA], escalera: ESCALERA });
+
+    const { options } = await getBookingOptions(base);
+
+    expect(options[0]).toMatchObject({ price: 30000, priceTierId: "t1" });
+    expect(prisma.appointment.count).not.toHaveBeenCalled();
+  });
+
+  it("la escalera no cambia las tarifas por lugar", async () => {
+    setup({
+      rates: [
+        rate({ id: "general" }),
+        rate({ id: "virtual", locationId: VIRTUAL.id, approvedPrice: 32000 }),
+      ],
+      escalera: ESCALERA,
+    });
+
+    const { options } = await getBookingOptions({ ...base, patientId: "pac_nuevo" });
+
+    expect(options.find((o) => o.locationId === OFICINA.id)).toMatchObject({ price: 30000, priceTierId: "t1" });
+    expect(options.find((o) => o.locationId === VIRTUAL.id)).toMatchObject({ price: 32000, priceTierId: null });
   });
 });

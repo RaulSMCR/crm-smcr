@@ -6,7 +6,7 @@ import ViewTracker from '@/components/tracking/ViewTracker';
 import { siteUrl } from "@/lib/site-url";
 import { defaultOgImage } from "@/lib/seo";
 import { SafeAvatar } from "@/components/SafeImage";
-import { TARIFA_VIGENTE, rangoDePrecios } from "@/lib/service-pricing";
+import { SELECT_TARIFA_PUBLICA, TARIFA_VIGENTE, rangoDePrecios } from "@/lib/service-pricing";
 import { getManagedHubData } from "@/lib/hub-raul";
 
 export async function generateMetadata({ params }) {
@@ -67,7 +67,7 @@ export default async function AgendarPage({ params, searchParams }) {
         where: { status: 'APPROVED', rates: { some: TARIFA_VIGENTE } },
         orderBy: [{ service: { displayOrder: 'asc' } }, { service: { title: 'asc' } }],
         select: {
-          rates: { where: TARIFA_VIGENTE, select: { approvedPrice: true } },
+          rates: { where: TARIFA_VIGENTE, select: SELECT_TARIFA_PUBLICA },
           service: {
             select: { id: true, title: true, durationMin: true },
           },

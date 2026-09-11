@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { cargarAgendaReservable } from "@/lib/booking-availability";
 import { getSession } from "@/actions/auth-actions";
 import ProfessionalCalendarBooking from "@/components/booking/ProfessionalCalendarBooking";
-import { TARIFA_VIGENTE, rangoDePrecios, etiquetaDeRango } from "@/lib/service-pricing";
+import { SELECT_TARIFA_PUBLICA, TARIFA_VIGENTE, rangoDePrecios, etiquetaDeRango } from "@/lib/service-pricing";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +47,7 @@ export default async function PacienteAgendarPage({ searchParams }) {
         // lugar y la hora que elija el paciente. Acá solo se necesita saber si
         // hay alguna vigente —si no, no hay nada que cobrar— y qué rango
         // anunciarle antes de que elija.
-        rates: { where: TARIFA_VIGENTE, select: { approvedPrice: true } },
+        rates: { where: TARIFA_VIGENTE, select: SELECT_TARIFA_PUBLICA },
       },
     }),
     // Semana tipo, citas tomadas, bloqueos y Google Calendar. Lo ocupado llega

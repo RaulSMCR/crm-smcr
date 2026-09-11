@@ -158,6 +158,8 @@ export async function createAppointmentForPatient({
       serviceId: sid,
       startsAt: start,
       locationId,
+      // Quién reserva decide si le toca un escalón de la escalera de precios.
+      patientId,
     });
     if (selection.error) return { success: false, error: selection.error };
     const booking = selection.data;
@@ -207,6 +209,9 @@ export async function createAppointmentForPatient({
             locationNotes: booking.locationNotes,
             timeBandName: booking.timeBandName,
             isFirstWithProfessional: isFirstWithProfessional && index === 0,
+            // El escalón de la escalera va solo en la primera cita: es la que
+            // paga el adelanto y ocupa el cupo.
+            priceTierId: index === 0 ? (booking.priceTierId ?? null) : null,
           },
           select: { id: true },
         })
@@ -597,6 +602,8 @@ export async function getSlotOptionsForPatient({ professionalId, serviceId, star
       professionalId: String(professionalId),
       serviceId: String(serviceId),
       startsAt: start,
+      // Quién reserva decide si le toca un escalón de la escalera de precios.
+      patientId: String(session.sub),
     });
 
     // La primera cita con un profesional se reserva pagando el 50% por

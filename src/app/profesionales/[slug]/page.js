@@ -8,7 +8,7 @@ import { siteUrl } from "@/lib/site-url";
 import { resolveSeo, buildMetadata } from "@/lib/seo";
 import { tituloDe } from "@/lib/disciplinas";
 import { grafo, ref, nodoMigas, idPersona, ID_ORGANIZACION } from "@/lib/jsonld";
-import { TARIFA_VIGENTE, rangoDePrecios, etiquetaDeRango } from "@/lib/service-pricing";
+import { SELECT_TARIFA_PUBLICA, TARIFA_VIGENTE, rangoDePrecios, etiquetaDeRango } from "@/lib/service-pricing";
 import BotonAgendar from "@/components/profile/BotonAgendar";
 import { SafeAvatar } from "@/components/SafeImage";
 import WhiplashCorner from "@/components/ornaments/WhiplashCorner";
@@ -66,7 +66,7 @@ async function getProfessional(slug) {
         orderBy: [{ service: { displayOrder: "asc" } }, { service: { title: "asc" } }],
         select: {
           service: { select: { id: true, title: true, description: true, durationMin: true } },
-          rates: { where: TARIFA_VIGENTE, select: { approvedPrice: true } },
+          rates: { where: TARIFA_VIGENTE, select: SELECT_TARIFA_PUBLICA },
         },
       },
       posts: {

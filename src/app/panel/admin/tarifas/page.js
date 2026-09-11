@@ -1,10 +1,13 @@
 // src/app/panel/admin/tarifas/page.js
-// Cola de revisión de las tarifas propuestas por los profesionales.
+// Cola de revisión de las tarifas y de las escaleras de precio propuestas por los
+// profesionales.
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { listRatesForReview } from "@/actions/rate-review-actions";
+import { listPriceLaddersForReview } from "@/actions/price-ladder-actions";
 import RateReviewPanel from "@/components/admin/RateReviewPanel";
+import PriceLadderReviewPanel from "@/components/admin/PriceLadderReviewPanel";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -23,7 +26,7 @@ export default async function AdminTarifasPage({ searchParams }) {
   const params = await searchParams;
   const status = TABS.some((tab) => tab.key === params?.status) ? params.status : "PENDING";
 
-  const { data } = await listRatesForReview(status);
+  const [{ data }, escalerasRes] = await Promise.all([listRatesForReview(status), listPriceLaddersForReview()]);
 
   const rates = (data || []).map((rate) => ({
     ...rate,
@@ -61,6 +64,17 @@ export default async function AdminTarifasPage({ searchParams }) {
       </div>
 
       <RateReviewPanel rates={rates} status={status} />
+
+      <section className="space-y-3 border-t border-slate-200 pt-6">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800">Escaleras de precio</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Precios de entrada para pacientes nuevos que suben por escalones a medida que se pagan los
+            adelantos. Solo actúan sobre el precio general de la consulta.
+          </p>
+        </div>
+        <PriceLadderReviewPanel escaleras={escalerasRes?.data || []} />
+      </section>
     </div>
   );
 }

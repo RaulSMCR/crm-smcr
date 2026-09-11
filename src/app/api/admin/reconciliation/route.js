@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth";
 import { createAutoInvoice } from "@/app/api/payment/webhook/route";
 import { reportDepositConversion } from "@/lib/analytics/reportDepositConversion";
 import { sendPurchaseMeta } from "@/lib/analytics/meta-events";
+import { ocuparCupoDeEscalera } from "@/lib/price-ladder-server";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,10 @@ export async function POST(request) {
     prisma.appointment.update({ where: { id: transaction.appointmentId }, data: { paymentStatus: nextPaymentStatus } }),
     prisma.unmatchedPayment.update({ where: { id: unmatched.id }, data: { resolvedAt: new Date(), resolvedTxId: transaction.id } }),
   ]);
+  // Igual que en el webhook: un pago conciliado a mano también ocupa el cupo de
+  // escalera de la cita. Idempotente, así que no importa cuál de los dos llegue
+  // primero.
+  await ocuparCupoDeEscalera(transaction.appointmentId);
   await createAutoInvoice(transaction);
   // Conversión GA4/Ads del adelanto, también desde la conciliación manual.
   // Idempotente vía claim atómico: si el webhook ya la envió, acá no se duplica.

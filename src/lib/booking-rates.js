@@ -4,7 +4,9 @@
 // El paciente elige la modalidad sobre un mismo horario, así que un slot puede
 // tener varias opciones (presencial ₡40.000 / virtual ₡35.000). El precio de cada
 // una sale de la cascada de tarifas (src/lib/rates.js) evaluada con el lugar de
-// esa opción y la franja horaria en la que cae la cita.
+// esa opción y la franja horaria en la que cae la cita. Sobre la tarifa general
+// puede regir además una escalera de precios (src/lib/price-ladder.js), que
+// depende de quién reserva.
 
 import { prisma } from "@/lib/prisma";
 import {
@@ -15,9 +17,16 @@ import {
   resolveTimeBand,
   snapshotLocation,
 } from "@/lib/rates";
-import { TARIFA_VIGENTE } from "@/lib/service-pricing";
+import { ESCALERA_APROBADA, TARIFA_VIGENTE } from "@/lib/service-pricing";
+import { precioConEscalera } from "@/lib/price-ladder";
 
 const TZ = process.env.APP_TIMEZONE || "America/Costa_Rica";
+
+/**
+ * Los mismos estados que CANCELLED_APPOINTMENT_STATUSES de booking-conflicts. Se
+ * repiten para no arrastrar el cliente de Google a este módulo.
+ */
+const CITAS_CANCELADAS = ["CANCELLED_BY_USER", "CANCELLED_BY_PRO"];
 
 /**
  * Lugares que el profesional ofrece en el bloque que contiene esa hora.
@@ -42,20 +51,61 @@ function locationsForSlot({ availability, activeLocations, dayOfWeek, minutes })
 }
 
 /**
+ * Lo que la escalera de precios necesita saber de quien reserva: la escalera
+ * aprobada de la consulta, si el paciente ya entró en ella y si es nuevo con el
+ * profesional. Sin paciente —alguien mirando sin sesión— se lo trata como nuevo,
+ * que es el precio que se le anuncia al público.
+ */
+async function contextoDeEscalera({ professionalId, serviceId, patientId }) {
+  const paciente = patientId ? String(patientId) : null;
+
+  const [escalera, inscripcion, previas] = await Promise.all([
+    prisma.priceLadder.findFirst({
+      where: { professionalId, serviceId, ...ESCALERA_APROBADA.where },
+      select: ESCALERA_APROBADA.select,
+    }),
+    paciente
+      ? prisma.priceLadderEnrollment.findUnique({
+          where: { patientId_professionalId_serviceId: { patientId: paciente, professionalId, serviceId } },
+          select: { price: true },
+        })
+      : null,
+    paciente
+      ? prisma.appointment.count({
+          where: { patientId: paciente, professionalId, status: { notIn: CITAS_CANCELADAS } },
+        })
+      : 0,
+  ]);
+
+  return { escalera, inscripcion, esPacienteNuevo: !paciente || previas === 0 };
+}
+
+/** Precio y trazabilidad de una opción, o su versión no reservable si no hay tarifa. */
+function precioDeOpcion(rate, contexto) {
+  if (!rate) return { price: null, rateId: null, priceTierId: null, bookable: false };
+  const precio = precioConEscalera({ rate, ...contexto });
+  return { price: precio.price, rateId: rate.id, priceTierId: precio.priceTierId, bookable: true };
+}
+
+/**
  * Opciones de modalidad y precio para un horario.
+ *
+ * `patientId` es quien reserva: decide si le toca un escalón de la escalera, el
+ * precio con que ya entró o la tarifa normal. Sin él se muestra el precio de un
+ * paciente nuevo.
  *
  * @returns {Promise<{ options: Array<object>, timeBand: object|null }>}
  *   Cada opción trae `bookable:false` cuando no hay tarifa aprobada que la cubra,
  *   para poder mostrarla deshabilitada en vez de esconderla sin explicación.
  */
-export async function getBookingOptions({ professionalId, serviceId, startsAt }) {
+export async function getBookingOptions({ professionalId, serviceId, startsAt, patientId = null }) {
   if (!professionalId || !serviceId || !startsAt) return { options: [], timeBand: null };
 
   const dayOfWeek = dayOfWeekInZone(startsAt, TZ);
   const minutes = minutesOfDay(startsAt, TZ);
   if (dayOfWeek === null || minutes === null) return { options: [], timeBand: null };
 
-  const [rates, timeBands, activeLocations, availability] = await Promise.all([
+  const [rates, timeBands, activeLocations, availability, contexto] = await Promise.all([
     prisma.professionalRate.findMany({
       // Rige el precio aprobado aunque haya una propuesta nueva en revisión.
       where: { professionalId, serviceId, ...TARIFA_VIGENTE },
@@ -72,6 +122,7 @@ export async function getBookingOptions({ professionalId, serviceId, startsAt })
       where: { professionalId, dayOfWeek },
       include: { locations: { include: { location: true } } },
     }),
+    contextoDeEscalera({ professionalId, serviceId, patientId }),
   ]);
 
   const timeBand = resolveTimeBand(timeBands, minutes);
@@ -91,9 +142,7 @@ export async function getBookingOptions({ professionalId, serviceId, startsAt })
               modality: null,
               address: null,
               instructions: null,
-              price: Number(rate.approvedPrice),
-              rateId: rate.id,
-              bookable: true,
+              ...precioDeOpcion(rate, contexto),
             },
           ]
         : [],
@@ -108,9 +157,7 @@ export async function getBookingOptions({ professionalId, serviceId, startsAt })
       modality: location.modality,
       address: location.modality === "HOME" ? null : location.address,
       instructions: location.instructions,
-      price: rate ? Number(rate.approvedPrice) : null,
-      rateId: rate?.id ?? null,
-      bookable: Boolean(rate),
+      ...precioDeOpcion(rate, contexto),
     };
   });
 
@@ -122,10 +169,13 @@ export async function getBookingOptions({ professionalId, serviceId, startsAt })
  * Se vuelve a resolver el precio en el servidor: lo que el cliente mande como
  * monto es solo informativo y nunca se persiste tal cual.
  *
+ * `priceTierId` viene cargado cuando el precio salió de un escalón de la
+ * escalera: la cita lo guarda para ocupar el cupo cuando se pague.
+ *
  * @returns {Promise<{ error: string }|{ data: object }>}
  */
-export async function resolveBookingSelection({ professionalId, serviceId, startsAt, locationId = null }) {
-  const { options, timeBand } = await getBookingOptions({ professionalId, serviceId, startsAt });
+export async function resolveBookingSelection({ professionalId, serviceId, startsAt, locationId = null, patientId = null }) {
+  const { options, timeBand } = await getBookingOptions({ professionalId, serviceId, startsAt, patientId });
 
   if (options.length === 0) {
     return { error: "Este profesional aún no tiene un precio aprobado para ese horario." };
@@ -158,6 +208,7 @@ export async function resolveBookingSelection({ professionalId, serviceId, start
     data: {
       pricePaid: selected.price,
       rateId: selected.rateId,
+      priceTierId: selected.priceTierId ?? null,
       timeBandName: timeBand?.name ?? null,
       ...snapshotLocation(location),
     },

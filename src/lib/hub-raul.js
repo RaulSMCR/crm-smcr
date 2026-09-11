@@ -3,7 +3,7 @@ import { join } from "node:path";
 import hubData from "../../data/hub-raul.json";
 import crisisData from "../../data/crisis-lines.json";
 import { prisma } from "@/lib/prisma";
-import { TARIFA_VIGENTE, rangoDePrecios } from "@/lib/service-pricing";
+import { SELECT_TARIFA_PUBLICA, TARIFA_VIGENTE, rangoDePrecios } from "@/lib/service-pricing";
 
 export const HUB_PATH = "raul-olmedo-evans";
 export const RAUL_PERSON_ID = "https://saludmentalcostarica.com/profesionales/raul-olmedo#persona";
@@ -253,7 +253,7 @@ export async function getRaulAgenda() {
             rates: { some: TARIFA_VIGENTE },
           },
           orderBy: { service: { displayOrder: "asc" } },
-          select: { serviceId: true, rates: { where: TARIFA_VIGENTE, select: { approvedPrice: true } } },
+          select: { serviceId: true, rates: { where: TARIFA_VIGENTE, select: SELECT_TARIFA_PUBLICA } },
           take: 1,
         },
       },

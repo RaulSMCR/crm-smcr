@@ -5,9 +5,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { listMyRates, listPracticeLocations, listTimeBands } from "@/actions/practice-actions";
+import { listMyPriceLadders } from "@/actions/price-ladder-actions";
 import PracticeLocationsManager from "@/components/professional/PracticeLocationsManager";
 import TimeBandsManager from "@/components/professional/TimeBandsManager";
 import RatesManager from "@/components/professional/RatesManager";
+import PriceLadderManager from "@/components/professional/PriceLadderManager";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -16,10 +18,11 @@ export default async function TarifasPage() {
   const session = await getSession();
   if (!session || session.role !== "PROFESSIONAL") redirect("/ingresar");
 
-  const [locationsRes, bandsRes, ratesRes] = await Promise.all([
+  const [locationsRes, bandsRes, ratesRes, laddersRes] = await Promise.all([
     listPracticeLocations(),
     listTimeBands(),
     listMyRates(),
+    listMyPriceLadders(),
   ]);
 
   const locations = locationsRes?.data || [];
@@ -54,6 +57,10 @@ export default async function TarifasPage() {
         assignments={assignments}
         locations={locations}
         timeBands={timeBands}
+      />
+      <PriceLadderManager
+        escaleras={laddersRes?.data?.escaleras || []}
+        consultas={laddersRes?.data?.consultas || []}
       />
     </div>
   );

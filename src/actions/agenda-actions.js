@@ -302,6 +302,8 @@ export async function createAppointmentByProfessional({
       serviceId: sid,
       startsAt: start,
       locationId,
+      // La escalera de precios se decide por el paciente, aunque agende el profesional.
+      patientId: pid,
     });
     if (seleccion.error) return { success: false, error: seleccion.error };
     const booking = seleccion.data;
@@ -384,6 +386,9 @@ export async function createAppointmentByProfessional({
             locationNotes: booking.locationNotes,
             timeBandName: booking.timeBandName,
             isFirstWithProfessional: isFirstWithProfessional && index === 0,
+            // El escalón de la escalera va solo en la primera cita: es la que
+            // paga el adelanto y ocupa el cupo.
+            priceTierId: index === 0 ? (booking.priceTierId ?? null) : null,
           },
           select: { id: true },
         })
