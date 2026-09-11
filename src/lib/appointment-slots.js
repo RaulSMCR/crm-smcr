@@ -81,8 +81,11 @@ function instanteCR(ymd, minutosDesdeMedianoche) {
  * Ojo: esto solo decide qué se *muestra*. La verificación que impide reservar
  * sobre un rato ocupado vive en `@/lib/booking-conflicts` y corre en el servidor
  * al confirmar.
+ *
+ * `startDay` ('YYYY-MM-DD' tico) corre el comienzo de la ventana. Sin él se
+ * arranca hoy; con él se puede pedir una fecha puntual o la tanda siguiente.
  */
-export function buildSlots({ availability = [], durationMin = 60, booked = [], daysAhead = 14, now = new Date() }) {
+export function buildSlots({ availability = [], durationMin = 60, booked = [], daysAhead = 14, now = new Date(), startDay }) {
   const bookedIntervals = booked.map((item) => ({
     start: new Date(item.startISO).getTime(),
     end: new Date(item.endISO).getTime(),
@@ -96,11 +99,11 @@ export function buildSlots({ availability = [], durationMin = 60, booked = [], d
   }
 
   const days = [];
-  const hoy = diaCR(now);
+  const primerDia = startDay || diaCR(now);
   const ahora = now.getTime();
 
   for (let offset = 0; offset < daysAhead; offset += 1) {
-    const ymd = sumarDias(hoy, offset);
+    const ymd = sumarDias(primerDia, offset);
     const windows = byDayOfWeek.get(diaDeLaSemana(ymd)) || [];
     const slots = [];
 
@@ -127,6 +130,29 @@ export function buildSlots({ availability = [], durationMin = 60, booked = [], d
   }
 
   return days;
+}
+
+/**
+ * Los horarios ofrecibles como texto de pared costarricense:
+ * `[{ date: 'YYYY-MM-DD', slots: ['HH:mm'] }]`.
+ *
+ * Es el formato con el que reserva `requestAppointment`, que recibe fecha y hora
+ * ticas por separado. Existe para que ese camino use el mismo cálculo que el
+ * resto en vez de uno propio.
+ */
+export function buildSlotDaysCR(options) {
+  return buildSlots(options).map(({ day, slots }) => ({
+    date: diaCR(day),
+    slots: slots.map(({ start }) => horaCR(start)),
+  }));
+}
+
+/** La hora de pared tica de un instante, como 'HH:mm'. */
+function horaCR(date) {
+  const { minutes } = crParts(date);
+  const horas = String(Math.floor(minutes / 60)).padStart(2, "0");
+  const minutos = String(minutes % 60).padStart(2, "0");
+  return `${horas}:${minutos}`;
 }
 
 /** La zona horaria del navegador o del servidor que ejecuta. */

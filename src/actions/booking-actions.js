@@ -1,8 +1,10 @@
 'use server'
 
 import { prisma } from "@/lib/prisma";
-import { startOfDay, endOfDay, addMinutes, format, parse, isBefore } from "date-fns";
+import { parse } from "date-fns";
 import { fromZonedTime } from "date-fns-tz";
+import { buildSlotDaysCR, crAddDays, crDay } from "@/lib/appointment-slots";
+import { cargarAgendaReservable } from "@/lib/booking-availability";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
@@ -36,7 +38,9 @@ function describeRecurringConflict(conflict) {
   if (!conflict) return null;
   return {
     label: `Hay un conflicto en ${formatConflictDate(conflict.start)}.`,
-    dateString: format(conflict.start, "yyyy-MM-dd"),
+    // Día de Costa Rica: el servidor corre en UTC y una sesión de la noche caía
+    // en la fecha siguiente.
+    dateString: crDay(conflict.start),
     occurrenceIndex: conflict.index,
   };
 }
@@ -75,68 +79,75 @@ async function notifyAppointments(appointments, reason) {
   );
 }
 
-export async function getAvailableSlots(professionalId, dateString, durationMin = 60) {
+/** Días que se ofrecen por tanda. Tres semanas alcanzan para ver varias consultas de quien atiende una vez por semana. */
+const DIAS_POR_TANDA = 21;
+const YMD = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Los días con horarios libres de un profesional para un servicio, en hora de
+ * Costa Rica: `[{ date: 'YYYY-MM-DD', slots: ['HH:mm'] }]`.
+ *
+ * Reemplaza a `getAvailableSlots`, que pedía los horarios de a un día y los
+ * armaba con fechas locales del servidor. En Vercel eso es UTC: la franja de
+ * las 09:00 se leía como 09:00 UTC y el cruce con las citas tomadas quedaba
+ * corrido seis horas. Tampoco miraba los bloqueos ni el Google Calendar del
+ * profesional, ignoraba la duración del servicio y dejaba al paciente adivinando
+ * qué día había consulta: la página abría en "mañana" y, si ese día no se
+ * atendía, anunciaba que no había horarios.
+ *
+ * Ahora usa el mismo cálculo que el panel del paciente (`buildSlots`) sobre la
+ * misma agenda (`cargarAgendaReservable`). Se calcula acá y no en el navegador
+ * para no mandarle lo ocupado: el paciente solo necesita saber qué está libre.
+ */
+export async function getAvailableDays(professionalId, serviceId, { startDay, daysAhead = DIAS_POR_TANDA } = {}) {
   try {
-    const searchDate = new Date(dateString + "T00:00:00");
-    const dayOfWeek = searchDate.getDay();
-
-    const availability = await prisma.availability.findMany({
-      where: {
-        professionalId,
-        dayOfWeek: dayOfWeek
-      },
-      orderBy: { startTime: 'asc' }
-    });
-
-    if (!availability || availability.length === 0) {
-      return { success: true, slots: [] };
+    const pid = String(professionalId || "");
+    const sid = String(serviceId || "");
+    if (!pid || !sid) {
+      return { success: false, days: [], warnings: [], error: "Faltan datos para buscar horarios." };
     }
 
-    const appointments = await prisma.appointment.findMany({
-      where: {
-        professionalId,
-        status: { notIn: CANCELLED_STATUSES },
-        date: {
-          gte: startOfDay(searchDate),
-          lte: endOfDay(searchDate)
-        }
+    const assignment = await prisma.serviceAssignment.findUnique({
+      where: { professionalId_serviceId: { professionalId: pid, serviceId: sid } },
+      select: {
+        status: true,
+        service: { select: { durationMin: true, isActive: true } },
+        professional: { select: { isApproved: true, user: { select: { isActive: true } } } },
       },
-      select: { date: true, endDate: true }
     });
 
-    let freeSlots = [];
-    const now = new Date();
+    const habilitado =
+      assignment?.status === "APPROVED" &&
+      assignment.service?.isActive &&
+      assignment.professional?.isApproved &&
+      assignment.professional.user?.isActive;
+    if (!habilitado) return { success: true, days: [], warnings: [], nextStartDay: null };
 
-    for (const block of availability) {
-      let currentSlot = parse(`${dateString}T${block.startTime}`, "yyyy-MM-dd'T'HH:mm", new Date());
-      const blockEnd = parse(`${dateString}T${block.endTime}`, "yyyy-MM-dd'T'HH:mm", new Date());
+    const hoy = crDay(new Date());
+    const desde = YMD.test(String(startDay || "")) && startDay > hoy ? startDay : hoy;
+    // Tope a la ventana: cada tanda es una consulta a Google.
+    const dias = Math.min(Math.max(Math.trunc(Number(daysAhead)) || DIAS_POR_TANDA, 1), 60);
+    const hasta = crAddDays(desde, dias);
 
-      while (isBefore(addMinutes(currentSlot, durationMin), addMinutes(blockEnd, 1))) {
-        const slotEnd = addMinutes(currentSlot, durationMin);
+    // Costa Rica no aplica horario de verano: la medianoche tica es siempre -06:00.
+    const { availability, booked, warnings } = await cargarAgendaReservable({
+      professionalId: pid,
+      from: new Date(`${desde}T00:00:00-06:00`),
+      to: new Date(`${hasta}T00:00:00-06:00`),
+    });
 
-        if (isBefore(currentSlot, now)) {
-          currentSlot = slotEnd;
-          continue;
-        }
+    const days = buildSlotDaysCR({
+      availability,
+      durationMin: assignment.service.durationMin || 60,
+      booked,
+      daysAhead: dias,
+      startDay: desde,
+    });
 
-        const isOccupied = appointments.some(app => {
-          return (currentSlot < app.endDate) && (slotEnd > app.date);
-        });
-
-        if (!isOccupied) {
-          freeSlots.push(format(currentSlot, "HH:mm"));
-        }
-
-        currentSlot = slotEnd;
-      }
-    }
-
-    freeSlots = [...new Set(freeSlots)].sort();
-    return { success: true, slots: freeSlots };
-
+    return { success: true, days, warnings, nextStartDay: hasta };
   } catch (error) {
-    console.error("Error calculando slots:", error);
-    return { success: false, error: "Error al calcular disponibilidad." };
+    console.error("Error calculando horarios disponibles:", error);
+    return { success: false, days: [], warnings: [], error: "Error al calcular disponibilidad." };
   }
 }
 

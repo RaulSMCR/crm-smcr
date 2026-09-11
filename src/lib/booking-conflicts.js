@@ -4,7 +4,9 @@ import { fetchBusyForProfessional } from "@/lib/google-busy";
 export const CANCELLED_APPOINTMENT_STATUSES = ["CANCELLED_BY_USER", "CANCELLED_BY_PRO"];
 
 export function formatConflictDate(date) {
-  return new Intl.DateTimeFormat("es-CR", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(date);
+  // En hora de Costa Rica, la de la agenda. Sin zona explícita salía en la del
+  // servidor, que en Vercel es UTC: el aviso de conflicto nombraba otra hora.
+  return new Intl.DateTimeFormat("es-CR", { timeZone: "America/Costa_Rica", weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(date);
 }
 
 export function buildOccurrenceEnds(starts, durationMin) {

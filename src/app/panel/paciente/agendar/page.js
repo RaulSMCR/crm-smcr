@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { listBlocksInWindow, blocksToIntervals } from "@/lib/schedule-blocks";
-import { fetchBusyForProfessional, fetchWarningsForProfessional } from "@/lib/google-busy";
+import { cargarAgendaReservable } from "@/lib/booking-availability";
 import { getSession } from "@/actions/auth-actions";
 import ProfessionalCalendarBooking from "@/components/booking/ProfessionalCalendarBooking";
 import { TARIFA_VIGENTE, rangoDePrecios, etiquetaDeRango } from "@/lib/service-pricing";
@@ -25,7 +24,7 @@ export default async function PacienteAgendarPage({ searchParams }) {
   const blockWindowFrom = new Date();
   const blockWindowTo = new Date(blockWindowFrom.getTime() + 60 * 24 * 60 * 60 * 1000);
 
-  const [service, professional, assignment, availability, appts, blocks] = await Promise.all([
+  const [service, professional, assignment, agenda] = await Promise.all([
     prisma.service.findUnique({
       where: { id: serviceId },
       select: { id: true, slug: true, title: true, durationMin: true, isActive: true },
@@ -51,38 +50,12 @@ export default async function PacienteAgendarPage({ searchParams }) {
         rates: { where: TARIFA_VIGENTE, select: { approvedPrice: true } },
       },
     }),
-    prisma.availability.findMany({
-      where: { professionalId },
-      orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
-    }),
-    prisma.appointment.findMany({
-      where: {
-        professionalId,
-        status: { notIn: ["CANCELLED_BY_USER", "CANCELLED_BY_PRO"] },
-        date: { gte: new Date() },
-      },
-      select: { date: true, endDate: true, gcalEventId: true },
-      orderBy: { date: "asc" },
-    }),
-    listBlocksInWindow({ professionalId, from: blockWindowFrom, to: blockWindowTo }),
+    // Semana tipo, citas tomadas, bloqueos y Google Calendar. Lo ocupado llega
+    // sin títulos: esto se le pasa a un componente de cliente, y el título de un
+    // evento de Google del profesional no puede terminar en el navegador de un
+    // paciente.
+    cargarAgendaReservable({ professionalId, from: blockWindowFrom, to: blockWindowTo }),
   ]);
-
-  // Lo que el profesional ya tenga agendado en su propio Google Calendar.
-  // Vacío si no conectó Google o si Google no responde.
-  const avisos = await fetchWarningsForProfessional({
-    prisma,
-    professionalId,
-    from: blockWindowFrom,
-    to: blockWindowTo,
-  });
-
-  const googleBusy = await fetchBusyForProfessional({
-    prisma,
-    professionalId,
-    from: blockWindowFrom,
-    to: blockWindowTo,
-    excludeEventIds: appts.map((a) => a.gcalEventId),
-  });
 
   if (!service?.isActive) redirect("/servicios");
   if (!professional?.isApproved || !professional.user?.isActive) redirect("/servicios");
@@ -104,19 +77,6 @@ export default async function PacienteAgendarPage({ searchParams }) {
       </div>
     );
   }
-
-  // Citas tomadas y bloqueos van en la misma lista: ambos son ratos que no se
-  // ofrecen. Al paciente nunca se le dice cuál de los dos es.
-  const booked = [
-    ...appts
-      .filter((a) => a?.date && a?.endDate)
-      .map((a) => ({
-        startISO: a.date.toISOString(),
-        endISO: a.endDate.toISOString(),
-      })),
-    ...blocksToIntervals(blocks),
-    ...googleBusy,
-  ];
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-6 md:p-10">
@@ -141,9 +101,9 @@ export default async function PacienteAgendarPage({ searchParams }) {
         professionalImage={professional.user?.image || null}
         professionalSlug={professional.slug || null}
         durationMin={service.durationMin}
-        availability={availability}
-        booked={booked}
-        warnings={avisos}
+        availability={agenda.availability}
+        booked={agenda.booked}
+        warnings={agenda.warnings}
       />
     </div>
   );

@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { getAvailableSlots, getSlotOptions, requestAppointment } from "@/actions/booking-actions";
+import { getAvailableDays, getSlotOptions, requestAppointment } from "@/actions/booking-actions";
+import { CR_TZ, findWarningForRange, formatDayTab } from "@/lib/appointment-slots";
 import { RECURRENCE_RULES } from "@/lib/appointment-recurrence";
 import RecurrenceFields from "@/components/appointments/RecurrenceFields";
 import Toast from "@/components/ui/Toast";
@@ -21,18 +22,27 @@ import { getTopicAttribution } from "@/lib/topic-attribution-client";
 // Formato compartido; este componente muestra "—" cuando no hay monto.
 const formatCRC = (value) => formatCRCBase(value, { vacio: "—" });
 
+/** El instante de una fecha y hora de pared ticas. Costa Rica no tiene horario de verano. */
+function instanteCR(date, time = "12:00") {
+  return new Date(`${date}T${time}:00-06:00`);
+}
 
 export default function BookingInterface({ professionalId, servicePrice, serviceTitle, serviceId, durationMin = 60, professionalName }) {
   const router = useRouter();
   const hasValidPrice = Number.isFinite(Number(servicePrice)) && Number(servicePrice) > 0;
 
-  const [selectedDate, setSelectedDate] = useState(() => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().split("T")[0];
-  });
-  const [slots, setSlots] = useState([]);
-  const [loading, setLoading] = useState(false);
+  // Los días con horarios libres llegan calculados del servidor sobre la agenda
+  // completa del profesional: semana tipo, citas, bloqueos y Google Calendar.
+  // Antes el paciente elegía una fecha a ciegas y la página abría en "mañana";
+  // si ese día no había consulta, anunciaba que no había horarios.
+  const [days, setDays] = useState([]);
+  const [warnings, setWarnings] = useState([]);
+  const [nextStartDay, setNextStartDay] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [moreWasEmpty, setMoreWasEmpty] = useState(false);
+  const [selectedDate, setSelectedDate] = useState("");
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [isBooking, setIsBooking] = useState(false);
   const [recurrenceRule, setRecurrenceRule] = useState(RECURRENCE_RULES.NONE);
@@ -48,32 +58,109 @@ export default function BookingInterface({ professionalId, servicePrice, service
   const [confirmation, setConfirmation] = useState(null);
 
   useEffect(() => {
-    const fetchSlots = async () => {
+    let cancelado = false;
+
+    const fetchDays = async () => {
       setLoading(true);
-      setSlots([]);
+      setLoadError(false);
+      setMoreWasEmpty(false);
       setSelectedSlot(null);
 
-      const result = await getAvailableSlots(professionalId, selectedDate);
-      if (result.success) setSlots(result.slots);
-      setLoading(false);
+      try {
+        const result = await getAvailableDays(professionalId, serviceId);
+        if (cancelado) return;
+
+        if (result?.success) {
+          setDays(result.days);
+          setWarnings(result.warnings || []);
+          setNextStartDay(result.nextStartDay || null);
+          setSelectedDate(result.days[0]?.date || "");
+        } else {
+          setDays([]);
+          setLoadError(true);
+        }
+      } catch {
+        if (!cancelado) {
+          setDays([]);
+          setLoadError(true);
+        }
+      } finally {
+        if (!cancelado) setLoading(false);
+      }
     };
 
-    if (selectedDate) fetchSlots();
-  }, [selectedDate, professionalId]);
+    fetchDays();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [professionalId, serviceId]);
+
+  async function loadMoreDays() {
+    if (!nextStartDay || loadingMore) return;
+    setLoadingMore(true);
+
+    try {
+      const result = await getAvailableDays(professionalId, serviceId, { startDay: nextStartDay });
+      if (result?.success) {
+        setDays((previos) => [...previos, ...result.days]);
+        setWarnings((previas) => [...previas, ...(result.warnings || [])]);
+        setNextStartDay(result.nextStartDay || null);
+        setMoreWasEmpty(result.days.length === 0);
+        if (!selectedDate && result.days[0]) setSelectedDate(result.days[0].date);
+      } else {
+        setToast({ message: result?.error || "No se pudieron cargar más fechas.", type: "error" });
+      }
+    } catch {
+      setToast({ message: "No se pudieron cargar más fechas.", type: "error" });
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   useEffect(() => {
-    if (!conflict) return;
+    if (!conflict) return undefined;
+
+    let cancelado = false;
 
     const fetchConflictSlots = async () => {
       setLoadingConflictSlots(true);
       setAltSlot(null);
-      const result = await getAvailableSlots(professionalId, conflict.dateString);
-      setConflictSlots(result.success ? result.slots : []);
-      setLoadingConflictSlots(false);
+
+      try {
+        const result = await getAvailableDays(professionalId, serviceId, {
+          startDay: conflict.dateString,
+          daysAhead: 1,
+        });
+        if (cancelado) return;
+        const day = result?.success ? result.days.find((item) => item.date === conflict.dateString) : null;
+        setConflictSlots(day?.slots || []);
+      } catch {
+        if (!cancelado) setConflictSlots([]);
+      } finally {
+        if (!cancelado) setLoadingConflictSlots(false);
+      }
     };
 
     fetchConflictSlots();
-  }, [conflict, professionalId]);
+
+    return () => {
+      cancelado = true;
+    };
+  }, [conflict, professionalId, serviceId]);
+
+  const slots = days.find((day) => day.date === selectedDate)?.slots || [];
+
+  // Un feriado no cierra la agenda, pero se avisa antes de confirmar: se reserva
+  // igual y después no se viene.
+  const avisoDelHorario =
+    selectedDate && selectedSlot
+      ? findWarningForRange(
+          warnings,
+          instanteCR(selectedDate, selectedSlot).toISOString(),
+          new Date(instanteCR(selectedDate, selectedSlot).getTime() + durationMin * 60000).toISOString()
+        )
+      : null;
 
   // Modalidades y precio del horario elegido. Sin esto, un profesional con más
   // de un lugar de atención hace fallar la reserva: resolveBookingSelection pide
@@ -272,61 +359,127 @@ export default function BookingInterface({ professionalId, servicePrice, service
 
         <div className="space-y-6 p-6">
           <p className="rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-900">
-            Para solicitar esta cita necesit\u00e1s una cuenta. Al confirmar el horario podr\u00e1s iniciar sesi\u00f3n o registrarte para continuar.
+            Para solicitar esta cita necesitás una cuenta. Al confirmar el horario podrás iniciar sesión o registrarte para continuar.
           </p>
           <div>
-            <label className="mb-2 block text-sm font-medium text-brand-900">1. Elegí el día</label>
-            <input
-              type="date"
-              value={selectedDate}
-              min={new Date().toISOString().split("T")[0]}
-              onChange={(event) => {
-                setSelectedDate(event.target.value);
-                setConflict(null);
-              }}
-              className="w-full rounded-xl border border-neutral-300 bg-neutral-50 p-3 text-neutral-950 outline-none transition-all focus:border-brand-500 focus:ring-2 focus:ring-brand-300"
-            />
-            <p className="mt-2 text-xs capitalize text-neutral-700">
-              {selectedDate &&
-                format(new Date(`${selectedDate}T00:00:00`), "EEEE d 'de' MMMM, yyyy", { locale: es })}
-            </p>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium text-brand-900">2. Horarios disponibles</label>
-            <p className="mb-3 text-xs text-neutral-700">
-              Todos los horarios están expresados en hora de Costa Rica; si está en otro huso
-              horario, téngalo en cuenta.
-            </p>
+            <p className="mb-2 block text-sm font-medium text-brand-900">1. Elegí el día</p>
 
             {loading ? (
               <div className="flex flex-col items-center py-8 text-center text-neutral-700">
                 <span className="mb-2 h-4 w-4 animate-spin rounded-full border-2 border-brand-600 border-t-transparent"></span>
-                Buscando espacios libres...
+                Buscando días con horarios libres...
               </div>
-            ) : slots.length > 0 ? (
-              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
-                {slots.map((time) => (
+            ) : loadError ? (
+              <div className="rounded-xl border border-dashed border-accent-300 bg-neutral-100 py-8 text-center">
+                <p className="text-sm text-accent-900">No pudimos cargar la agenda.</p>
+                <p className="mt-1 text-xs text-neutral-700">Recargue la página para intentar de nuevo.</p>
+              </div>
+            ) : days.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-100 py-8 text-center">
+                <p className="text-sm text-neutral-800">
+                  {moreWasEmpty
+                    ? "Tampoco hay horarios disponibles en las semanas siguientes."
+                    : "No hay horarios disponibles en las próximas tres semanas."}
+                </p>
+                {nextStartDay && (
                   <button
-                    key={time}
-                    onClick={() => setSelectedSlot(time)}
-                    className={`rounded-xl border px-1 py-2 text-sm font-medium transition-all ${
-                      selectedSlot === time
-                        ? "scale-105 border-brand-700 bg-brand-700 text-white shadow-md"
-                        : "border-neutral-300 bg-white text-neutral-950 hover:border-brand-400 hover:bg-brand-50"
-                    }`}
+                    type="button"
+                    onClick={loadMoreDays}
+                    disabled={loadingMore}
+                    className="mt-3 text-sm font-semibold text-brand-800 hover:text-brand-900 hover:underline disabled:opacity-60"
                   >
-                    {time}
+                    {loadingMore ? "Buscando..." : "Buscar en las semanas siguientes"}
                   </button>
-                ))}
+                )}
               </div>
             ) : (
-              <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-100 py-8 text-center">
-                <p className="text-sm text-neutral-800">No hay horarios disponibles.</p>
-                <p className="mt-1 text-xs text-neutral-700">Pruebe seleccionando otro día.</p>
-              </div>
+              <>
+                <div className="flex flex-wrap gap-2">
+                  {days.map((day) => {
+                    const elegido = selectedDate === day.date;
+                    return (
+                      <button
+                        key={day.date}
+                        type="button"
+                        aria-pressed={elegido}
+                        onClick={() => {
+                          setSelectedDate(day.date);
+                          setSelectedSlot(null);
+                          setConflict(null);
+                        }}
+                        className={`rounded-xl border px-3 py-2 text-sm font-medium capitalize transition-all ${
+                          elegido
+                            ? "scale-105 border-brand-700 bg-brand-700 text-white shadow-md"
+                            : "border-neutral-300 bg-white text-neutral-950 hover:border-brand-400 hover:bg-brand-50"
+                        }`}
+                      >
+                        {formatDayTab(instanteCR(day.date), CR_TZ)}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <p className="mt-2 text-xs capitalize text-neutral-700">
+                  {selectedDate &&
+                    format(new Date(`${selectedDate}T00:00:00`), "EEEE d 'de' MMMM, yyyy", { locale: es })}
+                </p>
+
+                {nextStartDay && (
+                  <button
+                    type="button"
+                    onClick={loadMoreDays}
+                    disabled={loadingMore}
+                    className="mt-2 text-sm font-semibold text-brand-800 hover:text-brand-900 hover:underline disabled:opacity-60"
+                  >
+                    {loadingMore ? "Buscando..." : "Ver más fechas"}
+                  </button>
+                )}
+                {moreWasEmpty && (
+                  <p className="mt-1 text-xs text-neutral-700">No hay más horarios en las semanas siguientes.</p>
+                )}
+              </>
             )}
           </div>
+
+          {!loading && days.length > 0 && (
+            <div>
+              <p className="mb-2 block text-sm font-medium text-brand-900">2. Horarios disponibles</p>
+              <p className="mb-3 text-xs text-neutral-700">
+                Todos los horarios están expresados en hora de Costa Rica; si está en otro huso
+                horario, téngalo en cuenta.
+              </p>
+
+              {slots.length > 0 ? (
+                <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+                  {slots.map((time) => (
+                    <button
+                      key={time}
+                      onClick={() => setSelectedSlot(time)}
+                      className={`rounded-xl border px-1 py-2 text-sm font-medium transition-all ${
+                        selectedSlot === time
+                          ? "scale-105 border-brand-700 bg-brand-700 text-white shadow-md"
+                          : "border-neutral-300 bg-white text-neutral-950 hover:border-brand-400 hover:bg-brand-50"
+                      }`}
+                    >
+                      {time}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-100 py-8 text-center">
+                  <p className="text-sm text-neutral-800">Elegí un día para ver sus horarios.</p>
+                </div>
+              )}
+
+              {avisoDelHorario && (
+                <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  <strong className="font-semibold">Ese día es feriado</strong>
+                  {avisoDelHorario.summary ? `: ${avisoDelHorario.summary}.` : "."} Puede agendar igual,
+                  pero confirme con el profesional que va a atender, y asegúrese de poder asistir.
+                </p>
+              )}
+            </div>
+          )}
 
           <div>
             <label className="mb-2 block text-sm font-medium text-brand-900">3. Repetición de la cita</label>
