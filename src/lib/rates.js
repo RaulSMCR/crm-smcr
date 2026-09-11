@@ -72,7 +72,11 @@ export function resolveTimeBand(bands, minutes) {
 
 /**
  * Elige la tarifa aplicable entre las del profesional para ese servicio.
- * Solo considera tarifas aprobadas: una propuesta pendiente no puede cobrarse.
+ *
+ * Solo cuenta el precio APROBADO (`approvedPrice`): un monto propuesto nunca se
+ * cobra. Pero no se mira `status`, que es el de la última propuesta: una fila en
+ * PENDING o REJECTED conserva su precio aprobado anterior, y ese sigue rigiendo.
+ * Es el mismo criterio que `TARIFA_VIGENTE` en service-pricing.js.
  *
  * @param {Array<object>} rates      – tarifas del par (profesional, servicio)
  * @param {{ locationId?: string|null, timeBandId?: string|null }} scope
@@ -80,7 +84,7 @@ export function resolveTimeBand(bands, minutes) {
  */
 export function resolveRate(rates, { locationId = null, timeBandId = null } = {}) {
   const approved = (Array.isArray(rates) ? rates : []).filter(
-    (rate) => rate?.status === "APPROVED" && Number(rate?.approvedPrice) > 0
+    (rate) => Number(rate?.approvedPrice) > 0
   );
   if (approved.length === 0) return null;
 

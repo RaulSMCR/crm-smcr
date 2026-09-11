@@ -15,6 +15,7 @@ import {
   resolveTimeBand,
   snapshotLocation,
 } from "@/lib/rates";
+import { TARIFA_VIGENTE } from "@/lib/service-pricing";
 
 const TZ = process.env.APP_TIMEZONE || "America/Costa_Rica";
 
@@ -56,7 +57,8 @@ export async function getBookingOptions({ professionalId, serviceId, startsAt })
 
   const [rates, timeBands, activeLocations, availability] = await Promise.all([
     prisma.professionalRate.findMany({
-      where: { professionalId, serviceId, status: "APPROVED" },
+      // Rige el precio aprobado aunque haya una propuesta nueva en revisión.
+      where: { professionalId, serviceId, ...TARIFA_VIGENTE },
     }),
     prisma.professionalTimeBand.findMany({
       where: { professionalId },

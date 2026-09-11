@@ -10,6 +10,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { revalidarPreciosPublicos } from "@/lib/revalidar-precios";
 
 function requireAdmin(session) {
   if (!session || session.role !== "ADMIN") {
@@ -21,11 +22,9 @@ function revalidateReview() {
   revalidatePath("/panel/admin/tarifas");
   revalidatePath("/panel/admin/personal");
   revalidatePath("/panel/profesional/perfil");
-  // Aprobar una tarifa es lo que la vuelve pública: mueve el precio de la ficha
-  // del profesional y el rango que muestra el servicio.
-  revalidatePath("/servicios");
-  revalidatePath("/servicios/[slug]", "page");
-  revalidatePath("/profesionales/[slug]", "page");
+  // Aprobar una tarifa es lo que la vuelve pública: mueve el precio en todas las
+  // páginas que lo anuncian, no solo en la ficha y en el servicio.
+  revalidarPreciosPublicos();
 }
 
 const RATE_INCLUDE = {

@@ -44,9 +44,10 @@ async function resolveFallbackPrice(appointment) {
   if (appointment.rateId) {
     const rate = await prisma.professionalRate.findUnique({
       where: { id: appointment.rateId },
-      select: { approvedPrice: true, status: true },
+      select: { approvedPrice: true },
     });
-    if (rate?.status === "APPROVED" && Number(rate.approvedPrice) > 0) {
+    // El precio aprobado rige aunque haya una propuesta nueva en revisión.
+    if (Number(rate?.approvedPrice) > 0) {
       return Number(rate.approvedPrice);
     }
   }

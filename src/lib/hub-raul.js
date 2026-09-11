@@ -3,7 +3,7 @@ import { join } from "node:path";
 import hubData from "../../data/hub-raul.json";
 import crisisData from "../../data/crisis-lines.json";
 import { prisma } from "@/lib/prisma";
-import { TARIFA_VIGENTE } from "@/lib/service-pricing";
+import { TARIFA_VIGENTE, rangoDePrecios } from "@/lib/service-pricing";
 
 export const HUB_PATH = "raul-olmedo-evans";
 export const RAUL_PERSON_ID = "https://saludmentalcostarica.com/profesionales/raul-olmedo#persona";
@@ -52,7 +52,6 @@ function mapManagedHub(row) {
     nombre: row.name,
     url_hub: `/${row.slug}`,
     titulo: row.title || row.name,
-    precio_crc: hubData.precio_crc,
     duracion_min: row.durationMin || hubData.duracion_min,
     modalidad: row.modality || hubData.modalidad,
     url_agenda: hubData.url_agenda,
@@ -151,13 +150,29 @@ export async function hubLastModifiedAsync(path) {
   }
 }
 
-export function formatHubPrice() {
-  const formatted = new Intl.NumberFormat("es-CR").format(hubData.precio_crc).replace(/\u00a0/g, ".");
-  return `₡${formatted}`;
+/** Un monto como lo escribe el hub: '₡30.000', con punto de miles. */
+function montoHub(monto) {
+  return `₡${new Intl.NumberFormat("es-CR").format(monto).replace(/\s/g, ".")}`;
 }
 
-export function buildWaLink(origen = HUB_PATH, source = hubData) {
-  const text = `Hola, quiero agendar una sesión en línea con ${source.nombre} (${source.duracion_min} min, ${formatHubPrice()}). ${origen}`;
+/**
+ * El precio que anuncia el hub, a partir de la tarifa aprobada del profesional.
+ *
+ * Antes salía de `data/hub-raul.json`: un ₡40.000 fijo que no se enteraba de
+ * ningún cambio de tarifa, así que el hub, su página de 15 sesiones y el mensaje
+ * de WhatsApp seguían anunciando el precio viejo. Sin rango —no hay tarifa
+ * vigente o la base no respondió— devuelve vacío: es preferible no anunciar
+ * precio a anunciar uno que no es.
+ */
+export function formatHubPrice(rango) {
+  if (!rango) return "";
+  return rango.min === rango.max ? montoHub(rango.min) : `${montoHub(rango.min)} – ${montoHub(rango.max)}`;
+}
+
+export function buildWaLink(origen = HUB_PATH, source = hubData, rango = null) {
+  const precio = formatHubPrice(rango);
+  const detalle = precio ? `${source.duracion_min} min, ${precio}` : `${source.duracion_min} min`;
+  const text = `Hola, quiero agendar una sesión en línea con ${source.nombre} (${detalle}). ${origen}`;
   return `https://wa.me/${source.whatsapp}?text=${encodeURIComponent(text)}`;
 }
 
@@ -179,7 +194,7 @@ function parseFrontMatterValue(raw) {
 }
 
 export function parseHubMarkdown(source) {
-  const normalized = String(source || "").replace(/^\uFEFF/, "").replace(/\r\n/g, "\n");
+  const normalized = String(source || "").replace(/^﻿/, "").replace(/\r\n/g, "\n");
   const match = normalized.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
   if (!match) return { metadata: {}, body: normalized.trim() };
 
@@ -220,7 +235,12 @@ export function hubLastModified(path) {
   }
 }
 
-export async function getRaulAgendaUrl() {
+/**
+ * A dónde se agenda con Raúl y a qué precio: su primera consulta con tarifa
+ * vigente. El botón y el precio salen de la misma asignación, así que el hub no
+ * puede anunciar el valor de una consulta y mandar a agendar otra.
+ */
+export async function getRaulAgenda() {
   try {
     const profile = await prisma.professionalProfile.findFirst({
       where: { slug: "raul-olmedo", isApproved: true, user: { is: { isActive: true } } },
@@ -233,17 +253,29 @@ export async function getRaulAgendaUrl() {
             rates: { some: TARIFA_VIGENTE },
           },
           orderBy: { service: { displayOrder: "asc" } },
-          select: { serviceId: true },
+          select: { serviceId: true, rates: { where: TARIFA_VIGENTE, select: { approvedPrice: true } } },
           take: 1,
         },
       },
     });
-    const service = profile?.serviceAssignments?.[0];
-    if (profile?.id && service?.serviceId) return `/agendar/${profile.id}?serviceId=${service.serviceId}`;
-  } catch {
-    // El hub sigue siendo navegable aunque la base no esté disponible durante el build.
+    const assignment = profile?.serviceAssignments?.[0];
+    if (profile?.id && assignment?.serviceId) {
+      return {
+        url: `/agendar/${profile.id}?serviceId=${assignment.serviceId}`,
+        rango: rangoDePrecios(assignment.rates),
+      };
+    }
+    console.warn("Hub de Raúl sin consulta agendable con tarifa vigente:", { perfil: Boolean(profile?.id) });
+  } catch (error) {
+    // El hub sigue siendo navegable aunque la base no esté disponible durante el
+    // build, pero sin precio: se registra para que no falle en silencio.
+    console.error("No se pudo leer la agenda del hub de Raúl:", error?.message);
   }
-  return hubData.url_agenda;
+  return { url: hubData.url_agenda, rango: null };
+}
+
+export async function getRaulAgendaUrl() {
+  return (await getRaulAgenda()).url;
 }
 
 export async function getRaulProfile() {

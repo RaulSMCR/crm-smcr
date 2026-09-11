@@ -6,7 +6,7 @@ import MarkdownRenderer from "@/components/MarkdownRenderer";
 import { buildMetadata } from "@/lib/seo";
 import { grafo, nodoMigas, ref } from "@/lib/jsonld";
 import { siteUrl } from "@/lib/site-url";
-import { RAUL_PERSON_ID, formatHubPrice, getManagedHubData, getRaulAgendaUrl, readManagedHubDocument } from "@/lib/hub-raul";
+import { RAUL_PERSON_ID, formatHubPrice, getManagedHubData, getRaulAgenda, readManagedHubDocument } from "@/lib/hub-raul";
 
 export const revalidate = 3600;
 
@@ -27,7 +27,9 @@ export default async function TratamientoBrevePage() {
     getManagedHubData(),
   ]);
   if (!doc || !hub) notFound();
-  const agendaUrl = await getRaulAgendaUrl();
+  const agenda = await getRaulAgenda();
+  const agendaUrl = agenda.url;
+  const precio = formatHubPrice(agenda.rango);
   const agendaEnabled = !hub.herramientas_habilitadas.length || hub.herramientas_habilitadas.includes("agenda");
   const url = siteUrl("raul-olmedo-evans/tratamiento-breve-15-sesiones");
   const schema = grafo(
@@ -40,7 +42,20 @@ export default async function TratamientoBrevePage() {
       provider: ref(RAUL_PERSON_ID),
       serviceType: "Psicoterapia psicodinámica breve",
       areaServed: { "@type": "Country", name: "Costa Rica" },
-      offers: { "@type": "Offer", price: hub.precio_crc, priceCurrency: "CRC", url: siteUrl(agendaUrl) },
+      // El mismo precio que ve el visitante. Sin tarifa vigente no se declara
+      // oferta: un precio en el marcado que no coincide con la página es peor
+      // que ninguno.
+      offers: agenda.rango
+        ? agenda.rango.min === agenda.rango.max
+          ? { "@type": "Offer", price: agenda.rango.min, priceCurrency: "CRC", url: siteUrl(agendaUrl) }
+          : {
+              "@type": "AggregateOffer",
+              lowPrice: agenda.rango.min,
+              highPrice: agenda.rango.max,
+              priceCurrency: "CRC",
+              url: siteUrl(agendaUrl),
+            }
+        : undefined,
     },
     {
       "@type": "Person",
@@ -71,7 +86,7 @@ export default async function TratamientoBrevePage() {
           </article>
           {agendaEnabled ? <aside className="h-fit rounded-nv border border-nv-teal-deep/20 bg-nv-cream-hi p-6 lg:sticky lg:top-28">
             <p className="hub-kicker">Consulta en línea</p>
-            <p className="mt-3 font-display text-3xl text-nv-teal-deep">{formatHubPrice()}</p>
+            <p className="mt-3 font-display text-3xl text-nv-teal-deep">{precio || "Valor al agendar"}</p>
             <p className="mt-1 text-sm text-neutral-700">{hub.duracion_min} minutos · {hub.modalidad}</p>
             <HubTrackedLink href={agendaUrl} eventName="click_15_sesiones_agendar" destination="agenda" className="btn btn-accent mt-6 w-full">Agendar sesión</HubTrackedLink>
             <p className="mt-4 text-xs leading-5 text-neutral-600">La indicación y la continuidad se conversan según tu situación clínica.</p>

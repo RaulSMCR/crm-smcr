@@ -13,6 +13,7 @@ import { prisma } from "@/lib/prisma";
 import { requireProfessionalProfileId } from "@/lib/auth-guards";
 import { getSession, isPreviewSession, PREVIEW_BLOCKED_MESSAGE } from "@/lib/auth";
 import { findTimeBandOverlaps, parseHHMM } from "@/lib/rates";
+import { revalidarPreciosPublicos } from "@/lib/revalidar-precios";
 
 const MODALITIES = ["OFFICE", "HOME", "VIRTUAL"];
 
@@ -21,12 +22,9 @@ function revalidatePractice() {
   revalidatePath("/panel/profesional/horarios");
   revalidatePath("/panel/admin/personal");
   // Desde que el precio público sale de las tarifas, una tarifa que cambia
-  // cambia lo que dice la ficha del profesional y el rango del servicio. Sin
-  // esto el profesional ve su precio nuevo en el panel y el visitante sigue
-  // viendo el viejo.
-  revalidatePath("/servicios");
-  revalidatePath("/servicios/[slug]", "page");
-  revalidatePath("/profesionales/[slug]", "page");
+  // cambia lo que anuncian todas las páginas públicas. Sin esto el profesional
+  // ve su precio nuevo en el panel y el visitante sigue viendo el viejo.
+  revalidarPreciosPublicos();
 }
 
 /** Bloquea escrituras cuando un admin está mirando "como profesional". */

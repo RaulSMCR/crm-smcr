@@ -3,6 +3,8 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
+import { revalidarPreciosPublicos } from "@/lib/revalidar-precios";
+import { TARIFA_VIGENTE } from "@/lib/service-pricing";
 
 function requireAdmin(session) {
   if (!session || session.role !== "ADMIN") {
@@ -321,7 +323,7 @@ async function garantizarTarifaVigente(professionalId, serviceId, precio) {
   if (!Number.isFinite(monto) || monto <= 0) return { creada: false };
 
   const yaTiene = await prisma.professionalRate.count({
-    where: { professionalId, serviceId, status: "APPROVED", approvedPrice: { not: null } },
+    where: { professionalId, serviceId, ...TARIFA_VIGENTE },
   });
   if (yaTiene > 0) return { creada: false };
 
@@ -420,9 +422,9 @@ export async function reviewServiceAssignment(serviceId, professionalId, payload
     revalidatePath("/panel/admin/servicios");
     revalidatePath("/panel/admin/personal");
     revalidatePath("/panel/profesional/perfil");
-    revalidatePath("/servicios");
-    // La ruta pública es /servicios/[slug]; el id ya no es un path válido.
-    revalidatePath('/servicios/[slug]', 'page');
+    // Aprobar la asignación siembra su tarifa: el precio pasa a verse en todas las
+    // páginas públicas que lo anuncian.
+    revalidarPreciosPublicos();
 
     return { success: true };
   } catch (error) {

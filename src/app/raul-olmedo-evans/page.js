@@ -10,7 +10,7 @@ import {
   buildWaLink,
   formatHubPrice,
   getManagedHubData,
-  getRaulAgendaUrl,
+  getRaulAgenda,
   getRaulProfile,
   getRaulWriting,
 } from "@/lib/hub-raul";
@@ -56,9 +56,12 @@ export default async function RaulHubPage() {
   const hub = await getManagedHubData();
   if (!hub) notFound();
   const topics = hub.temas.filter((topic) => topic.publicado);
-  const [agendaUrl, profile, writing] = await Promise.all([getRaulAgendaUrl(), getRaulProfile(), getRaulWriting()]);
+  const [agenda, profile, writing] = await Promise.all([getRaulAgenda(), getRaulProfile(), getRaulWriting()]);
+  const agendaUrl = agenda.url;
+  // El precio sale de la tarifa aprobada, igual que en la ficha y en agendar.
+  const precio = formatHubPrice(agenda.rango);
   const pageUrl = siteUrl("raul-olmedo-evans");
-  const waUrl = buildWaLink("raul-olmedo-evans", hub);
+  const waUrl = buildWaLink("raul-olmedo-evans", hub, agenda.rango);
   const functionEnabled = (key) => !hub.herramientas_habilitadas.length || hub.herramientas_habilitadas.includes(key);
 
   const schema = grafo(
@@ -100,7 +103,7 @@ export default async function RaulHubPage() {
               {functionEnabled("agenda") ? <HubTrackedLink href={agendaUrl} eventName="click_hub_raul_agendar" destination="agenda" className="btn btn-accent">Agendar sesión</HubTrackedLink> : null}
               {functionEnabled("whatsapp") ? <HubTrackedAnchor href={waUrl} target="_blank" rel="noopener noreferrer" eventName="click_hub_raul_whatsapp" destination="whatsapp" className="btn border border-nv-cream-hi/60 bg-transparent text-nv-cream-hi hover:bg-nv-cream-hi hover:text-nv-teal-deep">Escribir por WhatsApp</HubTrackedAnchor> : null}
             </div>
-            <p className="mt-5 text-sm text-nv-teal-pale">Sesión en línea de {hub.duracion_min} minutos · {formatHubPrice()}</p>
+            <p className="mt-5 text-sm text-nv-teal-pale">Sesión en línea de {hub.duracion_min} minutos{precio ? ` · ${precio}` : ""}</p>
           </div>
         </div>
       </section>
@@ -119,7 +122,7 @@ export default async function RaulHubPage() {
               <HubTrackedLink key={topic.slug} href={`/raul-olmedo-evans/${topic.slug}`} eventName="click_hub_raul_tema" destination={topic.slug} className="hub-raul-card group">
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-nv-teal">Tema</p>
                 <h3 className="mt-3 font-display text-3xl font-semibold text-nv-teal-deep group-hover:text-nv-teal">{topic.titulo}</h3>
-                <p className="mt-3 text-sm leading-6 text-neutral-700">{topic.resumen || "P\u00e1gina en preparaci\u00f3n. El contenido se incorporar\u00e1 pr\u00f3ximamente."}</p>
+                <p className="mt-3 text-sm leading-6 text-neutral-700">{topic.resumen || "Página en preparación. El contenido se incorporará próximamente."}</p>
                 <span className="mt-5 inline-flex text-sm font-bold text-nv-teal-deep">Leer sobre {topic.titulo.toLowerCase()} →</span>
               </HubTrackedLink>
             ))}

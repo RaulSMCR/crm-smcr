@@ -109,13 +109,28 @@ describe("resolveRate()", () => {
     expect(resolveRate(rates, { locationId: OFICINA, timeBandId: "band_am" }).id).toBe("catch_all");
   });
 
-  it("ignora tarifas no aprobadas", () => {
+  it("ignora tarifas que nunca tuvieron un precio aprobado", () => {
     const rates = [
       rate({ id: "pendiente", locationId: DOMICILIO, status: "PENDING", approvedPrice: null }),
-      rate({ id: "rechazada", locationId: DOMICILIO, status: "REJECTED", approvedPrice: 99000 }),
+      rate({ id: "rechazada", locationId: DOMICILIO, status: "REJECTED", approvedPrice: null }),
       rate({ id: "catch_all" }),
     ];
     expect(resolveRate(rates, { locationId: DOMICILIO, timeBandId: "band_am" }).id).toBe("catch_all");
+  });
+
+  it("una propuesta en revisión no deja sin precio: sigue rigiendo el aprobado", () => {
+    // Raúl propuso ₡30.000 sobre su tarifa de ₡40.000 y se quedó sin agenda
+    // hasta que un admin revisara. El monto propuesto no se cobra; el aprobado sí.
+    const enRevision = rate({ id: "general", status: "PENDING", approvedPrice: 40000, proposedPrice: 30000 });
+    const found = resolveRate([enRevision], { locationId: OFICINA, timeBandId: "band_am" });
+    expect(found.id).toBe("general");
+    expect(Number(found.approvedPrice)).toBe(40000);
+  });
+
+  it("rechazar una propuesta no borra el precio aprobado anterior", () => {
+    const rechazada = rate({ id: "domicilio", locationId: DOMICILIO, status: "REJECTED", approvedPrice: 55000 });
+    const rates = [rechazada, rate({ id: "catch_all" })];
+    expect(resolveRate(rates, { locationId: DOMICILIO }).id).toBe("domicilio");
   });
 
   it("ignora tarifas aprobadas sin precio útil", () => {
