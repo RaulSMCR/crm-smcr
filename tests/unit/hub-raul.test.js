@@ -3,7 +3,13 @@ import { buildWaLink, getPublishedHubTopics, readHubTheme } from "../../src/lib/
 
 describe("hub de Raúl Olmedo", () => {
   it("publica solo los temas habilitados en el JSON", () => {
-    expect(getPublishedHubTopics().map((topic) => topic.slug)).toEqual(["ataque-de-panico", "duelo"]);
+    expect(getPublishedHubTopics().map((topic) => topic.slug)).toEqual([
+      "ataque-de-panico",
+      "duelo",
+      "estres-laboral-y-burnout",
+      "conflictos-de-pareja",
+      "migracion-y-desarraigo",
+    ]);
   });
 
   it("construye WhatsApp con precio, duración y origen", () => {

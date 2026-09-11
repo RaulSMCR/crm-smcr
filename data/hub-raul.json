@@ -28,8 +28,8 @@
     {
       "slug": "estres-laboral-y-burnout",
       "titulo": "Estrés laboral y burnout",
-      "resumen": "Cuando sostener el trabajo empieza a costar más de lo que se puede nombrar.",
-      "publicado": false
+      "resumen": "",
+      "publicado": true
     },
     {
       "slug": "dependencia-emocional",
@@ -40,14 +40,14 @@
     {
       "slug": "conflictos-de-pareja",
       "titulo": "Conflictos de pareja",
-      "resumen": "Escuchar lo que se repite en una relación y encontrar palabras para abordarlo.",
-      "publicado": false
+      "resumen": "",
+      "publicado": true
     },
     {
       "slug": "migracion-y-desarraigo",
       "titulo": "Migración y desarraigo",
-      "resumen": "El trabajo psíquico de vivir entre lugares, pérdidas y nuevos comienzos.",
-      "publicado": false
+      "resumen": "",
+      "publicado": true
     },
     {
       "slug": "terapia-para-la-ansiedad",
