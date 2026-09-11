@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   db: {
     paymentTransaction: { findFirst: vi.fn(), findMany: vi.fn(), update: vi.fn() },
-    unmatchedPayment: { findUnique: vi.fn(), upsert: vi.fn() },
+    unmatchedPayment: { findUnique: vi.fn(), create: vi.fn() },
     appointment: { update: vi.fn() },
     invoice: { create: vi.fn(), update: vi.fn() },
     invoiceSequence: { upsert: vi.fn() },
@@ -46,7 +46,7 @@ function request(body = event(), secret = SECRET) {
 function transaction() {
   return {
     id: "tx_test", appointmentId: "apt_test", patientId: "patient_test",
-    professionalId: "pro_test", type: "FULL", amount: 40000, currency: "CRC",
+    professionalId: "pro_test", type: "FULL_100", amount: 40000, currency: "CRC",
     onvoPaymentLinkId: "test_link",
     patient: { name: "Persona de prueba", email: EMAIL, hasInsurance: false },
     professional: { academicDegree: "lic", user: { name: "Profesional de prueba" } },
@@ -88,7 +88,7 @@ beforeEach(() => {
   mocks.db.paymentTransaction.findFirst.mockResolvedValue(null);
   mocks.db.unmatchedPayment.findUnique.mockResolvedValue(null);
   mocks.db.paymentTransaction.findMany.mockResolvedValue([]);
-  mocks.db.unmatchedPayment.upsert.mockResolvedValue({ id: "unmatched_test" });
+  mocks.db.unmatchedPayment.create.mockResolvedValue({ id: "unmatched_test" });
   mocks.db.paymentTransaction.update.mockImplementation(async ({ data }) => ({ id: "tx_test", ...data }));
   mocks.db.appointment.update.mockResolvedValue({ id: "apt_test" });
   mocks.db.invoice.create.mockResolvedValue({ id: "invoice_test" });
@@ -138,8 +138,8 @@ describe("Webhook ONVO: autenticación, privacidad y continuidad", () => {
   it("conserva la conciliación autenticada sin difundir la identidad en logs o alertas", async () => {
     const POST = await handler();
     expect((await POST(request())).status).toBe(200);
-    expect(mocks.db.unmatchedPayment.upsert).toHaveBeenCalledWith(expect.objectContaining({
-      create: expect.objectContaining({
+    expect(mocks.db.unmatchedPayment.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
         onvoEventId: "checkout-session.succeeded:checkout_test",
         customerEmail: EMAIL, amount: 4000000, reason: "NO_TRANSACTION",
       }),
@@ -178,11 +178,11 @@ describe("Webhook ONVO: autenticación, privacidad y continuidad", () => {
       where: { id: "apt_test" }, data: { paymentStatus: "PAID" },
     });
     expect(mocks.db.invoice.create).toHaveBeenCalledTimes(1);
-    expect(mocks.db.invoice.update).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mocks.db.invoice.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ status: "PAID", amountPaid: 40000, balance: 0 }),
     }));
     expect(mocks.send).toHaveBeenCalledWith(expect.objectContaining({ to: EMAIL }));
-    expect(mocks.after).toHaveBeenCalledTimes(1);
+    expect(mocks.after).toHaveBeenCalledTimes(2);
     await mocks.after.mock.calls[0][0]();
     expect(mocks.submitInvoice).toHaveBeenCalledWith("invoice_test");
     expectPrivateDataAbsent();
@@ -241,7 +241,7 @@ describe("Webhook ONVO: autenticación, privacidad y continuidad", () => {
 
   it("no confirma un pago no conciliado si no pudo guardar la evidencia", async () => {
     const POST = await handler();
-    mocks.db.unmatchedPayment.upsert.mockRejectedValue(Object.assign(
+    mocks.db.unmatchedPayment.create.mockRejectedValue(Object.assign(
       new Error(EMAIL + MARKER), { code: "P2024" },
     ));
     const response = await POST(request());
@@ -250,5 +250,61 @@ describe("Webhook ONVO: autenticación, privacidad y continuidad", () => {
     expect(mocks.send).not.toHaveBeenCalled();
     expect(mocks.db.appointment.update).not.toHaveBeenCalled();
     expectPrivateDataAbsent();
+  });
+
+  it("no envía confirmaciones ni tareas externas cuando falla la factura", async () => {
+    const POST = await handler();
+    mocks.db.paymentTransaction.findMany.mockResolvedValue([transaction()]);
+    mocks.db.invoice.create.mockRejectedValue(new Error(MARKER));
+    const response = await POST(request());
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ ok: false });
+    expect(mocks.send).not.toHaveBeenCalled();
+    expect(mocks.after).not.toHaveBeenCalled();
+    expectPrivateDataAbsent();
+  });
+
+  it("reintenta un conflicto serializable antes de notificar una sola vez", async () => {
+    const POST = await handler();
+    mocks.db.paymentTransaction.findMany.mockResolvedValue([transaction()]);
+    mocks.db.$transaction.mockRejectedValueOnce(Object.assign(new Error(MARKER), { code: "P2034" }));
+    expect((await POST(request())).status).toBe(200);
+    expect(mocks.db.$transaction).toHaveBeenCalledTimes(2);
+    expect(mocks.send).toHaveBeenCalledTimes(1);
+    expect(mocks.after).toHaveBeenCalledTimes(2);
+    expectPrivateDataAbsent();
+  });
+
+  it("limita los reintentos sin emitir confirmaciones cuando persiste el conflicto", async () => {
+    const POST = await handler();
+    mocks.db.$transaction.mockRejectedValue(Object.assign(new Error(MARKER), { code: "P2034" }));
+    expect((await POST(request())).status).toBe(500);
+    expect(mocks.db.$transaction).toHaveBeenCalledTimes(4);
+    expect(mocks.send).not.toHaveBeenCalled();
+    expect(mocks.after).not.toHaveBeenCalled();
+    expectPrivateDataAbsent();
+  });
+
+  it("el aviso fiscal de un cobro acreditado no afirma que la cita quedó sin cambios", async () => {
+    const POST = await handler();
+    const tx = transaction();
+    tx.appointment.service.cabysCode = null;
+    mocks.db.paymentTransaction.findMany.mockResolvedValue([tx]);
+    expect((await POST(request())).status).toBe(200);
+    const alert = mocks.send.mock.calls.find(([args]) => args.to === "admin@example.invalid")[0];
+    expect(alert.html).toContain("El pago y la factura se registraron");
+    expect(alert.html).not.toContain("No se modificó ninguna cita");
+    expectPrivateDataAbsent(alert.html);
+  });
+
+  it("un adelanto tardío no anuncia un saldo pendiente si la cita ya está pagada", async () => {
+    const POST = await handler();
+    const tx = transaction();
+    tx.type = "DEPOSIT_50";
+    tx.appointment.paymentStatus = "PAID";
+    mocks.db.paymentTransaction.findMany.mockResolvedValue([tx]);
+    expect((await POST(request())).status).toBe(200);
+    expect(mocks.send.mock.calls[0][0].html).toContain("pagada por completo");
+    expect(mocks.send.mock.calls[0][0].html).not.toContain("un segundo enlace");
   });
 });

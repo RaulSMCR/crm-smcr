@@ -1,7 +1,10 @@
 import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { createAutoInvoice } from "@/app/api/payment/webhook/route";
+import { reconcileOnvoPayment } from "@/lib/onvo/process-payment";
+import { sendAdminPaymentAlert } from "@/lib/onvo/payment-alert";
+import { obtenerTipoCambio } from "@/lib/exchange-rate";
+import { logOnvoWebhook } from "@/lib/onvo/observability";
 import { reportDepositConversion } from "@/lib/analytics/reportDepositConversion";
 import { sendPurchaseMeta } from "@/lib/analytics/meta-events";
 
@@ -50,24 +53,30 @@ export async function POST(request) {
   const unmatchedId = String(body.unmatchedId || "");
   const transactionId = String(body.transactionId || "");
   if (!unmatchedId || !transactionId) return NextResponse.json({ message: "Faltan datos." }, { status: 400 });
-  const unmatched = await prisma.unmatchedPayment.findUnique({ where: { id: unmatchedId } });
-  const transaction = await prisma.paymentTransaction.findUnique({ where: { id: transactionId }, include: { patient: true, professional: { include: { user: true } }, appointment: { include: { service: true } } } });
-  if (!unmatched || unmatched.resolvedAt || !transaction) return NextResponse.json({ message: "Pago o transacción no disponibles." }, { status: 404 });
-  const nextPaymentStatus = transaction.type === "DEPOSIT_50" ? "PARTIALLY_PAID" : "PAID";
-  await prisma.$transaction([
-    prisma.paymentTransaction.update({ where: { id: transaction.id }, data: { status: "APPROVED", paidAt: new Date(), statusMessage: "Conciliado manualmente por ADMIN" } }),
-    prisma.appointment.update({ where: { id: transaction.appointmentId }, data: { paymentStatus: nextPaymentStatus } }),
-    prisma.unmatchedPayment.update({ where: { id: unmatched.id }, data: { resolvedAt: new Date(), resolvedTxId: transaction.id } }),
-  ]);
-  await createAutoInvoice(transaction);
-  // Conversión GA4/Ads del adelanto, también desde la conciliación manual.
-  // Idempotente vía claim atómico: si el webhook ya la envió, acá no se duplica.
-  if (transaction.type === "DEPOSIT_50") {
-    await reportDepositConversion(transaction.id).catch((e) =>
-      console.error("[reconciliation] Error reportando conversión GA4:", e)
-    );
-    // Purchase a Meta CAPI (fire-and-forget). Mismo eventId que el webhook.
-    after(() => sendPurchaseMeta(transaction.id));
+  try {
+    const { rate } = await obtenerTipoCambio();
+    const result = await reconcileOnvoPayment(prisma, { unmatchedId, transactionId, usdCrcRate: rate });
+    if (result.kind === "not_found") return NextResponse.json({ message: "Pago o transacción no disponibles." }, { status: 404 });
+    if (result.kind === "conflict") return NextResponse.json({ message: "El cobro ya fue aplicado o sus datos no coinciden con la transacción." }, { status: 409 });
+    if (result.kind === "duplicate") return NextResponse.json({ success: true });
+    if (result.transaction.type === "DEPOSIT_50") {
+      after(() => reportDepositConversion(transactionId).catch((error) =>
+        logOnvoWebhook("error", "DEPOSIT_CONVERSION_FAILED", { transactionId, error })
+      ));
+      after(() => sendPurchaseMeta(transactionId));
+    }
+    if (result.fiscalWarning) {
+      const transaction = result.transaction;
+      await sendAdminPaymentAlert({
+        subject: "Servicio sin CABYS/IVA configurado",
+        reason: "Servicio sin CABYS/IVA configurado: revisar antes de enviar a Hacienda",
+        eventId: transaction.onvoEventId, onvoLinkId: transaction.onvoPaymentLinkId,
+        amount: transaction.amount, currency: transaction.currency, paymentRecorded: true,
+      }).catch((error) => logOnvoWebhook("error", "FISCAL_ALERT_FAILED", { transactionId, error }));
+    }
+    return NextResponse.json({ success: true, fiscalWarning: result.fiscalWarning });
+  } catch (error) {
+    logOnvoWebhook("error", "MANUAL_RECONCILIATION_FAILED", { transactionId, error });
+    return NextResponse.json({ message: "No se pudo completar la conciliación. Inténtelo de nuevo." }, { status: 500 });
   }
-  return NextResponse.json({ success: true });
 }
