@@ -1,6 +1,6 @@
 ---
 titulo: Estrés laboral y burnout
-titulo_seo: Estrés laboral y burnout | Raúl Olmedo
+titulo_seo: Estrés laboral y burnout | Raúl Olmedo Evans
 meta: Página en preparación sobre estrés laboral y burnout.
 resumen: ""
 fecha: 2026-09-10

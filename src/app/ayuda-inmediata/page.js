@@ -22,7 +22,7 @@ export default function AyudaInmediataPage() {
     <main className="bg-surface pb-20">
       <JsonLd data={grafo({ "@type": "WebPage", "@id": url, url, name: "Ayuda inmediata y líneas de apoyo" }, nodoMigas([{ nombre: "Ayuda inmediata", url }]))} />
       <div className="container max-w-4xl py-12 md:py-20">
-        <Link href="/raul-olmedo" className="text-sm font-bold text-nv-teal-deep underline underline-offset-4">← Volver al hub de Raúl</Link>
+        <Link href="/raul-olmedo-evans" className="text-sm font-bold text-nv-teal-deep underline underline-offset-4">← Volver al hub de Raúl Olmedo Evans</Link>
         <p className="hub-kicker mt-10">Apoyo y emergencia</p>
         <h1 className="mt-2 font-display text-5xl font-light text-nv-teal-deep">Ayuda inmediata</h1>
         <p className="mt-5 max-w-2xl text-lg leading-8 text-neutral-700">Esta página reúne recursos para cuando necesitás una respuesta inmediata. No reemplaza la atención de emergencias ni una evaluación profesional.</p>

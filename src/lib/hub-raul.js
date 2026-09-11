@@ -5,7 +5,7 @@ import crisisData from "../../data/crisis-lines.json";
 import { prisma } from "@/lib/prisma";
 import { TARIFA_VIGENTE } from "@/lib/service-pricing";
 
-export const HUB_PATH = "raul-olmedo";
+export const HUB_PATH = "raul-olmedo-evans";
 export const RAUL_PERSON_ID = "https://saludmentalcostarica.com/profesionales/raul-olmedo#persona";
 
 export function getHubData() {
@@ -22,7 +22,7 @@ export function formatHubPrice() {
 }
 
 export function buildWaLink(origen = HUB_PATH) {
-  const text = `Hola, quiero agendar una sesión en línea con Raúl Olmedo (${hubData.duracion_min} min, ${formatHubPrice()}). ${origen}`;
+  const text = `Hola, quiero agendar una sesión en línea con ${hubData.nombre} (${hubData.duracion_min} min, ${formatHubPrice()}). ${origen}`;
   return `https://wa.me/${hubData.whatsapp}?text=${encodeURIComponent(text)}`;
 }
 
@@ -76,7 +76,7 @@ export function readHubTheme(slug) {
 
 export function hubLastModified(path) {
   try {
-    if (path === "raul-olmedo" || path === "raul-olmedo/tratamiento-breve-15-sesiones") {
+    if (path === HUB_PATH || path === `${HUB_PATH}/tratamiento-breve-15-sesiones`) {
       return new Date(hubData.actualizado);
     }
     return statSync(join(process.cwd(), "content", "hub-raul", `${path.split("/").at(-1)}.md`)).mtime;

@@ -1,6 +1,6 @@
 ---
 titulo: Ataque de pánico
-titulo_seo: Terapia para ataques de pánico en línea | Raúl Olmedo
+titulo_seo: Terapia para ataques de pánico en línea | Raúl Olmedo Evans
 meta: Un espacio clínico para comprender los ataques de pánico y trabajar lo que los sostiene, sin prometer una respuesta inmediata.
 resumen: Un ataque de pánico puede sentirse como una amenaza total. Comprender la experiencia permite comenzar a formular qué está ocurriendo.
 fecha: 2026-09-10
@@ -26,4 +26,4 @@ Podés consultar si los episodios se repiten, si empezaste a evitar lugares o ac
 
 ## Para seguir leyendo
 
-El [tratamiento breve de 15 sesiones](/raul-olmedo/tratamiento-breve-15-sesiones) presenta un formato posible de trabajo y sus límites.
+El [tratamiento breve de 15 sesiones](/raul-olmedo-evans/tratamiento-breve-15-sesiones) presenta un formato posible de trabajo y sus límites.

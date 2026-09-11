@@ -20,8 +20,8 @@ const STATIC_PAGES = [
   { url: '/terminos',    priority: 0.6, changeFrequency: 'yearly'  },
   { url: '/privacidad',  priority: 0.6, changeFrequency: 'yearly'  },
   { url: '/cookies',     priority: 0.6, changeFrequency: 'yearly'  },
-  { url: '/raul-olmedo', priority: 0.9, changeFrequency: 'weekly' },
-  { url: '/raul-olmedo/tratamiento-breve-15-sesiones', priority: 0.8, changeFrequency: 'monthly' },
+  { url: '/raul-olmedo-evans', priority: 0.9, changeFrequency: 'weekly' },
+  { url: '/raul-olmedo-evans/tratamiento-breve-15-sesiones', priority: 0.8, changeFrequency: 'monthly' },
   { url: '/ayuda-inmediata', priority: 0.5, changeFrequency: 'yearly' },
 ];
 
@@ -139,8 +139,8 @@ export default async function sitemap() {
   }));
 
   const raulTopicEntries = getPublishedHubTopics().map(({ slug }) => ({
-    url: `${BASE_URL}/raul-olmedo/${slug}`,
-    lastModified: hubLastModified(`raul-olmedo/${slug}`),
+    url: `${BASE_URL}/raul-olmedo-evans/${slug}`,
+    lastModified: hubLastModified(`raul-olmedo-evans/${slug}`),
     changeFrequency: 'monthly',
     priority: 0.8,
   }));

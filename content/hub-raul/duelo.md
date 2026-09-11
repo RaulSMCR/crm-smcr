@@ -1,6 +1,6 @@
 ---
 titulo: Duelo
-titulo_seo: Psicoterapia para atravesar un duelo en línea | Raúl Olmedo
+titulo_seo: Psicoterapia para atravesar un duelo en línea | Raúl Olmedo Evans
 meta: Un espacio para elaborar una pérdida, escuchar sus efectos y encontrar una forma propia de continuar.
 resumen: El duelo no sigue un calendario único. La consulta puede ayudar a darle un lugar a la pérdida y a lo que cambia alrededor de ella.
 fecha: 2026-09-10
@@ -26,4 +26,4 @@ Podés consultar cuando el dolor se vuelve difícil de sostener, cuando sentís 
 
 ## Para seguir leyendo
 
-El [tratamiento breve de 15 sesiones](/raul-olmedo/tratamiento-breve-15-sesiones) explica cómo puede organizarse un marco acotado y cuándo conviene considerar otra modalidad.
+El [tratamiento breve de 15 sesiones](/raul-olmedo-evans/tratamiento-breve-15-sesiones) explica cómo puede organizarse un marco acotado y cuándo conviene considerar otra modalidad.

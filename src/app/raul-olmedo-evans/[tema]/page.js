@@ -22,8 +22,8 @@ export async function generateMetadata({ params }) {
   return buildMetadata({
     title: doc.titulo_seo || doc.titulo,
     description: doc.meta || doc.resumen,
-    path: `raul-olmedo/${tema}`,
-    subtitle: "Raúl Olmedo",
+    path: `raul-olmedo-evans/${tema}`,
+    subtitle: "Raúl Olmedo Evans",
     type: "article",
   });
 }
@@ -35,7 +35,7 @@ export default async function RaulThemePage({ params }) {
   if (!doc) notFound();
   const hub = getHubData();
   const agendaUrl = await getRaulAgendaUrl();
-  const url = siteUrl(`raul-olmedo/${slug}`);
+  const url = siteUrl(`raul-olmedo-evans/${slug}`);
   const schema = grafo(
     {
       "@type": "Article",
@@ -48,11 +48,11 @@ export default async function RaulThemePage({ params }) {
       dateModified: new Date(doc.actualizado || doc.fecha).toISOString(),
       author: ref(RAUL_PERSON_ID),
       reviewedBy: ref(RAUL_PERSON_ID),
-      isPartOf: ref(siteUrl("raul-olmedo")),
+      isPartOf: ref(siteUrl("raul-olmedo-evans")),
     },
     { "@type": "Person", "@id": RAUL_PERSON_ID, name: hub.nombre, url: siteUrl(hub.url_perfil) },
     nodoMigas([
-      { nombre: "Raúl Olmedo", url: siteUrl("raul-olmedo") },
+      { nombre: hub.nombre, url: siteUrl("raul-olmedo-evans") },
       { nombre: doc.titulo, url },
     ]),
   );
@@ -62,7 +62,7 @@ export default async function RaulThemePage({ params }) {
       <JsonLd data={schema} />
       <HubTracker />
       <div className="container max-w-6xl py-12 md:py-20">
-        <HubTrackedLink href="/raul-olmedo" eventName="click_theme_hub" destination="hub" className="text-sm font-bold text-nv-teal-deep underline underline-offset-4">← Volver al hub de Raúl</HubTrackedLink>
+        <HubTrackedLink href="/raul-olmedo-evans" eventName="click_theme_hub" destination="hub" className="text-sm font-bold text-nv-teal-deep underline underline-offset-4">← Volver al hub de Raúl Olmedo Evans</HubTrackedLink>
         <div className="mt-8 grid gap-10 lg:grid-cols-[180px_minmax(0,1fr)_260px]">
           <nav aria-label="Índice de la página" className="hidden h-fit lg:sticky lg:top-28 lg:block">
             <p className="hub-kicker">En esta página</p>
@@ -88,7 +88,7 @@ export default async function RaulThemePage({ params }) {
             <h2 className="mt-2 font-display text-3xl text-nv-teal-deep">Hablarlo en consulta</h2>
             <p className="mt-3 text-sm leading-6 text-neutral-700">La primera conversación permite ubicar qué está ocurriendo y qué tipo de trabajo puede tener sentido.</p>
             <HubTrackedLink href={agendaUrl} eventName="click_theme_agendar" destination={slug} className="btn btn-accent mt-6 w-full">Agendar sesión</HubTrackedLink>
-            <HubTrackedLink href="/raul-olmedo/tratamiento-breve-15-sesiones" eventName="click_theme_15_sesiones" destination="tratamiento-breve-15-sesiones" className="mt-4 block text-center text-sm font-bold text-nv-teal-deep underline underline-offset-4">Ver formato de 15 sesiones</HubTrackedLink>
+            <HubTrackedLink href="/raul-olmedo-evans/tratamiento-breve-15-sesiones" eventName="click_theme_15_sesiones" destination="tratamiento-breve-15-sesiones" className="mt-4 block text-center text-sm font-bold text-nv-teal-deep underline underline-offset-4">Ver formato de 15 sesiones</HubTrackedLink>
           </aside>
         </div>
       </div>

@@ -26,7 +26,7 @@ export function generateMetadata() {
   return buildMetadata({
     title: `${hub.titulo} · ${hub.nombre}`,
     description: "Ansiedad, duelo, estrés, pareja y migración: un espacio clínico para comprender lo que te pasa hoy.",
-    path: "raul-olmedo",
+    path: "raul-olmedo-evans",
     subtitle: hub.titulo,
   });
 }
@@ -55,8 +55,8 @@ export default async function RaulHubPage() {
   const hub = getHubData();
   const topics = getPublishedHubTopics();
   const [agendaUrl, profile, writing] = await Promise.all([getRaulAgendaUrl(), getRaulProfile(), getRaulWriting()]);
-  const pageUrl = siteUrl("raul-olmedo");
-  const waUrl = buildWaLink("raul-olmedo");
+  const pageUrl = siteUrl("raul-olmedo-evans");
+  const waUrl = buildWaLink("raul-olmedo-evans");
 
   const schema = grafo(
     {
@@ -64,7 +64,7 @@ export default async function RaulHubPage() {
       "@id": `${pageUrl}#hub`,
       url: pageUrl,
       name: `${hub.titulo} · ${hub.nombre}`,
-      description: "Hub temático de Raúl Olmedo sobre angustia, duelo y otros motivos de consulta.",
+      description: "Hub temático de Raúl Olmedo Evans sobre angustia, duelo y otros motivos de consulta.",
       inLanguage: "es-CR",
       author: ref(RAUL_PERSON_ID),
       mainEntity: {
@@ -73,12 +73,12 @@ export default async function RaulHubPage() {
           "@type": "ListItem",
           position: index + 1,
           name: topic.titulo,
-          url: siteUrl(`raul-olmedo/${topic.slug}`),
+          url: siteUrl(`raul-olmedo-evans/${topic.slug}`),
         })),
       },
     },
     raulPerson(hub),
-    nodoMigas([{ nombre: "Raúl Olmedo", url: pageUrl }]),
+    nodoMigas([{ nombre: hub.nombre, url: pageUrl }]),
   );
 
   return (
@@ -90,7 +90,7 @@ export default async function RaulHubPage() {
         <div className="container grid items-center gap-10 py-14 md:grid-cols-[minmax(230px,0.7fr)_minmax(0,1.3fr)] md:py-20">
           <MonsteraArt />
           <div className="max-w-3xl">
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-nv-teal-pale">Raúl Olmedo</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-nv-teal-pale">{hub.nombre}</p>
             <h1 className="mt-3 font-display text-5xl font-light leading-[0.95] text-nv-cream-hi sm:text-6xl md:text-7xl">{hub.titulo}</h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-nv-cream-hi/85">Ansiedad, duelo, estrés, pareja y migración: qué son, cómo se trabajan y cuándo consultar.</p>
             <div className="mt-8 flex flex-wrap gap-3">
@@ -113,7 +113,7 @@ export default async function RaulHubPage() {
           </div>
           <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {topics.map((topic) => (
-              <HubTrackedLink key={topic.slug} href={`/raul-olmedo/${topic.slug}`} eventName="click_hub_raul_tema" destination={topic.slug} className="hub-raul-card group">
+              <HubTrackedLink key={topic.slug} href={`/raul-olmedo-evans/${topic.slug}`} eventName="click_hub_raul_tema" destination={topic.slug} className="hub-raul-card group">
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-nv-teal">Tema</p>
                 <h3 className="mt-3 font-display text-3xl font-semibold text-nv-teal-deep group-hover:text-nv-teal">{topic.titulo}</h3>
                 <p className="mt-3 text-sm leading-6 text-neutral-700">{topic.resumen}</p>
@@ -130,7 +130,7 @@ export default async function RaulHubPage() {
           </div>
           <div className="max-w-xl">
             <p className="leading-7 text-nv-cream-hi/85">Una propuesta acotada para angustia y duelo: qué dice la investigación, cómo se organiza y cuándo puede no alcanzar.</p>
-            <HubTrackedLink href="/raul-olmedo/tratamiento-breve-15-sesiones" eventName="click_hub_raul_15_sesiones" destination="tratamiento-breve-15-sesiones" className="mt-6 inline-flex font-bold text-nv-cream-hi underline decoration-nv-coral underline-offset-4 hover:text-white">Leer el formato de 15 sesiones →</HubTrackedLink>
+            <HubTrackedLink href="/raul-olmedo-evans/tratamiento-breve-15-sesiones" eventName="click_hub_raul_15_sesiones" destination="tratamiento-breve-15-sesiones" className="mt-6 inline-flex font-bold text-nv-cream-hi underline decoration-nv-coral underline-offset-4 hover:text-white">Leer el formato de 15 sesiones →</HubTrackedLink>
           </div>
         </section>
 
@@ -160,11 +160,11 @@ export default async function RaulHubPage() {
 
         <section className="grid gap-8 rounded-nv border border-nv-teal-deep/20 bg-nv-cream-hi p-7 md:grid-cols-[180px_1fr] md:p-10" aria-labelledby="hub-quien-escribe">
           <div className="flex h-40 w-40 items-center justify-center overflow-hidden rounded-full bg-nv-teal-deep text-6xl font-display text-nv-cream-hi">
-            {profile?.user?.image ? <SafeAvatar src={profile.user.image} name="Raúl Olmedo" alt="" className="h-full w-full object-cover" /> : "R"}
+            {profile?.user?.image ? <SafeAvatar src={profile.user.image} name={hub.nombre} alt="" className="h-full w-full object-cover" /> : "R"}
           </div>
           <div>
             <p className="hub-kicker">Quién escribe</p>
-            <h2 id="hub-quien-escribe" className="hub-heading">Raúl Olmedo</h2>
+            <h2 id="hub-quien-escribe" className="hub-heading">{hub.nombre}</h2>
             <p className="mt-2 font-semibold text-nv-teal-deep">Psicólogo clínico y psicoanalista · CPPCR 8270 · UBA · desde 2007</p>
             <p className="mt-4 max-w-2xl leading-7 text-neutral-700">{profile?.profileReview || profile?.bio || "Un espacio de escucha clínica para poner en palabras lo que está ocurriendo."}</p>
             <Link href={hub.url_perfil} className="mt-5 inline-flex font-bold text-nv-teal-deep underline underline-offset-4">Ver perfil profesional →</Link>

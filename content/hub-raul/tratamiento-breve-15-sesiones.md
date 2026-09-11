@@ -1,6 +1,6 @@
 ---
 titulo: Tratamiento breve de 15 sesiones
-titulo_seo: Tratamiento breve de 15 sesiones en línea | Raúl Olmedo
+titulo_seo: Tratamiento breve de 15 sesiones en línea | Raúl Olmedo Evans
 meta: Un formato de trabajo acotado para explorar angustia y duelo, con revisión clínica de sus alcances y límites.
 ---
 

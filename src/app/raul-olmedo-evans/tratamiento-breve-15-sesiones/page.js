@@ -15,8 +15,8 @@ export function generateMetadata() {
   return buildMetadata({
     title: doc?.titulo_seo || doc?.titulo || "Tratamiento breve de 15 sesiones",
     description: doc?.meta || "Un formato de trabajo acotado para explorar angustia y duelo.",
-    path: "raul-olmedo/tratamiento-breve-15-sesiones",
-    subtitle: "Raúl Olmedo",
+    path: "raul-olmedo-evans/tratamiento-breve-15-sesiones",
+    subtitle: "Raúl Olmedo Evans",
   });
 }
 
@@ -25,7 +25,7 @@ export default async function TratamientoBrevePage() {
   if (!doc) notFound();
   const hub = getHubData();
   const agendaUrl = await getRaulAgendaUrl();
-  const url = siteUrl("raul-olmedo/tratamiento-breve-15-sesiones");
+  const url = siteUrl("raul-olmedo-evans/tratamiento-breve-15-sesiones");
   const schema = grafo(
     {
       "@type": "Service",
@@ -45,7 +45,7 @@ export default async function TratamientoBrevePage() {
       url: siteUrl(hub.url_perfil),
     },
     nodoMigas([
-      { nombre: "Raúl Olmedo", url: siteUrl("raul-olmedo") },
+      { nombre: hub.nombre, url: siteUrl("raul-olmedo-evans") },
       { nombre: doc.titulo, url },
     ]),
   );
@@ -55,7 +55,7 @@ export default async function TratamientoBrevePage() {
       <JsonLd data={schema} />
       <HubTracker />
       <div className="container max-w-5xl py-12 md:py-20">
-        <HubTrackedLink href="/raul-olmedo" eventName="click_15_sesiones_hub" destination="hub" className="text-sm font-bold text-nv-teal-deep underline underline-offset-4">← Volver al hub de Raúl</HubTrackedLink>
+        <HubTrackedLink href="/raul-olmedo-evans" eventName="click_15_sesiones_hub" destination="hub" className="text-sm font-bold text-nv-teal-deep underline underline-offset-4">← Volver al hub de Raúl Olmedo Evans</HubTrackedLink>
         <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_280px]">
           <article>
             <p className="hub-kicker">Formato clínico</p>

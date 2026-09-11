@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildWaLink, getPublishedHubTopics, readHubTheme } from "../../src/lib/hub-raul.js";
 
-describe("hub de Raúl Olmedo", () => {
+describe("hub de Raúl Olmedo Evans", () => {
   it("publica solo los temas habilitados en el JSON", () => {
     expect(getPublishedHubTopics().map((topic) => topic.slug)).toEqual([
       "ataque-de-panico",

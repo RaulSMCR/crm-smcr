@@ -1,6 +1,6 @@
 ---
 titulo: Migración y desarraigo
-titulo_seo: Migración y desarraigo | Raúl Olmedo
+titulo_seo: Migración y desarraigo | Raúl Olmedo Evans
 meta: Página en preparación sobre migración y desarraigo.
 resumen: ""
 fecha: 2026-09-10
