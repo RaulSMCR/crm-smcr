@@ -50,6 +50,9 @@ function isIdentificationValid(v) {
  *    - si deselecciona => delete assignment
  *    - si está APPROVED y cambia el precio => se propone en su tarifa general;
  *      la consulta sigue publicada al precio vigente hasta que un admin apruebe
+ *
+ * Devuelve `cambios`: la lista de lo que el guardado hizo con cada consulta, para
+ * que el profesional sepa qué quedó en revisión y qué ya se aplicó.
  */
 export async function updateProfile(formData) {
   try {
@@ -140,7 +143,7 @@ export async function updateProfile(formData) {
       }),
       prisma.service.findMany({
         where: { id: { in: requestedServiceIds }, isActive: true },
-        select: { id: true, price: true },
+        select: { id: true, price: true, title: true },
       }),
     ]);
 
@@ -148,6 +151,7 @@ export async function updateProfile(formData) {
 
     const selectedIds = new Set(validServices.map((s) => s.id));
     const catalogPriceById = new Map(validServices.map((s) => [s.id, Number(s.price)]));
+    const tituloPorServicio = new Map(validServices.map((s) => [s.id, s.title || "Consulta"]));
 
     // Una sola regla: hay algo que revisar cuando el texto que el profesional
     // tiene en el editor NO es el que está publicado.
@@ -172,7 +176,13 @@ export async function updateProfile(formData) {
     const [currentAssignments, tarifasGenerales] = await Promise.all([
       prisma.serviceAssignment.findMany({
         where: { professionalId: professionalProfileId },
-        select: { serviceId: true, status: true, proposedSessionPrice: true, approvedSessionPrice: true },
+        select: {
+          serviceId: true,
+          status: true,
+          proposedSessionPrice: true,
+          approvedSessionPrice: true,
+          service: { select: { title: true } },
+        },
       }),
       prisma.professionalRate.findMany({
         where: { professionalId: professionalProfileId, locationId: null, timeBandId: null },
@@ -183,6 +193,7 @@ export async function updateProfile(formData) {
     const catchAllByService = new Map(tarifasGenerales.map((rate) => [rate.serviceId, rate]));
 
     const tx = [];
+    const cambios = [];
     let tarifasEnRevision = 0;
     let preciosPublicosCambiados = false;
 
@@ -244,6 +255,7 @@ export async function updateProfile(formData) {
           })
         );
         preciosPublicosCambiados = true;
+        cambios.push({ tipo: "CONSULTA_QUITADA", servicio: a.service?.title || "Consulta" });
       }
     }
 
@@ -252,6 +264,7 @@ export async function updateProfile(formData) {
       const existingAssignment = currentMap.get(serviceId);
       const existingStatus = existingAssignment?.status;
       const nextProposedPrice = proposedPricesByService.get(serviceId) ?? null;
+      const servicio = tituloPorServicio.get(serviceId) || "Consulta";
 
       if (!existingStatus) {
         // Nuevo => PENDING
@@ -269,6 +282,7 @@ export async function updateProfile(formData) {
             },
           })
         );
+        cambios.push({ tipo: "CONSULTA_SOLICITADA", servicio });
         continue;
       }
 
@@ -289,6 +303,7 @@ export async function updateProfile(formData) {
             },
           })
         );
+        cambios.push({ tipo: "CONSULTA_SOLICITADA", servicio });
         continue;
       }
 
@@ -370,8 +385,18 @@ export async function updateProfile(formData) {
           })
         );
 
-        if (sinDecisionNueva) preciosPublicosCambiados = true;
-        else tarifasEnRevision += 1;
+        if (sinDecisionNueva) {
+          preciosPublicosCambiados = true;
+          cambios.push({ tipo: "PRECIO_APLICADO", servicio, precio: nextProposedPrice });
+        } else {
+          tarifasEnRevision += 1;
+          cambios.push({
+            tipo: "PRECIO_EN_REVISION",
+            servicio,
+            propuesto: nextProposedPrice,
+            vigente: Number.isFinite(aprobado) && aprobado > 0 ? aprobado : null,
+          });
+        }
       }
 
     }
@@ -402,6 +427,7 @@ export async function updateProfile(formData) {
       // leía como que la reseña no se actualizaba.
       profileReviewSinCambios: resenaSinCambios,
       tarifasEnRevision,
+      cambios,
     };
   } catch (error) {
     console.error("Error updating profile:", error);

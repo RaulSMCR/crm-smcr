@@ -40,13 +40,16 @@ import { deleteRate } from "@/actions/practice-actions";
 
 const PRO = "pro1";
 const SVC = "svc1";
+const TITULO = "Psicoterapia psicoanalítica (adultos)";
 
-function formulario({ precio }) {
+function formulario({ precio, servicios = [SVC] }) {
   const fd = new FormData();
   fd.append("name", "Profesional de prueba");
   fd.append("specialty", "Psicología clínica");
-  fd.append("serviceIds", SVC);
-  fd.append("proposedPrice", `${SVC}:${precio}`);
+  for (const id of servicios) {
+    fd.append("serviceIds", id);
+    fd.append("proposedPrice", `${id}:${precio}`);
+  }
   return fd;
 }
 
@@ -62,10 +65,10 @@ function escenario({
     profileReviewDraft: null,
     profileReviewStatus: "EMPTY",
   });
-  prisma.service.findMany.mockResolvedValue([{ id: SVC, price: catalogo }]);
+  prisma.service.findMany.mockResolvedValue([{ id: SVC, price: catalogo, title: TITULO }]);
   prisma.serviceAssignment.findMany.mockResolvedValue(
     asignacion
-      ? [{ serviceId: SVC, status: asignacion, proposedSessionPrice: 40000, approvedSessionPrice: 40000 }]
+      ? [{ serviceId: SVC, status: asignacion, proposedSessionPrice: 40000, approvedSessionPrice: 40000, service: { title: TITULO } }]
       : []
   );
   prisma.professionalRate.findMany.mockResolvedValue(tarifa ? [{ id: "general", serviceId: SVC, ...tarifa }] : []);
@@ -94,12 +97,23 @@ describe("updateProfile(): precio de una consulta aprobada", () => {
     expect(tarifa.args.data).not.toHaveProperty("approvedPrice");
   });
 
-  it("guardar el perfil con el mismo precio no genera ninguna propuesta", async () => {
+  it("le dice al profesional qué quedó en revisión y qué precio sigue rigiendo", async () => {
     escenario();
 
-    await updateProfile(formulario({ precio: 40000 }));
+    const res = await updateProfile(formulario({ precio: 30000 }));
+
+    expect(res.cambios).toEqual([
+      { tipo: "PRECIO_EN_REVISION", servicio: TITULO, propuesto: 30000, vigente: 40000 },
+    ]);
+  });
+
+  it("guardar el perfil con el mismo precio no genera ninguna propuesta ni aviso de precio", async () => {
+    escenario();
+
+    const res = await updateProfile(formulario({ precio: 40000 }));
 
     expect(operaciones().some((o) => o.op.startsWith("rate."))).toBe(false);
+    expect(res.cambios).toEqual([]);
   });
 
   it("volver al precio de catálogo se aprueba solo, igual que en Tarifas", async () => {
@@ -110,15 +124,28 @@ describe("updateProfile(): precio de una consulta aprobada", () => {
     const tarifa = operaciones().find((o) => o.op === "rate.update");
     expect(tarifa.args.data).toMatchObject({ status: "APPROVED", approvedPrice: 40000 });
     expect(res.tarifasEnRevision).toBe(0);
+    expect(res.cambios).toEqual([{ tipo: "PRECIO_APLICADO", servicio: TITULO, precio: 40000 }]);
   });
 
   it("una consulta nueva sí espera la aprobación de la asignación", async () => {
     escenario({ asignacion: null });
 
-    await updateProfile(formulario({ precio: 30000 }));
+    const res = await updateProfile(formulario({ precio: 30000 }));
 
     const alta = operaciones().find((o) => o.op === "assignment.create");
     expect(alta.args.data).toMatchObject({ status: "PENDING", proposedSessionPrice: 30000 });
+    expect(res.cambios).toEqual([{ tipo: "CONSULTA_SOLICITADA", servicio: TITULO }]);
+  });
+
+  it("avisa cuando se deja de ofrecer una consulta", async () => {
+    escenario();
+    // Sin servicios seleccionados, la búsqueda de servicios válidos vuelve vacía.
+    prisma.service.findMany.mockResolvedValue([]);
+
+    const res = await updateProfile(formulario({ precio: 30000, servicios: [] }));
+
+    expect(operaciones().some((o) => o.op === "assignment.delete")).toBe(true);
+    expect(res.cambios).toEqual([{ tipo: "CONSULTA_QUITADA", servicio: TITULO }]);
   });
 });
 

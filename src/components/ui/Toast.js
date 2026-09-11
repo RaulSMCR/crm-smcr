@@ -2,12 +2,12 @@
 
 import { useEffect } from "react";
 
-export default function Toast({ message, type = "success", onDismiss }) {
+export default function Toast({ message, type = "success", onDismiss, duration = 3500 }) {
   useEffect(() => {
     if (!message) return;
-    const timeoutId = setTimeout(onDismiss, 3500);
+    const timeoutId = setTimeout(onDismiss, duration);
     return () => clearTimeout(timeoutId);
-  }, [message, onDismiss]);
+  }, [message, onDismiss, duration]);
 
   if (!message) return null;
 

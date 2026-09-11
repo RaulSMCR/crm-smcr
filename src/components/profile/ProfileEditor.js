@@ -145,9 +145,48 @@ export default function ProfileEditor({ profile, allServices = [] }) {
     setAvatarFile(file);
   };
 
+  // Qué se hizo al guardar y qué esperar después. Queda a la vista junto al botón:
+  // un aviso que desaparece en segundos no alcanza para explicar que un precio
+  // quedó en revisión y cuál sigue rigiendo mientras tanto.
+  const [resultado, setResultado] = useState(null);
+
+  const resumenDeCambios = (result) => {
+    const lineas = [];
+    for (const cambio of result?.cambios || []) {
+      if (cambio.tipo === "PRECIO_EN_REVISION") {
+        lineas.push(
+          `${cambio.servicio}: el precio de ${formatCRC(cambio.propuesto)} quedó en revisión.` +
+            (cambio.vigente ? ` Mientras tanto se sigue publicando y cobrando ${formatCRC(cambio.vigente)}.` : "") +
+            " Cuando administración lo apruebe se aplica en tu ficha, tu hub y la agenda; las citas ya reservadas conservan su precio."
+        );
+      } else if (cambio.tipo === "PRECIO_APLICADO") {
+        lineas.push(`${cambio.servicio}: el precio queda en ${formatCRC(cambio.precio)} y ya se ve en tu ficha y en la agenda.`);
+      } else if (cambio.tipo === "CONSULTA_SOLICITADA") {
+        lineas.push(`${cambio.servicio}: solicitud enviada. No se publica ni se puede agendar hasta que administración la apruebe.`);
+      } else if (cambio.tipo === "CONSULTA_QUITADA") {
+        lineas.push(`${cambio.servicio}: dejaste de ofrecer esta consulta y ya no se puede agendar.`);
+      }
+    }
+    if (result?.profileReviewPending) {
+      lineas.push("Reseña enviada a revisión. Tu página pública sigue mostrando la versión aprobada hasta que se apruebe la nueva.");
+    } else if (result?.profileReviewSinCambios) {
+      lineas.push("La reseña es igual a la publicada, así que no se envió a revisión.");
+    }
+    return lineas;
+  };
+
+  const mostrarResultado = (nuevo) => {
+    setResultado(nuevo);
+    // El botón queda al final de un formulario largo: se trae el detalle a la vista.
+    setTimeout(() => {
+      document.getElementById("resultado-guardado")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 50);
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setLoading(true);
+    setResultado(null);
 
     try {
       let publicUrl = null;
@@ -192,26 +231,25 @@ export default function ProfileEditor({ profile, allServices = [] }) {
       const result = await updateProfile(formData);
 
       if (result?.success) {
-        // Sin este aviso, un precio en revisión se lee como un precio que no se guardó.
-        const avisoTarifa = result.tarifasEnRevision
-          ? " El precio nuevo quedó en revisión; mientras tanto sigue rigiendo el vigente."
-          : "";
+        const lineas = resumenDeCambios(result);
+        mostrarResultado({ tipo: "ok", titulo: "Cambios guardados.", lineas });
         setToast({
-          message:
-            (result.profileReviewPending
-              ? "Perfil guardado. La reseña pública quedó en revisión administrativa."
-              : result.profileReviewSinCambios
-                ? "Perfil guardado. La reseña es idéntica a la publicada, así que no se envió a revisión."
-                : "Perfil guardado correctamente.") + avisoTarifa,
+          message: lineas.length
+            ? "Cambios guardados. El detalle quedó junto al botón Guardar cambios."
+            : "Cambios guardados.",
           type: "success",
         });
         router.refresh();
       } else {
-        setToast({ message: result?.error || "No se pudo guardar.", type: "error" });
+        const mensaje = result?.error || "No se pudo guardar.";
+        mostrarResultado({ tipo: "error", titulo: "No se guardaron los cambios.", lineas: [mensaje] });
+        setToast({ message: mensaje, type: "error" });
       }
     } catch (error) {
       console.error(error);
-      setToast({ message: "Ocurrió un error inesperado.", type: "error" });
+      const mensaje = error?.message || "Ocurrió un error inesperado. Probá de nuevo.";
+      mostrarResultado({ tipo: "error", titulo: "No se guardaron los cambios.", lineas: [mensaje] });
+      setToast({ message: "No se guardaron los cambios.", type: "error" });
     } finally {
       setLoading(false);
     }
@@ -533,6 +571,37 @@ export default function ProfileEditor({ profile, allServices = [] }) {
           )}
         </div>
 
+        {resultado && (
+          <div
+            id="resultado-guardado"
+            role="status"
+            aria-live="polite"
+            className={`rounded-2xl border p-4 text-sm ${
+              resultado.tipo === "error"
+                ? "border-accent-300 bg-accent-50 text-accent-900"
+                : "border-brand-200 bg-brand-50 text-brand-900"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <p className="font-semibold">{resultado.titulo}</p>
+              <button
+                type="button"
+                onClick={() => setResultado(null)}
+                className="text-xs font-semibold underline"
+              >
+                Cerrar
+              </button>
+            </div>
+            {resultado.lineas.length > 0 && (
+              <ul className="mt-2 list-disc space-y-1 pl-5">
+                {resultado.lineas.map((linea, indice) => (
+                  <li key={`${indice}-${linea}`}>{linea}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center justify-end gap-3">
           <button
             type="submit"
@@ -546,7 +615,7 @@ export default function ProfileEditor({ profile, allServices = [] }) {
 
       <ChangePasswordCard />
 
-      <Toast message={toast?.message} type={toast?.type} onDismiss={dismissToast} />
+      <Toast message={toast?.message} type={toast?.type} onDismiss={dismissToast} duration={6000} />
     </div>
   );
 }
