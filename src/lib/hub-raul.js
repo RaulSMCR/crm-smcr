@@ -16,6 +16,136 @@ export function getPublishedHubTopics() {
   return hubData.temas.filter((tema) => tema.publicado);
 }
 
+const PUBLIC_HUB_INCLUDE = {
+  professional: {
+    select: {
+      slug: true,
+      licenseNumber: true,
+      licensingBody: true,
+      licenseVerificationUrl: true,
+    },
+  },
+  modules: {
+    where: { isVisible: true, isPublished: true },
+    orderBy: { position: "asc" },
+  },
+};
+
+function mapManagedHub(row) {
+  if (!row) return null;
+
+  const modules = row.modules || [];
+  const topics = modules
+    .filter((module) => module.type === "TOPIC")
+    .map((module) => ({
+      slug: module.slug,
+      titulo: module.title,
+      resumen: module.summary || "",
+      publicado: module.isPublished,
+      body: module.body || "",
+      ...module.metadata,
+    }));
+  const treatment = modules.find((module) => module.type === "TREATMENT" || module.slug === "tratamiento-breve-15-sesiones");
+  const profile = row.professional;
+
+  return {
+    nombre: row.name,
+    url_hub: `/${row.slug}`,
+    titulo: row.title || row.name,
+    precio_crc: hubData.precio_crc,
+    duracion_min: row.durationMin || hubData.duracion_min,
+    modalidad: row.modality || hubData.modalidad,
+    url_agenda: hubData.url_agenda,
+    url_perfil: `/${row.profileSlug ? `profesionales/${row.profileSlug}` : hubData.url_perfil.replace(/^\//, "")}`,
+    whatsapp: row.whatsapp || hubData.whatsapp,
+    credencial: {
+      colegio: profile?.licensingBody || hubData.credencial.colegio,
+      numero: profile?.licenseNumber || hubData.credencial.numero,
+      url_verificacion: profile?.licenseVerificationUrl || hubData.credencial.url_verificacion,
+    },
+    temas: topics,
+    herramientas_habilitadas: Array.isArray(row.enabledFunctions) ? row.enabledFunctions : [],
+    serie_destacada: row.featuredSeriesSlug || hubData.serie_destacada,
+    actualizado: row.updatedAt instanceof Date ? row.updatedAt.toISOString().slice(0, 10) : hubData.actualizado,
+    hero_video_url: row.heroVideoUrl || "",
+    hero_poster_url: row.heroPosterUrl || "",
+    logo_url: row.logoUrl || "",
+    treatment: treatment
+      ? {
+          slug: treatment.slug,
+          titulo: treatment.title,
+          resumen: treatment.summary || "",
+          body: treatment.body || "",
+          ...treatment.metadata,
+        }
+      : null,
+    _managed: true,
+  };
+}
+
+/**
+ * Lee el hub profesional publicado. El JSON histórico queda como fallback
+ * para que un despliegue sea navegable antes de ejecutar la migración de datos.
+ */
+export async function getManagedHubData(slug = HUB_PATH) {
+  try {
+    const row = await prisma.professionalHub.findFirst({
+      where: { slug: String(slug || ""), status: "PUBLISHED", isActive: true },
+      include: PUBLIC_HUB_INCLUDE,
+    });
+    return row ? mapManagedHub(row) : getHubData();
+  } catch {
+    return getHubData();
+  }
+}
+
+export async function getPublishedHubTopicsAsync(slug = HUB_PATH) {
+  const hub = await getManagedHubData(slug);
+  return (hub?.temas || []).filter((topic) => topic.publicado);
+}
+
+export async function readManagedHubDocument(slug, moduleSlug) {
+  try {
+    const row = await prisma.professionalHub.findFirst({
+      where: { slug: String(slug || ""), status: "PUBLISHED", isActive: true },
+      include: {
+        modules: {
+          where: { slug: String(moduleSlug || ""), isVisible: true, isPublished: true },
+          take: 1,
+        },
+      },
+    });
+    const module = row?.modules?.[0];
+    if (module) {
+      return {
+        titulo: module.title,
+        resumen: module.summary || "",
+        body: module.body || "",
+        ...module.metadata,
+      };
+    }
+  } catch {
+    // La lectura histórica de archivos mantiene la página disponible.
+  }
+  return readHubTheme(moduleSlug) || (moduleSlug === "tratamiento-breve-15-sesiones" ? readHubDocument(moduleSlug) : null);
+}
+
+export async function hubLastModifiedAsync(path) {
+  const [slug, moduleSlug] = String(path || "").split("/");
+  try {
+    const row = await prisma.professionalHub.findFirst({
+      where: { slug, status: "PUBLISHED", isActive: true },
+      select: {
+        updatedAt: true,
+        modules: { where: { slug: moduleSlug }, select: { updatedAt: true }, take: 1 },
+      },
+    });
+    return row?.modules?.[0]?.updatedAt || row?.updatedAt || hubLastModified(path);
+  } catch {
+    return hubLastModified(path);
+  }
+}
+
 export function formatHubPrice() {
   const formatted = new Intl.NumberFormat("es-CR").format(hubData.precio_crc).replace(/\u00a0/g, ".");
   return `₡${formatted}`;
