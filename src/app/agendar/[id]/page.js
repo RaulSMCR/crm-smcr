@@ -67,7 +67,7 @@ export default async function AgendarPage({ params, searchParams }) {
         select: {
           rates: { where: TARIFA_VIGENTE, select: { approvedPrice: true } },
           service: {
-            select: { id: true, title: true },
+            select: { id: true, title: true, durationMin: true },
           },
         },
       },
@@ -220,6 +220,7 @@ export default async function AgendarPage({ params, searchParams }) {
             servicePrice={Number(activeService.displayPrice)}
             serviceTitle={activeService.title}
             serviceId={activeService.id}
+            durationMin={activeService.durationMin}
             professionalName={professionalName}
           />
         </div>
