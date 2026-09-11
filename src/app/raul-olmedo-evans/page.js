@@ -116,7 +116,7 @@ export default async function RaulHubPage() {
               <HubTrackedLink key={topic.slug} href={`/raul-olmedo-evans/${topic.slug}`} eventName="click_hub_raul_tema" destination={topic.slug} className="hub-raul-card group">
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-nv-teal">Tema</p>
                 <h3 className="mt-3 font-display text-3xl font-semibold text-nv-teal-deep group-hover:text-nv-teal">{topic.titulo}</h3>
-                <p className="mt-3 text-sm leading-6 text-neutral-700">{topic.resumen}</p>
+                <p className="mt-3 text-sm leading-6 text-neutral-700">{topic.resumen || "P\u00e1gina en preparaci\u00f3n. El contenido se incorporar\u00e1 pr\u00f3ximamente."}</p>
                 <span className="mt-5 inline-flex text-sm font-bold text-nv-teal-deep">Leer sobre {topic.titulo.toLowerCase()} →</span>
               </HubTrackedLink>
             ))}

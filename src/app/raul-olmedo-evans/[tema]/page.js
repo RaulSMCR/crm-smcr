@@ -75,13 +75,23 @@ export default async function RaulThemePage({ params }) {
             <p className="hub-kicker">Tema de consulta</p>
             <h1 className="mt-2 font-display text-5xl font-light leading-tight text-nv-teal-deep">{doc.titulo}</h1>
             <p className="mt-5 text-lg leading-8 text-neutral-700">{doc.resumen}</p>
-            <div className="prose prose-lg mt-10 max-w-none text-neutral-800">
-              <MarkdownRenderer content={doc.body} />
-            </div>
+            {doc.body ? (
+              <div className="prose prose-lg mt-10 max-w-none text-neutral-800">
+                <MarkdownRenderer content={doc.body} />
+              </div>
+            ) : (
+              <div className="mt-10 rounded-nv border border-nv-teal-deep/20 bg-nv-cream-hi p-6">
+                <p className="hub-kicker">Tema en preparaci\u00f3n</p>
+                <h2 className="mt-2 font-display text-3xl font-semibold text-nv-teal-deep">Estamos preparando esta p\u00e1gina</h2>
+                <p className="mt-3 leading-7 text-neutral-700">El contenido de este tema se incorporar\u00e1 pr\u00f3ximamente. Si quer\u00e9s conversar sobre tu situaci\u00f3n, pod\u00e9s solicitar una cita.</p>
+              </div>
+            )}
+            {doc.body ? (
             <section id="cuando-consultar" className="mt-10 rounded-nv border-l-4 border-nv-teal-mid bg-nv-cream-hi p-6">
               <h2 className="font-display text-3xl font-semibold text-nv-teal-deep">Cuándo consultar</h2>
               <p className="mt-3 leading-7 text-neutral-700">Podés consultar cuando el malestar se repite, limita tu vida cotidiana o querés comprenderlo con acompañamiento clínico. Si hay peligro inmediato, dirigite a <Link href="/ayuda-inmediata" className="font-bold underline">ayuda inmediata</Link>.</p>
             </section>
+            ) : null}
           </article>
           <aside id="agendar" className="h-fit rounded-nv border border-nv-teal-deep/20 bg-nv-cream-hi p-6 lg:sticky lg:top-28">
             <p className="hub-kicker">Un siguiente paso</p>
