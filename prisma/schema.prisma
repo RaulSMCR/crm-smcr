@@ -363,7 +363,7 @@ model ProfessionalProfile {
   // ✅ Lo que tu código espera
   serviceAssignments  ServiceAssignment[]
   paymentTransactions PaymentTransaction[]
-  hubs               ProfessionalHub[]
+  hubs                ProfessionalHub[]
 
   availability   Availability[]
   scheduleBlocks ScheduleBlock[]
@@ -387,7 +387,7 @@ model ProfessionalProfile {
   /// decidir por el profesional; no decir nada deja que la ausencia ocurra. Se
   /// avisa a los dos y que cada quien resuelva.
   googleWarnCalendarIds String[] @default([])
-  posts          Post[]
+  posts                 Post[]
 
   practiceLocations PracticeLocation[]
   timeBands         ProfessionalTimeBand[]
@@ -476,7 +476,7 @@ model ProfessionalHub {
   publishedAt           DateTime?
   isActive              Boolean               @default(true)
 
-  professional ProfessionalProfile? @relation(fields: [professionalProfileId], references: [id], onDelete: SetNull)
+  professional ProfessionalProfile?    @relation(fields: [professionalProfileId], references: [id], onDelete: SetNull)
   modules      ProfessionalHubModule[]
 
   createdAt DateTime @default(now())
@@ -487,16 +487,16 @@ model ProfessionalHub {
 }
 
 model ProfessionalHubModule {
-  id        String  @id @default(cuid())
-  hubId     String
-  slug      String
-  type      String  @default("TOPIC")
-  title     String
-  summary   String? @db.Text
-  body      String? @db.Text
-  metadata  Json?
-  position  Int     @default(0)
-  isVisible Boolean @default(true)
+  id          String  @id @default(cuid())
+  hubId       String
+  slug        String
+  type        String  @default("TOPIC")
+  title       String
+  summary     String? @db.Text
+  body        String? @db.Text
+  metadata    Json?
+  position    Int     @default(0)
+  isVisible   Boolean @default(true)
   isPublished Boolean @default(false)
 
   hub ProfessionalHub @relation(fields: [hubId], references: [id], onDelete: Cascade)

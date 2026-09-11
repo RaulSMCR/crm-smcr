@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { SITE_URL as BASE_URL } from '@/lib/site-url';
-import { getPublishedHubTopics, hubLastModified } from '@/lib/hub-raul';
+import { getPublishedHubTopicsAsync, hubLastModifiedAsync } from '@/lib/hub-raul';
 
 // Sin esto, Next resuelve el sitemap en el build y lo sirve congelado hasta el
 // siguiente despliegue: un artículo publicado un martes no aparecía hasta que
@@ -138,12 +138,13 @@ export default async function sitemap() {
     priority: 0.9,
   }));
 
-  const raulTopicEntries = getPublishedHubTopics().map(({ slug }) => ({
+  const raulTopics = await getPublishedHubTopicsAsync();
+  const raulTopicEntries = await Promise.all(raulTopics.map(async ({ slug }) => ({
     url: `${BASE_URL}/raul-olmedo-evans/${slug}`,
-    lastModified: hubLastModified(`raul-olmedo-evans/${slug}`),
+    lastModified: await hubLastModifiedAsync(`raul-olmedo-evans/${slug}`),
     changeFrequency: 'monthly',
     priority: 0.8,
-  }));
+  })));
 
   return [
     ...staticEntries,

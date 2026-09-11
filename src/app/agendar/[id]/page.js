@@ -7,7 +7,7 @@ import { siteUrl } from "@/lib/site-url";
 import { defaultOgImage } from "@/lib/seo";
 import { SafeAvatar } from "@/components/SafeImage";
 import { TARIFA_VIGENTE, rangoDePrecios } from "@/lib/service-pricing";
-import { getHubData } from "@/lib/hub-raul";
+import { getManagedHubData } from "@/lib/hub-raul";
 
 export async function generateMetadata({ params }) {
   const { id } = await params;
@@ -26,7 +26,8 @@ export async function generateMetadata({ params }) {
 
   if (!professional) return { title: 'Profesional no encontrado' };
 
-  const name = professional.slug === "raul-olmedo" ? getHubData().nombre : professional.user?.name || 'Profesional';
+  const hub = professional.slug === "raul-olmedo" ? await getManagedHubData() : null;
+  const name = hub?.nombre || professional.user?.name || 'Profesional';
   const description = (
     professional.profileReview ||
     `Agendá una consulta con ${name}, especialista en ${professional.specialty}.`
@@ -116,7 +117,8 @@ export default async function AgendarPage({ params, searchParams }) {
   }
 
   const activeService = selectedService || services[0];
-  const professionalName = professional.slug === "raul-olmedo" ? getHubData().nombre : professional.user.name;
+  const managedHub = professional.slug === "raul-olmedo" ? await getManagedHubData() : null;
+  const professionalName = managedHub?.nombre || professional.user.name;
 
   const personSchema = {
     '@context': 'https://schema.org',

@@ -6,12 +6,13 @@ import MarkdownRenderer from "@/components/MarkdownRenderer";
 import { buildMetadata } from "@/lib/seo";
 import { grafo, nodoMigas, ref } from "@/lib/jsonld";
 import { siteUrl } from "@/lib/site-url";
-import { RAUL_PERSON_ID, formatHubPrice, getHubData, getRaulAgendaUrl, readHubDocument } from "@/lib/hub-raul";
+import { RAUL_PERSON_ID, formatHubPrice, getManagedHubData, getRaulAgendaUrl, readManagedHubDocument } from "@/lib/hub-raul";
 
 export const revalidate = 3600;
 
-export function generateMetadata() {
-  const doc = readHubDocument("tratamiento-breve-15-sesiones");
+export async function generateMetadata() {
+  const doc = await readManagedHubDocument("raul-olmedo-evans", "tratamiento-breve-15-sesiones");
+  if (!doc) return { title: "Tratamiento no disponible", robots: { index: false, follow: false } };
   return buildMetadata({
     title: doc?.titulo_seo || doc?.titulo || "Tratamiento breve de 15 sesiones",
     description: doc?.meta || "Un formato de trabajo acotado para explorar angustia y duelo.",
@@ -21,10 +22,13 @@ export function generateMetadata() {
 }
 
 export default async function TratamientoBrevePage() {
-  const doc = readHubDocument("tratamiento-breve-15-sesiones");
-  if (!doc) notFound();
-  const hub = getHubData();
+  const [doc, hub] = await Promise.all([
+    readManagedHubDocument("raul-olmedo-evans", "tratamiento-breve-15-sesiones"),
+    getManagedHubData(),
+  ]);
+  if (!doc || !hub) notFound();
   const agendaUrl = await getRaulAgendaUrl();
+  const agendaEnabled = !hub.herramientas_habilitadas.length || hub.herramientas_habilitadas.includes("agenda");
   const url = siteUrl("raul-olmedo-evans/tratamiento-breve-15-sesiones");
   const schema = grafo(
     {
@@ -65,13 +69,13 @@ export default async function TratamientoBrevePage() {
               <MarkdownRenderer content={doc.body} />
             </div>
           </article>
-          <aside className="h-fit rounded-nv border border-nv-teal-deep/20 bg-nv-cream-hi p-6 lg:sticky lg:top-28">
+          {agendaEnabled ? <aside className="h-fit rounded-nv border border-nv-teal-deep/20 bg-nv-cream-hi p-6 lg:sticky lg:top-28">
             <p className="hub-kicker">Consulta en línea</p>
             <p className="mt-3 font-display text-3xl text-nv-teal-deep">{formatHubPrice()}</p>
             <p className="mt-1 text-sm text-neutral-700">{hub.duracion_min} minutos · {hub.modalidad}</p>
             <HubTrackedLink href={agendaUrl} eventName="click_15_sesiones_agendar" destination="agenda" className="btn btn-accent mt-6 w-full">Agendar sesión</HubTrackedLink>
             <p className="mt-4 text-xs leading-5 text-neutral-600">La indicación y la continuidad se conversan según tu situación clínica.</p>
-          </aside>
+          </aside> : null}
         </div>
       </div>
     </main>

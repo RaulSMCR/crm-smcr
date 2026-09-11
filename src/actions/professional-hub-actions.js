@@ -35,10 +35,12 @@ function functions(value) {
 function hubData(payload = {}) {
   const name = clean(payload.name, 160);
   const slug = normalizeTopicSlug(payload.slug || name);
+  const profileSlug = clean(payload.profileSlug, 120);
   const slugError = validateTopicSlug(slug);
   const status = String(payload.status || "DRAFT");
   if (name.length < 2) return { error: "El nombre debe tener al menos 2 caracteres." };
   if (slugError) return { error: slugError };
+  if (!profileSlug) return { error: "El perfil profesional es obligatorio." };
   if (!STATUSES.has(status)) return { error: "Estado de hub inválido." };
 
   return {
@@ -47,7 +49,7 @@ function hubData(payload = {}) {
       slug,
       title: clean(payload.title, 200) || name,
       description: clean(payload.description, 30000) || null,
-      profileSlug: clean(payload.profileSlug, 120),
+      profileSlug,
       whatsapp: clean(payload.whatsapp, 40) || null,
       modality: clean(payload.modality, 80) || null,
       durationMin: integer(payload.durationMin, 0) || null,
@@ -165,13 +167,17 @@ export async function saveProfessionalHubModule(hubId, payload = {}) {
   if (parsed.error) return parsed;
 
   try {
+    if (id) {
+      const owner = await prisma.professionalHubModule.findUnique({ where: { id }, select: { hubId: true } });
+      if (!owner || owner.hubId !== parentId) return { error: "El módulo no pertenece a este hub." };
+    }
     const existing = await prisma.professionalHubModule.findFirst({ where: { hubId: parentId, slug: parsed.data.slug, ...(id ? { NOT: { id } } : {}) }, select: { id: true } });
     if (existing) return { error: "Ya existe un módulo con ese slug en este hub." };
-    const module = id
+    const moduleRecord = id
       ? await prisma.professionalHubModule.update({ where: { id }, data: parsed.data, select: { id: true } })
       : await prisma.professionalHubModule.create({ data: { ...parsed.data, hubId: parentId }, select: { id: true } });
     revalidateHub();
-    return { success: true, id: module.id };
+    return { success: true, id: moduleRecord.id };
   } catch (error) {
     console.error("saveProfessionalHubModule error:", error);
     return { error: "No se pudo guardar el módulo." };

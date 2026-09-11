@@ -6,18 +6,19 @@ import JsonLd from "@/components/JsonLd";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import { buildMetadata } from "@/lib/seo";
 import { grafo, nodoMigas, ref } from "@/lib/jsonld";
-import { RAUL_PERSON_ID, getHubData, getPublishedHubTopics, getRaulAgendaUrl, readHubTheme } from "@/lib/hub-raul";
+import { RAUL_PERSON_ID, getManagedHubData, getPublishedHubTopicsAsync, getRaulAgendaUrl, readManagedHubDocument } from "@/lib/hub-raul";
 import { siteUrl } from "@/lib/site-url";
 
 export const revalidate = 3600;
 
-export function generateStaticParams() {
-  return getPublishedHubTopics().map((topic) => ({ tema: topic.slug }));
+export async function generateStaticParams() {
+  const topics = await getPublishedHubTopicsAsync();
+  return topics.map((topic) => ({ tema: topic.slug }));
 }
 
 export async function generateMetadata({ params }) {
   const { tema } = await params;
-  const doc = readHubTheme(String(tema || ""));
+  const doc = await readManagedHubDocument("raul-olmedo-evans", String(tema || ""));
   if (!doc) return { title: "Tema no encontrado", robots: { index: false, follow: false } };
   return buildMetadata({
     title: doc.titulo_seo || doc.titulo,
@@ -31,10 +32,13 @@ export async function generateMetadata({ params }) {
 export default async function RaulThemePage({ params }) {
   const { tema } = await params;
   const slug = String(tema || "");
-  const doc = readHubTheme(slug);
-  if (!doc) notFound();
-  const hub = getHubData();
+  const [doc, hub] = await Promise.all([
+    readManagedHubDocument("raul-olmedo-evans", slug),
+    getManagedHubData(),
+  ]);
+  if (!doc || !hub) notFound();
   const agendaUrl = await getRaulAgendaUrl();
+  const agendaEnabled = !hub.herramientas_habilitadas.length || hub.herramientas_habilitadas.includes("agenda");
   const url = siteUrl(`raul-olmedo-evans/${slug}`);
   const schema = grafo(
     {
@@ -93,13 +97,13 @@ export default async function RaulThemePage({ params }) {
             </section>
             ) : null}
           </article>
-          <aside id="agendar" className="h-fit rounded-nv border border-nv-teal-deep/20 bg-nv-cream-hi p-6 lg:sticky lg:top-28">
+          {agendaEnabled ? <aside id="agendar" className="h-fit rounded-nv border border-nv-teal-deep/20 bg-nv-cream-hi p-6 lg:sticky lg:top-28">
             <p className="hub-kicker">Un siguiente paso</p>
             <h2 className="mt-2 font-display text-3xl text-nv-teal-deep">Hablarlo en consulta</h2>
             <p className="mt-3 text-sm leading-6 text-neutral-700">La primera conversación permite ubicar qué está ocurriendo y qué tipo de trabajo puede tener sentido.</p>
             <HubTrackedLink href={agendaUrl} eventName="click_theme_agendar" destination={slug} className="btn btn-accent mt-6 w-full">Agendar sesión</HubTrackedLink>
             <HubTrackedLink href="/raul-olmedo-evans/tratamiento-breve-15-sesiones" eventName="click_theme_15_sesiones" destination="tratamiento-breve-15-sesiones" className="mt-4 block text-center text-sm font-bold text-nv-teal-deep underline underline-offset-4">Ver formato de 15 sesiones</HubTrackedLink>
-          </aside>
+          </aside> : null}
         </div>
       </div>
     </main>

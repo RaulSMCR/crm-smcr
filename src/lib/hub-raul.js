@@ -90,9 +90,10 @@ function mapManagedHub(row) {
 export async function getManagedHubData(slug = HUB_PATH) {
   try {
     const row = await prisma.professionalHub.findFirst({
-      where: { slug: String(slug || ""), status: "PUBLISHED", isActive: true },
+      where: { slug: String(slug || "") },
       include: PUBLIC_HUB_INCLUDE,
     });
+    if (row && (row.status !== "PUBLISHED" || !row.isActive)) return null;
     return row ? mapManagedHub(row) : getHubData();
   } catch {
     return getHubData();
@@ -105,9 +106,10 @@ export async function getPublishedHubTopicsAsync(slug = HUB_PATH) {
 }
 
 export async function readManagedHubDocument(slug, moduleSlug) {
+  let managedRow = null;
   try {
     const row = await prisma.professionalHub.findFirst({
-      where: { slug: String(slug || ""), status: "PUBLISHED", isActive: true },
+      where: { slug: String(slug || "") },
       include: {
         modules: {
           where: { slug: String(moduleSlug || ""), isVisible: true, isPublished: true },
@@ -115,18 +117,21 @@ export async function readManagedHubDocument(slug, moduleSlug) {
         },
       },
     });
-    const module = row?.modules?.[0];
-    if (module) {
+    managedRow = row;
+    const moduleRecord = row?.modules?.[0];
+    if (row && (row.status !== "PUBLISHED" || !row.isActive)) return null;
+    if (moduleRecord) {
       return {
-        titulo: module.title,
-        resumen: module.summary || "",
-        body: module.body || "",
-        ...module.metadata,
+        titulo: moduleRecord.title,
+        resumen: moduleRecord.summary || "",
+        body: moduleRecord.body || "",
+        ...moduleRecord.metadata,
       };
     }
   } catch {
     // La lectura histórica de archivos mantiene la página disponible.
   }
+  if (managedRow) return null;
   return readHubTheme(moduleSlug) || (moduleSlug === "tratamiento-breve-15-sesiones" ? readHubDocument(moduleSlug) : null);
 }
 
@@ -151,9 +156,9 @@ export function formatHubPrice() {
   return `₡${formatted}`;
 }
 
-export function buildWaLink(origen = HUB_PATH) {
-  const text = `Hola, quiero agendar una sesión en línea con ${hubData.nombre} (${hubData.duracion_min} min, ${formatHubPrice()}). ${origen}`;
-  return `https://wa.me/${hubData.whatsapp}?text=${encodeURIComponent(text)}`;
+export function buildWaLink(origen = HUB_PATH, source = hubData) {
+  const text = `Hola, quiero agendar una sesión en línea con ${source.nombre} (${source.duracion_min} min, ${formatHubPrice()}). ${origen}`;
+  return `https://wa.me/${source.whatsapp}?text=${encodeURIComponent(text)}`;
 }
 
 export function getCrisisData() {
