@@ -1,4 +1,4 @@
-﻿import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
+import { withQstashSignature } from "@/lib/qstash-webhook";
 import { prisma } from "@/lib/prisma";
 import { sendAppointmentNotifications } from "@/lib/appointments";
 import { sendPushToUser } from "@/lib/push/send";
@@ -80,5 +80,5 @@ async function handler(req) {
   }
 }
 
-export const POST = verifySignatureAppRouter(handler);
+export const POST = withQstashSignature(handler);
 

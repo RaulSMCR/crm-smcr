@@ -80,7 +80,9 @@ export async function GET(request) {
         {/* Encabezado: logo y nombre de la plataforma */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
           {logoDataUri ? (
-            <img src={logoDataUri} width={72} height={72} style={{ borderRadius: 16 }} />
+            // ImageResponse renderiza HTML a PNG; aquí se necesita el elemento nativo.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoDataUri} alt="" width={72} height={72} style={{ borderRadius: 16 }} />
           ) : null}
           <div
             style={{

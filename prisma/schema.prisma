@@ -152,6 +152,46 @@ enum FEStatus {
   REJECTED
 }
 
+enum DeliveryJobKind {
+  PAYMENT_CONFIRMATION
+  FE_SUBMISSION
+  FE_RECEIPT
+}
+
+enum DeliveryJobStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  REVIEW
+}
+
+/// Cola administrativa. No copiar correos, mensajes, XML ni datos clínicos aquí.
+model DeliveryJob {
+  id                   String            @id @default(cuid())
+  dedupeKey            String            @unique
+  kind                 DeliveryJobKind
+  status               DeliveryJobStatus @default(PENDING)
+  paymentTransactionId String?
+  invoiceId            String
+  attempts             Int               @default(0)
+  nextAttemptAt        DateTime          @default(now())
+  lockedUntil          DateTime?
+  leaseToken           String?
+  firstSendAt          DateTime?
+  payloadHash          String?
+  providerId           String?
+  lastErrorCode        String?
+  completedAt          DateTime?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  invoice            Invoice             @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  paymentTransaction PaymentTransaction? @relation(fields: [paymentTransactionId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt])
+  @@index([status, lockedUntil])
+}
+
 enum DocumentType {
   FACTURA_ELECTRONICA
   NOTA_CREDITO
@@ -634,6 +674,7 @@ model Invoice {
   creditNotes   Invoice[]            @relation("InvoiceOrigin")
   lines         InvoiceLine[]
   settlements   Settlement[]
+  deliveryJobs  DeliveryJob[]
 
   @@unique([invoiceType, invoiceNumber])
   @@index([invoiceType, status])
@@ -1072,6 +1113,7 @@ model PaymentTransaction {
   professional   ProfessionalProfile @relation(fields: [professionalId], references: [id])
   patient        User                @relation(fields: [patientId], references: [id])
   settlementItem SettlementItem?
+  deliveryJobs   DeliveryJob[]
 
   @@index([appointmentId])
   @@index([professionalId])

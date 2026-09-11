@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/actions/auth-actions";
 import { prisma } from "@/lib/prisma";
@@ -18,7 +19,7 @@ export default async function FiscalClosingPage({ searchParams }) {
   const label = `${year}-${String(month).padStart(2, "0")}`;
   return (
     <main className="mx-auto max-w-5xl space-y-6 p-6">
-      <div><a href="/panel/admin/contabilidad" className="text-sm text-slate-500">Volver a contabilidad</a><h1 className="mt-2 text-3xl font-bold text-slate-900">Cierre fiscal</h1><p className="text-slate-600">Recolección interna para D-104. La presentación ante Hacienda sigue siendo manual.</p></div>
+      <div><Link href="/panel/admin/contabilidad" className="text-sm text-slate-500">Volver a contabilidad</Link><h1 className="mt-2 text-3xl font-bold text-slate-900">Cierre fiscal</h1><p className="text-slate-600">Recolección interna para D-104. La presentación ante Hacienda sigue siendo manual.</p></div>
       <form className="flex flex-wrap gap-3 rounded-xl border border-slate-200 bg-white p-4"><input name="year" type="number" defaultValue={year} className="rounded-lg border px-3 py-2" /><select name="month" defaultValue={month} className="rounded-lg border px-3 py-2">{Array.from({ length: 12 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}</select><button className="rounded-lg bg-slate-800 px-4 py-2 font-semibold text-white">Consultar</button></form>
       <section className="grid gap-4 md:grid-cols-4">
         {[['IVA débito', period?.ivaDebito], ['IVA crédito', period?.ivaCredito], ['IVA neto', period?.ivaNeto], ['Estado', period?.status || 'OPEN']].map(([label, value]) => <div key={label} className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-xs uppercase text-slate-500">{label}</p><p className="mt-2 text-2xl font-bold text-slate-900">{typeof value === 'number' || value?.toString?.().includes('.') ? `₡${Number(value || 0).toLocaleString('es-CR')}` : value}</p></div>)}

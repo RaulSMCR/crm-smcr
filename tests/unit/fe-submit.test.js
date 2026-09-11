@@ -17,7 +17,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 // ── Mock de Resend ────────────────────────────────────────────────────────────
-// submit.js hace: import { Resend } from "resend"; const resend = new Resend(...).
+// submit.js usa el cliente compartido de lib/resend, que instancia este SDK.
 const sendMock = vi.fn().mockResolvedValue({ error: null });
 vi.mock("resend", () => ({
   Resend: class {
@@ -103,7 +103,7 @@ describe("submitInvoiceToFe() — guard de FE simulada (FIS-01)", () => {
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "inv_1" },
-        data: expect.objectContaining({ feStatus: "PENDING", feNumber: null }),
+        data: expect.objectContaining({ feErrorMessage: expect.stringContaining("FE_API_URL") }),
       })
     );
 

@@ -31,11 +31,11 @@ export async function getFeToken() {
     method:  "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body:    body.toString(),
+    signal: AbortSignal.timeout(10000),
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`[FE Auth] Error ${res.status} obteniendo token: ${text}`);
+    throw new Error("FE_AUTH_UNAVAILABLE");
   }
 
   const data = await res.json();

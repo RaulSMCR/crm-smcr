@@ -5,9 +5,11 @@
 // GET /api/invoices/:id/fe-status
 // Auth: ADMIN
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/api-guards";
+import { enqueueDelivery } from "@/lib/delivery-jobs";
+import { processPaymentDeliveries } from "@/lib/payment-deliveries";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +27,7 @@ export async function GET(_request, { params }) {
 
     const invoice = await prisma.invoice.findUnique({
       where: { id },
-      select: { id: true, feClave: true, feNumber: true, feStatus: true, feErrorMessage: true },
+      select: { id: true, feClave: true, feNumber: true, feXml: true, feStatus: true, feErrorMessage: true },
     });
 
     if (!invoice) return NextResponse.json({ message: "Factura no encontrada." }, { status: 404 });
@@ -51,38 +53,36 @@ export async function GET(_request, { params }) {
     }
 
     // Consultar Hacienda
-    const { pollStatus } = await import("@/lib/fe/client.js");
+    const { pollStatus, feResult } = await import("@/lib/fe/client.js");
     let data;
     try {
-      data = await pollStatus(invoice.feClave);
-    } catch (err) {
-      return NextResponse.json({ message: `Error consultando Hacienda: ${err.message}` }, { status: 502 });
+      data = await pollStatus(invoice.feClave, null, { maxAttempts: 1 });
+    } catch {
+      return NextResponse.json({ message: "No se pudo consultar Hacienda. El comprobante se conserva." }, { status: 502 });
     }
 
-    const newStatus     = data.ind_estado === "aceptado" ? "ACCEPTED"
-      : data.ind_estado === "rechazado" ? "REJECTED"
-      : invoice.feStatus; // sin cambio si aún procesando
-
-    const newError = data.ind_estado === "rechazado"
-      ? (data.respuesta_xml || data.mensaje || "Rechazado por Hacienda")
-      : null;
-
-    if (newStatus !== invoice.feStatus) {
-      await prisma.invoice.update({
-        where: { id },
-        data: { feStatus: newStatus, feErrorMessage: newError },
-      });
-    }
+    const result = feResult(data, invoice);
+    const saved = await prisma.$transaction(async (tx) => {
+      await tx.invoice.updateMany({ where: { id, feClave: invoice.feClave,
+        feStatus: result.feStatus === "PENDING" ? "PENDING" : { not: "ACCEPTED" },
+      }, data: { feStatus: result.feStatus, feErrorMessage: result.feErrorMessage,
+        ...(result.respuestaXml ? { feRespuestaXml: result.respuestaXml } : {}),
+      } });
+      const current = await tx.invoice.findUnique({ where: { id }, select: { feStatus: true, feErrorMessage: true, feXml: true } });
+      if (current.feStatus === "ACCEPTED" && current.feXml) await enqueueDelivery(tx, { kind: "FE_RECEIPT", invoiceId: id });
+      return current;
+    });
+    after(() => processPaymentDeliveries({ invoiceId: id }).catch(() => console.error("[FE] DELIVERY_DISPATCH_FAILED")));
 
     return NextResponse.json({
-      feStatus:      newStatus,
+      feStatus:      saved.feStatus,
       feNumber:      invoice.feNumber,
       feClave:       invoice.feClave,
-      feErrorMessage: newError,
-      haciendaStatus: data.ind_estado,
+      feErrorMessage: saved.feErrorMessage,
+      haciendaStatus: result.haciendaStatus,
     });
-  } catch (error) {
-    console.error("[invoices/:id/fe-status] GET error:", error);
+  } catch {
+    console.error("[FE] STATUS_QUERY_FAILED");
     return NextResponse.json({ message: "Error interno del servidor." }, { status: 500 });
   }
 }

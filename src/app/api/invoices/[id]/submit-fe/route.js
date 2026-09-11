@@ -6,10 +6,11 @@
 // Auth: ADMIN
 // La factura debe estar en estado OPEN o PAID (validada).
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/api-guards";
 import { submitInvoiceToFe } from "@/lib/fe/submit";
+import { processPaymentDeliveries } from "@/lib/payment-deliveries";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,7 @@ export async function POST(_request, { params }) {
     }
 
     const result = await submitInvoiceToFe(id);
+    after(() => processPaymentDeliveries({ invoiceId: id }).catch(() => console.error("[FE] DELIVERY_DISPATCH_FAILED")));
 
     return NextResponse.json({
       id,

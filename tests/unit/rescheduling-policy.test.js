@@ -4,6 +4,8 @@
 // administración lo contacta. Estos tests fijan los bordes, que es donde se
 // discute con un paciente molesto.
 import { describe, it, expect } from "vitest";
+// La carga de dependencias pertenece a la preparación de la suite, no al tiempo de esta aserción de texto.
+import { MENSAJE_REINVITACION, enlaceWhatsApp } from "../../src/lib/scheduling-block.js";
 import {
   evaluarReagenda,
   horasHasta,
@@ -105,9 +107,6 @@ describe("horasHasta()", () => {
 
 describe("mensaje de reinvitación", () => {
   it("va literal: es texto clínico, no una plantilla", async () => {
-    const { MENSAJE_REINVITACION, enlaceWhatsApp } = await import(
-      "../../src/lib/scheduling-block.js"
-    );
 
     expect(MENSAJE_REINVITACION).toBe(
       "tu ausencia tuvo un significado, que no sea el de la resignación, " +
