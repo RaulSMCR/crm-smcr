@@ -38,12 +38,12 @@ function mapManagedHub(row) {
   const topics = modules
     .filter((module) => module.type === "TOPIC")
     .map((module) => ({
+      ...module.metadata,
       slug: module.slug,
       titulo: module.title,
       resumen: module.summary || "",
       publicado: module.isPublished,
       body: module.body || "",
-      ...module.metadata,
     }));
   const treatment = modules.find((module) => module.type === "TREATMENT" || module.slug === "tratamiento-breve-15-sesiones");
   const profile = row.professional;
@@ -72,11 +72,11 @@ function mapManagedHub(row) {
     logo_url: row.logoUrl || "",
     treatment: treatment
       ? {
+          ...treatment.metadata,
           slug: treatment.slug,
           titulo: treatment.title,
           resumen: treatment.summary || "",
           body: treatment.body || "",
-          ...treatment.metadata,
         }
       : null,
     _managed: true,
@@ -122,10 +122,10 @@ export async function readManagedHubDocument(slug, moduleSlug) {
     if (row && (row.status !== "PUBLISHED" || !row.isActive)) return null;
     if (moduleRecord) {
       return {
+        ...moduleRecord.metadata,
         titulo: moduleRecord.title,
         resumen: moduleRecord.summary || "",
         body: moduleRecord.body || "",
-        ...moduleRecord.metadata,
       };
     }
   } catch {
