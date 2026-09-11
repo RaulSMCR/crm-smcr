@@ -170,3 +170,49 @@ export async function bulkApproveRates(rateIds = []) {
     return { error: "No se pudieron aprobar las tarifas." };
   }
 }
+
+/**
+ * Solicitudes de consulta que esperan revisión, para mostrarlas junto a las
+ * tarifas.
+ *
+ * Una asignación en PENDING —un profesional que pidió brindar una consulta, o
+ * uno que cambió su precio desde el perfil antes de que ese cambio pasara a ser
+ * una propuesta de tarifa— no aparecía en esta pantalla, que es donde el admin
+ * busca los precios por aprobar. Se aprueba en la ficha del servicio porque ahí
+ * se completa la clasificación fiscal, sin la cual no se puede aprobar.
+ */
+export async function listPendingServiceRequests() {
+  try {
+    const session = await getSession();
+    requireAdmin(session);
+
+    const data = await prisma.serviceAssignment.findMany({
+      where: { status: "PENDING" },
+      orderBy: { requestedAt: "asc" },
+      select: {
+        professionalId: true,
+        serviceId: true,
+        proposedSessionPrice: true,
+        requestedAt: true,
+        service: { select: { title: true, cabysCode: true, taxId: true } },
+        professional: { select: { user: { select: { name: true } } } },
+      },
+    });
+
+    return {
+      success: true,
+      data: data.map((item) => ({
+        professionalId: item.professionalId,
+        serviceId: item.serviceId,
+        serviceTitle: item.service?.title || "Consulta",
+        professionalName: item.professional?.user?.name || "Profesional",
+        proposedPrice: item.proposedSessionPrice === null ? null : Number(item.proposedSessionPrice),
+        requestedAt: item.requestedAt,
+        fiscalCompleto: Boolean(item.service?.cabysCode && item.service?.taxId),
+      })),
+    };
+  } catch (error) {
+    console.error("listPendingServiceRequests error:", error);
+    return { success: false, data: [], error: "No se pudieron cargar las solicitudes de consulta." };
+  }
+}
