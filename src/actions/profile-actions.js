@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { requireProfessionalContext } from "@/lib/auth-guards";
 import { normalizarGrado } from "@/lib/grados-academicos";
 import { validarIban } from "@/lib/iban";
+import { revalidarPreciosPublicos } from "@/lib/revalidar-precios";
 
 function toStr(x) {
   if (x === undefined || x === null) return "";
@@ -47,7 +48,8 @@ function isIdentificationValid(v) {
  *    - si selecciona un servicio NUEVO => create PENDING
  *    - si estaba REJECTED y lo re-selecciona => pasa a PENDING
  *    - si deselecciona => delete assignment
- *    - si está APPROVED y cambia el precio => vuelve a PENDING para revisión admin
+ *    - si está APPROVED y cambia el precio => se propone en su tarifa general;
+ *      la consulta sigue publicada al precio vigente hasta que un admin apruebe
  */
 export async function updateProfile(formData) {
   try {
@@ -138,13 +140,14 @@ export async function updateProfile(formData) {
       }),
       prisma.service.findMany({
         where: { id: { in: requestedServiceIds }, isActive: true },
-        select: { id: true },
+        select: { id: true, price: true },
       }),
     ]);
 
     if (!existingProfile) return { success: false, error: "Perfil profesional no encontrado." };
 
     const selectedIds = new Set(validServices.map((s) => s.id));
+    const catalogPriceById = new Map(validServices.map((s) => [s.id, Number(s.price)]));
 
     // Una sola regla: hay algo que revisar cuando el texto que el profesional
     // tiene en el editor NO es el que está publicado.
@@ -164,14 +167,24 @@ export async function updateProfile(formData) {
     // cualquier borrador que hubiera quedado dando vueltas se limpia acá.
     const resenaSinCambios = tocaLaResena && !resenaPendiente;
 
-    // Leer asignaciones actuales
-    const currentAssignments = await prisma.serviceAssignment.findMany({
-      where: { professionalId: professionalProfileId },
-      select: { serviceId: true, status: true, proposedSessionPrice: true, approvedSessionPrice: true },
-    });
+    // Leer asignaciones actuales y la tarifa general (sin lugar ni franja) de
+    // cada servicio, que es la que edita este formulario.
+    const [currentAssignments, tarifasGenerales] = await Promise.all([
+      prisma.serviceAssignment.findMany({
+        where: { professionalId: professionalProfileId },
+        select: { serviceId: true, status: true, proposedSessionPrice: true, approvedSessionPrice: true },
+      }),
+      prisma.professionalRate.findMany({
+        where: { professionalId: professionalProfileId, locationId: null, timeBandId: null },
+        select: { id: true, serviceId: true, status: true, approvedPrice: true, proposedPrice: true },
+      }),
+    ]);
     const currentMap = new Map(currentAssignments.map((a) => [a.serviceId, a]));
+    const catchAllByService = new Map(tarifasGenerales.map((rate) => [rate.serviceId, rate]));
 
     const tx = [];
+    let tarifasEnRevision = 0;
+    let preciosPublicosCambiados = false;
 
     // Update del perfil + user embebido
     tx.push(
@@ -230,6 +243,7 @@ export async function updateProfile(formData) {
             },
           })
         );
+        preciosPublicosCambiados = true;
       }
     }
 
@@ -293,35 +307,71 @@ export async function updateProfile(formData) {
       }
 
       if (existingStatus === "APPROVED") {
-        const currentApproved =
-          existingAssignment?.approvedSessionPrice == null
-            ? null
-            : Number(existingAssignment.approvedSessionPrice);
-        const currentProposed =
-          existingAssignment?.proposedSessionPrice == null
-            ? null
-            : Number(existingAssignment.proposedSessionPrice);
-        const hasRequestedChange = nextProposedPrice !== null;
-        const approvedChanged = hasRequestedChange && currentApproved !== nextProposedPrice;
-        const proposalChanged = currentProposed !== nextProposedPrice;
+        // Una consulta aprobada no vuelve a revisión por cambiar el precio. Antes
+        // pasaba a PENDING y perdía su precio aprobado: el servicio desaparecía
+        // del sitio —ficha, hub, agenda— hasta que un admin la re-aprobara, y aun
+        // aprobada el monto nuevo no llegaba a la tarifa, que es de donde lee todo
+        // el sitio. Ahora el monto se propone en la tarifa general y el precio
+        // vigente sigue rigiendo hasta que se revise en Tarifas.
+        if (nextProposedPrice === null || nextProposedPrice <= 0) continue;
 
-        if (approvedChanged || proposalChanged) {
+        const general = catchAllByService.get(serviceId) || null;
+        const aprobado = Number(general?.approvedPrice);
+        const propuesto = Number(general?.proposedPrice);
+        const sinCambios =
+          Boolean(general) &&
+          ((general.status === "APPROVED" && aprobado === nextProposedPrice) ||
+            (general.status === "PENDING" && propuesto === nextProposedPrice));
+        if (sinCambios) continue;
+
+        // Misma regla que proposeRate: volver al precio ya aprobado o cobrar el de
+        // catálogo no es una decisión nueva y no espera revisión.
+        const sinDecisionNueva =
+          nextProposedPrice === aprobado || nextProposedPrice === catalogPriceById.get(serviceId);
+        const revision = sinDecisionNueva
+          ? { status: "APPROVED", approvedPrice: nextProposedPrice, reviewedAt: new Date() }
+          : { status: "PENDING", reviewedAt: null };
+
+        if (general) {
           tx.push(
-            prisma.serviceAssignment.update({
-              where: {
-                professionalId_serviceId: { professionalId: professionalProfileId, serviceId },
-              },
+            prisma.professionalRate.update({
+              where: { id: general.id },
               data: {
-                status: "PENDING",
-                requestedAt: new Date(),
-                reviewedAt: null,
-                proposedSessionPrice: nextProposedPrice,
-                approvedSessionPrice: null,
+                proposedPrice: nextProposedPrice,
                 adminReviewNote: null,
+                requestedAt: new Date(),
+                ...revision,
+              },
+            })
+          );
+        } else {
+          tx.push(
+            prisma.professionalRate.create({
+              data: {
+                professionalId: professionalProfileId,
+                serviceId,
+                locationId: null,
+                timeBandId: null,
+                proposedPrice: nextProposedPrice,
+                ...revision,
               },
             })
           );
         }
+
+        // En la asignación queda solo como el valor que muestra el editor; el
+        // precio que se cobra y se publica vive en la tarifa.
+        tx.push(
+          prisma.serviceAssignment.update({
+            where: {
+              professionalId_serviceId: { professionalId: professionalProfileId, serviceId },
+            },
+            data: { proposedSessionPrice: nextProposedPrice },
+          })
+        );
+
+        if (sinDecisionNueva) preciosPublicosCambiados = true;
+        else tarifasEnRevision += 1;
       }
 
     }
@@ -330,14 +380,18 @@ export async function updateProfile(formData) {
 
     revalidatePath("/panel/profesional/perfil");
     revalidatePath("/panel/profesional");
+    revalidatePath("/panel/profesional/tarifas");
     revalidatePath("/panel/admin");
     revalidatePath("/panel/admin/personal");
+    revalidatePath("/panel/admin/tarifas");
     revalidatePath("/servicios");
 
     // Si tenés la página pública del profesional por slug:
     if (existingProfile.slug || session?.slug) {
       revalidatePath(`/profesionales/${existingProfile.slug || session.slug}`);
     }
+
+    if (preciosPublicosCambiados) revalidarPreciosPublicos();
 
     return {
       success: true,
@@ -347,6 +401,7 @@ export async function updateProfile(formData) {
       // indistinguible de haberla enviado, y es la razón por la que esto se
       // leía como que la reseña no se actualizaba.
       profileReviewSinCambios: resenaSinCambios,
+      tarifasEnRevision,
     };
   } catch (error) {
     console.error("Error updating profile:", error);

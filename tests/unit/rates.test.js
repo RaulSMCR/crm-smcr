@@ -119,8 +119,9 @@ describe("resolveRate()", () => {
   });
 
   it("una propuesta en revisión no deja sin precio: sigue rigiendo el aprobado", () => {
-    // Raúl propuso ₡30.000 sobre su tarifa de ₡40.000 y se quedó sin agenda
-    // hasta que un admin revisara. El monto propuesto no se cobra; el aprobado sí.
+    // Proponer ₡30.000 sobre una tarifa de ₡40.000 no puede dejar al profesional
+    // sin agenda mientras espera revisión. El monto propuesto no se cobra; el
+    // aprobado sí.
     const enRevision = rate({ id: "general", status: "PENDING", approvedPrice: 40000, proposedPrice: 30000 });
     const found = resolveRate([enRevision], { locationId: OFICINA, timeBandId: "band_am" });
     expect(found.id).toBe("general");

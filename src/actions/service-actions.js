@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { revalidarPreciosPublicos } from "@/lib/revalidar-precios";
-import { TARIFA_VIGENTE } from "@/lib/service-pricing";
 
 function requireAdmin(session) {
   if (!session || session.role !== "ADMIN") {
@@ -305,27 +304,23 @@ async function applyServiceFiscalData(serviceId, payload = {}) {
 }
 
 /**
- * Deja al profesional con al menos una tarifa cobrable en ese servicio.
+ * Fija el precio general del profesional en ese servicio —la tarifa catch-all—
+ * en el monto que el admin acaba de aprobar.
  *
  * El precio real vive en `ProfessionalRate` (servicio × lugar × franja) y se
- * resuelve por cascada; la tarifa que se siembra acá es el catch-all, el último
- * escalón: sin lugar ni franja, vale para cualquier combinación que el
- * profesional no haya afinado.
+ * resuelve por cascada; el catch-all es el último escalón: sin lugar ni franja,
+ * vale para cualquier combinación que el profesional no haya afinado.
  *
- * **No pisa lo que ya existe.** Si el profesional ya tiene tarifas aprobadas
- * —quizá distintas por consultorio o por horario, que es justamente para lo que
- * está el modelo—, aprobar de nuevo la asignación no puede aplanarlas a un solo
- * monto. Solo actúa cuando no hay ninguna, que es el caso que dejaba fichas sin
- * precio.
+ * Antes solo sembraba el catch-all cuando no había ninguna tarifa, para no
+ * aplanar precios distintos por consultorio o franja. Pero así aprobar un precio
+ * nuevo en la asignación no movía nada: la asignación quedaba con el monto
+ * nuevo y la tarifa —de donde lee todo el sitio— con el viejo. Ahora el monto
+ * aprobado va al catch-all, y las tarifas por lugar o franja, que eran lo que
+ * había que proteger, siguen intactas.
  */
-async function garantizarTarifaVigente(professionalId, serviceId, precio) {
+async function fijarTarifaGeneral(professionalId, serviceId, precio) {
   const monto = Number(precio);
-  if (!Number.isFinite(monto) || monto <= 0) return { creada: false };
-
-  const yaTiene = await prisma.professionalRate.count({
-    where: { professionalId, serviceId, ...TARIFA_VIGENTE },
-  });
-  if (yaTiene > 0) return { creada: false };
+  if (!Number.isFinite(monto) || monto <= 0) return { fijada: false };
 
   // El catch-all puede existir en PENDING o REJECTED de un intento anterior: se
   // reutiliza esa fila en vez de crear otra, porque el índice único sobre
@@ -339,6 +334,7 @@ async function garantizarTarifaVigente(professionalId, serviceId, precio) {
     status: "APPROVED",
     approvedPrice: monto,
     proposedPrice: monto,
+    adminReviewNote: null,
     reviewedAt: new Date(),
   };
 
@@ -350,7 +346,7 @@ async function garantizarTarifaVigente(professionalId, serviceId, precio) {
     });
   }
 
-  return { creada: true };
+  return { fijada: true };
 }
 
 export async function reviewServiceAssignment(serviceId, professionalId, payload = {}) {
@@ -415,7 +411,7 @@ export async function reviewServiceAssignment(serviceId, professionalId, payload
     });
 
     if (decision === "APPROVED") {
-      await garantizarTarifaVigente(pid, sid, precioFinal);
+      await fijarTarifaGeneral(pid, sid, precioFinal);
     }
 
     revalidatePath(`/panel/admin/servicios/${sid}`);

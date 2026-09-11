@@ -7,6 +7,10 @@ import ProfileEditor from "@/components/profile/ProfileEditor";
 
 export const dynamic = "force-dynamic";
 
+function aNumero(valor) {
+  return valor === null || valor === undefined ? null : Number(valor);
+}
+
 export default async function PerfilPage() {
   const session = await getSession();
   if (!session || session.role !== "PROFESSIONAL") redirect("/ingresar");
@@ -14,7 +18,18 @@ export default async function PerfilPage() {
   const profileRaw = await prisma.professionalProfile.findUnique({
     where: professionalProfileWhere(session),
     include: {
-      serviceAssignments: { include: { service: true } },
+      serviceAssignments: {
+        include: {
+          service: true,
+          // La tarifa general (sin lugar ni franja) es el precio que edita este
+          // formulario y el que se publica.
+          rates: {
+            where: { locationId: null, timeBandId: null },
+            select: { status: true, approvedPrice: true, proposedPrice: true, adminReviewNote: true },
+            take: 1,
+          },
+        },
+      },
       user: { select: { name: true, email: true, image: true, phone: true, identification: true } },
     },
   });
@@ -40,10 +55,33 @@ export default async function PerfilPage() {
 
   const profile = {
     ...profileRaw,
-    serviceAssignments: (profileRaw.serviceAssignments || []).map((a) => ({
-      ...a,
-      service: a.service ? { ...a.service, price: Number(a.service.price) } : a.service,
-    })),
+    serviceAssignments: (profileRaw.serviceAssignments || []).map(({ rates, ...a }) => {
+      const general = rates?.[0] || null;
+      const tarifaGeneral = general
+        ? {
+            status: general.status,
+            approvedPrice: aNumero(general.approvedPrice),
+            proposedPrice: aNumero(general.proposedPrice),
+            adminReviewNote: general.adminReviewNote,
+          }
+        : null;
+
+      return {
+        ...a,
+        // El campo del editor arranca en el precio que rige, o en el que está en
+        // revisión, y no en el valor viejo de la asignación: si no, guardar el
+        // perfil por cualquier otro motivo volvía a proponer un monto
+        // desactualizado.
+        proposedSessionPrice: tarifaGeneral
+          ? tarifaGeneral.status === "PENDING"
+            ? tarifaGeneral.proposedPrice
+            : tarifaGeneral.approvedPrice
+          : aNumero(a.proposedSessionPrice),
+        approvedSessionPrice: aNumero(a.approvedSessionPrice),
+        tarifaGeneral,
+        service: a.service ? { ...a.service, price: Number(a.service.price) } : a.service,
+      };
+    }),
   };
 
   return (
@@ -59,5 +97,3 @@ export default async function PerfilPage() {
     </div>
   );
 }
-
-

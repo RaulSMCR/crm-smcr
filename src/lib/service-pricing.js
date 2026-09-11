@@ -18,9 +18,8 @@
  * del precio: cuando el profesional propone un monto nuevo la fila pasa a
  * PENDING y conserva `approvedPrice`, que es el que tiene que seguir rigiendo
  * hasta que un admin decida. Filtrar por APPROVED dejaba al profesional sin
- * precio público y sin agenda mientras su propuesta esperaba revisión: le pasó
- * a Raúl el 2026-09-11 al proponer ₡30.000, con "Agenda no disponible" en
- * producción. Un rechazo tampoco borra el precio aprobado (ver reviewRate).
+ * precio público y sin agenda mientras su propuesta esperaba revisión. Un
+ * rechazo tampoco borra el precio aprobado (ver reviewRate).
  */
 export const TARIFA_VIGENTE = Object.freeze({ approvedPrice: { gt: 0 } });
 

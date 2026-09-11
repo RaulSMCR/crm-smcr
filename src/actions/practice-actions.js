@@ -14,6 +14,7 @@ import { requireProfessionalProfileId } from "@/lib/auth-guards";
 import { getSession, isPreviewSession, PREVIEW_BLOCKED_MESSAGE } from "@/lib/auth";
 import { findTimeBandOverlaps, parseHHMM } from "@/lib/rates";
 import { revalidarPreciosPublicos } from "@/lib/revalidar-precios";
+import { TARIFA_VIGENTE } from "@/lib/service-pricing";
 
 const MODALITIES = ["OFFICE", "HOME", "VIRTUAL"];
 
@@ -344,6 +345,29 @@ export async function deleteRate(rateId) {
 
     const id = String(rateId || "").trim();
     if (!id) return { error: "Tarifa inválida." };
+
+    const rate = await prisma.professionalRate.findFirst({
+      where: { id, professionalId },
+      select: { serviceId: true, approvedPrice: true },
+    });
+    if (!rate) return { error: "La tarifa no existe o no le pertenece." };
+
+    // Borrar la única tarifa con precio aprobado deja al profesional sin precio
+    // público y sin agenda hasta que un admin apruebe otra. Cambiar el precio no
+    // requiere borrar: se propone el monto nuevo en la misma combinación y el
+    // aprobado sigue rigiendo hasta que se revise.
+    if (Number(rate.approvedPrice) > 0) {
+      const otrasVigentes = await prisma.professionalRate.count({
+        where: { professionalId, serviceId: rate.serviceId, id: { not: id }, ...TARIFA_VIGENTE },
+      });
+      if (otrasVigentes === 0) {
+        return {
+          error:
+            "Es la única tarifa vigente de esa consulta: si la elimina, su agenda deja de estar disponible. " +
+            "Para cambiar el precio, envíe el monto nuevo con el mismo lugar y franja; el actual sigue rigiendo hasta que se apruebe.",
+        };
+      }
+    }
 
     const { count } = await prisma.professionalRate.deleteMany({ where: { id, professionalId } });
     if (count === 0) return { error: "La tarifa no existe o no le pertenece." };

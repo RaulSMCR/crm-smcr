@@ -192,12 +192,17 @@ export default function ProfileEditor({ profile, allServices = [] }) {
       const result = await updateProfile(formData);
 
       if (result?.success) {
+        // Sin este aviso, un precio en revisión se lee como un precio que no se guardó.
+        const avisoTarifa = result.tarifasEnRevision
+          ? " El precio nuevo quedó en revisión; mientras tanto sigue rigiendo el vigente."
+          : "";
         setToast({
-          message: result.profileReviewPending
-            ? "Perfil guardado. La reseña pública quedó en revisión administrativa."
-            : result.profileReviewSinCambios
-              ? "Perfil guardado. La reseña es idéntica a la publicada, así que no se envió a revisión."
-              : "Perfil guardado correctamente.",
+          message:
+            (result.profileReviewPending
+              ? "Perfil guardado. La reseña pública quedó en revisión administrativa."
+              : result.profileReviewSinCambios
+                ? "Perfil guardado. La reseña es idéntica a la publicada, así que no se envió a revisión."
+                : "Perfil guardado correctamente.") + avisoTarifa,
           type: "success",
         });
         router.refresh();
@@ -491,14 +496,24 @@ export default function ProfileEditor({ profile, allServices = [] }) {
                           className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1 text-sm"
                         />
                         <p className="mt-1 text-[11px] text-slate-500">
-                          Este valor define tu tarifa solicitada. El monto real cobrado al paciente y usado para pago y factura será el aprobado por administración.
+                          El monto que se cobra y se publica es el aprobado por administración. Si cambiás el de una consulta ya aprobada, el precio vigente sigue rigiendo hasta que se apruebe el nuevo.
                         </p>
                       </div>
                     )}
 
-                    {assignment?.approvedSessionPrice != null ? (
+                    {assignment?.tarifaGeneral?.approvedPrice != null ? (
+                      <div className="mt-2 text-xs text-emerald-700">
+                        Precio vigente: {formatCRC(assignment.tarifaGeneral.approvedPrice)}
+                      </div>
+                    ) : assignment?.approvedSessionPrice != null ? (
                       <div className="mt-2 text-xs text-emerald-700">
                         Costo aprobado: {formatCRC(assignment.approvedSessionPrice)}
+                      </div>
+                    ) : null}
+
+                    {assignment?.tarifaGeneral?.status === "PENDING" ? (
+                      <div className="mt-1 text-xs text-amber-700">
+                        En revisión: {formatCRC(assignment.tarifaGeneral.proposedPrice)}
                       </div>
                     ) : null}
 
