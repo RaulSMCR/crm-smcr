@@ -9,6 +9,7 @@ vi.mock("@/lib/onvo/payment-alert", () => ({ sendAdminPaymentAlert: mocks.alert 
 vi.mock("next/server", async (original) => ({ ...await original(), after: mocks.after }));
 vi.mock("@/lib/analytics/reportDepositConversion", () => ({ reportDepositConversion: vi.fn() }));
 vi.mock("@/lib/analytics/meta-events", () => ({ sendPurchaseMeta: vi.fn() }));
+vi.mock("@/lib/payment-deliveries", () => ({ processPaymentDeliveries: vi.fn() }));
 import { POST } from "@/app/api/admin/reconciliation/route";
 
 const request = (body = { unmatchedId: "unmatched-local", transactionId: "tx-local" }) => new Request("https://example.invalid/api/admin/reconciliation", {

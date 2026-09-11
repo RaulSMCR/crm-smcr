@@ -3,6 +3,8 @@ import { PrismaClient } from "@prisma/client";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { normalizeOnvoEvent } from "@/lib/onvo/event";
 import { processOnvoPayment, reconcileOnvoPayment } from "@/lib/onvo/process-payment";
+import { runDeliveryJob } from "@/lib/delivery-jobs";
+import { persistFeDocument } from "@/lib/fe/document";
 
 // Opt-in, exclusivamente una base desechable local con esquema ya restaurado.
 // No cargar .env, ejecutar migraciones ni usar DATABASE_URL como alternativa.
@@ -89,7 +91,9 @@ describe.skipIf(!databaseUrl)("ONVO: atomicidad y concurrencia con PostgreSQL lo
     return { $transaction: (fn, options) => db.$transaction((tx) => fn(new Proxy(tx, {
       get(target, key) {
         if (key !== model) return target[key];
-        return { ...target[key], [method]: (args) => target[key][method](method === "create"
+        return { ...target[key], [method]: (args) => target[key][method](method === "upsert"
+          ? { ...args, create: { ...args.create, invoiceId: randomUUID() } }
+          : method === "create"
           ? { ...args, data: { ...args.data, contactId: randomUUID() } }
           : { ...args, where: { id: randomUUID() } }) };
       },
@@ -122,7 +126,7 @@ describe.skipIf(!databaseUrl)("ONVO: atomicidad y concurrencia con PostgreSQL lo
     expect((await db.appointment.findUnique({ where: { id: f.appointment.id } })).paymentStatus).toBe("PAID");
   });
 
-  it.each([["invoice", "create", "P2003"], ["appointment", "update", "P2025"]])(
+  it.each([["invoice", "create", "P2003"], ["appointment", "update", "P2025"], ["deliveryJob", "upsert", "P2003"]])(
     "un fallo SQL en %s revierte todo y permite reintentar", async (model, method, code) => {
       const f = await fixture(), body = payload(f), number = await sequence();
       await expect(process(body, brokenClient(model, method))).rejects.toMatchObject({ code });
@@ -211,5 +215,87 @@ describe.skipIf(!databaseUrl)("ONVO: atomicidad y concurrencia con PostgreSQL lo
     expect((await reconcile(f, row)).kind).toBe("conflict");
     expect((await process(payload(f))).kind).toBe("unmatched");
     await expectUnchanged(f, number);
+  });
+
+  async function queued() {
+    const f = await fixture();
+    await process(payload(f));
+    const jobs = await db.deliveryJob.findMany({ where: { invoiceId: (await invoices(f))[0].id } });
+    expect(jobs).toHaveLength(2);
+    return { f, job: jobs.find((row) => row.kind === "PAYMENT_CONFIRMATION") };
+  }
+
+  it("dos procesadores simultáneos y una repetición ejecutan una sola entrega", async () => {
+    const { job } = await queued(), execute = vi.fn(async () => ({ providerId: "local-mail" }));
+    const results = await Promise.all([runDeliveryJob(db, job.id, execute), runDeliveryJob(db, job.id, execute)]);
+    expect(results.sort()).toEqual(["skipped", "succeeded"]);
+    expect(await runDeliveryJob(db, job.id, execute)).toBe("skipped");
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it("recupera una tarea que quedó PROCESSING tras morir su proceso", async () => {
+    const { job } = await queued();
+    await db.deliveryJob.update({ where: { id: job.id }, data: { status: "PROCESSING", leaseToken: "expired", lockedUntil: new Date(Date.now() - 1000) } });
+    expect(await runDeliveryJob(db, job.id, async () => ({}))).toBe("succeeded");
+    expect((await db.deliveryJob.findUnique({ where: { id: job.id } })).leaseToken).toBeNull();
+  });
+
+  it("un procesador cuyo lease fue sustituido no puede cerrar la tarea", async () => {
+    const { job } = await queued();
+    const execute = async () => {
+      await db.deliveryJob.update({ where: { id: job.id }, data: { leaseToken: "new-owner" } });
+      return {};
+    };
+    expect(await runDeliveryJob(db, job.id, execute)).toBe("skipped");
+    expect((await db.deliveryJob.findUnique({ where: { id: job.id } })).status).toBe("PROCESSING");
+  });
+
+  it("conserva pendiente un error del proveedor sin guardar su mensaje privado", async () => {
+    const { job } = await queued();
+    expect(await runDeliveryJob(db, job.id, async () => { throw new Error("PRIVATE_DATA_TEST"); })).toBe("pending");
+    const saved = await db.deliveryJob.findUnique({ where: { id: job.id } });
+    expect(saved.lastErrorCode).toBe("DELIVERY_FAILED");
+    expect(saved.nextAttemptAt.getTime()).toBeGreaterThan(Date.now());
+    expect(await runDeliveryJob(db, job.id, vi.fn())).toBe("skipped");
+  });
+
+  it("un envío incierto de más de 23 horas requiere revisión sin contactar al proveedor", async () => {
+    const { job } = await queued(), execute = vi.fn();
+    await db.deliveryJob.update({ where: { id: job.id }, data: { firstSendAt: new Date(Date.now() - 24 * 60 * 60_000), payloadHash: "original" } });
+    expect(await runDeliveryJob(db, job.id, execute)).toBe("review");
+    expect(execute).not.toHaveBeenCalled();
+    expect((await db.deliveryJob.findUnique({ where: { id: job.id } })).lastErrorCode).toBe("MAIL_WINDOW_EXPIRED");
+  });
+
+  it("detiene un reintento cuyo destinatario o contenido cambió", async () => {
+    const { job } = await queued(), sent = vi.fn();
+    await db.deliveryJob.update({ where: { id: job.id }, data: { firstSendAt: new Date(), payloadHash: "original" } });
+    expect(await runDeliveryJob(db, job.id, async (_, checkpoint) => { await checkpoint.beforeSend("changed"); sent(); })).toBe("review");
+    expect(sent).not.toHaveBeenCalled();
+  });
+
+  it("conserva la misma referencia y huella si el proveedor aceptó y falló el cierre local", async () => {
+    const { job } = await queued(), provider = new Set();
+    const execute = async (row, checkpoint) => { await checkpoint.beforeSend("stable-hash"); provider.add(row.id); return { providerId: "same-mail" }; };
+    const failCompletion = { deliveryJob: { ...db.deliveryJob, updateMany: (args) => {
+      if (args.data.status === "SUCCEEDED") throw new Error("LOCAL_FAILURE");
+      return db.deliveryJob.updateMany(args);
+    } } };
+    expect(await runDeliveryJob(failCompletion, job.id, execute)).toBe("pending");
+    const first = await db.deliveryJob.findUnique({ where: { id: job.id } });
+    expect(first.firstSendAt).not.toBeNull();
+    expect(first.payloadHash).toBe("stable-hash");
+    await db.deliveryJob.update({ where: { id: job.id }, data: { nextAttemptAt: new Date(0) } });
+    expect(await runDeliveryJob(db, job.id, execute)).toBe("succeeded");
+    expect(provider.size).toBe(1);
+  });
+
+  it("dos preparaciones fiscales concurrentes conservan una sola clave y XML", async () => {
+    const { f } = await queued(), invoiceId = (await invoices(f))[0].id;
+    const doc = (key) => ({ feClave: key, feNumber: "123", feXml: `<FacturaElectronica><Clave>${key}</Clave><NumeroConsecutivo>123</NumeroConsecutivo><FechaEmision>2026-09-11T12:00:00-06:00</FechaEmision><Emisor><Identificacion><Tipo>02</Tipo><Numero>3000000000</Numero></Identificacion></Emisor></FacturaElectronica>` });
+    const results = await Promise.all([persistFeDocument(db, invoiceId, doc("first")), persistFeDocument(db, invoiceId, doc("second"))]);
+    expect(results[0].feClave).toBe(results[1].feClave);
+    expect(results[0].feXml).toBe(results[1].feXml);
+    expect((await persistFeDocument(db, invoiceId, doc("third"))).feClave).toBe(results[0].feClave);
   });
 });

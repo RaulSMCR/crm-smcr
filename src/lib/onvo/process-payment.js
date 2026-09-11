@@ -2,6 +2,7 @@ import { matchTransaction } from "@/lib/onvo/match-payment";
 import { normalizeOnvoEvent } from "@/lib/onvo/event";
 import { createPaymentInvoice } from "@/lib/onvo/payment-invoice";
 import { estimateOnvoFee } from "@/lib/commission-plan";
+import { enqueueDelivery } from "@/lib/delivery-jobs";
 
 const PAYMENT_CONTEXT = {
   appointment: { select: {
@@ -61,6 +62,8 @@ async function applyPayment(tx, transaction, event, payload, usdCrcRate, manual 
   await tx.appointment.update({ where: { id: transaction.appointmentId }, data: { paymentStatus: nextPaymentStatus } });
   processed.appointment = { ...transaction.appointment, paymentStatus: nextPaymentStatus };
   const invoice = await createPaymentInvoice(tx, processed);
+  await enqueueDelivery(tx, { kind: "PAYMENT_CONFIRMATION", invoiceId: invoice.invoiceId, paymentTransactionId: transaction.id });
+  await enqueueDelivery(tx, { kind: "FE_SUBMISSION", invoiceId: invoice.invoiceId });
   return { kind: "processed", transaction: processed, nextPaymentStatus, ...invoice };
 }
 

@@ -103,7 +103,7 @@ describe("submitInvoiceToFe() — guard de FE simulada (FIS-01)", () => {
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "inv_1" },
-        data: expect.objectContaining({ feStatus: "PENDING", feNumber: null }),
+        data: expect.objectContaining({ feErrorMessage: expect.stringContaining("FE_API_URL") }),
       })
     );
 

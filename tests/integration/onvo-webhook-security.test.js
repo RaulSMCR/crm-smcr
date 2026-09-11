@@ -7,16 +7,17 @@ const mocks = vi.hoisted(() => ({
     appointment: { update: vi.fn() },
     invoice: { create: vi.fn(), update: vi.fn() },
     invoiceSequence: { upsert: vi.fn() },
+    deliveryJob: { upsert: vi.fn() },
     insuranceClaim: { upsert: vi.fn() },
     $transaction: vi.fn(),
   },
-  send: vi.fn(), after: vi.fn(), submitInvoice: vi.fn(),
+  send: vi.fn(), after: vi.fn(), dispatch: vi.fn(),
   insuranceAlert: vi.fn(), depositConversion: vi.fn(), purchaseMeta: vi.fn(),
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: mocks.db }));
 vi.mock("@/lib/resend", () => ({ resend: { emails: { send: mocks.send } } }));
 vi.mock("next/server", async (original) => ({ ...await original(), after: mocks.after }));
-vi.mock("@/lib/fe/submit", () => ({ submitInvoiceToFe: mocks.submitInvoice }));
+vi.mock("@/lib/payment-deliveries", () => ({ processPaymentDeliveries: mocks.dispatch }));
 vi.mock("@/lib/insurance-mail", () => ({ sendInsuranceProSignAlert: mocks.insuranceAlert }));
 vi.mock("@/lib/analytics/reportDepositConversion", () => ({ reportDepositConversion: mocks.depositConversion }));
 vi.mock("@/lib/analytics/meta-events", () => ({ sendPurchaseMeta: mocks.purchaseMeta }));
@@ -66,7 +67,7 @@ function expectNoEffects() {
     if (typeof model === "function") expect(model).not.toHaveBeenCalled();
     else for (const method of Object.values(model)) expect(method).not.toHaveBeenCalled();
   }
-  for (const fn of [mocks.send, mocks.after, mocks.submitInvoice, mocks.insuranceAlert, mocks.depositConversion, mocks.purchaseMeta]) {
+  for (const fn of [mocks.send, mocks.after, mocks.dispatch, mocks.insuranceAlert, mocks.depositConversion, mocks.purchaseMeta]) {
     expect(fn).not.toHaveBeenCalled();
   }
 }
@@ -94,9 +95,10 @@ beforeEach(() => {
   mocks.db.invoice.create.mockResolvedValue({ id: "invoice_test" });
   mocks.db.invoice.update.mockResolvedValue({ id: "invoice_test" });
   mocks.db.invoiceSequence.upsert.mockResolvedValue({ currentNumber: 1, padding: 4, prefix: "" });
+  mocks.db.deliveryJob.upsert.mockResolvedValue({ id: "delivery_test" });
   mocks.db.$transaction.mockImplementation(async (fn) => fn(mocks.db));
   mocks.send.mockResolvedValue({ error: null });
-  mocks.submitInvoice.mockResolvedValue(null);
+  mocks.dispatch.mockResolvedValue({ processed: 2 });
   mocks.insuranceAlert.mockResolvedValue(null);
   mocks.depositConversion.mockResolvedValue(false);
   mocks.purchaseMeta.mockResolvedValue(false);
@@ -181,10 +183,11 @@ describe("Webhook ONVO: autenticación, privacidad y continuidad", () => {
     expect(mocks.db.invoice.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ status: "PAID", amountPaid: 40000, balance: 0 }),
     }));
-    expect(mocks.send).toHaveBeenCalledWith(expect.objectContaining({ to: EMAIL }));
+    expect(mocks.db.deliveryJob.upsert).toHaveBeenCalledTimes(2);
+    expect(mocks.send).not.toHaveBeenCalled();
     expect(mocks.after).toHaveBeenCalledTimes(2);
     await mocks.after.mock.calls[0][0]();
-    expect(mocks.submitInvoice).toHaveBeenCalledWith("invoice_test");
+    expect(mocks.dispatch).toHaveBeenCalledWith({ invoiceId: "invoice_test" });
     expectPrivateDataAbsent();
   });
 
@@ -270,7 +273,7 @@ describe("Webhook ONVO: autenticación, privacidad y continuidad", () => {
     mocks.db.$transaction.mockRejectedValueOnce(Object.assign(new Error(MARKER), { code: "P2034" }));
     expect((await POST(request())).status).toBe(200);
     expect(mocks.db.$transaction).toHaveBeenCalledTimes(2);
-    expect(mocks.send).toHaveBeenCalledTimes(1);
+    expect(mocks.send).not.toHaveBeenCalled();
     expect(mocks.after).toHaveBeenCalledTimes(2);
     expectPrivateDataAbsent();
   });
@@ -297,14 +300,15 @@ describe("Webhook ONVO: autenticación, privacidad y continuidad", () => {
     expectPrivateDataAbsent(alert.html);
   });
 
-  it("un adelanto tardío no anuncia un saldo pendiente si la cita ya está pagada", async () => {
+  it("un adelanto tardío conserva PAID y deja la confirmación en la cola", async () => {
     const POST = await handler();
     const tx = transaction();
     tx.type = "DEPOSIT_50";
     tx.appointment.paymentStatus = "PAID";
     mocks.db.paymentTransaction.findMany.mockResolvedValue([tx]);
     expect((await POST(request())).status).toBe(200);
-    expect(mocks.send.mock.calls[0][0].html).toContain("pagada por completo");
-    expect(mocks.send.mock.calls[0][0].html).not.toContain("un segundo enlace");
+    expect(mocks.send).not.toHaveBeenCalled();
+    expect(mocks.db.deliveryJob.upsert).toHaveBeenCalledWith(expect.objectContaining({ create: expect.objectContaining({ kind: "PAYMENT_CONFIRMATION" }) }));
+    expect(mocks.db.appointment.update).toHaveBeenCalledWith(expect.objectContaining({ data: { paymentStatus: "PAID" } }));
   });
 });

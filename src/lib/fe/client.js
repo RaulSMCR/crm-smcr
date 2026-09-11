@@ -2,10 +2,11 @@
 // Orquesta el flujo completo de envío a Hacienda CR:
 //   generateXml → signXml → submit → poll
 
-import { FE_API, FE_EMISOR } from "./config.js";
+import { FE_API } from "./config.js";
 import { getFeToken, invalidateFeToken } from "./auth.js";
 import { generateFeXml } from "./xml.js";
 import { signXml } from "./signer.js";
+import { receptionPayload } from "./document.js";
 
 const POLL_INTERVAL_MS = 5_000;
 const POLL_MAX_ATTEMPTS = 6; // max 30s de espera
@@ -17,88 +18,59 @@ const POLL_MAX_ATTEMPTS = 6; // max 30s de espera
  * @param {object[]} lines  - invoice.lines (ya incluidas en invoice.lines normalmente)
  * @returns {Promise<{ feNumber, feClave, feStatus, feErrorMessage }>}
  */
-export async function submitToHacienda(invoice, lines) {
-  // 1. Generar XML
-  const { xml, feNumber, feClave } = generateFeXml(invoice, lines || invoice.lines || []);
-
-  // 2. Firmar XML
-  const signedXml = await signXml(xml, FE_API.p12Base64, FE_API.p12Pin);
-
-  // 3. Codificar en base64
-  const xmlB64 = Buffer.from(signedXml, "utf8").toString("base64");
-
-  // 4. Obtener token
+export async function submitToHacienda(invoice, lines, { persistDocument, pollAttempts = 6 } = {}) {
+  let document;
+  if (invoice.feXml && invoice.feClave && invoice.feNumber) {
+    document = { feXml: invoice.feXml, feClave: invoice.feClave, feNumber: invoice.feNumber };
+  } else {
+    // Una identidad parcial puede pertenecer a un envío antiguo. No sustituirla.
+    if (invoice.feXml || invoice.feClave || invoice.feNumber) throw new Error("FE_DOCUMENT_REVIEW_REQUIRED");
+    const { xml, feNumber, feClave } = generateFeXml(invoice, lines || invoice.lines || []);
+    document = { feNumber, feClave, feXml: await signXml(xml, FE_API.p12Base64, FE_API.p12Pin) };
+  }
+  // El orquestador del CRM proporciona esta persistencia antes de cualquier petición.
+  if (persistDocument) document = await persistDocument(document);
+  const payload = receptionPayload(document);
   const token = await getFeToken();
+  const known = await queryStatus(document.feClave, token);
+  if (known) return feResult(known, document);
 
-  // 5. Construir payload para la API de recepción
-  const invoiceDate = invoice.invoiceDate instanceof Date
-    ? invoice.invoiceDate
-    : new Date(invoice.invoiceDate);
-  const pad = (n) => String(n).padStart(2, "0");
-  const fechaStr =
-    `${invoiceDate.getFullYear()}-${pad(invoiceDate.getMonth() + 1)}-${pad(invoiceDate.getDate())}` +
-    `T${pad(invoiceDate.getHours())}:${pad(invoiceDate.getMinutes())}:${pad(invoiceDate.getSeconds())}-06:00`;
-
-  const payload = {
-    clave: feClave,
-    fecha: fechaStr,
-    emisor: {
-      tipoIdentificacion: FE_EMISOR.tipoIdentificacion,
-      numeroIdentificacion: FE_EMISOR.identificacion,
-    },
-    comprobanteXml: xmlB64,
-  };
-
-  // Receptor si hay identificación
-  if (invoice.contactIdNumber) {
-    const clean = String(invoice.contactIdNumber).replace(/\D/g, "");
-    const tipo = clean.length === 9 ? "01"
-      : clean.length === 10 ? "02"
-      : clean.length >= 11 ? "03"
-      : null;
-    if (tipo) {
-      payload.receptor = { tipoIdentificacion: tipo, numeroIdentificacion: clean };
-    }
+  const response = await fetchWithToken(`${FE_API.recepcionUrl}/recepcion`, token, {
+    method: "POST", body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    if (response.status === 401) invalidateFeToken();
+    // Puede ser un envío concurrente o una recepción cuya respuesta se perdió.
+    const received = await queryStatus(document.feClave, token);
+    if (received) return feResult(received, document);
+    const error = new Error("FE_SUBMISSION_FAILED");
+    error.reviewRequired = [400, 403, 422].includes(response.status);
+    throw error;
   }
+  return feResult(await pollStatus(document.feClave, token, { maxAttempts: pollAttempts }), document);
+}
 
-  // 6. POST a la API de recepción
-  const submitRes = await fetchWithToken(
-    `${FE_API.recepcionUrl}/recepcion`,
-    token,
-    { method: "POST", body: JSON.stringify(payload) }
-  );
-
-  // La API de recepción devuelve 201/202 si aceptó la solicitud de procesamiento
-  if (!submitRes.ok) {
-    const errText = await submitRes.text().catch(() => "");
-    // Si el token expiró, invalidar cache y relanzar
-    if (submitRes.status === 401) {
-      invalidateFeToken();
-      throw new Error("[FE] Token expirado al enviar. Reintente.");
-    }
-    throw new Error(`[FE] Error ${submitRes.status} al enviar comprobante: ${errText}`);
-  }
-
-  // 7. Polling del estado
-  const result = await pollStatus(feClave, token);
-  const estado = estadoDe(result);
-
+export function feResult(result, document = {}) {
+  const state = estadoDe(result);
+  const feStatus = state === "aceptado" ? "ACCEPTED" : state === "rechazado" ? "REJECTED" : "PENDING";
   return {
-    feNumber,
-    feClave,
-    feStatus:       estado === "aceptado" ? "ACCEPTED" : "REJECTED",
-    feErrorMessage: estado !== "aceptado" ? describirRechazo(result) : null,
-
-    // Se devuelven para conservarlos: son el comprobante con validez legal y el
-    // acuse de Hacienda. Antes se perdian al terminar esta funcion.
-    signedXml,
-    respuestaXml: decodificarRespuesta(result),
-
-    // Los avisos viajan en la respuesta incluso cuando el comprobante fue
-    // aceptado (por ejemplo el -37 de datos del emisor desactualizados). Si no
-    // se leen aca, nadie se entera de que Hacienda esta pidiendo corregir algo.
-    avisos: estado === "aceptado" ? describirRechazo(result) : null,
+    feNumber: document.feNumber || null, feClave: document.feClave || null,
+    feStatus, feErrorMessage: feStatus === "REJECTED" ? describirRechazo(result)
+      : feStatus === "PENDING" ? "Comprobante pendiente de confirmación de Hacienda." : null,
+    signedXml: document.feXml || null, respuestaXml: decodificarRespuesta(result),
+    avisos: feStatus === "ACCEPTED" ? describirRechazo(result) : null,
+    reviewRequired: state === "error", haciendaStatus: state,
   };
+}
+
+async function queryStatus(clave, token) {
+  const response = await fetchWithToken(`${FE_API.recepcionUrl}/recepcion/${clave}`, token, { method: "GET" });
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    if (response.status === 401) invalidateFeToken();
+    throw new Error("FE_STATUS_UNAVAILABLE");
+  }
+  return response.json();
 }
 
 /** Devuelve el XML de respuesta de Hacienda ya decodificado, o null. */
@@ -157,10 +129,10 @@ function describirRechazo(result) {
  * @param {string|null} existingToken - Token ya obtenido (opcional)
  * @returns {Promise<{ ind_estado: string, respuesta_xml?: string, mensaje?: string }>}
  */
-export async function pollStatus(clave, existingToken = null) {
+export async function pollStatus(clave, existingToken = null, { maxAttempts = POLL_MAX_ATTEMPTS } = {}) {
   const token = existingToken || (await getFeToken());
 
-  for (let attempt = 1; attempt <= POLL_MAX_ATTEMPTS; attempt++) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const res = await fetchWithToken(
       `${FE_API.recepcionUrl}/recepcion/${clave}`,
       token,
@@ -170,21 +142,21 @@ export async function pollStatus(clave, existingToken = null) {
     if (!res.ok) {
       if (res.status === 404) {
         // Aún no procesado
-        if (attempt < POLL_MAX_ATTEMPTS) {
+        if (attempt < maxAttempts) {
           await sleep(POLL_INTERVAL_MS);
           continue;
         }
         return { ind_estado: "procesando", mensaje: "Timeout: comprobante aún en procesamiento" };
       }
-      const errText = await res.text().catch(() => "");
-      throw new Error(`[FE] Error ${res.status} consultando estado: ${errText}`);
+      if (res.status === 401) invalidateFeToken();
+      throw new Error("FE_STATUS_UNAVAILABLE");
     }
 
     const data = await res.json();
     const estado = estadoDe(data);
 
-    if (estado === "procesando" || estado === "") {
-      if (attempt < POLL_MAX_ATTEMPTS) {
+    if (["recibido", "procesando", ""].includes(estado)) {
+      if (attempt < maxAttempts) {
         await sleep(POLL_INTERVAL_MS);
         continue;
       }
@@ -200,6 +172,7 @@ export async function pollStatus(clave, existingToken = null) {
 function fetchWithToken(url, token, options = {}) {
   return fetch(url, {
     ...options,
+    signal: AbortSignal.timeout(10000),
     headers: {
       "Content-Type":  "application/json",
       "Authorization": `Bearer ${token}`,

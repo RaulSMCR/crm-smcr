@@ -12,6 +12,8 @@ import { prisma } from "@/lib/prisma";
 import { FE_EMISOR } from "@/lib/fe/config";
 import { resend } from "@/lib/resend";
 import { assertFeConfig } from "@/lib/fe/config.js";
+import { persistFeDocument } from "@/lib/fe/document";
+import { enqueueDelivery } from "@/lib/delivery-jobs";
 
 const FROM_EMAIL = process.env.EMAIL_FROM || "Salud Mental Costa Rica <onboarding@resend.dev>";
 const FE_REAL_API_URL = process.env.FE_API_URL || null;
@@ -23,9 +25,10 @@ const FE_REAL_API_URL = process.env.FE_API_URL || null;
  *
  * @param {object} invoice  Factura con feNumber, feClave, contact.email, lines, etc.
  */
-export async function sendFeEmail(invoice) {
+export async function sendFeEmail(invoice, { deliver } = {}) {
+  if (!deliver && !process.env.RESEND_API_KEY) return;
   const patientEmail = invoice.contact?.email;
-  if (!patientEmail || !process.env.RESEND_API_KEY) return;
+  if (!patientEmail) throw new Error("FE_RECIPIENT_MISSING");
 
   // FE_AMBIENTE 02 es el sandbox de Hacienda: los comprobantes emitidos ahí NO
   // tienen validez tributaria y el correo no puede afirmar lo contrario, menos
@@ -164,21 +167,17 @@ export async function sendFeEmail(invoice) {
   const destinatarios = [patientEmail];
   if (copiaAdmin && copiaAdmin !== patientEmail) destinatarios.push(copiaAdmin);
 
-  const { error } = await resend.emails.send({
+  const message = {
     from: FROM_EMAIL,
     to: destinatarios,
     subject: `${esPrueba ? "[PRUEBA] " : ""}Factura electrónica ${invoice.invoiceNumber} — Salud Mental Costa Rica`,
     html,
     ...(adjuntos.length > 0 ? { attachments: adjuntos } : {}),
-  });
-
-  if (error) console.error("[FE] Error enviando email de factura:", error);
-  else {
-    console.log(
-      `[FE] Factura ${invoice.invoiceNumber} enviada a ${destinatarios.join(", ")} ` +
-        `con ${adjuntos.length} adjunto(s).`
-    );
-  }
+  };
+  if (deliver) return deliver(message);
+  const result = await resend.emails.send(message);
+  if (result.error) throw new Error("FE_EMAIL_FAILED");
+  return result.data;
 }
 
 // ─── Alerta al administrador ─────────────────────────────────────────────────
@@ -220,8 +219,7 @@ async function sendFeConfigAlert(invoice) {
     html,
   });
 
-  if (error) console.error("[FE] Error enviando alerta de configuración al admin:", error);
-  else console.log(`[FE] Alerta de FE no configurada enviada al admin para factura ${invoice.invoiceNumber}`);
+  if (error) console.error("[FE] CONFIG_ALERT_FAILED");
 }
 
 /**
@@ -268,7 +266,7 @@ async function sendFeRejectAlert(invoice, motivo) {
     html,
   });
 
-  if (error) console.error("[FE] Error enviando la alerta de rechazo:", error);
+  if (error) console.error("[FE] REJECT_ALERT_FAILED");
 }
 
 // ─── Envío a Hacienda ────────────────────────────────────────────────────────
@@ -296,6 +294,10 @@ export async function submitInvoiceToFe(invoiceId) {
       dueDate: true,
       feNumber: true,
       feClave: true,
+      feXml: true,
+      feRespuestaXml: true,
+      feErrorMessage: true,
+      contactIdType: true,
       contactName: true,
       contactIdNumber: true,
       economicActivity: true,
@@ -308,7 +310,7 @@ export async function submitInvoiceToFe(invoiceId) {
       notes: true,
       originDocument: true,
       originInvoice: { select: { invoiceDate: true } },
-      contact: { select: { email: true, name: true, identification: true } },
+      contact: { select: { email: true, name: true, identification: true, billingEmail: true } },
       lines: {
         orderBy: { sortOrder: "asc" },
         select: {
@@ -340,131 +342,68 @@ export async function submitInvoiceToFe(invoiceId) {
     return { feStatus: invoice.feStatus, feNumber: invoice.feNumber, feClave: invoice.feClave, feErrorMessage: null };
   }
 
-  // Idempotencia: ya aceptada
+  // La aceptación fiscal y la entrega por correo son tareas distintas.
   if (invoice.feStatus === "ACCEPTED" && invoice.feNumber) {
-    console.log(`[FE] submitInvoiceToFe: factura ${invoiceId} ya ACCEPTED, omitiendo.`);
-    return { feStatus: "ACCEPTED", feNumber: invoice.feNumber, feClave: invoice.feClave, feErrorMessage: null };
-  }
-
-  const isProduction =
-    process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
-
-  let feNumber, feClave, feStatus, feErrorMessage;
-  let feXml = null;
-  let feRespuestaXml = null;
-  // Solo el envío por la integración real de Hacienda produce un comprobante con
-  // validez tributaria. El modo mock JAMÁS debe enviar el correo al paciente.
-  let realAcceptance = false;
-
-  if (FE_REAL_API_URL) {
-    // ── Integración real con Hacienda CR ─────────────────────────────────────
-    try {
-      assertFeConfig();
-      const { submitToHacienda } = await import("@/lib/fe/client.js");
-      const result = await submitToHacienda(invoice, invoice.lines);
-      feNumber       = result.feNumber;
-      feClave        = result.feClave;
-      feStatus       = result.feStatus;
-      feErrorMessage = result.feErrorMessage || null;
-      feXml          = result.signedXml || null;
-      feRespuestaXml = result.respuestaXml || null;
-      realAcceptance = feStatus === "ACCEPTED";
-
-      // Hacienda devuelve avisos incluso cuando acepta (p. ej. el -37 de datos
-      // del emisor desactualizados en Tributación). Sin registrarlos, el problema
-      // se repite en cada comprobante sin que nadie lo note.
-      if (realAcceptance && result.avisos) {
-        console.warn(`[FE] Factura ${invoiceId} aceptada CON AVISOS: ${result.avisos}`);
-      }
-    } catch (err) {
-      console.error(`[FE] submitInvoiceToFe: error enviando factura ${invoiceId} a Hacienda:`, err);
-      if (String(err?.message || "").startsWith("Configuración FE") || String(err?.message || "").includes("No se permite ambiente fiscal")) {
-        feStatus       = "PENDING";
-        feErrorMessage = err.message;
-        await prisma.invoice.update({ where: { id: invoiceId }, data: { feNumber: null, feClave: null, feStatus, feErrorMessage } });
-        await sendFeConfigAlert(invoice).catch((e) => console.error("[FE] Error alertando configuración:", e));
-        return { feStatus, feNumber: null, feClave: null, feErrorMessage };
-      }
-      feStatus       = "REJECTED";
-      feNumber       = null;
-      feClave        = null;
-      feErrorMessage = err.message || "Error desconocido al conectar con Hacienda.";
+    if (invoice.feXml && !String(invoice.feErrorMessage || "").includes("SIMULADO")) {
+      await enqueueDelivery(prisma, { kind: "FE_RECEIPT", invoiceId });
     }
-  } else if (isProduction) {
-    // ── Producción SIN FE_API_URL: NO simular ────────────────────────────────
-    // Emitir un comprobante simulado a un paciente real sería un fraude tributario
-    // ante Hacienda. Dejamos la factura PENDING, alertamos al admin y no enviamos
-    // ningún correo de FE al paciente.
-    feStatus       = "PENDING";
-    feNumber       = null;
-    feClave        = null;
-    feErrorMessage = "FE no configurada: falta FE_API_URL. Emitir manualmente o configurar la integración.";
-    console.error(
-      `[FE] Producción sin FE_API_URL: factura ${invoice.invoiceNumber} (${invoiceId}) queda PENDING sin emitir.`
-    );
+    return { feStatus: invoice.feStatus, feNumber: invoice.feNumber, feClave: invoice.feClave, feErrorMessage: invoice.feErrorMessage };
+  }
 
-    await prisma.invoice.update({
-      where: { id: invoiceId },
-      data: { feNumber, feClave, feStatus, feErrorMessage },
-    });
-
-    await sendFeConfigAlert(invoice).catch((e) =>
-      console.error("[FE] Error enviando alerta de configuración al admin:", e)
-    );
-
-    return { feStatus, feNumber, feClave, feErrorMessage };
-  } else {
-    // ── Modo mock: FE simulada (desarrollo, sin FE_API_URL configurada) ──────
+  const isProduction = process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
+  if (!FE_REAL_API_URL) {
+    if (isProduction) {
+      // Conservar cualquier identidad previa cuando falta configuración.
+      const feErrorMessage = "FE no configurada: falta FE_API_URL. Revisar la integración.";
+      await prisma.invoice.update({ where: { id: invoiceId }, data: { feErrorMessage } });
+      await sendFeConfigAlert(invoice).catch(() => console.error("[FE] CONFIG_ALERT_FAILED"));
+      return { feStatus: "PENDING", feNumber: invoice.feNumber, feClave: invoice.feClave, feErrorMessage, reviewRequired: true };
+    }
+    // La simulación solo se permite para una factura que todavía no tiene identidad fiscal.
+    if (invoice.feClave || invoice.feXml || invoice.feNumber) {
+      return { feStatus: invoice.feStatus, feNumber: invoice.feNumber, feClave: invoice.feClave, feErrorMessage: "FE no configurada.", reviewRequired: true };
+    }
     const { buildFeNumber, buildFeClave, extractConsecutivo } = await import("@/lib/fe/xml.js");
-    const consecutivo = extractConsecutivo(invoice.invoiceNumber);
-    feNumber       = buildFeNumber(invoice.invoiceType, consecutivo);
-    feClave        = buildFeClave(feNumber, invoice.invoiceDate);
-    feStatus       = "ACCEPTED";
-    feErrorMessage = "SIMULADO — sin validez tributaria";
-    console.log(`[FE MOCK] Factura ${invoice.invoiceNumber} → feNumber=${feNumber} (SIMULADO, sin validez tributaria)`);
+    const feNumber = buildFeNumber(invoice.invoiceType, extractConsecutivo(invoice.invoiceNumber));
+    const result = { feNumber, feClave: buildFeClave(feNumber, invoice.invoiceDate), feStatus: "ACCEPTED", feErrorMessage: "SIMULADO — sin validez tributaria" };
+    await prisma.invoice.update({ where: { id: invoiceId }, data: result });
+    return result;
   }
 
-  // Actualizar factura en BD.
-  //
-  // Los dos XML se persisten aunque Hacienda rechace: son el comprobante que se
-  // adjunta al correo y, cuando algo falla, la única forma de ver qué se mandó
-  // y qué contestaron. Se quedaban en memoria (solo llegaban a sendFeEmail) y
-  // las columnas de la migración nunca se llenaban, así que cada rechazo había
-  // que reproducirlo a mano para poder leerlo.
-  await prisma.invoice.update({
-    where: { id: invoiceId },
-    data: { feNumber, feClave, feStatus, feErrorMessage, feXml, feRespuestaXml },
+  let result;
+  try {
+    assertFeConfig();
+    const { submitToHacienda } = await import("@/lib/fe/client.js");
+    result = await submitToHacienda(invoice, invoice.lines, {
+      pollAttempts: 1,
+      persistDocument: (document) => persistFeDocument(prisma, invoiceId, document),
+    });
+  } catch (error) {
+    console.error("[FE] SUBMISSION_PENDING", { invoiceId });
+    // Un timeout no es un rechazo. No borrar clave/XML ni degradar una aceptación concurrente.
+    const feErrorMessage = "No se pudo confirmar el estado fiscal. Se conserva el comprobante para revisión o reintento.";
+    await prisma.invoice.updateMany({ where: { id: invoiceId, feStatus: "PENDING" }, data: { feErrorMessage } });
+    const saved = await prisma.invoice.findUnique({ where: { id: invoiceId }, select: { feStatus: true, feNumber: true, feClave: true, feErrorMessage: true } });
+    return { ...saved, reviewRequired: Boolean(error.reviewRequired || error.message === "FE_DOCUMENT_REVIEW_REQUIRED" || error.message === "FE_DOCUMENT_INVALID" || error.message === "FE_DOCUMENT_ID_MISMATCH") };
+  }
+
+  const saved = await prisma.$transaction(async (tx) => {
+    await tx.invoice.updateMany({ where: {
+      id: invoiceId, feClave: result.feClave,
+      feStatus: result.feStatus === "PENDING" ? "PENDING" : { not: "ACCEPTED" },
+    }, data: {
+      feStatus: result.feStatus, feErrorMessage: result.feErrorMessage,
+      ...(result.respuestaXml ? { feRespuestaXml: result.respuestaXml } : {}),
+    } });
+    const current = await tx.invoice.findUnique({ where: { id: invoiceId }, select: { feStatus: true, feNumber: true, feClave: true, feXml: true, feErrorMessage: true } });
+    const sandboxRejected = FE_EMISOR.ambiente !== "01" && current.feStatus === "REJECTED";
+    if (current.feXml && (current.feStatus === "ACCEPTED" || sandboxRejected)) {
+      await enqueueDelivery(tx, { kind: "FE_RECEIPT", invoiceId });
+    }
+    return current;
   });
-
-  const enriched = { ...invoice, feNumber, feClave, feStatus, feXml, feRespuestaXml };
-
-  // A quién se le manda el comprobante.
-  //
-  // En producción, solo si Hacienda aceptó: mandarle al paciente un documento
-  // rechazado sería entregarle algo que no vale y que él no puede distinguir.
-  //
-  // En el sandbox se manda igual, porque ahí Hacienda rechaza SIEMPRE: su padrón
-  // de contribuyentes es independiente del real y no reconoce ni el domicilio
-  // del emisor (-37) ni la cédula del receptor (-38). Si se esperara la
-  // aceptación, el recorrido completo no se podría probar nunca. El correo sale
-  // marcado como prueba y diciendo que fue rechazado.
-  // FE_REAL_API_URL en la condición no es redundante: sin ella, una factura del
-  // modo mock (números simulados, jamás enviados a Hacienda) saldría por correo
-  // como si fuera un comprobante. Ese es el guard FIS-01 y no puede aflojarse.
-  const esSandbox = FE_REAL_API_URL && FE_EMISOR.ambiente !== "01";
-  const seEntrega = realAcceptance || Boolean(esSandbox && feNumber);
-
-  if (seEntrega) {
-    sendFeEmail(enriched).catch((e) => console.error("[FE] Error en sendFeEmail:", e));
+  if (saved.feStatus === "REJECTED" && FE_EMISOR.ambiente === "01") {
+    await sendFeRejectAlert({ ...invoice, ...saved }, saved.feErrorMessage).catch(() => console.error("[FE] REJECT_ALERT_FAILED"));
   }
-
-  // Un rechazo real deja al paciente pagado y sin comprobante. Hasta ahora solo
-  // quedaba en el log, así que nadie se enteraba hasta revisarlo a mano.
-  if (feStatus === "REJECTED" && !esSandbox) {
-    await sendFeRejectAlert(enriched, feErrorMessage).catch((e) =>
-      console.error("[FE] Error alertando el rechazo:", e)
-    );
-  }
-
-  return { feStatus, feNumber, feClave, feErrorMessage };
+  return { feStatus: saved.feStatus, feNumber: saved.feNumber, feClave: saved.feClave, feErrorMessage: saved.feErrorMessage, reviewRequired: result.reviewRequired };
 }

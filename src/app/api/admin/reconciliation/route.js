@@ -7,6 +7,7 @@ import { obtenerTipoCambio } from "@/lib/exchange-rate";
 import { logOnvoWebhook } from "@/lib/onvo/observability";
 import { reportDepositConversion } from "@/lib/analytics/reportDepositConversion";
 import { sendPurchaseMeta } from "@/lib/analytics/meta-events";
+import { processPaymentDeliveries } from "@/lib/payment-deliveries";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,9 @@ export async function POST(request) {
     if (result.kind === "not_found") return NextResponse.json({ message: "Pago o transacción no disponibles." }, { status: 404 });
     if (result.kind === "conflict") return NextResponse.json({ message: "El cobro ya fue aplicado o sus datos no coinciden con la transacción." }, { status: 409 });
     if (result.kind === "duplicate") return NextResponse.json({ success: true });
+    after(() => processPaymentDeliveries({ invoiceId: result.invoiceId }).catch((error) =>
+      logOnvoWebhook("error", "DELIVERY_DISPATCH_FAILED", { invoiceId: result.invoiceId, error })
+    ));
     if (result.transaction.type === "DEPOSIT_50") {
       after(() => reportDepositConversion(transactionId).catch((error) =>
         logOnvoWebhook("error", "DEPOSIT_CONVERSION_FAILED", { transactionId, error })
