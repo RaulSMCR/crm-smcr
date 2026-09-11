@@ -175,9 +175,9 @@ export default async function AdminDashboard() {
             tone="accent"
           />
           <DashboardCard
-            href="/panel/admin/temas"
-            title="Hubs temáticos"
-            description="Landings, perspectivas, artículos, servicios y enlaces del grafo editorial."
+            href="/panel/admin/hubs"
+            title="Hubs y módulos"
+            description="Creá hubs, ordená sus módulos y editá contenido, funciones y relaciones."
             count={undefined}
             tone="accent"
           />

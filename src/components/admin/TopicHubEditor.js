@@ -92,7 +92,7 @@ function SectionsEditor({ topic }) {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <h2 className="text-xl font-bold text-slate-950">Secciones del hub</h2>
-      <p className="mt-1 text-sm text-slate-600">El orden es editorial. El cuerpo admite Markdown seguro; no se interpreta HTML ni código.</p>
+      <p className="mt-1 text-sm text-slate-600">Cada tipo define la función del módulo. Además podés editar título, contenido Markdown seguro, orden y visibilidad; no se interpreta HTML ni código.</p>
       <div className="mt-5 space-y-4">
         {topic.sections.map((section) => (
           <form key={section.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4" onSubmit={(event) => { event.preventDefault(); const data = Object.fromEntries(new FormData(event.currentTarget)); run(() => saveTopicSection(topic.id, { ...data, id: section.id, position: Number(data.position || 0), isVisible: data.isVisible === "on" })); }}>

@@ -64,6 +64,10 @@ function PanelForm({ panelKey, onBack, registered }) {
   const isProfessionalRegistered = registered === "professional";
   const isGenericRegistered      = registered === "true" || registered === "user";
   const config = PANELS[panelKey];
+  const nextPath = safeNextPath(searchParams.get("next"));
+  const registerHref = nextPath
+    ? `${config.registerHref}?next=${encodeURIComponent(nextPath)}`
+    : config.registerHref;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -228,7 +232,7 @@ function PanelForm({ panelKey, onBack, registered }) {
 
       <div className="mt-6 border-t border-white/10 pt-5 text-center text-sm text-neutral-400">
         {config.registerLead}{" "}
-        <Link href={config.registerHref} className="font-medium text-brand-300 hover:text-brand-200 transition-colors">
+        <Link href={registerHref} className="font-medium text-brand-300 hover:text-brand-200 transition-colors">
           {config.registerLabel}
         </Link>
       </div>

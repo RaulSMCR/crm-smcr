@@ -121,6 +121,12 @@ enum TopicRelationType {
   RELATED
 }
 
+enum ProfessionalHubStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
 enum DisciplineStatus {
   ACTIVE
   ARCHIVED
@@ -357,6 +363,7 @@ model ProfessionalProfile {
   // ✅ Lo que tu código espera
   serviceAssignments  ServiceAssignment[]
   paymentTransactions PaymentTransaction[]
+  hubs               ProfessionalHub[]
 
   availability   Availability[]
   scheduleBlocks ScheduleBlock[]
@@ -444,6 +451,61 @@ model Service {
   @@index([isActive])
   @@index([displayOrder])
   @@index([title])
+}
+
+/// Hub profesional configurable desde el panel de administraciÃ³n. El precio
+/// y la disponibilidad no se duplican: se resuelven desde ServiceAssignment
+/// y ProfessionalRate del perfil relacionado.
+model ProfessionalHub {
+  id                    String                @id @default(cuid())
+  professionalProfileId String?               @unique
+  slug                  String                @unique
+  name                  String
+  title                 String?
+  description           String?               @db.Text
+  profileSlug           String
+  whatsapp              String?
+  modality              String?
+  durationMin           Int?
+  featuredSeriesSlug    String?
+  heroVideoUrl          String?
+  heroPosterUrl         String?
+  logoUrl               String?
+  enabledFunctions      Json?
+  status                ProfessionalHubStatus @default(DRAFT)
+  publishedAt           DateTime?
+  isActive              Boolean               @default(true)
+
+  professional ProfessionalProfile? @relation(fields: [professionalProfileId], references: [id], onDelete: SetNull)
+  modules      ProfessionalHubModule[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, isActive])
+  @@index([profileSlug])
+}
+
+model ProfessionalHubModule {
+  id        String  @id @default(cuid())
+  hubId     String
+  slug      String
+  type      String  @default("TOPIC")
+  title     String
+  summary   String? @db.Text
+  body      String? @db.Text
+  metadata  Json?
+  position  Int     @default(0)
+  isVisible Boolean @default(true)
+  isPublished Boolean @default(false)
+
+  hub ProfessionalHub @relation(fields: [hubId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([hubId, slug])
+  @@index([hubId, isVisible, isPublished, position])
 }
 
 model Tax {

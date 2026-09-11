@@ -98,7 +98,9 @@ export default function Footer() {
               rel="noopener noreferrer"
               className="inline-flex h-11 w-11 items-center justify-center rounded text-white hover:text-accent-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-100"
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M10 15V9l5 3-5 3m11-3a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"/></svg>
+              {/* The channel keeps its YouTube destination; the visual uses the SMCR monstera mark. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/brand/leaf-coral.svg" alt="" aria-hidden="true" className="h-6 w-6 object-contain" />
             </a>
           </div>
         </div>

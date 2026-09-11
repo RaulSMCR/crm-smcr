@@ -69,6 +69,7 @@ function HeroPanel() {
 // ─── Página principal ─────────────────────────────────────────────────────────
 export default function RegistroUsuarioPage() {
   const router = useRouter();
+  const [nextPath, setNextPath] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [touched, setTouched] = useState(false);
@@ -80,6 +81,11 @@ export default function RegistroUsuarioPage() {
   const [aceptaAcuerdo, setAceptaAcuerdo] = useState(false);
   const [attribution, setAttribution] = useState({ acquisitionChannel: "Directo", campaignName: "" });
   const turnstileRef = useRef(null);
+
+  useEffect(() => {
+    const next = new URLSearchParams(window.location.search).get("next") || "";
+    setNextPath(next.startsWith("/") && !next.startsWith("//") ? next : "");
+  }, []);
 
   const [form, setForm] = useState({
     name: "", email: "", identification: "", birthDate: "",
@@ -148,7 +154,8 @@ export default function RegistroUsuarioPage() {
       } else {
         trackEvent("sign_up", { method: "email" });
         trackLead();
-        router.push("/ingresar?registered=true");
+        const nextQuery = nextPath ? `&next=${encodeURIComponent(nextPath)}` : "";
+        router.push(`/ingresar?registered=true${nextQuery}`);
       }
     } catch {
       setErrorMsg("No pudimos conectar. Revisá tu conexión e intentá de nuevo.");

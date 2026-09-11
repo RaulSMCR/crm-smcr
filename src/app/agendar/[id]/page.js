@@ -7,6 +7,7 @@ import { siteUrl } from "@/lib/site-url";
 import { defaultOgImage } from "@/lib/seo";
 import { SafeAvatar } from "@/components/SafeImage";
 import { TARIFA_VIGENTE, rangoDePrecios } from "@/lib/service-pricing";
+import { getHubData } from "@/lib/hub-raul";
 
 export async function generateMetadata({ params }) {
   const { id } = await params;
@@ -25,7 +26,7 @@ export async function generateMetadata({ params }) {
 
   if (!professional) return { title: 'Profesional no encontrado' };
 
-  const name = professional.user?.name || 'Profesional';
+  const name = professional.slug === "raul-olmedo" ? getHubData().nombre : professional.user?.name || 'Profesional';
   const description = (
     professional.profileReview ||
     `Agendá una consulta con ${name}, especialista en ${professional.specialty}.`
@@ -67,7 +68,7 @@ export default async function AgendarPage({ params, searchParams }) {
         select: {
           rates: { where: TARIFA_VIGENTE, select: { approvedPrice: true } },
           service: {
-            select: { id: true, title: true },
+            select: { id: true, title: true, durationMin: true },
           },
         },
       },
@@ -115,11 +116,12 @@ export default async function AgendarPage({ params, searchParams }) {
   }
 
   const activeService = selectedService || services[0];
+  const professionalName = professional.slug === "raul-olmedo" ? getHubData().nombre : professional.user.name;
 
   const personSchema = {
     '@context': 'https://schema.org',
     '@type': ['Person', 'MedicalBusiness'],
-    name: professional.user.name,
+    name: professionalName,
     description: professional.profileReview || undefined,
     image: professional.avatarUrl || professional.user.image || undefined,
     url: siteUrl(`agendar/${professional.id}`),
@@ -140,8 +142,6 @@ export default async function AgendarPage({ params, searchParams }) {
     },
   };
 
-  const professionalName = professional.user.name;
-
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-12">
       <JsonLd data={personSchema} />
@@ -157,28 +157,28 @@ export default async function AgendarPage({ params, searchParams }) {
             <div className="mx-auto mb-4 h-32 w-32 overflow-hidden rounded-full border-4 border-white bg-gray-200 shadow-md">
               {professional.user.image ? (
                 professional.slug ? (
-                  <a href={`/profesionales/${professional.slug}`} aria-label={`Ver perfil de ${professional.user.name}`}>
+                  <a href={`/profesionales/${professional.slug}`} aria-label={`Ver perfil de ${professionalName}`}>
                     <SafeAvatar
                       src={professional.user.image}
-                      name={professional.user.name}
+                      name={professionalName}
                       className="h-full w-full object-cover"
                     />
                   </a>
                 ) : (
                   <SafeAvatar
                     src={professional.user.image}
-                    name={professional.user.name}
+                    name={professionalName}
                     className="h-full w-full object-cover"
                   />
                 )
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-4xl font-bold text-gray-400">
-                  {professional.user.name.charAt(0)}
+                  {professionalName.charAt(0)}
                 </div>
               )}
             </div>
 
-            <h1 className="text-2xl font-bold text-gray-900">{professional.user.name}</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{professionalName}</h1>
             <p className="font-medium text-brand-700">{professional.specialty || 'Profesional de Salud'}</p>
 
             {professional.profileReview ? (
@@ -220,6 +220,7 @@ export default async function AgendarPage({ params, searchParams }) {
             servicePrice={Number(activeService.displayPrice)}
             serviceTitle={activeService.title}
             serviceId={activeService.id}
+            durationMin={activeService.durationMin}
             professionalName={professionalName}
           />
         </div>

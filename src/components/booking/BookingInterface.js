@@ -22,7 +22,7 @@ import { getTopicAttribution } from "@/lib/topic-attribution-client";
 const formatCRC = (value) => formatCRCBase(value, { vacio: "—" });
 
 
-export default function BookingInterface({ professionalId, servicePrice, serviceTitle, serviceId, professionalName }) {
+export default function BookingInterface({ professionalId, servicePrice, serviceTitle, serviceId, durationMin = 60, professionalName }) {
   const router = useRouter();
   const hasValidPrice = Number.isFinite(Number(servicePrice)) && Number(servicePrice) > 0;
 
@@ -150,8 +150,8 @@ export default function BookingInterface({ professionalId, servicePrice, service
 
       router.push(destino);
     } else if (result.errorCode === "UNAUTHENTICATED") {
-      const callbackUrl = encodeURIComponent(`/agendar/${professionalId}`);
-      router.push(`/ingresar?callbackUrl=${callbackUrl}`);
+      const nextPath = `/agendar/${professionalId}${serviceId ? `?serviceId=${encodeURIComponent(serviceId)}` : ""}`;
+      router.push(`/ingresar?next=${encodeURIComponent(nextPath)}`);
     } else if (result.errorCode === "ACUERDO_PENDIENTE") {
       // Tiene un repaso pendiente: se lo lleva al acuerdo en vez de dejarlo
       // frente a un error que no explica nada.
@@ -178,7 +178,7 @@ export default function BookingInterface({ professionalId, servicePrice, service
           <div className="mt-2 flex items-end justify-between gap-4">
             <div>
               <p className="text-2xl font-bold">{serviceTitle}</p>
-              <p className="text-sm text-white/90">Duración: 60 min</p>
+              <p className="text-sm text-white/90">Duración: {durationMin} min</p>
             </div>
             <div className="text-right">
               <span className="block text-xl font-bold">
@@ -271,6 +271,9 @@ export default function BookingInterface({ professionalId, servicePrice, service
         )}
 
         <div className="space-y-6 p-6">
+          <p className="rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-900">
+            Para solicitar esta cita necesit\u00e1s una cuenta. Al confirmar el horario podr\u00e1s iniciar sesi\u00f3n o registrarte para continuar.
+          </p>
           <div>
             <label className="mb-2 block text-sm font-medium text-brand-900">1. Elegí el día</label>
             <input
