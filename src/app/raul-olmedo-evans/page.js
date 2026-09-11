@@ -9,8 +9,7 @@ import {
   RAUL_PERSON_ID,
   buildWaLink,
   formatHubPrice,
-  getHubData,
-  getPublishedHubTopics,
+  getManagedHubData,
   getRaulAgendaUrl,
   getRaulProfile,
   getRaulWriting,
@@ -18,11 +17,13 @@ import {
 import { buildMetadata } from "@/lib/seo";
 import { grafo, nodoMigas, ref } from "@/lib/jsonld";
 import { siteUrl } from "@/lib/site-url";
+import { notFound } from "next/navigation";
 
 export const revalidate = 3600;
 
-export function generateMetadata() {
-  const hub = getHubData();
+export async function generateMetadata() {
+  const hub = await getManagedHubData();
+  if (!hub) return { title: "Hub no disponible", robots: { index: false, follow: false } };
   return buildMetadata({
     title: `${hub.titulo} · ${hub.nombre}`,
     description: "Ansiedad, duelo, estrés, pareja y migración: un espacio clínico para comprender lo que te pasa hoy.",
@@ -52,11 +53,13 @@ function raulPerson(hub) {
 }
 
 export default async function RaulHubPage() {
-  const hub = getHubData();
-  const topics = getPublishedHubTopics();
+  const hub = await getManagedHubData();
+  if (!hub) notFound();
+  const topics = hub.temas.filter((topic) => topic.publicado);
   const [agendaUrl, profile, writing] = await Promise.all([getRaulAgendaUrl(), getRaulProfile(), getRaulWriting()]);
   const pageUrl = siteUrl("raul-olmedo-evans");
-  const waUrl = buildWaLink("raul-olmedo-evans");
+  const waUrl = buildWaLink("raul-olmedo-evans", hub);
+  const functionEnabled = (key) => !hub.herramientas_habilitadas.length || hub.herramientas_habilitadas.includes(key);
 
   const schema = grafo(
     {
@@ -94,8 +97,8 @@ export default async function RaulHubPage() {
             <h1 className="mt-3 font-display text-5xl font-light leading-[0.95] text-nv-cream-hi sm:text-6xl md:text-7xl">{hub.titulo}</h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-nv-cream-hi/85">Ansiedad, duelo, estrés, pareja y migración: qué son, cómo se trabajan y cuándo consultar.</p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <HubTrackedLink href={agendaUrl} eventName="click_hub_raul_agendar" destination="agenda" className="btn btn-accent">Agendar sesión</HubTrackedLink>
-              <HubTrackedAnchor href={waUrl} target="_blank" rel="noopener noreferrer" eventName="click_hub_raul_whatsapp" destination="whatsapp" className="btn border border-nv-cream-hi/60 bg-transparent text-nv-cream-hi hover:bg-nv-cream-hi hover:text-nv-teal-deep">Escribir por WhatsApp</HubTrackedAnchor>
+              {functionEnabled("agenda") ? <HubTrackedLink href={agendaUrl} eventName="click_hub_raul_agendar" destination="agenda" className="btn btn-accent">Agendar sesión</HubTrackedLink> : null}
+              {functionEnabled("whatsapp") ? <HubTrackedAnchor href={waUrl} target="_blank" rel="noopener noreferrer" eventName="click_hub_raul_whatsapp" destination="whatsapp" className="btn border border-nv-cream-hi/60 bg-transparent text-nv-cream-hi hover:bg-nv-cream-hi hover:text-nv-teal-deep">Escribir por WhatsApp</HubTrackedAnchor> : null}
             </div>
             <p className="mt-5 text-sm text-nv-teal-pale">Sesión en línea de {hub.duracion_min} minutos · {formatHubPrice()}</p>
           </div>
@@ -103,7 +106,7 @@ export default async function RaulHubPage() {
       </section>
 
       <div className="container space-y-16 py-14 md:py-20">
-        <section aria-labelledby="hub-temas">
+        {functionEnabled("topics") ? <section aria-labelledby="hub-temas">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <p className="hub-kicker">Temas</p>
@@ -121,9 +124,9 @@ export default async function RaulHubPage() {
               </HubTrackedLink>
             ))}
           </div>
-        </section>
+        </section> : null}
 
-        <section className="hub-raul-feature" aria-labelledby="hub-quince">
+        {functionEnabled("treatment") ? <section className="hub-raul-feature" aria-labelledby="hub-quince">
           <div>
             <p className="hub-kicker text-nv-cream">Quince sesiones</p>
             <h2 id="hub-quince" className="mt-2 font-display text-4xl font-light text-nv-cream-hi sm:text-5xl">Un tratamiento con un marco conversado</h2>
@@ -132,13 +135,13 @@ export default async function RaulHubPage() {
             <p className="leading-7 text-nv-cream-hi/85">Una propuesta acotada para angustia y duelo: qué dice la investigación, cómo se organiza y cuándo puede no alcanzar.</p>
             <HubTrackedLink href="/raul-olmedo-evans/tratamiento-breve-15-sesiones" eventName="click_hub_raul_15_sesiones" destination="tratamiento-breve-15-sesiones" className="mt-6 inline-flex font-bold text-nv-cream-hi underline decoration-nv-coral underline-offset-4 hover:text-white">Leer el formato de 15 sesiones →</HubTrackedLink>
           </div>
-        </section>
+        </section> : null}
 
         <section aria-labelledby="hub-herramientas" className="hidden">
           <h2 id="hub-herramientas" className="hub-heading">Herramientas</h2>
         </section>
 
-        <section aria-labelledby="hub-escritos">
+        {functionEnabled("writing") ? <section aria-labelledby="hub-escritos">
           <p className="hub-kicker">Escritos</p>
           <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
             <h2 id="hub-escritos" className="hub-heading">Pensar lo que insiste</h2>
@@ -156,7 +159,7 @@ export default async function RaulHubPage() {
           ) : (
             <p className="mt-6 max-w-2xl text-neutral-700">La serie destacada y los artículos de Raúl se mostrarán aquí cuando estén publicados en la biblioteca.</p>
           )}
-        </section>
+        </section> : null}
 
         <section className="grid gap-8 rounded-nv border border-nv-teal-deep/20 bg-nv-cream-hi p-7 md:grid-cols-[180px_1fr] md:p-10" aria-labelledby="hub-quien-escribe">
           <div className="flex h-40 w-40 items-center justify-center overflow-hidden rounded-full bg-nv-teal-deep text-6xl font-display text-nv-cream-hi">
@@ -173,12 +176,12 @@ export default async function RaulHubPage() {
       </div>
 
       <div className="container border-t border-nv-teal-deep/15 pt-6">
-        <Link href="/ayuda-inmediata" className="text-sm font-bold text-nv-teal-deep underline underline-offset-4">Ayuda inmediata y líneas de apoyo</Link>
+        {functionEnabled("help") ? <Link href="/ayuda-inmediata" className="text-sm font-bold text-nv-teal-deep underline underline-offset-4">Ayuda inmediata y líneas de apoyo</Link> : null}
       </div>
 
       <div className="hub-mobile-actions md:hidden">
-        <HubTrackedLink href={agendaUrl} eventName="click_hub_raul_agendar_mobile" destination="agenda-mobile" className="btn btn-accent flex-1">Agendar</HubTrackedLink>
-        <HubTrackedAnchor href={waUrl} target="_blank" rel="noopener noreferrer" eventName="click_hub_raul_whatsapp_mobile" destination="whatsapp-mobile" className="btn flex-1 border border-nv-cream-hi/40 bg-nv-teal-deep text-nv-cream-hi">WhatsApp</HubTrackedAnchor>
+        {functionEnabled("agenda") ? <HubTrackedLink href={agendaUrl} eventName="click_hub_raul_agendar_mobile" destination="agenda-mobile" className="btn btn-accent flex-1">Agendar</HubTrackedLink> : null}
+        {functionEnabled("whatsapp") ? <HubTrackedAnchor href={waUrl} target="_blank" rel="noopener noreferrer" eventName="click_hub_raul_whatsapp_mobile" destination="whatsapp-mobile" className="btn flex-1 border border-nv-cream-hi/40 bg-nv-teal-deep text-nv-cream-hi">WhatsApp</HubTrackedAnchor> : null}
       </div>
     </main>
   );
