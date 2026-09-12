@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { SEO_LIMITS } from "@/lib/seo";
 import { useRouter } from "next/navigation";
+import HubMarkdownIngest from "@/components/admin/HubMarkdownIngest";
 import {
   createProfessionalHub,
   deleteProfessionalHubModule,
@@ -162,5 +163,5 @@ function DeleteModuleButton({ id, pending, run }) {
 }
 
 export default function ProfessionalHubEditor({ hub, profiles, isNew = false }) {
-  return <div className="space-y-6"><CoreForm hub={hub} profiles={profiles} isNew={isNew} />{!isNew ? <section className="rounded-2xl border border-brand-200 bg-white p-6 shadow-sm"><h2 className="text-xl font-bold text-slate-950">Módulos y contenido</h2><p className="mt-1 text-sm text-slate-600">Cada módulo puede ser un tema, un tratamiento o contenido personalizado. El estado publicado controla si aparece en el hub público.</p><div className="mt-5 space-y-4">{hub.modules.map((module) => <ModuleForm key={module.id} hubId={hub.id} hubSlug={hub.slug} module={module} />)}</div><div className="mt-5 border-t border-dashed border-brand-300 pt-5"><h3 className="font-semibold text-slate-900">Añadir módulo</h3><div className="mt-3"><ModuleForm hubId={hub.id} hubSlug={hub.slug} isNew /></div></div></section> : null}</div>;
+  return <div className="space-y-6"><CoreForm hub={hub} profiles={profiles} isNew={isNew} />{!isNew ? <HubMarkdownIngest hubId={hub.id} hubSlug={hub.slug} /> : null}{!isNew ? <section className="rounded-2xl border border-brand-200 bg-white p-6 shadow-sm"><h2 className="text-xl font-bold text-slate-950">Módulos y contenido</h2><p className="mt-1 text-sm text-slate-600">Cada módulo puede ser un tema, un tratamiento o contenido personalizado. El estado publicado controla si aparece en el hub público.</p><div className="mt-5 space-y-4">{hub.modules.map((module) => <ModuleForm key={module.id} hubId={hub.id} hubSlug={hub.slug} module={module} />)}</div><div className="mt-5 border-t border-dashed border-brand-300 pt-5"><h3 className="font-semibold text-slate-900">Añadir módulo</h3><div className="mt-3"><ModuleForm hubId={hub.id} hubSlug={hub.slug} isNew /></div></div></section> : null}</div>;
 }

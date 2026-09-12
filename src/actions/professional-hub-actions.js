@@ -1,8 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { revalidarHub } from "@/lib/hub-revalidate";
 import { normalizeTopicSlug, validateTopicSlug } from "@/lib/topic";
 
 const STATUSES = new Set(["DRAFT", "PUBLISHED", "ARCHIVED"]);
@@ -101,10 +101,17 @@ function moduleData(payload = {}) {
       title,
       summary: clean(payload.summary, 5000) || null,
       body: clean(payload.body, 50000) || null,
-      // En `metadata` quedan solo las fechas del documento. El título SEO y la
-      // meta descripción pasaron a columnas propias (migración
+      // Lo que el formulario sabe editar de `metadata` son las dos fechas. El
+      // título SEO y la meta descripción pasaron a columnas propias (migración
       // 20260912010000_hub_seo_editorial) para que el panel de SEO pueda
       // auditarlas con una consulta en vez de leer la tabla entera.
+      //
+      // Ojo: esto es un fragmento, no el objeto completo. `metadata` guarda
+      // además lo que trae un `.md` importado —tarjeta, artículos relacionados,
+      // bloques, rastro de la importación— y este formulario no tiene campos
+      // para nada de eso. `saveProfessionalHubModule` fusiona con lo que ya está
+      // en la fila; escribir este objeto tal cual borraría lo importado en el
+      // primer «Guardar módulo».
       metadata: {
         fecha: clean(payload.fecha, 40),
         actualizado: clean(payload.actualizado, 40),
@@ -117,16 +124,10 @@ function moduleData(payload = {}) {
   };
 }
 
-function revalidateHub(slug) {
-  revalidatePath("/panel/admin/hubs");
-  revalidatePath("/panel/admin/hubs/profesional/nuevo");
-  revalidatePath("/panel/admin/hubs/profesional/[id]", "page");
-  revalidatePath("/raul-olmedo-evans");
-  revalidatePath("/raul-olmedo-evans/[tema]", "page");
-  revalidatePath("/raul-olmedo-evans/tratamiento-breve-15-sesiones");
-  revalidatePath("/sitemap.xml");
-  if (slug) revalidatePath(`/${slug}`);
-}
+// La lista de rutas vive en `src/lib/hub-revalidate.js`: ahora hay dos
+// escritores del hub —este formulario y la ingesta de archivos `.md`— y con la
+// lista duplicada una de las dos copias se queda vieja.
+const revalidateHub = revalidarHub;
 
 export async function createProfessionalHub(payload = {}) {
   await admin();
@@ -194,8 +195,13 @@ export async function saveProfessionalHubModule(hubId, payload = {}) {
 
   try {
     if (id) {
-      const owner = await prisma.professionalHubModule.findUnique({ where: { id }, select: { hubId: true } });
+      const owner = await prisma.professionalHubModule.findUnique({ where: { id }, select: { hubId: true, metadata: true } });
       if (!owner || owner.hubId !== parentId) return { error: "El módulo no pertenece a este hub." };
+      // Fusión, no reemplazo: el formulario solo conoce las dos fechas, así que
+      // lo demás se conserva. Las fechas sí se pueden vaciar desde acá, porque
+      // para eso tienen campo propio: un vacío ahí es una decisión, no un olvido.
+      const previa = owner.metadata && typeof owner.metadata === "object" ? owner.metadata : {};
+      parsed.data.metadata = { ...previa, ...parsed.data.metadata };
     }
     const existing = await prisma.professionalHubModule.findFirst({ where: { hubId: parentId, slug: parsed.data.slug, ...(id ? { NOT: { id } } : {}) }, select: { id: true } });
     if (existing) return { error: "Ya existe un módulo con ese slug en este hub." };
@@ -207,6 +213,53 @@ export async function saveProfessionalHubModule(hubId, payload = {}) {
   } catch (error) {
     console.error("saveProfessionalHubModule error:", error);
     return { error: "No se pudo guardar el módulo." };
+  }
+}
+
+/**
+ * Publica módulos que entraron por importación y quedaron en borrador.
+ *
+ * Existe porque la ingesta no publica: un archivo arrastrado no debería poner
+ * una página frente a Google sin que nadie la haya visto en pantalla. Este es el
+ * segundo acto, y nombra lo que publica.
+ *
+ * Un módulo sin cuerpo no se publica ni pidiéndolo: la página muestra «estamos
+ * preparando esta página» y `generateMetadata` ya la marca `noindex` por eso
+ * mismo. Publicarla sería ofrecerle al buscador una página que declara no tener
+ * nada. Se devuelve en `omitidos` para que se vea por qué.
+ */
+export async function publishProfessionalHubModules(hubId, slugs = []) {
+  await admin();
+  const parentId = String(hubId || "");
+  const lista = [...new Set((Array.isArray(slugs) ? slugs : []).map((item) => String(item || "")).filter(Boolean))];
+  if (!parentId) return { error: "Hub inválido." };
+  if (!lista.length) return { error: "No hay módulos que publicar." };
+
+  try {
+    const hub = await prisma.professionalHub.findUnique({ where: { id: parentId }, select: { slug: true } });
+    if (!hub) return { error: "No se encontró el hub." };
+
+    const modulos = await prisma.professionalHubModule.findMany({
+      where: { hubId: parentId, slug: { in: lista } },
+      select: { id: true, slug: true, body: true },
+    });
+    if (!modulos.length) return { error: "Esos módulos no están en este hub." };
+
+    const publicables = modulos.filter((modulo) => String(modulo.body || "").trim());
+    const omitidos = modulos.filter((modulo) => !String(modulo.body || "").trim()).map((modulo) => modulo.slug);
+
+    if (publicables.length) {
+      await prisma.professionalHubModule.updateMany({
+        where: { id: { in: publicables.map((modulo) => modulo.id) } },
+        data: { isPublished: true, isVisible: true },
+      });
+      revalidateHub(hub.slug);
+    }
+
+    return { success: true, publicados: publicables.map((modulo) => modulo.slug), omitidos };
+  } catch (error) {
+    console.error("publishProfessionalHubModules error:", error);
+    return { error: "No se pudieron publicar los módulos." };
   }
 }
 
