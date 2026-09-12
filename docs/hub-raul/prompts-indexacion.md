@@ -2,7 +2,9 @@
 
 El hub `/raul-olmedo-evans` se publicó el 2026-09-10 y no está indexado. No hay
 bloqueo técnico: responde 200, el canonical es correcto, no declara `noindex` y
-está en el sitemap. Falta Search Console, que convierte semanas en días.
+está en el sitemap. La propiedad de Search Console ya existe y está verificada desde hace meses:
+lo que falta es usarla —leer por qué no se indexa, enviar el sitemap y pedir
+indexación—.
 
 **Los pasos 0 y 1 van primero.** Pedir indexación antes de desplegar hace que la
 primera lectura de Google sea de la versión con los defectos que ya se
@@ -44,65 +46,42 @@ despliegue todavía no salió.
 
 ---
 
-## 2 · Verificar la propiedad en Search Console
+## 2 · Leer lo que Search Console ya sabe
 
-Dos caminos. **El de DNS es mejor y no depende del despliegue**: cubre el dominio
-entero, subdominios incluidos, y no hay que tocar código.
+La propiedad existe y está verificada desde hace meses (el TXT
+`google-site-verification` está puesto en el DNS de GoDaddy). No hay nada que
+crear: hay que **leer**.
 
-### Camino A — DNS (recomendado)
-
-Datos comprobados del dominio, para no ir a ciegas:
-
-- **Registrador: GoDaddy.** Nameservers `ns29.domaincontrol.com` y
-  `ns30.domaincontrol.com`; el SPF apunta a `secureserver.net`. El DNS se
-  administra en GoDaddy → Mis productos → DNS.
-- **Ya existe un TXT de verificación de Google** en el dominio:
-  `google-site-verification=1lTs-juU_a5kSOvuOuFR4nNflcgr-yU78xMmu9HFmJw`.
-  Puede ser una propiedad de Search Console verificada hace tiempo, o la
-  verificación de Google Workspace, que usa el mismo formato.
-
-Por eso el primer prompt es mirar antes de crear:
+Esto importa más que los pasos siguientes. Si el sitio lleva meses verificado y
+aun así tiene pocas páginas indexadas, el problema no es que el hub sea nuevo
+—es algo del sitio entero— y el orden de trabajo cambia. Search Console lo dice
+con números; desde afuera solo se puede suponer.
 
 > Abrí Google Search Console (https://search.google.com/search-console) con la
-> cuenta de raul.olmedo@gmail.com y decime qué propiedades ya existen, con su
-> tipo (Dominio o Prefijo de URL) y su estado de verificación. Si aparece alguna
-> de `saludmentalcostarica.com`, no crees nada: entrá y contame qué muestra en
-> **Indexación → Páginas** y en **Sitemaps**.
+> cuenta de raul.olmedo@gmail.com y entrá a la propiedad de
+> `saludmentalcostarica.com`. Necesito que me traigas, textualmente:
+>
+> 1. En **Indexación → Páginas**: cuántas páginas indexadas y cuántas no
+>    indexadas. Después abrí la lista de "no indexadas" y copiame cada motivo
+>    con su cantidad (por ejemplo "Descubierta: actualmente sin indexar 40",
+>    "Rastreada: actualmente sin indexar 12", "Página alternativa con etiqueta
+>    canónica adecuada 3").
+> 2. En **Sitemaps**: si hay alguno enviado, cuál, en qué fecha, qué estado y
+>    cuántas URLs detectó.
+> 3. En **Rendimiento**, con el rango de los últimos 3 meses: total de clics e
+>    impresiones, y las 10 consultas con más impresiones.
+> 4. En **Configuración → Estadísticas de rastreo**: total de solicitudes de
+>    rastreo de los últimos 90 días y si muestra algún problema de
+>    disponibilidad del host.
+> 5. Poné `https://saludmentalcostarica.com/raul-olmedo-evans` en la
+>    **Inspección de URL** y copiame todo lo que diga: estado, si fue rastreada
+>    alguna vez, la fecha del último rastreo y el canónico declarado y el
+>    seleccionado por Google.
+>
+> No cambies ninguna configuración. Esto es solo lectura.
 
-Si no hay ninguna:
-
-> Agregá una propiedad del tipo **Dominio** con el valor
-> `saludmentalcostarica.com`. Google va a pedir un registro TXT: copiame el valor
-> completo que muestra (empieza con `google-site-verification=`) y dejá la
-> pestaña abierta.
-
-El TXT se agrega en GoDaddy → DNS → Agregar registro, tipo TXT, nombre `@`.
-
-**Agregar, no reemplazar.** Ya hay un `google-site-verification` en el dominio y
-un SPF. Un dominio admite varios registros TXT; si se pisa el que está, se rompe
-lo que sea que esté verificando —posiblemente el correo—. Google solo acepta el
-token exacto que emite para esa propiedad, así que el que ya está no sirve para
-verificar una propiedad nueva: hay que sumar el segundo.
-
-La propagación tarda unos minutos. Recién entonces, Verificar.
-
-### Camino B — etiqueta HTML (si no hay acceso al DNS)
-
-> En Search Console, creá una propiedad del tipo **Prefijo de URL** con el valor
-> `https://saludmentalcostarica.com`. Elegí el método **Etiqueta HTML** y NO
-> hagas clic en Verificar todavía. Copiame el valor del atributo `content` de
-> `<meta name="google-site-verification" content="AQUÍ" />`.
-
-Ese valor va a Vercel → Settings → Environment Variables como
-`GOOGLE_SITE_VERIFICATION` (entorno Production), y **hay que volver a desplegar**
-antes de tocar Verificar. El código ya emite la etiqueta cuando la variable
-existe. Comprobar con:
-
-```
-curl -s https://saludmentalcostarica.com/ | grep google-site-verification
-```
-
----
+Con esos cinco datos se sabe si el hub es un caso nuevo esperando turno o si hay
+un problema de fondo. Lo que siga depende de la respuesta.
 
 ## 3 · Enviar el sitemap
 
