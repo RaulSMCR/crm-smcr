@@ -14,31 +14,57 @@ import {
   getRaulProfile,
   getRaulWriting,
 } from "@/lib/hub-raul";
-import { buildMetadata } from "@/lib/seo";
-import { grafo, nodoMigas, ref } from "@/lib/jsonld";
+import { buildMetadata, resolveSeo } from "@/lib/seo";
+import { grafo, nodoMigas, ref, ID_ORGANIZACION } from "@/lib/jsonld";
 import { siteUrl } from "@/lib/site-url";
 import { notFound } from "next/navigation";
 
 export const revalidate = 3600;
 
+/**
+ * Red de seguridad, no contenido.
+ *
+ * La descripción del hub se edita en el panel. Esta constante es lo que se sirve
+ * mientras ese campo esté vacío: cambiar el origen del texto no debería poder
+ * dejar a la página sin meta descripción, que es lo que se lee en el resultado
+ * de búsqueda y lo que decide el clic.
+ */
+const DESCRIPCION_POR_DEFECTO =
+  "Ansiedad, duelo, estrés, pareja y migración: un espacio clínico para comprender lo que te pasa hoy.";
+
 export async function generateMetadata() {
   const hub = await getManagedHubData();
   if (!hub) return { title: "Hub no disponible", robots: { index: false, follow: false } };
-  return buildMetadata({
+  const seo = resolveSeo(hub.seo, {
     title: `${hub.titulo} · ${hub.nombre}`,
-    description: "Ansiedad, duelo, estrés, pareja y migración: un espacio clínico para comprender lo que te pasa hoy.",
-    path: "raul-olmedo-evans",
+    description: hub.descripcion || DESCRIPCION_POR_DEFECTO,
     subtitle: hub.titulo,
+  });
+  return buildMetadata({
+    title: seo.title,
+    description: seo.description,
+    path: "raul-olmedo-evans",
+    image: seo.image,
+    imageAlt: seo.imageAlt,
+    subtitle: hub.titulo,
+    noindex: seo.noindex,
   });
 }
 
-function raulPerson(hub) {
+function raulPerson(hub, profile) {
   return {
     "@type": "Person",
+    // Mismo `@id` que la ficha: las dos páginas describen a la misma persona y
+    // sus señales se suman en vez de competir. Ver la nota en lib/hub-raul.js.
     "@id": RAUL_PERSON_ID,
     name: hub.nombre,
     jobTitle: "Psicólogo clínico y psicoanalista",
     url: siteUrl(hub.url_perfil),
+    // La foto y el vínculo con la organización se repiten acá a propósito: si el
+    // hub es la única página que un buscador rastrea, la persona igual queda
+    // descrita y atada a la marca, no suelta en internet.
+    ...(profile?.user?.image ? { image: profile.user.image } : {}),
+    worksFor: ref(ID_ORGANIZACION),
     hasCredential: {
       "@type": "EducationalOccupationalCredential",
       credentialCategory: "Colegiatura profesional",
@@ -83,7 +109,7 @@ export default async function RaulHubPage() {
         })),
       },
     },
-    raulPerson(hub),
+    raulPerson(hub, profile),
     nodoMigas([{ nombre: hub.nombre, url: pageUrl }]),
   );
 
@@ -98,7 +124,7 @@ export default async function RaulHubPage() {
           <div className="max-w-3xl">
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-nv-teal-pale">{hub.nombre}</p>
             <h1 className="mt-3 font-display text-5xl font-light leading-[0.95] text-nv-cream-hi sm:text-6xl md:text-7xl">{hub.titulo}</h1>
-            <p className="mt-5 max-w-2xl text-lg leading-8 text-nv-cream-hi/85">Ansiedad, duelo, estrés, pareja y migración: qué son, cómo se trabajan y cuándo consultar.</p>
+            <p className="mt-5 max-w-2xl text-lg leading-8 text-nv-cream-hi/85">{hub.descripcion || DESCRIPCION_POR_DEFECTO}</p>
             <div className="mt-8 flex flex-wrap gap-3">
               {functionEnabled("agenda") ? <HubTrackedLink href={agendaUrl} eventName="click_hub_raul_agendar" destination="agenda" className="btn btn-accent">Agendar sesión</HubTrackedLink> : null}
               {functionEnabled("whatsapp") ? <HubTrackedAnchor href={waUrl} target="_blank" rel="noopener noreferrer" eventName="click_hub_raul_whatsapp" destination="whatsapp" className="btn border border-nv-cream-hi/60 bg-transparent text-nv-cream-hi hover:bg-nv-cream-hi hover:text-nv-teal-deep">Escribir por WhatsApp</HubTrackedAnchor> : null}

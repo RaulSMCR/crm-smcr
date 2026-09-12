@@ -3,7 +3,7 @@ import JsonLd from "@/components/JsonLd";
 import HubTracker from "@/components/hub/HubTracker";
 import HubTrackedLink from "@/components/hub/HubTrackedLink";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
-import { buildMetadata } from "@/lib/seo";
+import { buildMetadata, resolveSeo } from "@/lib/seo";
 import { grafo, nodoMigas, ref } from "@/lib/jsonld";
 import { siteUrl } from "@/lib/site-url";
 import { RAUL_PERSON_ID, formatHubPrice, getManagedHubData, getRaulAgenda, readManagedHubDocument } from "@/lib/hub-raul";
@@ -13,11 +13,22 @@ export const revalidate = 3600;
 export async function generateMetadata() {
   const doc = await readManagedHubDocument("raul-olmedo-evans", "tratamiento-breve-15-sesiones");
   if (!doc) return { title: "Tratamiento no disponible", robots: { index: false, follow: false } };
+  const seo = resolveSeo(
+    { metaTitle: doc.titulo_seo, metaDescription: doc.meta, ogImage: doc.ogImage, noindex: doc.noindex },
+    {
+      title: doc.titulo || "Tratamiento breve de 15 sesiones",
+      description: doc.resumen || "Un formato de trabajo acotado para explorar angustia y duelo.",
+      subtitle: "Raúl Olmedo Evans",
+    },
+  );
   return buildMetadata({
-    title: doc?.titulo_seo || doc?.titulo || "Tratamiento breve de 15 sesiones",
-    description: doc?.meta || "Un formato de trabajo acotado para explorar angustia y duelo.",
+    title: seo.title,
+    description: seo.description,
+    image: seo.image,
+    imageAlt: seo.imageAlt,
     path: "raul-olmedo-evans/tratamiento-breve-15-sesiones",
     subtitle: "Raúl Olmedo Evans",
+    noindex: seo.noindex,
   });
 }
 

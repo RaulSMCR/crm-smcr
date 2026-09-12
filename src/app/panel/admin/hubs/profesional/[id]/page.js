@@ -24,6 +24,12 @@ function serializeHub(hub) {
     logoUrl: hub.logoUrl,
     enabledFunctions: Array.isArray(hub.enabledFunctions) ? hub.enabledFunctions : [],
     status: hub.status,
+    metaTitle: hub.metaTitle,
+    metaDescription: hub.metaDescription,
+    ogImage: hub.ogImage,
+    focusKeyword: hub.focusKeyword,
+    noindex: hub.noindex,
+
     modules: hub.modules.map((module) => ({
       id: module.id,
       hubId: module.hubId,
@@ -36,6 +42,11 @@ function serializeHub(hub) {
       position: module.position,
       isVisible: module.isVisible,
       isPublished: module.isPublished,
+      metaTitle: module.metaTitle,
+      metaDescription: module.metaDescription,
+      ogImage: module.ogImage,
+      focusKeyword: module.focusKeyword,
+      noindex: module.noindex,
     })),
   };
 }

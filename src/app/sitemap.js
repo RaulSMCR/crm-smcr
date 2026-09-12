@@ -138,7 +138,10 @@ export default async function sitemap() {
     priority: 0.9,
   }));
 
-  const raulTopics = await getPublishedHubTopicsAsync();
+  // Solo los temas con cuerpo. El sitemap es la lista de lo que el sitio afirma
+  // que vale la pena indexar; incluir una página "en preparación" contradice esa
+  // afirmación y gasta el presupuesto de rastreo en nada.
+  const raulTopics = (await getPublishedHubTopicsAsync()).filter((topic) => topic.body);
   const raulTopicEntries = await Promise.all(raulTopics.map(async ({ slug }) => ({
     url: `${BASE_URL}/raul-olmedo-evans/${slug}`,
     lastModified: await hubLastModifiedAsync(`raul-olmedo-evans/${slug}`),

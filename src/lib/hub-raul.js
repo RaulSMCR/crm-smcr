@@ -4,9 +4,24 @@ import hubData from "../../data/hub-raul.json";
 import crisisData from "../../data/crisis-lines.json";
 import { prisma } from "@/lib/prisma";
 import { SELECT_TARIFA_PUBLICA, TARIFA_VIGENTE, rangoDePrecios } from "@/lib/service-pricing";
+import { idPersona } from "@/lib/jsonld";
 
 export const HUB_PATH = "raul-olmedo-evans";
-export const RAUL_PERSON_ID = "https://saludmentalcostarica.com/profesionales/raul-olmedo#persona";
+
+/** Ficha profesional que describe a la persona del hub. */
+export const HUB_PROFILE_SLUG = "raul-olmedo";
+
+/**
+ * La persona del hub es LA MISMA que la de su ficha profesional.
+ *
+ * Esto era una cadena escrita a mano terminada en `#persona`, mientras
+ * `idPersona()` —la que usa la ficha, la que apuntan sus artículos y la que
+ * lista `/profesionales`— termina en `#person`. Una letra; pero en un grafo el
+ * `@id` es la identidad, así que Google leía dos personas distintas con el mismo
+ * nombre y ninguna heredaba las credenciales, el consultorio ni los artículos de
+ * la otra. Se deriva de la misma función para que no se vuelvan a separar.
+ */
+export const RAUL_PERSON_ID = idPersona(HUB_PROFILE_SLUG);
 
 export function getHubData() {
   return hubData;
@@ -31,6 +46,24 @@ const PUBLIC_HUB_INCLUDE = {
   },
 };
 
+/**
+ * SEO de un módulo en la forma que esperan las páginas.
+ *
+ * Se conservan los nombres `titulo_seo` y `meta` porque son los que traen los
+ * documentos en archivo, que siguen sirviendo de fallback: así la página lee
+ * una sola forma venga de donde venga el contenido.
+ */
+export function seoDeModulo(module) {
+  const metadata = module?.metadata && typeof module.metadata === "object" ? module.metadata : {};
+  return {
+    titulo_seo: module?.metaTitle || metadata.titulo_seo || "",
+    meta: module?.metaDescription || metadata.meta || "",
+    ogImage: module?.ogImage || "",
+    focusKeyword: module?.focusKeyword || "",
+    noindex: module?.noindex === true,
+  };
+}
+
 function mapManagedHub(row) {
   if (!row) return null;
 
@@ -39,6 +72,7 @@ function mapManagedHub(row) {
     .filter((module) => module.type === "TOPIC")
     .map((module) => ({
       ...module.metadata,
+      ...seoDeModulo(module),
       slug: module.slug,
       titulo: module.title,
       resumen: module.summary || "",
@@ -52,6 +86,17 @@ function mapManagedHub(row) {
     nombre: row.name,
     url_hub: `/${row.slug}`,
     titulo: row.title || row.name,
+    // `description` se guardaba desde el editor y no la leía nadie: viajaba a la
+    // base y moría ahí. Es el texto de presentación del hub y el fallback de su
+    // meta descripción.
+    descripcion: row.description || "",
+    seo: {
+      metaTitle: row.metaTitle || "",
+      metaDescription: row.metaDescription || "",
+      ogImage: row.ogImage || "",
+      focusKeyword: row.focusKeyword || "",
+      noindex: row.noindex === true,
+    },
     duracion_min: row.durationMin || hubData.duracion_min,
     modalidad: row.modality || hubData.modalidad,
     url_agenda: hubData.url_agenda,
@@ -122,6 +167,7 @@ export async function readManagedHubDocument(slug, moduleSlug) {
     if (moduleRecord) {
       return {
         ...moduleRecord.metadata,
+        ...seoDeModulo(moduleRecord),
         titulo: moduleRecord.title,
         resumen: moduleRecord.summary || "",
         body: moduleRecord.body || "",
@@ -243,7 +289,7 @@ export function hubLastModified(path) {
 export async function getRaulAgenda() {
   try {
     const profile = await prisma.professionalProfile.findFirst({
-      where: { slug: "raul-olmedo", isApproved: true, user: { is: { isActive: true } } },
+      where: { slug: HUB_PROFILE_SLUG, isApproved: true, user: { is: { isActive: true } } },
       select: {
         id: true,
         serviceAssignments: {
@@ -281,7 +327,7 @@ export async function getRaulAgendaUrl() {
 export async function getRaulProfile() {
   try {
     return await prisma.professionalProfile.findFirst({
-      where: { slug: "raul-olmedo", isApproved: true, user: { is: { isActive: true } } },
+      where: { slug: HUB_PROFILE_SLUG, isApproved: true, user: { is: { isActive: true } } },
       select: {
         bio: true,
         profileReview: true,
@@ -295,7 +341,7 @@ export async function getRaulProfile() {
 
 export async function getRaulWriting() {
   try {
-    const profile = await prisma.professionalProfile.findUnique({ where: { slug: "raul-olmedo" }, select: { id: true } });
+    const profile = await prisma.professionalProfile.findUnique({ where: { slug: HUB_PROFILE_SLUG }, select: { id: true } });
     if (!profile) return [];
     return prisma.post.findMany({
       where: { authorId: profile.id, status: "PUBLISHED" },

@@ -309,11 +309,11 @@ model User {
   invoiceContacts Invoice[]     @relation("InvoiceContact")
   invoicesCreated Invoice[]     @relation("InvoiceCreator")
 
-  postViewEvents      PostViewEvent[]
-  paymentTransactions PaymentTransaction[]
-  insuranceClaims     InsuranceClaim[]     @relation("PatientInsuranceClaims")
-  leads               Lead[]
-  pushSubscriptions   PushSubscription[]
+  postViewEvents         PostViewEvent[]
+  paymentTransactions    PaymentTransaction[]
+  insuranceClaims        InsuranceClaim[]        @relation("PatientInsuranceClaims")
+  leads                  Lead[]
+  pushSubscriptions      PushSubscription[]
   /// Precios con que entró por una escalera de precios, uno por consulta y profesional.
   priceLadderEnrollments PriceLadderEnrollment[]
 
@@ -518,6 +518,16 @@ model ProfessionalHub {
   publishedAt           DateTime?
   isActive              Boolean               @default(true)
 
+  // SEO editorial: si van vacíos, el metadata se deriva del contenido (ver
+  // src/lib/seo.js). Son columnas y no otra clave dentro de `metadata` porque el
+  // panel de SEO audita con consultas, y lo que vive en un JSON no se puede
+  // filtrar ni contar sin leer la tabla entera.
+  metaTitle       String?
+  metaDescription String? @db.Text
+  ogImage         String?
+  focusKeyword    String?
+  noindex         Boolean @default(false)
+
   professional ProfessionalProfile?    @relation(fields: [professionalProfileId], references: [id], onDelete: SetNull)
   modules      ProfessionalHubModule[]
 
@@ -540,6 +550,16 @@ model ProfessionalHubModule {
   position    Int     @default(0)
   isVisible   Boolean @default(true)
   isPublished Boolean @default(false)
+
+  // SEO editorial: si van vacíos, el metadata se deriva del contenido (ver
+  // src/lib/seo.js). Son columnas y no otra clave dentro de `metadata` porque el
+  // panel de SEO audita con consultas, y lo que vive en un JSON no se puede
+  // filtrar ni contar sin leer la tabla entera.
+  metaTitle       String?
+  metaDescription String? @db.Text
+  ogImage         String?
+  focusKeyword    String?
+  noindex         Boolean @default(false)
 
   hub ProfessionalHub @relation(fields: [hubId], references: [id], onDelete: Cascade)
 

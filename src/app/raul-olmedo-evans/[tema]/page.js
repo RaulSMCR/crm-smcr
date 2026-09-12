@@ -4,7 +4,7 @@ import HubTracker from "@/components/hub/HubTracker";
 import HubTrackedLink from "@/components/hub/HubTrackedLink";
 import JsonLd from "@/components/JsonLd";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
-import { buildMetadata } from "@/lib/seo";
+import { buildMetadata, resolveSeo } from "@/lib/seo";
 import { grafo, nodoMigas, ref } from "@/lib/jsonld";
 import { RAUL_PERSON_ID, getManagedHubData, getPublishedHubTopicsAsync, getRaulAgendaUrl, readManagedHubDocument } from "@/lib/hub-raul";
 import { siteUrl } from "@/lib/site-url";
@@ -20,12 +20,23 @@ export async function generateMetadata({ params }) {
   const { tema } = await params;
   const doc = await readManagedHubDocument("raul-olmedo-evans", String(tema || ""));
   if (!doc) return { title: "Tema no encontrado", robots: { index: false, follow: false } };
+  const seo = resolveSeo(
+    { metaTitle: doc.titulo_seo, metaDescription: doc.meta, ogImage: doc.ogImage, noindex: doc.noindex },
+    { title: doc.titulo, description: doc.resumen, subtitle: "Raúl Olmedo Evans" },
+  );
   return buildMetadata({
-    title: doc.titulo_seo || doc.titulo,
-    description: doc.meta || doc.resumen,
+    title: seo.title,
+    description: seo.description,
+    image: seo.image,
+    imageAlt: seo.imageAlt,
     path: `raul-olmedo-evans/${tema}`,
     subtitle: "Raúl Olmedo Evans",
     type: "article",
+    // Un tema sin cuerpo muestra "Estamos preparando esta página". Ofrecerlo al
+    // índice es pedirle a Google que evalúe una página que dice no tener nada, y
+    // pagar por un clic que aterriza ahí es peor todavía. Sigue navegable desde
+    // el hub; deja de anunciarse. Vuelve al índice sola cuando tenga contenido.
+    noindex: seo.noindex || !doc.body,
   });
 }
 
@@ -85,9 +96,9 @@ export default async function RaulThemePage({ params }) {
               </div>
             ) : (
               <div className="mt-10 rounded-nv border border-nv-teal-deep/20 bg-nv-cream-hi p-6">
-                <p className="hub-kicker">Tema en preparaci\u00f3n</p>
-                <h2 className="mt-2 font-display text-3xl font-semibold text-nv-teal-deep">Estamos preparando esta p\u00e1gina</h2>
-                <p className="mt-3 leading-7 text-neutral-700">El contenido de este tema se incorporar\u00e1 pr\u00f3ximamente. Si quer\u00e9s conversar sobre tu situaci\u00f3n, pod\u00e9s solicitar una cita.</p>
+                <p className="hub-kicker">Tema en preparación</p>
+                <h2 className="mt-2 font-display text-3xl font-semibold text-nv-teal-deep">Estamos preparando esta página</h2>
+                <p className="mt-3 leading-7 text-neutral-700">El contenido de este tema se incorporará próximamente. Si querés conversar sobre tu situación, podés solicitar una cita.</p>
               </div>
             )}
             {doc.body ? (

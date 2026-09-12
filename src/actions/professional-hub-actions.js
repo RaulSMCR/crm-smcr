@@ -22,6 +22,28 @@ function clean(value, max = 50000) {
   return String(value || "").replace(/\u0000/g, "").trim().slice(0, max);
 }
 
+function bool(value) {
+  return value === true || value === "on" || value === "true";
+}
+
+/**
+ * Campos SEO comunes al hub y a sus módulos.
+ *
+ * Van vacíos por defecto y `resolveSeo` cae al contenido: el control editorial
+ * es un override, no una obligación. Nada se recorta acá a la longitud
+ * recomendada —el editor avisa, pero el que decide es quien escribe—, solo se
+ * acota a lo que la columna aguanta.
+ */
+function seoFields(payload = {}) {
+  return {
+    metaTitle: clean(payload.metaTitle, 240) || null,
+    metaDescription: clean(payload.metaDescription, 1000) || null,
+    ogImage: clean(payload.ogImage, 2000) || null,
+    focusKeyword: clean(payload.focusKeyword, 120) || null,
+    noindex: bool(payload.noindex),
+  };
+}
+
 function integer(value, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.max(0, Math.round(number)) : fallback;
@@ -59,6 +81,7 @@ function hubData(payload = {}) {
       logoUrl: clean(payload.logoUrl, 2000) || null,
       enabledFunctions: functions(payload.enabledFunctions),
       status,
+      ...seoFields(payload),
     },
   };
 }
@@ -78,15 +101,18 @@ function moduleData(payload = {}) {
       title,
       summary: clean(payload.summary, 5000) || null,
       body: clean(payload.body, 50000) || null,
+      // En `metadata` quedan solo las fechas del documento. El título SEO y la
+      // meta descripción pasaron a columnas propias (migración
+      // 20260912010000_hub_seo_editorial) para que el panel de SEO pueda
+      // auditarlas con una consulta en vez de leer la tabla entera.
       metadata: {
-        titulo_seo: clean(payload.titulo_seo, 240),
-        meta: clean(payload.meta, 1000),
         fecha: clean(payload.fecha, 40),
         actualizado: clean(payload.actualizado, 40),
       },
       position: integer(payload.position),
       isVisible: payload.isVisible !== false,
       isPublished: payload.isPublished === true,
+      ...seoFields(payload),
     },
   };
 }

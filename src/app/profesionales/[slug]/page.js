@@ -10,6 +10,7 @@ import { tituloDe } from "@/lib/disciplinas";
 import { grafo, ref, nodoMigas, idPersona, ID_ORGANIZACION } from "@/lib/jsonld";
 import { SELECT_TARIFA_PUBLICA, TARIFA_VIGENTE, rangoDePrecios, etiquetaDeRango } from "@/lib/service-pricing";
 import BotonAgendar from "@/components/profile/BotonAgendar";
+import { getPublishedHubForProfile } from "@/lib/professional-hub-queries";
 import { SafeAvatar } from "@/components/SafeImage";
 import WhiplashCorner from "@/components/ornaments/WhiplashCorner";
 
@@ -119,6 +120,10 @@ export default async function ProfessionalPublicProfilePage({ params }) {
 
   const name = professional.user?.name || "Profesional";
   const review = professional.profileReview || "";
+  // El hub enlazaba a la ficha, pero la ficha no devolvía el enlace: la página
+  // con más autoridad del profesional dejaba huérfana a la que hay que
+  // posicionar. `null` cuando no hay hub publicado.
+  const hub = await getPublishedHubForProfile(professional.slug);
   const services = professional.serviceAssignments
     .map((assignment) => ({
       ...assignment.service,
@@ -292,6 +297,18 @@ export default async function ProfessionalPublicProfilePage({ params }) {
                 Ver servicios
               </Link>
             )}
+
+            {hub ? (
+              <Link
+                href={`/${hub.slug}`}
+                className="mt-4 block w-full rounded-lg border border-nv-cream-hi/40 px-4 py-3 text-center text-sm font-bold text-nv-cream-hi transition hover:bg-nv-cream-hi hover:text-nv-teal-deep"
+              >
+                Espacio clínico de {name}
+                {hub.title ? (
+                  <span className="mt-1 block text-xs font-normal text-nv-cream/75">{hub.title}</span>
+                ) : null}
+              </Link>
+            ) : null}
           </aside>
 
           <div className="space-y-6">

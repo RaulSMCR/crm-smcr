@@ -82,6 +82,26 @@ export const metadata = {
   // versión buena de esta página es la home». Cada página pública declara el
   // suyo (ver `buildMetadata` en src/lib/seo.js) y las privadas declaran
   // `robots: noindex`, que es lo que corresponde.
+  // Verificación de propiedad de los buscadores. El token se pone en una
+  // variable de entorno y no en el código: es un dato de la cuenta, distinto en
+  // cada propiedad, y no debería costar un despliegue cambiarlo. Si la variable
+  // va vacía, Next no emite la etiqueta y no pasa nada.
+  //
+  // Sin esto no hay Search Console; sin Search Console el sitemap nunca se
+  // envía, no existe «solicitar indexación» y no hay forma de saber si Google
+  // rastreó una página nueva o ni se enteró.
+  ...(process.env.GOOGLE_SITE_VERIFICATION || process.env.BING_SITE_VERIFICATION
+    ? {
+        verification: {
+          ...(process.env.GOOGLE_SITE_VERIFICATION
+            ? { google: process.env.GOOGLE_SITE_VERIFICATION }
+            : {}),
+          ...(process.env.BING_SITE_VERIFICATION
+            ? { other: { 'msvalidate.01': process.env.BING_SITE_VERIFICATION } }
+            : {}),
+        },
+      }
+    : {}),
   openGraph: {
     type: 'website',
     locale: 'es_CR',
