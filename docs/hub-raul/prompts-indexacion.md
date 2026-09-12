@@ -51,16 +51,40 @@ entero, subdominios incluidos, y no hay que tocar código.
 
 ### Camino A — DNS (recomendado)
 
-> Abrí Google Search Console (https://search.google.com/search-console) con la
-> cuenta de raul.olmedo@gmail.com. Agregá una propiedad del tipo **Dominio** con
-> el valor `saludmentalcostarica.com`.
->
-> Google va a pedir un registro TXT. Copiame el valor completo que muestra
-> (empieza con `google-site-verification=`) y decime en qué proveedor está el
-> dominio si lo detectás. Dejá la pestaña abierta.
+Datos comprobados del dominio, para no ir a ciegas:
 
-Ese TXT se agrega en el panel del registrador del dominio. Puede tardar unos
-minutos en propagarse; recién entonces hacer clic en Verificar.
+- **Registrador: GoDaddy.** Nameservers `ns29.domaincontrol.com` y
+  `ns30.domaincontrol.com`; el SPF apunta a `secureserver.net`. El DNS se
+  administra en GoDaddy → Mis productos → DNS.
+- **Ya existe un TXT de verificación de Google** en el dominio:
+  `google-site-verification=1lTs-juU_a5kSOvuOuFR4nNflcgr-yU78xMmu9HFmJw`.
+  Puede ser una propiedad de Search Console verificada hace tiempo, o la
+  verificación de Google Workspace, que usa el mismo formato.
+
+Por eso el primer prompt es mirar antes de crear:
+
+> Abrí Google Search Console (https://search.google.com/search-console) con la
+> cuenta de raul.olmedo@gmail.com y decime qué propiedades ya existen, con su
+> tipo (Dominio o Prefijo de URL) y su estado de verificación. Si aparece alguna
+> de `saludmentalcostarica.com`, no crees nada: entrá y contame qué muestra en
+> **Indexación → Páginas** y en **Sitemaps**.
+
+Si no hay ninguna:
+
+> Agregá una propiedad del tipo **Dominio** con el valor
+> `saludmentalcostarica.com`. Google va a pedir un registro TXT: copiame el valor
+> completo que muestra (empieza con `google-site-verification=`) y dejá la
+> pestaña abierta.
+
+El TXT se agrega en GoDaddy → DNS → Agregar registro, tipo TXT, nombre `@`.
+
+**Agregar, no reemplazar.** Ya hay un `google-site-verification` en el dominio y
+un SPF. Un dominio admite varios registros TXT; si se pisa el que está, se rompe
+lo que sea que esté verificando —posiblemente el correo—. Google solo acepta el
+token exacto que emite para esa propiedad, así que el que ya está no sirve para
+verificar una propiedad nueva: hay que sumar el segundo.
+
+La propagación tarda unos minutos. Recién entonces, Verificar.
 
 ### Camino B — etiqueta HTML (si no hay acceso al DNS)
 
