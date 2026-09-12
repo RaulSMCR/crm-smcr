@@ -83,18 +83,35 @@ con números; desde afuera solo se puede suponer.
 Con esos cinco datos se sabe si el hub es un caso nuevo esperando turno o si hay
 un problema de fondo. Lo que siga depende de la respuesta.
 
-## 3 · Enviar el sitemap
+## 3 · Forzar la relectura del sitemap
 
-> En Search Console, entrá a **Sitemaps** en el menú lateral y enviá
-> `sitemap.xml`. Decime qué estado quedó y cuántas URLs detectó.
+**Diagnóstico cerrado (2026-09-11), con datos de Search Console.**
+
+El sitio está sano: 54 páginas indexadas contra 17 no indexadas, y esas 17 son
+todas benignas —bloqueadas por robots (el panel), redirecciones, canónicas
+alternativas—. "Descubierta: actualmente sin indexar" es cero. Google rastrea
+3.880 veces cada 90 días sin problemas de host. No hay problema de fondo.
+
+Lo que pasa con el hub es más simple y más concreto: **Google nunca lo
+descubrió**. La inspección de URL responde "unknown to Google", nunca rastreada,
+sin página de referencia y sin sitemap que la mencione. Las dos razones:
+
+1. La copia del sitemap que tiene Google es del **18 de abril** y trae **24
+   URLs**. El sitemap vivo tiene **54**. El hub nació el 10 de septiembre: cinco
+   meses después de la foto que Google conserva.
+2. Ninguna página indexada lo enlazaba. El enlace desde la ficha profesional
+   sale con el despliegue del paso 1, y es la vía de descubrimiento permanente.
+
+Es decir: Google no tenía ningún camino hacia esa URL. No era cuestión de
+esperar —podía no pasar nunca—.
+
+> En Search Console, entrá a **Sitemaps**. Vas a ver
+> `https://saludmentalcostarica.com/sitemap.xml` enviado el 16 de abril de 2026.
+> Volvé a enviarlo: pegá `sitemap.xml` en el campo de arriba y dale a Enviar,
+> aunque ya figure en la lista. Eso encola una relectura.
 >
-> Después andá a **Indexación → Páginas** y contame cuántas figuran indexadas y
-> cuántas no, con los motivos que liste textualmente.
-
-El sitemap se regenera cada hora. Si acabás de desplegar, esperá un rato antes de
-sacar conclusiones sobre cuántas URLs trae.
-
----
+> Después decime la fecha de "última lectura" y cuántas URLs detectó. Necesito
+> ver si pasa de 24 a 54. Si sigue diciendo 24 después de un rato, avisame.
 
 ## 4 · Solicitar indexación
 
