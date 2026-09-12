@@ -11,30 +11,38 @@ export const revalidate = 3600;
 // contenido detrás, ahora declaran `noindex` (ver src/app/registro/layout.js), y
 // un sitemap que anuncia páginas que piden no ser indexadas es una contradicción
 // que Search Console reporta como error.
+// `lastModified` va solo donde hay una fecha real detrás.
+//
+// Antes todas estas entradas se sellaban con `new Date()` en cada pedido: once
+// URLs, la home incluida, le declaraban a Google "me modificaron hace un
+// segundo", en cada visita, para siempre. Google documenta que cuando los
+// `lastmod` no son fiables deja de usarlos, y un archivo que miente en once de
+// cincuenta y cuatro entradas enseña exactamente eso.
+//
+// `fuente` dice de dónde sale la fecha: 'contenido' la deriva de lo más reciente
+// que esa página lista, y `null` significa que no la sabemos — y entonces no se
+// declara. Omitir el campo es información; inventarlo es ruido.
 const STATIC_PAGES = [
-  { url: '/',            priority: 1.0, changeFrequency: 'weekly'  },
-  { url: '/servicios',   priority: 0.9, changeFrequency: 'weekly'  },
-  { url: '/blog',        priority: 0.8, changeFrequency: 'daily'   },
-  { url: '/profesionales', priority: 0.8, changeFrequency: 'monthly' },
-  { url: '/faq',         priority: 0.7, changeFrequency: 'monthly' },
-  { url: '/terminos',    priority: 0.6, changeFrequency: 'yearly'  },
-  { url: '/privacidad',  priority: 0.6, changeFrequency: 'yearly'  },
-  { url: '/cookies',     priority: 0.6, changeFrequency: 'yearly'  },
-  { url: '/raul-olmedo-evans', priority: 0.9, changeFrequency: 'weekly' },
-  { url: '/raul-olmedo-evans/tratamiento-breve-15-sesiones', priority: 0.8, changeFrequency: 'monthly' },
-  { url: '/ayuda-inmediata', priority: 0.5, changeFrequency: 'yearly' },
+  { url: '/',            priority: 1.0, changeFrequency: 'weekly',  fuente: 'todo' },
+  { url: '/servicios',   priority: 0.9, changeFrequency: 'weekly',  fuente: 'servicios' },
+  { url: '/blog',        priority: 0.8, changeFrequency: 'daily',   fuente: 'posts' },
+  { url: '/profesionales', priority: 0.8, changeFrequency: 'monthly', fuente: 'profesionales' },
+  { url: '/faq',         priority: 0.7, changeFrequency: 'monthly', fuente: null },
+  { url: '/terminos',    priority: 0.6, changeFrequency: 'yearly',  fuente: null },
+  { url: '/privacidad',  priority: 0.6, changeFrequency: 'yearly',  fuente: null },
+  { url: '/cookies',     priority: 0.6, changeFrequency: 'yearly',  fuente: null },
+  { url: '/raul-olmedo-evans', priority: 0.9, changeFrequency: 'weekly', fuente: 'hub' },
+  { url: '/raul-olmedo-evans/tratamiento-breve-15-sesiones', priority: 0.8, changeFrequency: 'monthly', fuente: 'hub' },
+  { url: '/ayuda-inmediata', priority: 0.5, changeFrequency: 'yearly', fuente: null },
 ];
 
+/** La más reciente de una lista de fechas, o `undefined` si no hay ninguna. */
+function masReciente(...fechas) {
+  const validas = fechas.flat().filter(Boolean).map((f) => new Date(f)).filter((f) => !Number.isNaN(f.getTime()));
+  return validas.length ? new Date(Math.max(...validas.map((f) => f.getTime()))) : undefined;
+}
+
 export default async function sitemap() {
-  const now = new Date();
-
-  const staticEntries = STATIC_PAGES.map(({ url, priority, changeFrequency }) => ({
-    url: `${BASE_URL}${url}`,
-    lastModified: now,
-    changeFrequency,
-    priority,
-  }));
-
   let services, professionals, posts, series, temas, topicHubs;
 
   try {
@@ -148,6 +156,27 @@ export default async function sitemap() {
     changeFrequency: 'monthly',
     priority: 0.8,
   })));
+
+  // Las fechas de las portadas salen de lo que cada una lista. La del hub la
+  // calcula `hubLastModifiedAsync`, que ya sabe leer su módulo más reciente.
+  const fechaHub = await hubLastModifiedAsync('raul-olmedo-evans');
+  const fechas = {
+    servicios: masReciente(services.map((s) => s.updatedAt)),
+    posts: masReciente(posts.map((p) => p.updatedAt)),
+    profesionales: masReciente(professionals.map((p) => p.updatedAt)),
+    hub: fechaHub,
+  };
+  fechas.todo = masReciente([fechas.servicios, fechas.posts, fechas.profesionales, fechas.hub]);
+
+  const staticEntries = STATIC_PAGES.map(({ url, priority, changeFrequency, fuente }) => {
+    const lastModified = fuente ? fechas[fuente] : undefined;
+    return {
+      url: `${BASE_URL}${url}`,
+      ...(lastModified ? { lastModified } : {}),
+      changeFrequency,
+      priority,
+    };
+  });
 
   return [
     ...staticEntries,
