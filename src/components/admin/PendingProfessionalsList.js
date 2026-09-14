@@ -4,6 +4,7 @@
 import { approveUser, rejectUser } from "@/actions/admin-actions";
 import VerificacionColegiatura from "@/components/admin/VerificacionColegiatura";
 import { useState } from "react";
+import { useAccionServidor } from "@/components/ui/useAccionServidor";
 
 const fileUrl = (value) => String(value || "").startsWith("/") || String(value || "").startsWith("http")
   ? value
@@ -43,19 +44,26 @@ function waHref(phone) {
 export default function PendingProfessionalsList({ users }) {
   const safeUsers = Array.isArray(users) ? users : [];
   const [processing, setProcessing] = useState(null);
+  const { ejecutar } = useAccionServidor();
 
-  async function handleApprove(id) {
+  function handleApprove(id, nombre) {
     if (!confirm("¿Confirmas la aprobación?")) return;
     setProcessing(id);
-    await approveUser(id);
-    setProcessing(null);
+    ejecutar(() => approveUser(id), {
+      exito: `${nombre || "El profesional"} quedó aprobado.`,
+      alTerminar: () => setProcessing(null),
+      alFallar: () => setProcessing(null),
+    });
   }
 
-  async function handleReject(id) {
+  function handleReject(id, nombre) {
     if (!confirm("¿Rechazar solicitud?")) return;
     setProcessing(id);
-    await rejectUser(id);
-    setProcessing(null);
+    ejecutar(() => rejectUser(id), {
+      exito: `Se rechazó la solicitud de ${nombre || "el profesional"}.`,
+      alTerminar: () => setProcessing(null),
+      alFallar: () => setProcessing(null),
+    });
   }
 
   if (safeUsers.length === 0) {
@@ -224,14 +232,14 @@ export default function PendingProfessionalsList({ users }) {
                   <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end gap-2">
                       <button
-                        onClick={() => handleReject(user.id)}
+                        onClick={() => handleReject(user.id, user.name)}
                         disabled={isLoading}
                         className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-3 py-1 rounded transition disabled:opacity-50 text-xs font-bold"
                       >
                         Rechazar
                       </button>
                       <button
-                        onClick={() => handleApprove(user.id)}
+                        onClick={() => handleApprove(user.id, user.name)}
                         disabled={isLoading}
                         className="text-white bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded shadow-sm transition disabled:opacity-50 text-xs font-bold flex items-center gap-1"
                       >

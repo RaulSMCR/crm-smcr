@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useToast } from "@/components/ui/ToastProvider";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -35,6 +36,7 @@ export default function BookingInterface({ professionalId, servicePrice, service
   // completa del profesional: semana tipo, citas, bloqueos y Google Calendar.
   // Antes el paciente elegía una fecha a ciegas y la página abría en "mañana";
   // si ese día no había consulta, anunciaba que no había horarios.
+  const { avisar } = useToast();
   const [days, setDays] = useState([]);
   const [warnings, setWarnings] = useState([]);
   const [nextStartDay, setNextStartDay] = useState(null);
@@ -205,16 +207,26 @@ export default function BookingInterface({ professionalId, servicePrice, service
   async function submitBooking(timeOverride) {
     setIsBooking(true);
 
-    const result = await requestAppointment(
-      professionalId,
-      selectedDate,
-      timeOverride || selectedSlot,
-      serviceId,
-      recurrenceRule,
-      recurrenceCount,
-      { gaClientId: readGaClientId(), gaGclid: readGclid(), topicSlug: getTopicAttribution() },
-      locationId
-    );
+    let result;
+    try {
+      result = await requestAppointment(
+        professionalId,
+        selectedDate,
+        timeOverride || selectedSlot,
+        serviceId,
+        recurrenceRule,
+        recurrenceCount,
+        { gaClientId: readGaClientId(), gaGclid: readGclid(), topicSlug: getTopicAttribution() },
+        locationId
+      );
+    } catch (fallo) {
+      // Reservar es el momento con menos tolerancia a una pantalla muda: sin
+      // esto, el botón quedaba en «reservando» y no pasaba nada más.
+      const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la reserva. Volvé a intentarlo.";
+      avisar(mensaje, "error");
+      setIsBooking(false);
+      return;
+    }
 
     if (result.success) {
       trackEvent('schedule_appointment', { service: serviceTitle, professional: professionalName, topic_slug: getTopicAttribution() || undefined });

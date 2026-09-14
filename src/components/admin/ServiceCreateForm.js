@@ -1,17 +1,14 @@
 "use client";
 
-import { useCallback, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createService } from "@/actions/service-actions";
 import ServiceBannerField from "@/components/admin/ServiceBannerField";
 import SeoFieldset from "@/components/admin/SeoFieldset";
-import Toast from "@/components/ui/Toast";
+import { useAccionServidor } from "@/components/ui/useAccionServidor";
 
 export default function ServiceCreateForm({ taxes = [] }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [toast, setToast] = useState(null);
-  const dismissToast = useCallback(() => setToast(null), []);
+  const { pendiente: isPending, ejecutar } = useAccionServidor();
 
   return (
     <>
@@ -21,18 +18,14 @@ export default function ServiceCreateForm({ taxes = [] }) {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
 
-        startTransition(async () => {
-          const result = await createService(formData);
-          if (result?.error) {
-            setToast({ message: result.error, type: "error" });
-            return;
-          }
-          if (result?.success) {
-            setToast({ message: "Servicio creado correctamente.", type: "success" });
-            setTimeout(() => {
-              router.push("/panel/admin/servicios");
-            }, 1000);
-          }
+        // El aviso queda visible mientras se navega: el provider vive en el
+        // layout raíz, así que ya no se pierde al cambiar de pantalla.
+        ejecutar(() => createService(formData), {
+          exito: "Servicio creado correctamente.",
+          refrescar: false,
+          alTerminar: (result) => {
+            if (result?.success) router.push("/panel/admin/servicios");
+          },
         });
       }}
     >
@@ -180,8 +173,6 @@ export default function ServiceCreateForm({ taxes = [] }) {
         </button>
       </div>
     </form>
-
-    <Toast message={toast?.message} type={toast?.type} onDismiss={dismissToast} />
     </>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { useToast } from "@/components/ui/ToastProvider";
 import { getFollowUpScheduleData, createFollowUpAppointment } from "@/actions/agenda-actions";
 import {
   buildSlots,
@@ -17,6 +18,7 @@ export default function FollowUpModal({ appointment, onClose, onSuccess }) {
   const [selectedISO, setSelectedISO] = useState("");
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+  const { avisar } = useToast();
 
   useEffect(() => {
     let mounted = true;
@@ -56,15 +58,22 @@ export default function FollowUpModal({ appointment, onClose, onSuccess }) {
 
     setError("");
     startTransition(async () => {
-      const result = await createFollowUpAppointment(appointment.id, selectedISO);
-
-      if (!result?.success) {
-        setError(result?.error || "No se pudo agendar el seguimiento.");
-        return;
+      try {
+        const result = await createFollowUpAppointment(appointment.id, selectedISO);
+  
+        if (!result?.success) {
+          setError(result?.error || "No se pudo agendar el seguimiento.");
+          return;
+        }
+  
+        onSuccess?.();
+        onClose();
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setError(mensaje);
+        avisar(mensaje, "error");
       }
-
-      onSuccess?.();
-      onClose();
     });
   }
 

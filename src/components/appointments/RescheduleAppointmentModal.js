@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { useToast } from "@/components/ui/ToastProvider";
 import { getAppointmentRescheduleData, rescheduleAppointmentByPatient } from "@/actions/patient-booking-actions";
 import {
   buildSlots,
@@ -24,6 +25,7 @@ export default function RescheduleAppointmentModal({ appointment, onClose }) {
   const [recurrenceCount, setRecurrenceCount] = useState(4);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+  const { avisar } = useToast();
 
   useEffect(() => {
     let mounted = true;
@@ -68,17 +70,24 @@ export default function RescheduleAppointmentModal({ appointment, onClose }) {
 
     setError("");
     startTransition(async () => {
-      const result = await rescheduleAppointmentByPatient(
-        appointment.id,
-        selectedISO,
-        recurrenceRule,
-        recurrenceCount
-      );
-
-      if (result?.error) {
-        setError(result.error);
-      } else {
-        onClose();
+      try {
+        const result = await rescheduleAppointmentByPatient(
+          appointment.id,
+          selectedISO,
+          recurrenceRule,
+          recurrenceCount
+        );
+  
+        if (result?.error) {
+          setError(result.error);
+        } else {
+          onClose();
+        }
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setError(mensaje);
+        avisar(mensaje, "error");
       }
     });
   }

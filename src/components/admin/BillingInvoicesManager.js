@@ -247,11 +247,16 @@ export default function BillingInvoicesManager({
 
   function handleAcceptance(id, acceptanceStatus) {
     startTransition(async () => {
-      const result = await updateSupplierInvoiceAcceptance(id, acceptanceStatus);
-      if (!result.success) setToast({ message: result.error, type: "error" });
-      else {
-        updateRowInvoice(id, { acceptanceStatus, acceptanceAt: new Date().toISOString() });
-        setToast({ message: `Factura marcada como ${acceptanceStatus === "ACCEPTED" ? "aceptada" : "rechazada"}.`, type: "success" });
+      // Era el único manejador de este panel sin try/catch; el resto ya lo tenía.
+      try {
+        const result = await updateSupplierInvoiceAcceptance(id, acceptanceStatus);
+        if (!result.success) setToast({ message: result.error, type: "error" });
+        else {
+          updateRowInvoice(id, { acceptanceStatus, acceptanceAt: new Date().toISOString() });
+          setToast({ message: `Factura marcada como ${acceptanceStatus === "ACCEPTED" ? "aceptada" : "rechazada"}.`, type: "success" });
+        }
+      } catch (error) {
+        setToast({ message: error?.message || "No se pudo registrar la aceptación.", type: "error" });
       }
     });
   }

@@ -3,7 +3,8 @@
 // Lugares donde el profesional atiende. Cada uno puede tener su propia tarifa,
 // y el paciente elige entre ellos al agendar.
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
+import { useAccionServidor } from "@/components/ui/useAccionServidor";
 import { useRouter } from "next/navigation";
 import { savePracticeLocation, deletePracticeLocation } from "@/actions/practice-actions";
 import { modalityLabel } from "@/lib/rates";
@@ -16,7 +17,7 @@ export default function PracticeLocationsManager({ initialLocations = [] }) {
   const router = useRouter();
   const [form, setForm] = useState(EMPTY);
   const [msg, setMsg] = useState({ type: "", text: "" });
-  const [isPending, startTransition] = useTransition();
+  const { pendiente: isPending, ejecutar } = useAccionServidor();
 
   const isEditing = Boolean(form.id);
 
@@ -26,29 +27,26 @@ export default function PracticeLocationsManager({ initialLocations = [] }) {
     event.preventDefault();
     setMsg({ type: "", text: "" });
 
-    startTransition(async () => {
-      const res = await savePracticeLocation(form);
-      if (res?.error) {
-        setMsg({ type: "error", text: res.error });
-        return;
-      }
-      setForm(EMPTY);
-      setMsg({ type: "ok", text: isEditing ? "Lugar actualizado." : "Lugar agregado." });
-      router.refresh();
+    const texto = isEditing ? "Lugar actualizado." : "Lugar agregado.";
+    ejecutar(() => savePracticeLocation(form), {
+      exito: texto,
+      alTerminar: () => {
+        setForm(EMPTY);
+        setMsg({ type: "ok", text: texto });
+      },
+      alFallar: (text) => setMsg({ type: "error", text }),
     });
   };
 
   const onDelete = (location) => {
     setMsg({ type: "", text: "" });
-    startTransition(async () => {
-      const res = await deletePracticeLocation(location.id);
-      if (res?.error) {
-        setMsg({ type: "error", text: res.error });
-        return;
-      }
-      if (form.id === location.id) setForm(EMPTY);
-      setMsg({ type: "ok", text: "Lugar eliminado." });
-      router.refresh();
+    ejecutar(() => deletePracticeLocation(location.id), {
+      exito: "Lugar eliminado.",
+      alTerminar: () => {
+        if (form.id === location.id) setForm(EMPTY);
+        setMsg({ type: "ok", text: "Lugar eliminado." });
+      },
+      alFallar: (text) => setMsg({ type: "error", text }),
     });
   };
 

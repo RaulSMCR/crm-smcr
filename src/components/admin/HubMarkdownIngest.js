@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { useToast } from "@/components/ui/ToastProvider";
 import { useRouter } from "next/navigation";
 import { publishProfessionalHubModules } from "@/actions/professional-hub-actions";
 // Los límites salen del parser y no se copian acá: si el servidor acepta doce
@@ -48,6 +49,7 @@ export default function HubMarkdownIngest({ hubId, hubSlug, modulos = [], destin
   const [informe, setInforme] = useState(null);
   const [resultado, setResultado] = useState(null);
   const [publicando, publicar] = useTransition();
+  const { avisar } = useToast();
   const [avisoPublicacion, setAvisoPublicacion] = useState(null);
   const [eleccion, setEleccion] = useState("");
   // El destino que produjo el informe, congelado: el confirm vuelve a leer el
@@ -168,17 +170,24 @@ export default function HubMarkdownIngest({ hubId, hubSlug, modulos = [], destin
     if (!slugs.length) return;
     setAvisoPublicacion(null);
     publicar(async () => {
-      const salida = await publishProfessionalHubModules(hubId, slugs);
-      if (salida?.error) {
-        setAvisoPublicacion({ tipo: "error", texto: salida.error });
-        return;
+      try {
+        const salida = await publishProfessionalHubModules(hubId, slugs);
+        if (salida?.error) {
+          setAvisoPublicacion({ tipo: "error", texto: salida.error });
+          return;
+        }
+        const partes = [];
+        if (salida.publicados?.length) partes.push(`Publicado: ${salida.publicados.join(", ")}.`);
+        if (salida.omitidos?.length) partes.push(`Sin publicar por no tener cuerpo: ${salida.omitidos.join(", ")}.`);
+        setAvisoPublicacion({ tipo: "ok", texto: partes.join(" ") || "Nada que publicar." });
+        setResultado(null);
+        router.refresh();
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setAvisoPublicacion({ tipo: "error", texto: mensaje });
+        avisar(mensaje, "error");
       }
-      const partes = [];
-      if (salida.publicados?.length) partes.push(`Publicado: ${salida.publicados.join(", ")}.`);
-      if (salida.omitidos?.length) partes.push(`Sin publicar por no tener cuerpo: ${salida.omitidos.join(", ")}.`);
-      setAvisoPublicacion({ tipo: "ok", texto: partes.join(" ") || "Nada que publicar." });
-      setResultado(null);
-      router.refresh();
     });
   }
 

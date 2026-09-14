@@ -79,7 +79,18 @@ function PanelForm({ panelKey, onBack, registered }) {
     setError("");
     const formData = new FormData(e.target);
     formData.set("captchaToken", captchaToken || "");
-    const res = await login(formData);
+    let res;
+    try {
+      res = await login(formData);
+    } catch (fallo) {
+      // Sin esto, un fallo del servidor dejaba el botón en «Ingresando…» sin
+      // decir nada, que es la peor pantalla posible en un inicio de sesión.
+      setError(String(fallo?.message || "").trim() || "No se pudo iniciar sesión. Volvé a intentarlo.");
+      setLoading(false);
+      turnstileRef.current?.reset();
+      setCaptchaToken("");
+      return;
+    }
     if (res?.error) {
       setError(res.error);
       setLoading(false);

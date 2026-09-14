@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
+import { useAccionServidor } from "@/components/ui/useAccionServidor";
 import { updateLeadStatus } from "@/actions/lead-actions";
 
 const STATUS_PILL = {
@@ -37,16 +38,16 @@ function formatDate(value) {
 }
 
 export default function LeadRow({ lead }) {
-  const [isPending, startTransition] = useTransition();
+  const { pendiente: isPending, ejecutar } = useAccionServidor();
   const [expanded, setExpanded] = useState(false);
   const [note, setNote] = useState(lead.adminNote || "");
   const [error, setError] = useState(null);
 
   function apply(status, withNote) {
     setError(null);
-    startTransition(async () => {
-      const result = await updateLeadStatus(lead.id, status, withNote ? note : undefined);
-      if (result?.error) setError(result.error);
+    ejecutar(() => updateLeadStatus(lead.id, status, withNote ? note : undefined), {
+      exito: "Estado del lead actualizado.",
+      alFallar: setError,
     });
   }
 

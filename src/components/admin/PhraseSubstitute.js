@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useToast } from "@/components/ui/ToastProvider";
 // Desde frases-audiencia y no desde frases: este último importa los 300 KB del
 // corpus y los arrastraría al bundle del navegador.
 import { AUDIENCIAS } from "@/lib/frases-audiencia";
@@ -16,6 +17,7 @@ import { buscarEnCorpus, elegirFraseDelDia } from "@/actions/frases-actions";
  */
 export default function PhraseSubstitute({ fecha, facetas, selecciones, audienciaInicial }) {
   const [pendiente, iniciar] = useTransition();
+  const { avisar } = useToast();
   const [resultados, setResultados] = useState([]);
   const [buscado, setBuscado] = useState(false);
   const [error, setError] = useState(null);
@@ -38,9 +40,16 @@ export default function PhraseSubstitute({ fecha, facetas, selecciones, audienci
     evento.preventDefault();
     setError(null);
     iniciar(async () => {
-      const r = await buscarEnCorpus(filtros);
-      setResultados(r.resultados || []);
-      setBuscado(true);
+      try {
+        const r = await buscarEnCorpus(filtros);
+        setResultados(r.resultados || []);
+        setBuscado(true);
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setError(mensaje);
+        avisar(mensaje, "error");
+      }
     });
   }
 
@@ -51,8 +60,15 @@ export default function PhraseSubstitute({ fecha, facetas, selecciones, audienci
     }
     setError(null);
     iniciar(async () => {
-      const r = await elegirFraseDelDia({ fecha, indice, audiencia, sustituida: true });
-      if (r?.error) setError(r.error);
+      try {
+        const r = await elegirFraseDelDia({ fecha, indice, audiencia, sustituida: true });
+        if (r?.error) setError(r.error);
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setError(mensaje);
+        avisar(mensaje, "error");
+      }
     });
   }
 

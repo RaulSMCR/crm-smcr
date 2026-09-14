@@ -85,6 +85,7 @@ export default function ProfessionalBillingModule({
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [isPending, startTransition] = useTransition();
+  const { avisar } = useToast();
 
   const [refNumber, setRefNumber] = useState("");
   const [invoiceAmount, setInvoiceAmount] = useState("");
@@ -167,33 +168,40 @@ export default function ProfessionalBillingModule({
     const periodEnd = period === "custom" ? customTo : null;
 
     startSubmit(async () => {
-      const result = await submitProfessionalInvoice({
-        referenceNumber: refNumber,
-        amount: invoiceAmount || totalApproved,
-        fileUrl,
-        xmlUrl,
-        supplierFeClave,
-        periodStart,
-        periodEnd,
-        settlementId: selectedSettlement,
-      });
-      if (result.success) {
-        setSubmitMsg({
-          ok: true,
-          text: "Factura presentada correctamente. El admin la revisara pronto.",
+      try {
+        const result = await submitProfessionalInvoice({
+          referenceNumber: refNumber,
+          amount: invoiceAmount || totalApproved,
+          fileUrl,
+          xmlUrl,
+          supplierFeClave,
+          periodStart,
+          periodEnd,
+          settlementId: selectedSettlement,
         });
-        setRefNumber("");
-        setInvoiceAmount("");
-        setSelectedSettlement(null);
-        setPdfFile(null);
-        setXmlFile(null);
-        setSupplierFeClave("");
-        router.refresh();
-      } else {
-        setSubmitMsg({
-          ok: false,
-          text: result.error || "Error al presentar la factura.",
-        });
+        if (result.success) {
+          setSubmitMsg({
+            ok: true,
+            text: "Factura presentada correctamente. El admin la revisara pronto.",
+          });
+          setRefNumber("");
+          setInvoiceAmount("");
+          setSelectedSettlement(null);
+          setPdfFile(null);
+          setXmlFile(null);
+          setSupplierFeClave("");
+          router.refresh();
+        } else {
+          setSubmitMsg({
+            ok: false,
+            text: result.error || "Error al presentar la factura.",
+          });
+        }
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setSubmitMsg({ ok: false, text: mensaje });
+        avisar(mensaje, "error");
       }
     });
   }

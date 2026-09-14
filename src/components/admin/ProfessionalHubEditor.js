@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { SEO_LIMITS } from "@/lib/seo";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ui/ToastProvider";
 import HubMarkdownIngest from "@/components/admin/HubMarkdownIngest";
 import HubModuleOrder from "@/components/admin/HubModuleOrder";
 import { SLUG_COPY_HUB } from "@/lib/hub-markdown";
@@ -25,6 +26,7 @@ const FUNCTION_LABELS = {
 
 function useHubAction() {
   const router = useRouter();
+  const { avisar } = useToast();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState(null);
   function run(action, success = "Cambios guardados.") {
@@ -32,14 +34,19 @@ function useHubAction() {
     startTransition(async () => {
       try {
         const result = await action();
-        if (result?.error) setMessage({ type: "error", text: result.error });
-        else {
+        if (result?.error) {
+          setMessage({ type: "error", text: result.error });
+          avisar(result.error, "error");
+        } else {
           setMessage({ type: "success", text: success });
+          avisar(success, "success");
           router.refresh();
         }
         return result;
       } catch (error) {
-        setMessage({ type: "error", text: error?.message || "No se pudo completar la operación." });
+        const texto = error?.message || "No se pudo completar la operación.";
+        setMessage({ type: "error", text: texto });
+        avisar(texto, "error");
         return null;
       }
     });

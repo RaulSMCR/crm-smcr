@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { savePostCrmMeta } from "@/actions/taxonomy-actions";
+import { useToast } from "@/components/ui/ToastProvider";
 
 const SUGGESTED_LABELS = {
   "": "— Sin sugerir —",
@@ -43,6 +44,7 @@ export default function CrmMetaPanel({
   const [importedLinks, setImportedLinks] = useState([]);
   const [importedParts, setImportedParts] = useState("");
   const [pending, startTransition] = useTransition();
+  const { avisar } = useToast();
   const [notice, setNotice] = useState(null);
   const [error, setError] = useState(null);
 
@@ -131,9 +133,22 @@ export default function CrmMetaPanel({
       payload.focusKeyword = focusKeyword;
     }
     startTransition(async () => {
-      const res = await savePostCrmMeta(postId, payload, { mode });
-      if (res?.error) setError(res.error);
-      else setNotice("Metadatos guardados.");
+      try {
+        const res = await savePostCrmMeta(postId, payload, { mode });
+        if (res?.error) {
+          setError(res.error);
+          avisar(res.error, "error");
+          return;
+        }
+        setNotice("Metadatos guardados.");
+        avisar("Metadatos guardados.", "success");
+      } catch (fallo) {
+        // Guardar la serie de un artículo y no enterarse de que falló es
+        // exactamente el caso que dejó la taxonomía muda.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudieron guardar los metadatos.";
+        setError(mensaje);
+        avisar(mensaje, "error");
+      }
     });
   }
 

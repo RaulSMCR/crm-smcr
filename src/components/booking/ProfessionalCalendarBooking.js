@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { useToast } from "@/components/ui/ToastProvider";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -47,6 +48,7 @@ export default function ProfessionalCalendarBooking({
   const [recurrenceCount, setRecurrenceCount] = useState(4);
   const [msg, setMsg] = useState({ type: "", text: "" });
   const [isPending, startTransition] = useTransition();
+  const { avisar } = useToast();
 
   // Modalidades y precios del horario elegido. Se piden al servidor porque el
   // precio depende del lugar y de la franja, no solo del servicio.
@@ -123,29 +125,36 @@ export default function ProfessionalCalendarBooking({
     setMsg({ type: "", text: "" });
 
     startTransition(async () => {
-      const res = await createAppointmentForPatient({
-        professionalId,
-        serviceId,
-        startISO: selectedISO,
-        recurrenceRule,
-        recurrenceCount,
-        locationId,
-      });
-
-      if (res?.success) {
-        // Se muestra la confirmación un instante antes de navegar, para que el
-        // paciente vea el detalle de lo que aceptó.
-        setConfirmation(
-          res.confirmation
-            ? { ...res.confirmation, requiresDeposit: res.requiresDeposit, depositAmount: res.depositAmount }
-            : null
-        );
-        setTimeout(() => {
-          router.push(`/panel/paciente?created=1&series=${res.createdCount || 1}`);
-          router.refresh();
-        }, 2500);
-      } else {
-        setMsg({ type: "error", text: res?.error || "No pudimos agendar en este intento. Revisá el horario e intentá de nuevo." });
+      try {
+        const res = await createAppointmentForPatient({
+          professionalId,
+          serviceId,
+          startISO: selectedISO,
+          recurrenceRule,
+          recurrenceCount,
+          locationId,
+        });
+  
+        if (res?.success) {
+          // Se muestra la confirmación un instante antes de navegar, para que el
+          // paciente vea el detalle de lo que aceptó.
+          setConfirmation(
+            res.confirmation
+              ? { ...res.confirmation, requiresDeposit: res.requiresDeposit, depositAmount: res.depositAmount }
+              : null
+          );
+          setTimeout(() => {
+            router.push(`/panel/paciente?created=1&series=${res.createdCount || 1}`);
+            router.refresh();
+          }, 2500);
+        } else {
+          setMsg({ type: "error", text: res?.error || "No pudimos agendar en este intento. Revisá el horario e intentá de nuevo." });
+        }
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setMsg({ type: "error", text: mensaje });
+        avisar(mensaje, "error");
       }
     });
   };

@@ -1,14 +1,13 @@
 "use client";
 
-import { useCallback, useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 import {
   createHomeCarouselItem,
   deleteHomeCarouselItem,
   toggleHomeCarouselItem,
   updateHomeCarouselItem,
 } from "@/actions/home-carousel-actions";
-import Toast from "@/components/ui/Toast";
+import { useAccionServidor } from "@/components/ui/useAccionServidor";
 
 const KIND_OPTIONS = [
   { value: "ARTICLE_NEW", label: "Artículo nuevo", target: "article" },
@@ -81,14 +80,12 @@ function TargetSelects({ kind, posts, professionals, defaultPostId = "", default
 }
 
 export default function HomeCarouselManager({ initialItems = [], posts = [], professionals = [] }) {
-  const router = useRouter();
   const [createKind, setCreateKind] = useState("ARTICLE_NEW");
   const [rowKinds, setRowKinds] = useState(() =>
     Object.fromEntries(initialItems.map((item) => [item.id, item.kind]))
   );
-  const [toast, setToast] = useState(null);
-  const [isPending, startTransition] = useTransition();
-  const dismissToast = useCallback(() => setToast(null), []);
+  // `runAction` no capturaba: una acción que lanzara dejaba el panel mudo.
+  const { pendiente: isPending, ejecutar } = useAccionServidor();
 
   const counts = useMemo(() => {
     const next = Object.fromEntries(KIND_OPTIONS.map((option) => [option.value, { total: 0, active: 0 }]));
@@ -100,17 +97,8 @@ export default function HomeCarouselManager({ initialItems = [], posts = [], pro
     return next;
   }, [initialItems]);
 
-  function runAction(action) {
-    setToast(null);
-    startTransition(async () => {
-      const result = await action();
-      if (result?.error) {
-        setToast({ message: result.error, type: "error" });
-        return;
-      }
-      setToast({ message: "Carrusel actualizado correctamente.", type: "success" });
-      router.refresh();
-    });
+  function runAction(action, exito = "Carrusel actualizado correctamente.") {
+    ejecutar(action, { exito });
   }
 
   function handleCreate(event) {
@@ -360,8 +348,6 @@ export default function HomeCarouselManager({ initialItems = [], posts = [], pro
           ) : null}
         </div>
       </div>
-
-      <Toast message={toast?.message} type={toast?.type} onDismiss={dismissToast} />
     </div>
   );
 }

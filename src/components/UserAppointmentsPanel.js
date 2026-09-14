@@ -2,6 +2,7 @@
 
 import { DEFAULT_TZ } from "@/lib/timezone";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useToast } from "@/components/ui/ToastProvider";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { buildPaymentLinkUrl } from "@/lib/onvo/client";
@@ -93,6 +94,7 @@ export default function UserAppointmentsPanel({
   const [toast, setToast] = useState(null);
   const dismissToast = useCallback(() => setToast(null), []);
   const [isApplyingAction, startActionTransition] = useTransition();
+  const { avisar } = useToast();
   const router = useRouter();
   const handledIntentRef = useRef(false);
 
@@ -120,25 +122,41 @@ export default function UserAppointmentsPanel({
 
     if (initialAction === "confirm") {
       startActionTransition(async () => {
-        const result = await confirmCurrentAppointmentByPatient(initialActionAppointmentId);
-        if (result?.success) {
-          setAppointments((prev) =>
-            prev.map((item) =>
-              item.id === initialActionAppointmentId ? { ...item, status: "CONFIRMED" } : item
-            )
-          );
-          setToast({ message: "Horario confirmado. Avisamos al profesional para continuar con la serie.", type: "success" });
-        } else {
-          setToast({ message: result?.error || "No se pudo confirmar el horario.", type: "error" });
+        try {
+          const result = await confirmCurrentAppointmentByPatient(initialActionAppointmentId);
+          if (result?.success) {
+            setAppointments((prev) =>
+              prev.map((item) =>
+                item.id === initialActionAppointmentId ? { ...item, status: "CONFIRMED" } : item
+              )
+            );
+            setToast({ message: "Horario confirmado. Avisamos al profesional para continuar con la serie.", type: "success" });
+          } else {
+            setToast({ message: result?.error || "No se pudo confirmar el horario.", type: "error" });
+          }
+          router.replace("/panel/paciente");
+        } catch (fallo) {
+          // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+          const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+          setToast({ message: mensaje, type: "error" });
+          avisar(mensaje, "error");
         }
-        router.replace("/panel/paciente");
       });
     }
-  }, [initialAction, initialActionAppointmentId, initialAppointments, router]);
+  }, [initialAction, initialActionAppointmentId, initialAppointments, router, avisar]);
 
 
   async function handleCancel(appointmentId, reason) {
-    const result = await cancelAppointmentByPatient(appointmentId, reason);
+    let result;
+    try {
+      result = await cancelAppointmentByPatient(appointmentId, reason);
+    } catch (fallo) {
+      // El modal muestra `result.error`: si la acción lanza hay que
+      // devolverle un error de verdad, no `undefined`.
+      const message = String(fallo?.message || "").trim() || "No se pudo cancelar la cita.";
+      setToast({ message, type: "error" });
+      return { success: false, error: message };
+    }
     if (result?.success) {
       setAppointments((prev) =>
         prev.map((item) =>
@@ -340,18 +358,25 @@ export default function UserAppointmentsPanel({
                 <button
                   onClick={() =>
                     startActionTransition(async () => {
-                      const result = await confirmCurrentAppointmentByPatient(appointment.id);
-                      if (result?.success) {
-                        setAppointments((prev) =>
-                          prev.map((item) =>
-                            item.id === appointment.id
-                              ? { ...item, status: "CONFIRMED" }
-                              : item
-                          )
-                        );
-                        setToast({ message: "Cita confirmada. El profesional ha sido notificado.", type: "success" });
-                      } else {
-                        setToast({ message: result?.error || "No se pudo confirmar la cita.", type: "error" });
+                      try {
+                        const result = await confirmCurrentAppointmentByPatient(appointment.id);
+                        if (result?.success) {
+                          setAppointments((prev) =>
+                            prev.map((item) =>
+                              item.id === appointment.id
+                                ? { ...item, status: "CONFIRMED" }
+                                : item
+                            )
+                          );
+                          setToast({ message: "Cita confirmada. El profesional ha sido notificado.", type: "success" });
+                        } else {
+                          setToast({ message: result?.error || "No se pudo confirmar la cita.", type: "error" });
+                        }
+                      } catch (fallo) {
+                        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+                        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+                        setToast({ message: mensaje, type: "error" });
+                        avisar(mensaje, "error");
                       }
                     })
                   }

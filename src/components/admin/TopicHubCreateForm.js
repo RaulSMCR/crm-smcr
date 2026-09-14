@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useToast } from "@/components/ui/ToastProvider";
 import { useRouter } from "next/navigation";
 import { createTopicHub } from "@/actions/topic-actions";
 
 export default function TopicHubCreateForm() {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const { avisar } = useToast();
   const [error, setError] = useState(null);
 
   function submit(event) {
@@ -14,9 +16,16 @@ export default function TopicHubCreateForm() {
     setError(null);
     const data = Object.fromEntries(new FormData(event.currentTarget));
     startTransition(async () => {
-      const result = await createTopicHub({ ...data, order: Number(data.order || 0), featured: data.featured === "on" });
-      if (result?.error) setError(result.error);
-      else router.push(`/panel/admin/temas/${result.id}`);
+      try {
+        const result = await createTopicHub({ ...data, order: Number(data.order || 0), featured: data.featured === "on" });
+        if (result?.error) setError(result.error);
+        else router.push(`/panel/admin/temas/${result.id}`);
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setError(mensaje);
+        avisar(mensaje, "error");
+      }
     });
   }
 

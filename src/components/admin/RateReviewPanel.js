@@ -3,7 +3,8 @@
 // Revisión de las tarifas propuestas por los profesionales. El admin puede
 // aprobar el monto propuesto, aprobar otro distinto (negociación) o rechazar.
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
+import { useAccionServidor } from "@/components/ui/useAccionServidor";
 import { useRouter } from "next/navigation";
 import { reviewRate, bulkApproveRates } from "@/actions/rate-review-actions";
 import { modalityLabel } from "@/lib/rates";
@@ -26,7 +27,7 @@ export default function RateReviewPanel({ rates = [], status = "PENDING" }) {
   const [overrides, setOverrides] = useState({});
   const [notes, setNotes] = useState({});
   const [msg, setMsg] = useState({ type: "", text: "" });
-  const [isPending, startTransition] = useTransition();
+  const { pendiente: isPending, ejecutar } = useAccionServidor();
 
   const toggle = (id) =>
     setSelected((prev) => {
@@ -38,38 +39,37 @@ export default function RateReviewPanel({ rates = [], status = "PENDING" }) {
 
   const decide = (rate, decision) => {
     setMsg({ type: "", text: "" });
-    startTransition(async () => {
-      const res = await reviewRate(rate.id, decision, {
+    ejecutar(
+      () => reviewRate(rate.id, decision, {
         note: notes[rate.id] || "",
         overridePrice: overrides[rate.id] ?? null,
-      });
-
-      if (res?.error) {
-        setMsg({ type: "error", text: res.error });
-        return;
-      }
-      setMsg({
-        type: "ok",
-        text: decision === "APPROVED" ? `Tarifa aprobada en ${formatCRC(res.approvedPrice)}.` : "Tarifa rechazada.",
-      });
-      router.refresh();
-    });
+      }),
+      {
+        // El aviso se arma con lo que devolvió la acción: el precio aprobado es
+        // el dato que hay que ver, no un «listo» genérico.
+        exito: (res) => (decision === "APPROVED"
+          ? `Tarifa aprobada en ${formatCRC(res.approvedPrice)}.`
+          : "Tarifa rechazada."),
+        alTerminar: (res) => setMsg({
+          type: "ok",
+          text: decision === "APPROVED" ? `Tarifa aprobada en ${formatCRC(res.approvedPrice)}.` : "Tarifa rechazada.",
+        }),
+        alFallar: (texto) => setMsg({ type: "error", text: texto }),
+      },
+    );
   };
 
   const approveSelected = () => {
     setMsg({ type: "", text: "" });
-    startTransition(async () => {
-      const res = await bulkApproveRates([...selected]);
-      if (res?.error) {
-        setMsg({ type: "error", text: res.error });
-        return;
-      }
-      setSelected(new Set());
-      setMsg({
-        type: "ok",
-        text: `${res.approved} tarifa(s) aprobadas${res.skipped ? `, ${res.skipped} omitidas por no tener precio propuesto` : ""}.`,
-      });
-      router.refresh();
+    const texto = (res) =>
+      `${res.approved} tarifa(s) aprobadas${res.skipped ? `, ${res.skipped} omitidas por no tener precio propuesto` : ""}.`;
+    ejecutar(() => bulkApproveRates([...selected]), {
+      exito: texto,
+      alTerminar: (res) => {
+        setSelected(new Set());
+        setMsg({ type: "ok", text: texto(res) });
+      },
+      alFallar: (t) => setMsg({ type: "error", text: t }),
     });
   };
 

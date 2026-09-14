@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { useToast } from "@/components/ui/ToastProvider";
 import {
   listarCalendariosGoogle,
   guardarCalendariosGoogle,
@@ -22,6 +23,7 @@ export default function GoogleCalendarPicker() {
   const [feedback, setFeedback] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [isPending, startTransition] = useTransition();
+  const { avisar } = useToast();
 
   useEffect(() => {
     let vivo = true;
@@ -57,16 +59,23 @@ export default function GoogleCalendarPicker() {
   function guardar() {
     setFeedback(null);
     startTransition(async () => {
-      const result = await guardarCalendariosGoogle({
-        calendarioDeTrabajo: deTrabajo,
-        tambienOcupan: extras,
-        soloAvisan: avisos,
-      });
-      setFeedback(
-        result?.success
-          ? { tone: "ok", text: "Guardado. Las citas nuevas se publicarán en ese calendario." }
-          : { tone: "error", text: result?.error || "No se pudo guardar." }
-      );
+      try {
+        const result = await guardarCalendariosGoogle({
+          calendarioDeTrabajo: deTrabajo,
+          tambienOcupan: extras,
+          soloAvisan: avisos,
+        });
+        setFeedback(
+          result?.success
+            ? { tone: "ok", text: "Guardado. Las citas nuevas se publicarán en ese calendario." }
+            : { tone: "error", text: result?.error || "No se pudo guardar." }
+        );
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setFeedback({ tone: "error", text: mensaje });
+        avisar(mensaje, "error");
+      }
     });
   }
 

@@ -101,31 +101,49 @@ export default function ProfessionalAppointmentsPanel({
     if (!confirm("¿Confirma el cambio de estado de esta cita?")) return;
 
     setLoadingId(id);
-    const result = await updateAppointmentStatus(id, newStatus);
-
-    if (result.success) {
-      updateAppointmentLocally(id, { status: newStatus });
-      const labels = { COMPLETED: "Cita marcada como completada.", NO_SHOW: "Cita marcada como ausente." };
-      setToast({ message: labels[newStatus] || "Estado actualizado.", type: "success" });
-    } else {
-      setToast({ message: result.error || "Error al actualizar la cita.", type: "error" });
+    try {
+      const result = await updateAppointmentStatus(id, newStatus);
+      if (result.success) {
+        updateAppointmentLocally(id, { status: newStatus });
+        const labels = { COMPLETED: "Cita marcada como completada.", NO_SHOW: "Cita marcada como ausente." };
+        setToast({ message: labels[newStatus] || "Estado actualizado.", type: "success" });
+      } else {
+        setToast({ message: result.error || "Error al actualizar la cita.", type: "error" });
+      }
+    } catch (fallo) {
+      setToast({ message: String(fallo?.message || "").trim() || "No se pudo actualizar la cita.", type: "error" });
+    } finally {
+      // En `finally` a propósito: si la acción lanzaba, el `setLoadingId(null)`
+      // no se ejecutaba y la fila quedaba trabada en «procesando» sin decir nada.
+      setLoadingId(null);
     }
-    setLoadingId(null);
   };
 
   const handleCobrar = async (appointmentId) => {
     setCobrandoId(appointmentId);
-    const result = await cobrarCita(appointmentId);
-    setCobrandoId(null);
-    if (result?.success) {
-      setToast({ message: result.message || "Orden de cobro enviada al paciente.", type: "success" });
-    } else {
-      setToast({ message: result?.error || "No se pudo enviar el cobro.", type: "error" });
+    try {
+      const result = await cobrarCita(appointmentId);
+      if (result?.success) {
+        setToast({ message: result.message || "Orden de cobro enviada al paciente.", type: "success" });
+      } else {
+        setToast({ message: result?.error || "No se pudo enviar el cobro.", type: "error" });
+      }
+    } catch (fallo) {
+      setToast({ message: String(fallo?.message || "").trim() || "No se pudo enviar el cobro.", type: "error" });
+    } finally {
+      setCobrandoId(null);
     }
   };
 
   const handleCancel = async (appointmentId, reason) => {
-    const result = await cancelAppointmentByProfessional(appointmentId, reason);
+    let result;
+    try {
+      result = await cancelAppointmentByProfessional(appointmentId, reason);
+    } catch (fallo) {
+      const message = String(fallo?.message || "").trim() || "No se pudo cancelar la cita.";
+      setToast({ message, type: "error" });
+      return { success: false, error: message };
+    }
     if (result?.success) {
       updateAppointmentLocally(appointmentId, { status: "CANCELLED_BY_PRO" });
       setToast({ message: "Cita cancelada correctamente.", type: "success" });

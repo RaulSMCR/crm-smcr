@@ -109,8 +109,17 @@ export default async function BlogPostPage({ params }) {
   return (
     <>
       <BlogArticleView post={post} slug={slug} />
+      {/* `authorId` y `createdAt` son nuevos: el pie los usa para el par
+          cronológico de la biblioteca y para ofrecer otros textos de quien
+          escribe cuando el artículo todavía no tiene tema. */}
       <ArticleTaxonomy
-        post={{ id: post.id, seriesId: post.seriesId, seriesApproved: post.seriesApproved }}
+        post={{
+          id: post.id,
+          seriesId: post.seriesId,
+          seriesApproved: post.seriesApproved,
+          authorId: post.authorId,
+          createdAt: post.createdAt,
+        }}
       />
     </>
   );

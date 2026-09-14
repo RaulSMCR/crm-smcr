@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useToast } from "@/components/ui/ToastProvider";
 import { marcarLeido } from "@/actions/mensajes-actions";
 
 function formatearFecha(iso) {
@@ -20,6 +21,7 @@ function formatearFecha(iso) {
  */
 export default function MessageInbox({ mensajes }) {
   const [, iniciar] = useTransition();
+  const { avisar } = useToast();
   const [abierto, setAbierto] = useState(null);
   const [leidos, setLeidos] = useState(() =>
     Object.fromEntries(mensajes.map((m) => [m.id, m.leido])),
@@ -32,7 +34,15 @@ export default function MessageInbox({ mensajes }) {
     if (seAbre && !leidos[mensaje.id]) {
       setLeidos((prev) => ({ ...prev, [mensaje.id]: true }));
       iniciar(async () => {
-        await marcarLeido(mensaje.id);
+        try {
+          const res = await marcarLeido(mensaje.id);
+          if (res?.error) throw new Error(res.error);
+        } catch (fallo) {
+          // La marca se pinta antes de confirmar; si el servidor no la aceptó,
+          // se revierte en vez de mostrar como leído algo que no lo quedó.
+          setLeidos((prev) => ({ ...prev, [mensaje.id]: false }));
+          avisar(String(fallo?.message || "").trim() || "No se pudo marcar como leído.", "error");
+        }
       });
     }
   }

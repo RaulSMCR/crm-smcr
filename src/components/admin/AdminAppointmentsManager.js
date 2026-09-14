@@ -67,6 +67,7 @@ function getLatestInvoice(row) {
 export default function AdminAppointmentsManager({ appointments = [] }) {
   const [rows, setRows] = useState(appointments);
   const [isPending, startTransition] = useTransition();
+  const { avisar } = useToast();
   const [toast, setToast] = useState(null);
   const dismissToast = useCallback(() => setToast(null), []);
 
@@ -88,29 +89,36 @@ export default function AdminAppointmentsManager({ appointments = [] }) {
 
   const applyStatusChange = (appointmentId, nextStatus, reason) => {
     startTransition(async () => {
-      const result = await adminUpdateAppointmentStatus(appointmentId, nextStatus, reason);
-      if (!result?.success) {
-        setToast({ message: result?.error || "No se pudo actualizar la cita.", type: "error" });
-        return;
+      try {
+        const result = await adminUpdateAppointmentStatus(appointmentId, nextStatus, reason);
+        if (!result?.success) {
+          setToast({ message: result?.error || "No se pudo actualizar la cita.", type: "error" });
+          return;
+        }
+  
+        setRows((prev) =>
+          prev.map((row) =>
+            row.id === appointmentId
+              ? {
+                  ...row,
+                  status: nextStatus,
+                  cancelReason: reason || null,
+                  canceledBy: reason ? "ADMIN" : null,
+                  canceledAt: reason ? new Date().toISOString() : null,
+                }
+              : row
+          )
+        );
+  
+        setToast({ message: `Estado actualizado: ${STATUS_LABELS[nextStatus] || nextStatus}.`, type: "success" });
+        setPendingCancel(null);
+        setCancelReason("");
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setToast({ message: mensaje, type: "error" });
+        avisar(mensaje, "error");
       }
-
-      setRows((prev) =>
-        prev.map((row) =>
-          row.id === appointmentId
-            ? {
-                ...row,
-                status: nextStatus,
-                cancelReason: reason || null,
-                canceledBy: reason ? "ADMIN" : null,
-                canceledAt: reason ? new Date().toISOString() : null,
-              }
-            : row
-        )
-      );
-
-      setToast({ message: `Estado actualizado: ${STATUS_LABELS[nextStatus] || nextStatus}.`, type: "success" });
-      setPendingCancel(null);
-      setCancelReason("");
     });
   };
 
@@ -128,31 +136,38 @@ export default function AdminAppointmentsManager({ appointments = [] }) {
   const handleConfirmReschedule = () => {
     if (!rescheduleDateTime || !pendingReschedule) return;
     startTransition(async () => {
-      const result = await adminRescheduleAppointment(pendingReschedule.id, rescheduleDateTime);
-      if (!result?.success) {
-        setToast({ message: result?.error || "No se pudo reagendar la cita.", type: "error" });
-        return;
+      try {
+        const result = await adminRescheduleAppointment(pendingReschedule.id, rescheduleDateTime);
+        if (!result?.success) {
+          setToast({ message: result?.error || "No se pudo reagendar la cita.", type: "error" });
+          return;
+        }
+  
+        const newStart = new Date(rescheduleDateTime);
+        const newEnd = new Date(newStart.getTime() + pendingReschedule.durationMin * 60000);
+        setRows((prev) =>
+          prev.map((row) =>
+            row.id === pendingReschedule.id
+              ? {
+                  ...row,
+                  date: newStart.toISOString(),
+                  endDate: newEnd.toISOString(),
+                  lastRescheduledBy: "ADMIN",
+                  lastRescheduledAt: new Date().toISOString(),
+                  rescheduleCount: Number(row.rescheduleCount || 0) + 1,
+                }
+              : row
+          )
+        );
+        setToast({ message: "Cita reagendada correctamente.", type: "success" });
+        setPendingReschedule(null);
+        setRescheduleDateTime("");
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setToast({ message: mensaje, type: "error" });
+        avisar(mensaje, "error");
       }
-
-      const newStart = new Date(rescheduleDateTime);
-      const newEnd = new Date(newStart.getTime() + pendingReschedule.durationMin * 60000);
-      setRows((prev) =>
-        prev.map((row) =>
-          row.id === pendingReschedule.id
-            ? {
-                ...row,
-                date: newStart.toISOString(),
-                endDate: newEnd.toISOString(),
-                lastRescheduledBy: "ADMIN",
-                lastRescheduledAt: new Date().toISOString(),
-                rescheduleCount: Number(row.rescheduleCount || 0) + 1,
-              }
-            : row
-        )
-      );
-      setToast({ message: "Cita reagendada correctamente.", type: "success" });
-      setPendingReschedule(null);
-      setRescheduleDateTime("");
     });
   };
 

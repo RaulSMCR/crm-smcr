@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useToast } from "@/components/ui/ToastProvider";
 import { useRouter } from "next/navigation";
 import { reorderProfessionalHubModules } from "@/actions/professional-hub-actions";
 import { motivoFueraDeGrilla } from "@/lib/hub-order";
@@ -22,6 +23,7 @@ import { motivoFueraDeGrilla } from "@/lib/hub-order";
 export default function HubModuleOrder({ hubId, hubSlug, modulos = [] }) {
   const router = useRouter();
   const [guardando, guardar] = useTransition();
+  const { avisar } = useToast();
   const [aviso, setAviso] = useState(null);
 
   // La firma es lo que hace que la lista se resincronice cuando el servidor
@@ -61,6 +63,7 @@ export default function HubModuleOrder({ hubId, hubSlug, modulos = [] }) {
   function aplicar() {
     setAviso(null);
     guardar(async () => {
+     try {
       const salida = await reorderProfessionalHubModules(hubId, {
         orden: lista.map((modulo) => modulo.id),
         destacada: destacada || null,
@@ -69,11 +72,19 @@ export default function HubModuleOrder({ hubId, hubSlug, modulos = [] }) {
         setAviso({ tipo: "error", texto: salida.error });
         return;
       }
-      setAviso({
-        tipo: "ok",
-        texto: salida.cambios ? `Orden guardado: ${salida.cambios} ${salida.cambios === 1 ? "pieza cambió" : "piezas cambiaron"}.` : "No había nada que cambiar.",
-      });
+      const texto = salida.cambios
+        ? `Orden guardado: ${salida.cambios} ${salida.cambios === 1 ? "pieza cambió" : "piezas cambiaron"}.`
+        : "No había nada que cambiar.";
+      setAviso({ tipo: "ok", texto });
+      avisar(texto, "success");
       router.refresh();
+     } catch (fallo) {
+      // Antes esto se perdía como promesa rechazada y el orden quedaba como
+      // estaba, sin que nada lo dijera.
+      const texto = String(fallo?.message || "").trim() || "No se pudo guardar el orden.";
+      setAviso({ tipo: "error", texto });
+      avisar(texto, "error");
+     }
     });
   }
 

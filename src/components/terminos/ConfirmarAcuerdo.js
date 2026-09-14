@@ -8,6 +8,7 @@
 // confirmar, este componente no pinta nada.
 
 import { useEffect, useState, useTransition } from "react";
+import { useToast } from "@/components/ui/ToastProvider";
 import Link from "next/link";
 import { confirmarAcuerdo, estadoDelAcuerdo } from "@/actions/acuerdo-actions";
 
@@ -16,6 +17,7 @@ export default function ConfirmarAcuerdo() {
   const [confirmado, setConfirmado] = useState(false);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+  const { avisar } = useToast();
 
   useEffect(() => {
     let vigente = true;
@@ -34,9 +36,16 @@ export default function ConfirmarAcuerdo() {
   function confirmar() {
     setError("");
     startTransition(async () => {
-      const res = await confirmarAcuerdo();
-      if (res?.error) setError(res.error);
-      else setConfirmado(true);
+      try {
+        const res = await confirmarAcuerdo();
+        if (res?.error) setError(res.error);
+        else setConfirmado(true);
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setError(mensaje);
+        avisar(mensaje, "error");
+      }
     });
   }
 

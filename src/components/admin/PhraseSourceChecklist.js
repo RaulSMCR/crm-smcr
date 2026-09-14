@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
+import { useAccionServidor } from "@/components/ui/useAccionServidor";
 import { marcarFuenteVerificada } from "@/actions/frases-actions";
 
 /**
@@ -10,7 +11,7 @@ import { marcarFuenteVerificada } from "@/actions/frases-actions";
  * cubren más de la mitad de las publicaciones del año.
  */
 export default function PhraseSourceChecklist({ lista, total, verificadas }) {
-  const [pendiente, iniciar] = useTransition();
+  const { pendiente, ejecutar } = useAccionServidor();
   const [soloPendientes, setSoloPendientes] = useState(false);
   const [estado, setEstado] = useState(() =>
     Object.fromEntries(lista.map((f) => [f.clave, f.verificada])),
@@ -19,15 +20,18 @@ export default function PhraseSourceChecklist({ lista, total, verificadas }) {
   function alternar(fuente) {
     const siguiente = !estado[fuente.clave];
     setEstado((e) => ({ ...e, [fuente.clave]: siguiente }));
-    iniciar(async () => {
-      const r = await marcarFuenteVerificada({
+    ejecutar(
+      () => marcarFuenteVerificada({
         clave: fuente.clave,
         autor: fuente.autor,
         obra: fuente.obra,
         verificada: siguiente,
-      });
-      if (r?.error) setEstado((e) => ({ ...e, [fuente.clave]: !siguiente }));
-    });
+      }),
+      {
+        refrescar: false,
+        alFallar: () => setEstado((e) => ({ ...e, [fuente.clave]: !siguiente })),
+      },
+    );
   }
 
   const cuenta = Object.values(estado).filter(Boolean).length;

@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useToast } from "@/components/ui/ToastProvider";
 import {
   createScheduleBlock,
   deleteScheduleBlock,
@@ -64,41 +65,56 @@ export default function ScheduleBlockManager({ initialBlocks = [] }) {
   const [reason, setReason] = useState("");
   const [feedback, setFeedback] = useState(null);
   const [isPending, startTransition] = useTransition();
+  const { avisar } = useToast();
 
   function handleSubmit(event) {
     event.preventDefault();
     setFeedback(null);
 
     startTransition(async () => {
-      const result = await createScheduleBlock({ date, startTime, endTime, allDay, reason });
-
-      if (!result?.success) {
-        setFeedback({ tone: "error", text: result?.error || "No se pudo guardar el bloqueo." });
-        return;
+      try {
+        const result = await createScheduleBlock({ date, startTime, endTime, allDay, reason });
+  
+        if (!result?.success) {
+          setFeedback({ tone: "error", text: result?.error || "No se pudo guardar el bloqueo." });
+          return;
+        }
+  
+        // Se relee del servidor en vez de insertar el bloqueo a mano: así la lista
+        // muestra lo que quedó guardado y no una versión optimista que podría no
+        // coincidir con la normalización de horas del servidor.
+        const refreshed = await listScheduleBlocks();
+        if (refreshed?.success) setBlocks(refreshed.data);
+  
+        setDate("");
+        setReason("");
+        setFeedback({ tone: "ok", text: "Horas bloqueadas. Ya no se ofrecen para agendar." });
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setFeedback({ tone: "error", text: mensaje });
+        avisar(mensaje, "error");
       }
-
-      // Se relee del servidor en vez de insertar el bloqueo a mano: así la lista
-      // muestra lo que quedó guardado y no una versión optimista que podría no
-      // coincidir con la normalización de horas del servidor.
-      const refreshed = await listScheduleBlocks();
-      if (refreshed?.success) setBlocks(refreshed.data);
-
-      setDate("");
-      setReason("");
-      setFeedback({ tone: "ok", text: "Horas bloqueadas. Ya no se ofrecen para agendar." });
     });
   }
 
   function handleDelete(id) {
     setFeedback(null);
     startTransition(async () => {
-      const result = await deleteScheduleBlock(id);
-      if (!result?.success) {
-        setFeedback({ tone: "error", text: result?.error || "No se pudo eliminar." });
-        return;
+      try {
+        const result = await deleteScheduleBlock(id);
+        if (!result?.success) {
+          setFeedback({ tone: "error", text: result?.error || "No se pudo eliminar." });
+          return;
+        }
+        setBlocks((current) => current.filter((block) => block.id !== id));
+        setFeedback({ tone: "ok", text: "Bloqueo eliminado. Esas horas vuelven a ofrecerse." });
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setFeedback({ tone: "error", text: mensaje });
+        avisar(mensaje, "error");
       }
-      setBlocks((current) => current.filter((block) => block.id !== id));
-      setFeedback({ tone: "ok", text: "Bloqueo eliminado. Esas horas vuelven a ofrecerse." });
     });
   }
 

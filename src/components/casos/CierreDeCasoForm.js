@@ -15,7 +15,8 @@
 // contacto registrado— y la única que no exige haber informado a la persona: no
 // haberla podido ubicar es justamente su definición.
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState } from "react";
+import { useAccionServidor } from "@/components/ui/useAccionServidor";
 import { useRouter } from "next/navigation";
 import { proponerCierre } from "@/actions/caso-actions";
 import { TIPOS_CIERRE } from "@/lib/casos-policy";
@@ -27,7 +28,7 @@ export default function CierreDeCasoForm({ casoId, contactosDeReenganche }) {
   const [registradoEnExpediente, setRegistradoEnExpediente] = useState(false);
   const [derivadoA, setDerivadoA] = useState("");
   const [error, setError] = useState("");
-  const [isPending, startTransition] = useTransition();
+  const { pendiente: isPending, ejecutar } = useAccionServidor();
 
   const tipo = useMemo(() => TIPOS_CIERRE[tipoCierre] || null, [tipoCierre]);
   const faltanContactos = Boolean(tipo?.requiereContactos) && contactosDeReenganche < 1;
@@ -40,16 +41,10 @@ export default function CierreDeCasoForm({ casoId, contactosDeReenganche }) {
   function enviar(e) {
     e.preventDefault();
     setError("");
-    startTransition(async () => {
-      const res = await proponerCierre(casoId, {
-        tipoCierre,
-        personaInformada,
-        registradoEnExpediente,
-        derivadoA,
-      });
-      if (res?.error) setError(res.error);
-      else router.refresh();
-    });
+    ejecutar(
+      () => proponerCierre(casoId, { tipoCierre, personaInformada, registradoEnExpediente, derivadoA }),
+      { exito: "Cierre propuesto. Queda a la espera del visado.", alFallar: setError },
+    );
   }
 
   const campoClase =

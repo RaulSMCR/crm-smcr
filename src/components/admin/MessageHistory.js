@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
+import { useAccionServidor } from "@/components/ui/useAccionServidor";
 import { eliminarMensaje } from "@/actions/mensajes-actions";
 
 function formatearFecha(iso) {
@@ -13,7 +14,7 @@ function formatearFecha(iso) {
 }
 
 export default function MessageHistory({ mensajes }) {
-  const [pendiente, iniciar] = useTransition();
+  const { pendiente, ejecutar } = useAccionServidor();
   const [confirmando, setConfirmando] = useState(null);
 
   if (!mensajes.length) {
@@ -26,9 +27,11 @@ export default function MessageHistory({ mensajes }) {
   }
 
   function borrar(id) {
-    iniciar(async () => {
-      await eliminarMensaje(id);
-      setConfirmando(null);
+    // Antes no se miraba el resultado: borrar y que fallara se veía igual que
+    // borrar bien, y la fila desaparecía de la vista de todos modos.
+    ejecutar(() => eliminarMensaje(id), {
+      exito: "Comunicado eliminado.",
+      alTerminar: () => setConfirmando(null),
     });
   }
 

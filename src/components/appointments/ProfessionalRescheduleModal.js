@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { useToast } from "@/components/ui/ToastProvider";
 import { getProfessionalRescheduleData, rescheduleAppointmentByProfessional } from "@/actions/agenda-actions";
 import {
   buildSlots,
@@ -22,6 +23,7 @@ export default function ProfessionalRescheduleModal({ appointment, onClose, onSu
   const [error, setError] = useState("");
   const [conflictMeta, setConflictMeta] = useState(null);
   const [isPending, startTransition] = useTransition();
+  const { avisar } = useToast();
 
   useEffect(() => {
     let mounted = true;
@@ -62,29 +64,36 @@ export default function ProfessionalRescheduleModal({ appointment, onClose, onSu
     setError("");
     setConflictMeta(null);
     startTransition(async () => {
-      const result = await rescheduleAppointmentByProfessional(
-        appointment.id,
-        selectedISO,
-        recurrenceRule,
-        recurrenceCount
-      );
-
-      if (!result?.success) {
-        setError(result?.error || "No se pudo reagendar.");
-        if (result?.errorCode === "RECURRING_CONFLICT") {
-          setConflictMeta({
-            suggestedCalendarUrl: result?.suggestedCalendarUrl || "",
-          });
+      try {
+        const result = await rescheduleAppointmentByProfessional(
+          appointment.id,
+          selectedISO,
+          recurrenceRule,
+          recurrenceCount
+        );
+  
+        if (!result?.success) {
+          setError(result?.error || "No se pudo reagendar.");
+          if (result?.errorCode === "RECURRING_CONFLICT") {
+            setConflictMeta({
+              suggestedCalendarUrl: result?.suggestedCalendarUrl || "",
+            });
+          }
+          return;
         }
-        return;
+  
+        onSuccess?.({
+          id: appointment.id,
+          status: "CONFIRMED",
+          date: selectedISO,
+        });
+        onClose();
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setError(mensaje);
+        avisar(mensaje, "error");
       }
-
-      onSuccess?.({
-        id: appointment.id,
-        status: "CONFIRMED",
-        date: selectedISO,
-      });
-      onClose();
     });
   }
 

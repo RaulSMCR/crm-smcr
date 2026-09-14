@@ -8,6 +8,7 @@ import Toast from "@/components/ui/Toast";
 
 export default function PatientProfileEditorCard({ user }) {
   const [isPending, startTransition] = useTransition();
+  const { avisar } = useToast();
   const [insurancePending, startInsuranceTransition] = useTransition();
   const [billingPending, startBillingTransition] = useTransition();
   const [toast, setToast] = useState(null);
@@ -54,9 +55,16 @@ export default function PatientProfileEditorCard({ user }) {
     fd.append("interests", form.interests);
 
     startTransition(async () => {
-      const res = await updatePatientProfile(fd);
-      if (res?.error) setToast({ message: res.error, type: "error" });
-      else setToast({ message: "Perfil actualizado correctamente.", type: "success" });
+      try {
+        const res = await updatePatientProfile(fd);
+        if (res?.error) setToast({ message: res.error, type: "error" });
+        else setToast({ message: "Perfil actualizado correctamente.", type: "success" });
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setToast({ message: mensaje, type: "error" });
+        avisar(mensaje, "error");
+      }
     });
   }
 
@@ -69,11 +77,18 @@ export default function PatientProfileEditorCard({ user }) {
     fd.append("billingEmail", billing.billingEmail);
 
     startBillingTransition(async () => {
-      const res = await updateBillingInfo(fd);
-      if (res?.error) setToast({ message: res.error, type: "error" });
-      else if (res?.cleared)
-        setToast({ message: "Tus facturas vuelven a emitirse a tu nombre.", type: "success" });
-      else setToast({ message: "Datos de facturación guardados.", type: "success" });
+      try {
+        const res = await updateBillingInfo(fd);
+        if (res?.error) setToast({ message: res.error, type: "error" });
+        else if (res?.cleared)
+          setToast({ message: "Tus facturas vuelven a emitirse a tu nombre.", type: "success" });
+        else setToast({ message: "Datos de facturación guardados.", type: "success" });
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setToast({ message: mensaje, type: "error" });
+        avisar(mensaje, "error");
+      }
     });
   }
 
@@ -85,9 +100,16 @@ export default function PatientProfileEditorCard({ user }) {
     fd.append("insuranceName", insurance.insuranceName);
 
     startInsuranceTransition(async () => {
-      const res = await updateInsuranceInfo(fd);
-      if (res?.error) setToast({ message: res.error, type: "error" });
-      else setToast({ message: "Información de seguro guardada.", type: "success" });
+      try {
+        const res = await updateInsuranceInfo(fd);
+        if (res?.error) setToast({ message: res.error, type: "error" });
+        else setToast({ message: "Información de seguro guardada.", type: "success" });
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setToast({ message: mensaje, type: "error" });
+        avisar(mensaje, "error");
+      }
     });
   }
 

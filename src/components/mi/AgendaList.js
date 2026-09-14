@@ -5,6 +5,7 @@
 // (no duplica lógica de negocio). Tras cada acción refresca con router.refresh(),
 // porque los server actions revalidan /panel/* pero no /mi/*.
 import { useState, useTransition } from "react";
+import { useToast } from "@/components/ui/ToastProvider";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import CancelAppointmentModal from "@/components/appointments/CancelAppointmentModal";
@@ -58,12 +59,22 @@ export default function AgendaList({ futuras = [], anteriores = [] }) {
   const [toast, setToast] = useState(null);
   const [showAnteriores, setShowAnteriores] = useState(false);
   const [confirming, startConfirm] = useTransition();
+  const { avisar } = useToast();
 
   // onCancel para el modal: llama al server action y refresca. El modal muestra
   // el aviso de <24 h proactivamente; además reflejamos isLateCancel de la
   // respuesta sin bloquear (tal como el flujo del panel).
   async function handleCancel(appointmentId, reason) {
-    const result = await cancelAppointmentByPatient(appointmentId, reason);
+    let result;
+    try {
+      result = await cancelAppointmentByPatient(appointmentId, reason);
+    } catch (fallo) {
+      // El modal muestra `result.error`: si la acción lanza hay que
+      // devolverle un error de verdad, no `undefined`.
+      const message = String(fallo?.message || "").trim() || "No se pudo cancelar la cita.";
+      setToast({ message, type: "error" });
+      return { success: false, error: message };
+    }
     if (result?.success) {
       setToast({
         message: result.isLateCancel
@@ -78,12 +89,19 @@ export default function AgendaList({ futuras = [], anteriores = [] }) {
 
   function handleConfirm(appointmentId) {
     startConfirm(async () => {
-      const result = await confirmCurrentAppointmentByPatient(appointmentId);
-      if (result?.success) {
-        setToast({ message: "Cita confirmada. El profesional fue notificado.", type: "success" });
-        router.refresh();
-      } else {
-        setToast({ message: result?.error || "No se pudo confirmar la cita.", type: "error" });
+      try {
+        const result = await confirmCurrentAppointmentByPatient(appointmentId);
+        if (result?.success) {
+          setToast({ message: "Cita confirmada. El profesional fue notificado.", type: "success" });
+          router.refresh();
+        } else {
+          setToast({ message: result?.error || "No se pudo confirmar la cita.", type: "error" });
+        }
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setToast({ message: mensaje, type: "error" });
+        avisar(mensaje, "error");
       }
     });
   }

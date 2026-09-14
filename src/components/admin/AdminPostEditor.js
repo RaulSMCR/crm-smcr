@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
+import { useToast } from "@/components/ui/ToastProvider";
 import { useRouter } from "next/navigation";
 import { updateAdminPost, updatePostStatus } from "@/actions/admin-actions";
 import { notifyPostToReaders } from "@/actions/push-actions";
@@ -109,6 +110,7 @@ export default function AdminPostEditor({ post }) {
   const router = useRouter();
   const fileInputRef = useRef(null);
   const [isPending, startTransition] = useTransition();
+  const { avisar } = useToast();
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -194,52 +196,66 @@ export default function AdminPostEditor({ post }) {
     setNotice("Archivo importado. Revisá el texto y guardá los cambios.");
   }
 
+  /**
+   * Toda acción de este editor pasa por acá.
+   *
+   * Antes cada una hacía `await accion()` suelto dentro de un manejador de
+   * evento: si la acción lanzaba —sesión vencida, base caída— la promesa
+   * quedaba rechazada sin capturar y la pantalla no decía absolutamente nada.
+   * Devuelve `null` cuando no se pudo, para que quien llame corte.
+   */
+  async function llamar(accion) {
+    try {
+      const res = await accion();
+      if (res?.error) {
+        setError(res.error);
+        avisar(res.error, "error");
+        return null;
+      }
+      return res || {};
+    } catch (fallo) {
+      const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+      setError(mensaje);
+      avisar(mensaje, "error");
+      return null;
+    }
+  }
+
+  function anunciar(mensaje) {
+    setNotice(mensaje);
+    avisar(mensaje, "success");
+  }
+
   async function save() {
     setError(null);
     setNotice(null);
-    const result = await updateAdminPost(form);
-    if (result?.error) {
-      setError(result.error);
-      return false;
-    }
-    setNotice("Artículo guardado.");
+    if (!(await llamar(() => updateAdminPost(form)))) return false;
+    anunciar("Artículo guardado.");
     startTransition(() => router.refresh());
     return true;
   }
 
   async function saveAndPublish() {
-    const saved = await save();
-    if (!saved) return;
-    const result = await updatePostStatus(post.id, "PUBLISHED");
-    if (result?.error) {
-      setError(result.error);
-      return;
-    }
-    setNotice("Artículo guardado y publicado.");
+    if (!(await save())) return;
+    if (!(await llamar(() => updatePostStatus(post.id, "PUBLISHED")))) return;
+    anunciar("Artículo guardado y publicado.");
     startTransition(() => router.refresh());
   }
 
   async function togglePublished() {
     setError(null);
     setNotice(null);
-    const result = await updatePostStatus(post.id, isPublished ? "DRAFT" : "PUBLISHED");
-    if (result?.error) {
-      setError(result.error);
-      return;
-    }
-    setNotice(isPublished ? "Artículo despublicado." : "Artículo publicado.");
+    if (!(await llamar(() => updatePostStatus(post.id, isPublished ? "DRAFT" : "PUBLISHED")))) return;
+    anunciar(isPublished ? "Artículo despublicado." : "Artículo publicado.");
     startTransition(() => router.refresh());
   }
 
   async function notifyReaders() {
     setError(null);
     setNotice(null);
-    const result = await notifyPostToReaders(post.id);
-    if (result?.error) {
-      setError(result.error);
-      return;
-    }
-    setNotice(
+    const result = await llamar(() => notifyPostToReaders(post.id));
+    if (!result) return;
+    anunciar(
       `Notificación enviada: ${result.sent} de ${result.targets} lector${result.targets === 1 ? "" : "es"} con afinidad.`
     );
   }

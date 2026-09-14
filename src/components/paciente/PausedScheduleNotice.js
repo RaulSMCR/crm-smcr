@@ -11,19 +11,28 @@
 // administración.
 
 import { useState, useTransition } from "react";
+import { useToast } from "@/components/ui/ToastProvider";
 import { solicitarContactoDeAdmin } from "@/actions/scheduling-block-actions";
 
 export default function PausedScheduleNotice({ motivo, esPrimeraVez }) {
   const [enviado, setEnviado] = useState(false);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+  const { avisar } = useToast();
 
   function pedirContacto() {
     setError("");
     startTransition(async () => {
-      const res = await solicitarContactoDeAdmin();
-      if (res?.error) setError(res.error);
-      else setEnviado(true);
+      try {
+        const res = await solicitarContactoDeAdmin();
+        if (res?.error) setError(res.error);
+        else setEnviado(true);
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setError(mensaje);
+        avisar(mensaje, "error");
+      }
     });
   }
 

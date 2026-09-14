@@ -8,6 +8,7 @@
 // en una pantalla aparte que haya que acordarse de visitar.
 
 import { useState } from "react";
+import { useAccionServidor } from "@/components/ui/useAccionServidor";
 import { registrarVerificacionColegiatura } from "@/actions/admin-actions";
 
 function fechaCorta(valor) {
@@ -25,20 +26,25 @@ export default function VerificacionColegiatura({ perfil }) {
   const [matricula, setMatricula] = useState(perfil?.licenseNumber || "");
   const [url, setUrl] = useState(perfil?.licenseVerificationUrl || "");
   const [estado, setEstado] = useState(null);
-  const [guardando, setGuardando] = useState(false);
+  const { pendiente: guardando, ejecutar } = useAccionServidor();
 
-  async function guardar() {
-    setGuardando(true);
+  function guardar() {
     setEstado(null);
-    const r = await registrarVerificacionColegiatura(perfil.id, {
-      licensingBody: colegio,
-      licenseNumber: matricula,
-      licenseVerificationUrl: url,
-    });
-    setGuardando(false);
-    if (r?.error) return setEstado({ tipo: "error", texto: r.error });
-    setEstado({ tipo: "ok", texto: "Verificación registrada." });
-    setAbierto(false);
+    ejecutar(
+      () => registrarVerificacionColegiatura(perfil.id, {
+        licensingBody: colegio,
+        licenseNumber: matricula,
+        licenseVerificationUrl: url,
+      }),
+      {
+        exito: "Verificación de colegiatura registrada.",
+        alTerminar: () => {
+          setEstado({ tipo: "ok", texto: "Verificación registrada." });
+          setAbierto(false);
+        },
+        alFallar: (texto) => setEstado({ tipo: "error", texto }),
+      },
+    );
   }
 
   if (!abierto) {

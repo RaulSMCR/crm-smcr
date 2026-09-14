@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useToast } from "@/components/ui/ToastProvider";
 import { AUDIENCIAS, AUDIENCIAS_REGISTRADAS } from "@/lib/frases-audiencia";
 import { enviarMensaje, previsualizarMensaje } from "@/actions/mensajes-actions";
 
@@ -14,6 +15,7 @@ import { enviarMensaje, previsualizarMensaje } from "@/actions/mensajes-actions"
  */
 export default function MessageComposer({ opciones }) {
   const [pendiente, iniciar] = useTransition();
+  const { avisar } = useToast();
   const [titulo, setTitulo] = useState("");
   const [cuerpo, setCuerpo] = useState("");
   const [tipo, setTipo] = useState("ALL");
@@ -63,8 +65,15 @@ export default function MessageComposer({ opciones }) {
     setError(null);
     setExito(null);
     iniciar(async () => {
-      const r = await previsualizarMensaje(filtros());
-      setAlcance(r);
+      try {
+        const r = await previsualizarMensaje(filtros());
+        setAlcance(r);
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setError(mensaje);
+        avisar(mensaje, "error");
+      }
     });
   }
 
@@ -72,18 +81,25 @@ export default function MessageComposer({ opciones }) {
     setError(null);
     setExito(null);
     iniciar(async () => {
-      const r = await enviarMensaje({ ...filtros(), titulo, cuerpo, conPush });
-      if (r?.error) {
-        setError(r.error);
-        return;
+      try {
+        const r = await enviarMensaje({ ...filtros(), titulo, cuerpo, conPush });
+        if (r?.error) {
+          setError(r.error);
+          return;
+        }
+        setExito(
+          `Enviado a ${r.destinatarios} ${r.destinatarios === 1 ? "persona" : "personas"}` +
+            (conPush ? ` · ${r.pushSent} notificaciones push entregadas` : ""),
+        );
+        setTitulo("");
+        setCuerpo("");
+        setAlcance(null);
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setError(mensaje);
+        avisar(mensaje, "error");
       }
-      setExito(
-        `Enviado a ${r.destinatarios} ${r.destinatarios === 1 ? "persona" : "personas"}` +
-          (conPush ? ` · ${r.pushSent} notificaciones push entregadas` : ""),
-      );
-      setTitulo("");
-      setCuerpo("");
-      setAlcance(null);
     });
   }
 

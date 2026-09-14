@@ -4,7 +4,8 @@
 // llegan pacientes nuevos. El profesional la propone y administración la aprueba.
 // Las reglas viven en src/lib/price-ladder.js.
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState } from "react";
+import { useAccionServidor } from "@/components/ui/useAccionServidor";
 import { useRouter } from "next/navigation";
 import { proposePriceLadder, withdrawPriceLadder } from "@/actions/price-ladder-actions";
 import { LIMITES_ESCALERA } from "@/lib/price-ladder";
@@ -27,7 +28,7 @@ export default function PriceLadderManager({ escaleras = [], consultas = [] }) {
   const [serviceId, setServiceId] = useState(consultas[0]?.serviceId || "");
   const [filas, setFilas] = useState([{ ...FILA_NUEVA }]);
   const [msg, setMsg] = useState({ type: "", text: "" });
-  const [isPending, startTransition] = useTransition();
+  const { pendiente: isPending, ejecutar } = useAccionServidor();
 
   const porConsulta = useMemo(() => {
     const mapa = new Map();
@@ -51,32 +52,29 @@ export default function PriceLadderManager({ escaleras = [], consultas = [] }) {
     event.preventDefault();
     setMsg({ type: "", text: "" });
 
-    startTransition(async () => {
-      const res = await proposePriceLadder({
+    const texto = "Escalera enviada a revisión. Mientras tanto sigue rigiendo su precio actual.";
+    ejecutar(
+      () => proposePriceLadder({
         serviceId,
         tiers: filas.map((fila) => ({ price: Number(fila.price), capacity: Number(fila.capacity) })),
-      });
-
-      if (res?.error) {
-        setMsg({ type: "error", text: res.error });
-        return;
-      }
-      setFilas([{ ...FILA_NUEVA }]);
-      setMsg({ type: "ok", text: "Escalera enviada a revisión. Mientras tanto sigue rigiendo su precio actual." });
-      router.refresh();
-    });
+      }),
+      {
+        exito: texto,
+        alTerminar: () => {
+          setFilas([{ ...FILA_NUEVA }]);
+          setMsg({ type: "ok", text: texto });
+        },
+        alFallar: (text) => setMsg({ type: "error", text }),
+      },
+    );
   };
 
   const onWithdraw = (escalera) => {
     setMsg({ type: "", text: "" });
-    startTransition(async () => {
-      const res = await withdrawPriceLadder(escalera.id);
-      if (res?.error) {
-        setMsg({ type: "error", text: res.error });
-        return;
-      }
-      setMsg({ type: "ok", text: "Propuesta retirada." });
-      router.refresh();
+    ejecutar(() => withdrawPriceLadder(escalera.id), {
+      exito: "Propuesta retirada.",
+      alTerminar: () => setMsg({ type: "ok", text: "Propuesta retirada." }),
+      alFallar: (text) => setMsg({ type: "error", text }),
     });
   };
 

@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useMemo, useState, useTransition } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { bulkReviewServiceAssignments, reviewServiceAssignment } from "@/actions/service-actions";
 import Link from "next/link";
-import Toast from "@/components/ui/Toast";
+import { useAccionServidor } from "@/components/ui/useAccionServidor";
 
 function statusBadge(status) {
   if (status === "APPROVED") return "bg-emerald-50 text-emerald-800 border-emerald-200";
@@ -20,8 +20,7 @@ export default function ServiceAssignmentsReviewPanel({
   taxId: initialTaxId = "",
 }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [toast, setToast] = useState(null);
+  const { pendiente: isPending, ejecutar } = useAccionServidor();
 
   const [edits, setEdits] = useState(() => {
     const base = {};
@@ -47,7 +46,6 @@ export default function ServiceAssignmentsReviewPanel({
   const tasaElegida = taxes.find((tax) => tax.id === fiscal.taxId);
   const tasaNoEsSalud = Boolean(tasaElegida) && Number(tasaElegida.rate) !== 4;
 
-  const dismissToast = useCallback(() => setToast(null), []);
 
   const pendingAssignments = useMemo(
     () => assignments.filter((a) => a.status === "PENDING"),
@@ -62,40 +60,37 @@ export default function ServiceAssignmentsReviewPanel({
   };
 
   const handleReview = (professionalId, decision) => {
-    setToast(null);
     const payload = edits[professionalId] || {};
-    startTransition(async () => {
-      const res = await reviewServiceAssignment(serviceId, professionalId, { ...payload, decision, ...fiscal });
-      if (res?.success) {
-        setToast({ message: "Solicitud actualizada correctamente.", type: "success" });
-        router.refresh();
-      } else {
-        setToast({ message: res?.error || "No se pudo actualizar la solicitud.", type: "error" });
-      }
-    });
+    ejecutar(
+      async () => {
+        const res = await reviewServiceAssignment(serviceId, professionalId, { ...payload, decision, ...fiscal });
+        // La acción responde `{ success }`; sin este puente, un `success:false`
+        // sin `error` pasaría por bueno.
+        return res?.success ? res : { error: res?.error || "No se pudo actualizar la solicitud." };
+      },
+      { exito: "Solicitud actualizada correctamente." },
+    );
   };
 
   const handleBulk = (decision) => {
     if (pendingAssignments.length === 0) return;
-    setToast(null);
     const updates = pendingAssignments.map((a) => ({
       professionalId: a.professional.id,
       decision,
       adminReviewNote: edits[a.professional.id]?.adminReviewNote,
       ...fiscal,
     }));
-    startTransition(async () => {
-      const res = await bulkReviewServiceAssignments(serviceId, updates);
-      if (res?.success) {
-        setToast({
-          message: decision === "APPROVED" ? "Se aprobaron las solicitudes pendientes." : "Se rechazaron las solicitudes pendientes.",
-          type: "success",
-        });
-        router.refresh();
-      } else {
-        setToast({ message: res?.error || "No se pudo ejecutar la revisión masiva.", type: "error" });
-      }
-    });
+    ejecutar(
+      async () => {
+        const res = await bulkReviewServiceAssignments(serviceId, updates);
+        return res?.success ? res : { error: res?.error || "No se pudo ejecutar la revisión masiva." };
+      },
+      {
+        exito: decision === "APPROVED"
+          ? "Se aprobaron las solicitudes pendientes."
+          : "Se rechazaron las solicitudes pendientes.",
+      },
+    );
   };
 
   return (
@@ -245,8 +240,6 @@ export default function ServiceAssignmentsReviewPanel({
           </table>
         </div>
       </div>
-
-      <Toast message={toast?.message} type={toast?.type} onDismiss={dismissToast} />
     </>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ui/ToastProvider";
 import Link from "next/link";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import MarkdownFileImport from "@/components/blog/MarkdownFileImport";
@@ -13,6 +14,7 @@ export default function AdminPostCreator({ authors = [], defaultAuthorId = "" })
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [saving, setSaving] = useState(false);
+  const { avisar } = useToast();
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
 
@@ -84,12 +86,27 @@ export default function AdminPostCreator({ authors = [], defaultAuthorId = "" })
     if (form.content.trim().length < 20) return setError("El contenido debe tener al menos 20 caracteres.");
 
     setSaving(true);
-    const result = await createAdminPost(form);
-    setSaving(false);
+    let result;
+    try {
+      result = await createAdminPost(form);
+    } catch (fallo) {
+      const mensaje = String(fallo?.message || "").trim() || "No se pudo crear el artículo.";
+      setError(mensaje);
+      avisar(mensaje, "error");
+      return;
+    } finally {
+      // En `finally`: si la acción lanzaba, el botón quedaba en «Guardando…»
+      // para siempre y sin ningún mensaje.
+      setSaving(false);
+    }
 
-    if (result?.error) return setError(result.error);
+    if (result?.error) {
+      avisar(result.error, "error");
+      return setError(result.error);
+    }
 
     setNotice("Artículo creado como borrador. Abriendo el editor completo…");
+    avisar("Artículo creado como borrador.", "success");
     startTransition(() => {
       router.push(`/panel/admin/blog/${result.id}`);
       router.refresh();

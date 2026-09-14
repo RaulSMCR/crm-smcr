@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { useToast } from "@/components/ui/ToastProvider";
 // Desde frases-audiencia y no desde frases: este último importa los 300 KB del
 // corpus y los arrastraría al bundle del navegador.
 import { AUDIENCIAS } from "@/lib/frases-audiencia";
@@ -201,6 +202,7 @@ function BloqueAudiencia({ fecha, audiencia, candidatas, seleccion, verificacion
   const [agotado, setAgotado] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [errorAlt, setErrorAlt] = useState(null);
+  const { avisar: avisarAlt } = useToast();
 
   // Siempre se pide la primera página: lo ya descartado va como exclusión, así
   // que la tanda siguiente es la que sigue en el orden, sin saltarse nada.
@@ -208,12 +210,23 @@ function BloqueAudiencia({ fecha, audiencia, candidatas, seleccion, verificacion
     setCargando(true);
     setErrorAlt(null);
     const descartadas = siguiente ? [...vistas, ...(alternativas || []).map((a) => a.indice)] : [];
-    const r = await otrasOpcionesParaAudiencia({
-      fecha,
-      audiencia: audiencia.id,
-      vistas: descartadas,
-      limite: POR_TANDA,
-    });
+    let r;
+    try {
+      r = await otrasOpcionesParaAudiencia({
+        fecha,
+        audiencia: audiencia.id,
+        vistas: descartadas,
+        limite: POR_TANDA,
+      });
+    } catch (fallo) {
+      // Sin esto, un fallo dejaba el botón en «cargando» para siempre y sin
+      // ningún mensaje: ni el estado local ni un aviso.
+      const mensaje = String(fallo?.message || "").trim() || "No se pudieron traer más opciones.";
+      setCargando(false);
+      setErrorAlt(mensaje);
+      avisarAlt(mensaje, "error");
+      return;
+    }
     setCargando(false);
     if (r?.error) {
       setErrorAlt(r.error);
@@ -387,6 +400,7 @@ function BloqueAudiencia({ fecha, audiencia, candidatas, seleccion, verificacion
 
 function DiaPendiente({ dia, verificaciones, compacto }) {
   const [pendiente, iniciar] = useTransition();
+  const { avisar } = useToast();
   const [error, setError] = useState(null);
   const { resumen, candidatas, selecciones, decididas, totalAudiencias } = dia;
 
@@ -397,32 +411,53 @@ function DiaPendiente({ dia, verificaciones, compacto }) {
   function elegir(candidata) {
     setError(null);
     iniciar(async () => {
-      const r = await elegirFraseDelDia({
-        fecha: dia.fecha,
-        indice: candidata.indice,
-        audiencia: candidata.audiencia,
-        // Las traídas del corpus no tienen slot del día: se guardan como
-        // sustitución, que es lo que dice el historial.
-        slot: candidata.slot,
-        sustituida: !candidata.slot,
-      });
-      if (r?.error) setError(r.error);
+      try {
+        const r = await elegirFraseDelDia({
+          fecha: dia.fecha,
+          indice: candidata.indice,
+          audiencia: candidata.audiencia,
+          // Las traídas del corpus no tienen slot del día: se guardan como
+          // sustitución, que es lo que dice el historial.
+          slot: candidata.slot,
+          sustituida: !candidata.slot,
+        });
+        if (r?.error) setError(r.error);
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setError(mensaje);
+        avisar(mensaje, "error");
+      }
     });
   }
 
   function omitirTodo() {
     setError(null);
     iniciar(async () => {
-      const r = await omitirDia({ fecha: dia.fecha });
-      if (r?.error) setError(r.error);
+      try {
+        const r = await omitirDia({ fecha: dia.fecha });
+        if (r?.error) setError(r.error);
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setError(mensaje);
+        avisar(mensaje, "error");
+      }
     });
   }
 
   function reabrir(audienciaId) {
     setError(null);
     iniciar(async () => {
-      const r = await reabrirDia(dia.fecha, audienciaId);
-      if (r?.error) setError(r.error);
+      try {
+        const r = await reabrirDia(dia.fecha, audienciaId);
+        if (r?.error) setError(r.error);
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setError(mensaje);
+        avisar(mensaje, "error");
+      }
     });
   }
 

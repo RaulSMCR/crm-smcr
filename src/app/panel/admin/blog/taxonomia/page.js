@@ -126,11 +126,13 @@ export default async function TaxonomyAdminPage() {
               Debajo de cada serie vas a ver qué artículos tiene y cuáles faltan, con el enlace
               directo para ir a asignarlos.
             </p>
-            {/* El guardado implícito era invisible: se editaba un nombre, se hacía
-                clic afuera y nada confirmaba que hubiera pasado algo. */}
+            {/* Antes cada campo se guardaba al salir del foco, sin confirmar
+                nada. Ahora las ediciones se juntan y se guardan de una vez. */}
             <p>
-              <strong>Los nombres se guardan solos</strong> al hacer clic fuera del campo — no hay
-              botón de guardar en las filas ya creadas. El botón «Agregar» es únicamente para crear.
+              <strong>Las ediciones no se guardan solas.</strong> Editá lo que necesites —nombres,
+              descripciones, qué se muestra y qué no— y abajo va a aparecer una barra con cuántos
+              cambios llevás y el botón <em>Guardar todos los cambios</em>. Al guardarlos vas a ver
+              un informe de qué cambió. Crear y eliminar, en cambio, se aplican en el momento.
             </p>
           </div>
         </section>

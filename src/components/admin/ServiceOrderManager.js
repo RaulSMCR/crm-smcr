@@ -13,6 +13,7 @@ export default function ServiceOrderManager({ services = [] }) {
     }))
   );
   const [isPending, startTransition] = useTransition();
+  const { avisar } = useToast();
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -84,19 +85,26 @@ export default function ServiceOrderManager({ services = [] }) {
     setError("");
 
     startTransition(async () => {
-      const result = await bulkUpdateServiceOrder(
-        rows.map((row) => ({
-          id: row.id,
-          displayOrder: row.displayOrder,
-        }))
-      );
-
-      if (result?.error) {
-        setError(result.error);
-        return;
+      try {
+        const result = await bulkUpdateServiceOrder(
+          rows.map((row) => ({
+            id: row.id,
+            displayOrder: row.displayOrder,
+          }))
+        );
+  
+        if (result?.error) {
+          setError(result.error);
+          return;
+        }
+  
+        setMessage("Orden actualizado correctamente.");
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setError(mensaje);
+        avisar(mensaje, "error");
       }
-
-      setMessage("Orden actualizado correctamente.");
     });
   };
 

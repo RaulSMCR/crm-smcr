@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useToast } from "@/components/ui/ToastProvider";
 import { confirmAppointmentByProfessional } from "@/actions/agenda-actions";
 import { RECURRENCE_RULES } from "@/lib/appointment-recurrence";
 import RecurrenceFields from "@/components/appointments/RecurrenceFields";
@@ -11,33 +12,41 @@ export default function AcceptRecurringAppointmentModal({ appointment, onClose, 
   const [error, setError] = useState("");
   const [conflictMeta, setConflictMeta] = useState(null);
   const [isPending, startTransition] = useTransition();
+  const { avisar } = useToast();
 
   function handleConfirm() {
     setError("");
     setConflictMeta(null);
     startTransition(async () => {
-      const result = await confirmAppointmentByProfessional(
-        appointment.id,
-        recurrenceRule,
-        recurrenceCount
-      );
-
-      if (!result?.success) {
-        setError(result?.error || "No se pudo aceptar la cita.");
-        if (result?.errorCode === "RECURRING_CONFLICT") {
-          setConflictMeta({
-            suggestedCalendarUrl: result?.suggestedCalendarUrl || "",
-            conflictLabel: result?.conflictLabel || "",
-          });
+      try {
+        const result = await confirmAppointmentByProfessional(
+          appointment.id,
+          recurrenceRule,
+          recurrenceCount
+        );
+  
+        if (!result?.success) {
+          setError(result?.error || "No se pudo aceptar la cita.");
+          if (result?.errorCode === "RECURRING_CONFLICT") {
+            setConflictMeta({
+              suggestedCalendarUrl: result?.suggestedCalendarUrl || "",
+              conflictLabel: result?.conflictLabel || "",
+            });
+          }
+          return;
         }
-        return;
+  
+        onSuccess?.({
+          id: appointment.id,
+          status: "CONFIRMED",
+        });
+        onClose();
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setError(mensaje);
+        avisar(mensaje, "error");
       }
-
-      onSuccess?.({
-        id: appointment.id,
-        status: "CONFIRMED",
-      });
-      onClose();
     });
   }
 

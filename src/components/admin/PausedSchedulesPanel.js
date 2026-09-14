@@ -7,12 +7,12 @@
 // que puede agendar sin saber que hay un cargo pendiente, así que el botón de
 // restituir es el secundario, no el principal.
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import {
   registrarContactoManual,
   restituirAgendaDePaciente,
 } from "@/actions/scheduling-block-actions";
-import Toast from "@/components/ui/Toast";
+import { useAccionServidor } from "@/components/ui/useAccionServidor";
 import {
   DIAS_ALERTA_SIN_CONTACTO,
   ETIQUETAS_CANAL,
@@ -37,12 +37,12 @@ function formatFecha(valor) {
 // Registro de un contacto hecho a mano. Va dentro de la tarjeta de cada
 // paciente porque el momento de anotarlo es justo después de escribirle, no en
 // otra pantalla a la que nadie vuelve.
-function RegistrarContacto({ paciente, onHecho, onError }) {
+function RegistrarContacto({ paciente }) {
   const [abierto, setAbierto] = useState(false);
   const [canal, setCanal] = useState("WHATSAPP");
   const [resultado, setResultado] = useState("SIN_RESPUESTA");
   const [nota, setNota] = useState("");
-  const [isPending, startTransition] = useTransition();
+  const { pendiente: isPending, ejecutar } = useAccionServidor();
 
   if (!abierto) {
     return (
@@ -57,20 +57,16 @@ function RegistrarContacto({ paciente, onHecho, onError }) {
   }
 
   function guardar() {
-    startTransition(async () => {
-      const res = await registrarContactoManual({
-        patientId: paciente.id,
-        canal,
-        resultado,
-        nota,
-      });
-      if (res?.error) onError(res.error);
-      else {
-        setAbierto(false);
-        setNota("");
-        onHecho(paciente);
-      }
-    });
+    ejecutar(
+      () => registrarContactoManual({ patientId: paciente.id, canal, resultado, nota }),
+      {
+        exito: `Contacto anotado para ${paciente.name}.`,
+        alTerminar: () => {
+          setAbierto(false);
+          setNota("");
+        },
+      },
+    );
   }
 
   const campo = "rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm text-slate-900";
@@ -125,21 +121,15 @@ function RegistrarContacto({ paciente, onHecho, onError }) {
 }
 
 export default function PausedSchedulesPanel({ pacientes = [] }) {
-  const [toast, setToast] = useState(null);
   const [restituidos, setRestituidos] = useState([]);
-  const [isPending, startTransition] = useTransition();
+  const { pendiente: isPending, ejecutar } = useAccionServidor();
 
   const pendientes = pacientes.filter((p) => !restituidos.includes(p.id));
 
   function restituir(paciente) {
-    startTransition(async () => {
-      const res = await restituirAgendaDePaciente(paciente.id);
-      if (res?.error) {
-        setToast({ message: res.error, type: "error" });
-        return;
-      }
-      setRestituidos((prev) => [...prev, paciente.id]);
-      setToast({ message: `${paciente.name} ya puede agendar.`, type: "success" });
+    ejecutar(() => restituirAgendaDePaciente(paciente.id), {
+      exito: `${paciente.name} ya puede agendar.`,
+      alTerminar: () => setRestituidos((prev) => [...prev, paciente.id]),
     });
   }
 
@@ -254,19 +244,11 @@ export default function PausedSchedulesPanel({ pacientes = [] }) {
                 {isPending ? "Restituyendo..." : "Restituir el acceso"}
               </button>
 
-              <RegistrarContacto
-                paciente={p}
-                onHecho={(paciente) =>
-                  setToast({ message: `Contacto anotado para ${paciente.name}.`, type: "success" })
-                }
-                onError={(mensaje) => setToast({ message: mensaje, type: "error" })}
-              />
+              <RegistrarContacto paciente={p} />
             </div>
           </div>
         ))}
       </div>
-
-      <Toast message={toast?.message} type={toast?.type} onDismiss={() => setToast(null)} />
     </>
   );
 }

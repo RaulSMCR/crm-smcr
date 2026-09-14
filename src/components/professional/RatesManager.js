@@ -4,7 +4,8 @@
 // lugar y franja. El profesional propone y un admin aprueba, así que acá se
 // distingue siempre el precio vigente del que está en revisión.
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState } from "react";
+import { useAccionServidor } from "@/components/ui/useAccionServidor";
 import { useRouter } from "next/navigation";
 import { proposeRate, deleteRate } from "@/actions/practice-actions";
 import { modalityLabel } from "@/lib/rates";
@@ -41,7 +42,7 @@ export default function RatesManager({ rates = [], assignments = [], locations =
     price: "",
   });
   const [msg, setMsg] = useState({ type: "", text: "" });
-  const [isPending, startTransition] = useTransition();
+  const { pendiente: isPending, ejecutar } = useAccionServidor();
 
   const setField = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
 
@@ -59,38 +60,33 @@ export default function RatesManager({ rates = [], assignments = [], locations =
     event.preventDefault();
     setMsg({ type: "", text: "" });
 
-    startTransition(async () => {
-      const res = await proposeRate({
+    const texto = (res) => (res?.unchanged
+      ? "Esa tarifa ya estaba vigente con ese monto."
+      : "Tarifa enviada a revisión. Mientras tanto sigue rigiendo su precio aprobado anterior.");
+
+    ejecutar(
+      () => proposeRate({
         serviceId: form.serviceId,
         locationId: form.locationId || null,
         timeBandId: form.timeBandId || null,
         price: Number(form.price),
-      });
-
-      if (res?.error) {
-        setMsg({ type: "error", text: res.error });
-        return;
-      }
-      setForm((prev) => ({ ...prev, price: "" }));
-      setMsg({
-        type: "ok",
-        text: res?.unchanged
-          ? "Esa tarifa ya estaba vigente con ese monto."
-          : "Tarifa enviada a revisión. Mientras tanto sigue rigiendo su precio aprobado anterior.",
-      });
-      router.refresh();
-    });
+      }),
+      {
+        exito: texto,
+        alTerminar: (res) => {
+          setForm((prev) => ({ ...prev, price: "" }));
+          setMsg({ type: "ok", text: texto(res) });
+        },
+        alFallar: (text) => setMsg({ type: "error", text }),
+      },
+    );
   };
 
   const onDelete = (rate) => {
-    startTransition(async () => {
-      const res = await deleteRate(rate.id);
-      if (res?.error) {
-        setMsg({ type: "error", text: res.error });
-        return;
-      }
-      setMsg({ type: "ok", text: "Tarifa eliminada." });
-      router.refresh();
+    ejecutar(() => deleteRate(rate.id), {
+      exito: "Tarifa eliminada.",
+      alTerminar: () => setMsg({ type: "ok", text: "Tarifa eliminada." }),
+      alFallar: (text) => setMsg({ type: "error", text }),
     });
   };
 

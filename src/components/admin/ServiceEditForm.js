@@ -1,19 +1,16 @@
 "use client";
 
-import { useState, useTransition, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { updateServiceDetails } from "@/actions/service-actions";
 import ServiceBannerField from "@/components/admin/ServiceBannerField";
 import SeoFieldset from "@/components/admin/SeoFieldset";
-import Toast from "@/components/ui/Toast";
+import { useAccionServidor } from "@/components/ui/useAccionServidor";
 
 export default function ServiceEditForm({ service, taxes = [] }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [toast, setToast] = useState(null);
+  const { pendiente: isPending, ejecutar } = useAccionServidor();
 
-  const dismissToast = useCallback(() => setToast(null), []);
 
   return (
     <>
@@ -21,17 +18,10 @@ export default function ServiceEditForm({ service, taxes = [] }) {
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
-          setToast(null);
           const formData = new FormData(e.currentTarget);
 
-          startTransition(async () => {
-            const result = await updateServiceDetails(service.id, formData);
-            if (result?.error) {
-              setToast({ message: result.error, type: "error" });
-              return;
-            }
-            setToast({ message: "Servicio actualizado correctamente.", type: "success" });
-            router.refresh();
+          ejecutar(() => updateServiceDetails(service.id, formData), {
+            exito: "Servicio actualizado correctamente.",
           });
         }}
       >
@@ -182,8 +172,6 @@ export default function ServiceEditForm({ service, taxes = [] }) {
           {isPending ? "Guardando..." : "Guardar cambios"}
         </button>
       </form>
-
-      <Toast message={toast?.message} type={toast?.type} onDismiss={dismissToast} />
     </>
   );
 }

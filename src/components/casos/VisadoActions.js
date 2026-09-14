@@ -6,7 +6,8 @@
 // Devolver exige escribir por qué. Un cierre devuelto sin explicación deja al
 // profesional adivinando y, sobre todo, deja a la persona esperando.
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
+import { useAccionServidor } from "@/components/ui/useAccionServidor";
 import { useRouter } from "next/navigation";
 import { devolverCierre, visarCierre } from "@/actions/caso-actions";
 
@@ -15,17 +16,19 @@ export default function VisadoActions({ casoId }) {
   const [modo, setModo] = useState(null); // "visar" | "devolver"
   const [texto, setTexto] = useState("");
   const [error, setError] = useState("");
-  const [isPending, startTransition] = useTransition();
+  const { pendiente: isPending, ejecutar: correr } = useAccionServidor();
 
   function ejecutar() {
     setError("");
-    startTransition(async () => {
-      const res =
-        modo === "visar" ? await visarCierre(casoId, texto) : await devolverCierre(casoId, texto);
-
-      if (res?.error) setError(res.error);
-      else router.push("/panel/direccion-clinica");
-    });
+    correr(
+      () => (modo === "visar" ? visarCierre(casoId, texto) : devolverCierre(casoId, texto)),
+      {
+        exito: modo === "visar" ? "Cierre visado." : "Cierre devuelto al profesional.",
+        refrescar: false,
+        alTerminar: () => router.push("/panel/direccion-clinica"),
+        alFallar: setError,
+      },
+    );
   }
 
   const campoClase =

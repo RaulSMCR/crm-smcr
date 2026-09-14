@@ -9,6 +9,7 @@
 // proyecto.
 
 import { useState, useTransition } from "react";
+import { useToast } from "@/components/ui/ToastProvider";
 import Link from "next/link";
 import { marcarTarea, registrarContacto } from "@/actions/tareas-actions";
 import { TAREAS, ZONAS } from "@/lib/tareas-sostenidas";
@@ -96,15 +97,23 @@ function FormularioContacto({ onListo }) {
   const [pedido, setPedido] = useState("");
   const [estado, setEstado] = useState(null);
   const [pendiente, iniciar] = useTransition();
+  const { avisar } = useToast();
 
   function enviar() {
     iniciar(async () => {
-      const r = await registrarContacto({ destinatario, canal, pedido });
-      if (r?.error) return setEstado(r.error);
-      setDestinatario("");
-      setPedido("");
-      setEstado(null);
-      onListo?.();
+      try {
+        const r = await registrarContacto({ destinatario, canal, pedido });
+        if (r?.error) return setEstado(r.error);
+        setDestinatario("");
+        setPedido("");
+        setEstado(null);
+        onListo?.();
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setEstado(mensaje);
+        avisar(mensaje, "error");
+      }
     });
   }
 
@@ -151,14 +160,22 @@ function FormularioContacto({ onListo }) {
 
 export default function TareasSostenidas({ registros, racha }) {
   const [pendiente, iniciar] = useTransition();
+  const { avisar } = useToast();
   const [error, setError] = useState(null);
   const porClave = Object.fromEntries((registros || []).map((r) => [r.clave, r]));
 
   function guardar(tarea, { completado, nota }) {
     setError(null);
     iniciar(async () => {
-      const r = await marcarTarea({ clave: tarea.clave, cadencia: tarea.cadencia, completado, nota });
-      if (r?.error) setError(r.error);
+      try {
+        const r = await marcarTarea({ clave: tarea.clave, cadencia: tarea.cadencia, completado, nota });
+        if (r?.error) setError(r.error);
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setEstado(mensaje);
+        avisar(mensaje, "error");
+      }
     });
   }
 

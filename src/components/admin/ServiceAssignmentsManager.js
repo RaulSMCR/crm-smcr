@@ -1,15 +1,13 @@
 "use client";
 
-import { useCallback, useMemo, useState, useTransition } from "react";
+import { useMemo, useState } from "react";
 import { syncServiceAssignments } from "@/actions/service-actions";
-import Toast from "@/components/ui/Toast";
+import { useAccionServidor } from "@/components/ui/useAccionServidor";
 
 export default function ServiceAssignmentsManager({ serviceId, professionals, selectedIds }) {
   const [selected, setSelected] = useState(() => new Set(selectedIds));
-  const [isPending, startTransition] = useTransition();
-  const [toast, setToast] = useState(null);
+  const { pendiente: isPending, ejecutar } = useAccionServidor();
 
-  const dismissToast = useCallback(() => setToast(null), []);
 
   const selectedCount = useMemo(() => selected.size, [selected]);
 
@@ -59,24 +57,15 @@ export default function ServiceAssignmentsManager({ serviceId, professionals, se
         <button
           type="button"
           disabled={isPending}
-          onClick={() => {
-            setToast(null);
-            startTransition(async () => {
-              const result = await syncServiceAssignments(serviceId, Array.from(selected));
-              if (result?.error) {
-                setToast({ message: result.error, type: "error" });
-                return;
-              }
-              setToast({ message: "Asignaciones actualizadas correctamente.", type: "success" });
-            });
-          }}
+          onClick={() => ejecutar(
+            () => syncServiceAssignments(serviceId, Array.from(selected)),
+            { exito: "Asignaciones actualizadas correctamente." },
+          )}
           className="rounded-lg bg-slate-900 px-4 py-2 text-white disabled:opacity-60"
         >
           {isPending ? "Guardando..." : "Guardar asignaciones"}
         </button>
       </div>
-
-      <Toast message={toast?.message} type={toast?.type} onDismiss={dismissToast} />
     </>
   );
 }

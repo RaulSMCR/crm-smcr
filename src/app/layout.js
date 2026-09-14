@@ -6,6 +6,7 @@ import Header from '@/components/PublicHeader';
 import Footer from '@/components/Footer';
 import JsonLd from '@/components/JsonLd';
 import ConsentBanner from '@/components/ConsentBanner';
+import { ToastProvider } from '@/components/ui/ToastProvider';
 import AnalyticsLoader from '@/components/AnalyticsLoader';
 import MarketingAttributionCapture from '@/components/MarketingAttributionCapture';
 import { SITE_URL, siteUrl } from '@/lib/site-url';
@@ -149,7 +150,14 @@ export default async function RootLayout({ children }) {
       {/* 1. flex flex-col: Permite organizar header-main-footer verticalmente.
          2. min-h-screen: Asegura que el cuerpo ocupe al menos toda la altura de la ventana.
       */}
+      {/* `ToastProvider` envuelve todo el sitio porque la regla es que ninguna
+          acción se ejecute sin avisar qué pasó, y las acciones no viven solo en
+          el panel: también hay en la reserva, el registro y el ingreso. No pinta
+          nada hasta que haya un aviso; el costo es el del provider vacío.
+          `children` sigue renderizándose en el servidor: envolverlo en un
+          componente cliente no lo convierte en uno. */}
       <body className="min-h-screen flex flex-col bg-surface text-neutral-900 antialiased">
+        <ToastProvider>
         <MarketingAttributionCapture />
         {process.env.NODE_ENV === 'production' && (
           <AnalyticsLoader gaId={GA_ID} metaPixelId={META_PIXEL_ID} googleAdsId={GOOGLE_ADS_ID} />
@@ -166,6 +174,7 @@ export default async function RootLayout({ children }) {
 
         <Footer />
         <ConsentBanner />
+        </ToastProvider>
       </body>
     </html>
   );

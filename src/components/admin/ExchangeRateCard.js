@@ -8,9 +8,8 @@
 // visible, no escondido detrás de un "modo avanzado": es el camino que se espera
 // que se use a diario.
 
-import { useState, useTransition } from "react";
 import { guardarTipoCambio, intentarDescargaTipoCambio } from "@/actions/exchange-rate-actions";
-import Toast from "@/components/ui/Toast";
+import { useAccionServidor } from "@/components/ui/useAccionServidor";
 
 const ETIQUETA_FUENTE = {
   BCCR: "Banco Central",
@@ -31,25 +30,20 @@ function formatFecha(valor) {
 }
 
 export default function ExchangeRateCard({ vigente, historial = [] }) {
-  const [toast, setToast] = useState(null);
-  const [isPending, startTransition] = useTransition();
+  // Antes esto llevaba su propio `useState` de toast y un `startTransition` sin
+  // try/catch: una acción que lanzara —sesión vencida, base caída— no dejaba
+  // rastro en pantalla. `useAccionServidor` captura, avisa y solo refresca si
+  // de verdad salió bien.
+  const { pendiente: isPending, ejecutar } = useAccionServidor();
 
   function onSubmit(e) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    startTransition(async () => {
-      const res = await guardarTipoCambio(fd);
-      if (res?.error) setToast({ message: res.error, type: "error" });
-      else setToast({ message: `Tipo de cambio guardado: ₡${res.rate}`, type: "success" });
-    });
+    ejecutar(() => guardarTipoCambio(fd), { exito: (res) => `Tipo de cambio guardado: ₡${res.rate}` });
   }
 
   function descargar() {
-    startTransition(async () => {
-      const res = await intentarDescargaTipoCambio();
-      if (res?.error) setToast({ message: res.error, type: "error" });
-      else setToast({ message: `Descargado: ₡${res.rate}`, type: "success" });
-    });
+    ejecutar(() => intentarDescargaTipoCambio(), { exito: (res) => `Descargado: ₡${res.rate}` });
   }
 
   const desactualizado = !vigente?.esDeHoy;
@@ -175,8 +169,6 @@ export default function ExchangeRateCard({ vigente, historial = [] }) {
           </div>
         ) : null}
       </div>
-
-      <Toast message={toast?.message} type={toast?.type} onDismiss={() => setToast(null)} />
     </>
   );
 }

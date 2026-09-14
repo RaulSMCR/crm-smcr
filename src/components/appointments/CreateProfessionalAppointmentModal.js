@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useToast } from "@/components/ui/ToastProvider";
 import { createAppointmentByProfessional } from "@/actions/agenda-actions";
 import {
   buildSlots,
@@ -28,6 +29,7 @@ export default function CreateProfessionalAppointmentModal({
   const [error, setError] = useState("");
   const [conflictMeta, setConflictMeta] = useState(null);
   const [isPending, startTransition] = useTransition();
+  const { avisar } = useToast();
 
   const selectedService = services.find((service) => service.id === serviceId) || null;
   const days = useMemo(() => {
@@ -48,26 +50,33 @@ export default function CreateProfessionalAppointmentModal({
     setError("");
     setConflictMeta(null);
     startTransition(async () => {
-      const result = await createAppointmentByProfessional({
-        patientId,
-        serviceId,
-        startISO: selectedISO,
-        recurrenceRule,
-        recurrenceCount,
-      });
-
-      if (!result?.success) {
-        setError(result?.error || "No se pudo crear la cita.");
-        if (result?.errorCode === "RECURRING_CONFLICT") {
-          setConflictMeta({
-            suggestedCalendarUrl: result?.suggestedCalendarUrl || "",
-          });
+      try {
+        const result = await createAppointmentByProfessional({
+          patientId,
+          serviceId,
+          startISO: selectedISO,
+          recurrenceRule,
+          recurrenceCount,
+        });
+  
+        if (!result?.success) {
+          setError(result?.error || "No se pudo crear la cita.");
+          if (result?.errorCode === "RECURRING_CONFLICT") {
+            setConflictMeta({
+              suggestedCalendarUrl: result?.suggestedCalendarUrl || "",
+            });
+          }
+          return;
         }
-        return;
+  
+        onSuccess?.();
+        onClose();
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setError(mensaje);
+        avisar(mensaje, "error");
       }
-
-      onSuccess?.();
-      onClose();
     });
   }
 

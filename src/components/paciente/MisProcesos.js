@@ -35,13 +35,21 @@ function Proceso({ proceso }) {
   const [pedido, setPedido] = useState(false);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+  const { avisar } = useToast();
 
   function pedirCopia() {
     setError("");
     startTransition(async () => {
-      const res = await solicitarCopiaExpediente(proceso.id);
-      if (res?.error) setError(res.error);
-      else setPedido(true);
+      try {
+        const res = await solicitarCopiaExpediente(proceso.id);
+        if (res?.error) setError(res.error);
+        else setPedido(true);
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setError(mensaje);
+        avisar(mensaje, "error");
+      }
     });
   }
 

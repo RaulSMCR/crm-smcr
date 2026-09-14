@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { useToast } from "@/components/ui/ToastProvider";
 import { getScheduleOverview } from "@/actions/schedule-block-actions";
 
 /**
@@ -73,6 +74,7 @@ export default function ScheduleOverview({ initialData = null }) {
   const [error, setError] = useState("");
   const [detalle, setDetalle] = useState(null);
   const [isPending, startTransition] = useTransition();
+  const { avisar } = useToast();
 
   useEffect(() => {
     // La primera semana llega renderizada desde el servidor; solo se pide de
@@ -83,15 +85,22 @@ export default function ScheduleOverview({ initialData = null }) {
     }
 
     startTransition(async () => {
-      const result = await getScheduleOverview({ weekOffset: offset });
-      if (result?.success) {
-        setData(result.data);
-        setError("");
-      } else {
-        setError(result?.error || "No se pudo cargar la agenda.");
+      try {
+        const result = await getScheduleOverview({ weekOffset: offset });
+        if (result?.success) {
+          setData(result.data);
+          setError("");
+        } else {
+          setError(result?.error || "No se pudo cargar la agenda.");
+        }
+      } catch (fallo) {
+        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+        setError(mensaje);
+        avisar(mensaje, "error");
       }
     });
-  }, [offset, initialData]);
+  }, [offset, initialData, avisar]);
 
   useEffect(() => {
     setDetalle(null);

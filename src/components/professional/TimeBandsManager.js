@@ -3,7 +3,8 @@
 // Franjas horarias propias del profesional. Sirven para cobrar distinto según la
 // hora (matutino / vespertino) sin repetir el rango en cada tarifa.
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
+import { useAccionServidor } from "@/components/ui/useAccionServidor";
 import { useRouter } from "next/navigation";
 import { saveTimeBands } from "@/actions/practice-actions";
 import { findTimeBandOverlaps } from "@/lib/rates";
@@ -18,7 +19,7 @@ export default function TimeBandsManager({ initialBands = [] }) {
     initialBands.map((band) => ({ ...band, key: band.id }))
   );
   const [msg, setMsg] = useState({ type: "", text: "" });
-  const [isPending, startTransition] = useTransition();
+  const { pendiente: isPending, ejecutar } = useAccionServidor();
 
   // Se avisa del solape mientras se escribe, sin esperar al guardado.
   const overlaps = findTimeBandOverlaps(bands);
@@ -29,14 +30,10 @@ export default function TimeBandsManager({ initialBands = [] }) {
 
   const onSave = () => {
     setMsg({ type: "", text: "" });
-    startTransition(async () => {
-      const res = await saveTimeBands(bands.map(({ key, ...band }) => band));
-      if (res?.error) {
-        setMsg({ type: "error", text: res.error });
-        return;
-      }
-      setMsg({ type: "ok", text: "Franjas guardadas." });
-      router.refresh();
+    ejecutar(() => saveTimeBands(bands.map(({ key, ...band }) => band)), {
+      exito: "Franjas guardadas.",
+      alTerminar: () => setMsg({ type: "ok", text: "Franjas guardadas." }),
+      alFallar: (text) => setMsg({ type: "error", text }),
     });
   };
 
