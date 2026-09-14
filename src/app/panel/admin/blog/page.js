@@ -38,7 +38,7 @@ export default async function AdminBlogPage({ searchParams }) {
               + Nuevo artículo
             </Link>
             <Link href="/panel/admin/blog/taxonomia" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-brand-400">
-              Taxonomía de la biblioteca →
+              Series y etiquetas →
             </Link>
           </div>
         </div>
