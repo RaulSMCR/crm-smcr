@@ -366,3 +366,39 @@ export async function getRaulWriting() {
     return [];
   }
 }
+
+/**
+ * Resuelve la serie destacada del hub, o `null`.
+ *
+ * El hub enlazaba `/blog/serie/${hub.serie_destacada}` sin comprobar nada, con
+ * el nombre de la serie escrito a mano en el JSX. Cuando el slug destacado no
+ * corresponde a ninguna serie cargada —que es lo que pasaba con
+ * `la-angustia-y-sus-formas`— la página de serie hace `notFound()` y el hub
+ * publicado queda con un enlace a un 404 a la vista de cualquiera.
+ *
+ * El filtro repite el de `/blog/serie/[slug]`: `isActive` y al menos una
+ * entrega publicada y aprobada. Sin esa segunda condición el enlace llevaría a
+ * una página que responde 200 y dice «todavía no hay entregas», que para quien
+ * hace clic es lo mismo que un error. El nombre sale de la base, así que el día
+ * que se cambie el destacado en el panel el rótulo cambia con él.
+ */
+export async function getFeaturedSeries(slug) {
+  const clean = String(slug || "").trim();
+  if (!clean) return null;
+  try {
+    const series = await prisma.series.findFirst({
+      where: {
+        slug: clean,
+        isActive: true,
+        posts: { some: { status: "PUBLISHED", seriesApproved: true } },
+      },
+      select: { slug: true, name: true },
+    });
+    return series || null;
+  } catch (error) {
+    // Mismo criterio que `getManagedHubData`: si la consulta falla, la sección
+    // se muestra sin el enlace, pero queda dicho por qué.
+    console.error("getFeaturedSeries · no se pudo leer la serie destacada:", error?.message || error);
+    return null;
+  }
+}

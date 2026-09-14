@@ -9,6 +9,7 @@ import {
   RAUL_PERSON_ID,
   buildWaLink,
   formatHubPrice,
+  getFeaturedSeries,
   getManagedHubData,
   getRaulAgenda,
   getRaulProfile,
@@ -82,7 +83,12 @@ export default async function RaulHubPage() {
   const hub = await getManagedHubData();
   if (!hub) notFound();
   const topics = hub.temas.filter((topic) => topic.publicado);
-  const [agenda, profile, writing] = await Promise.all([getRaulAgenda(), getRaulProfile(), getRaulWriting()]);
+  const [agenda, profile, writing, serieDestacada] = await Promise.all([
+    getRaulAgenda(),
+    getRaulProfile(),
+    getRaulWriting(),
+    getFeaturedSeries(hub.serie_destacada),
+  ]);
   const agendaUrl = agenda.url;
   // El precio sale de la tarifa aprobada, igual que en la ficha y en agendar.
   const precio = formatHubPrice(agenda.rango);
@@ -180,7 +186,9 @@ export default async function RaulHubPage() {
           <p className="hub-kicker">Escritos</p>
           <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
             <h2 id="hub-escritos" className="hub-heading">Pensar lo que insiste</h2>
-            <HubTrackedLink href={`/blog/serie/${hub.serie_destacada}`} eventName="click_hub_raul_serie" destination={hub.serie_destacada} className="font-bold text-nv-teal-deep underline underline-offset-4">La angustia y sus formas →</HubTrackedLink>
+            {serieDestacada ? (
+              <HubTrackedLink href={`/blog/serie/${serieDestacada.slug}`} eventName="click_hub_raul_serie" destination={serieDestacada.slug} className="font-bold text-nv-teal-deep underline underline-offset-4">{serieDestacada.name} →</HubTrackedLink>
+            ) : null}
           </div>
           {writing.length ? (
             <div className="mt-7 grid gap-4 md:grid-cols-3">

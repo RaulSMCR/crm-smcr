@@ -205,7 +205,7 @@ export default function CrmMetaPanel({
           </select>
         </label>
         <label className="block text-sm">
-          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600">NÃºmero de parte</span>
+          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600">Número de parte</span>
           <input type="number" min="1" value={seriesOrder} onChange={(e) => setSeriesOrder(e.target.value)} disabled={!seriesId} placeholder="—" className="input w-full disabled:opacity-50" />
         </label>
       </div>
