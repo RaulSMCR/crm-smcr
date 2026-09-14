@@ -359,7 +359,7 @@ function leerTema({ frontmatter, body, base, baseArchivo = null, elegido = false
   for (const bloque of bloques) {
     if (!BLOQUES_CONOCIDOS.includes(bloque)) avisos.push(`marcador de bloque desconocido: «${bloque}»`);
   }
-  if (bloques.length) avisos.push("los marcadores de bloque se guardan, pero la plantilla todavía no los pinta como caja");
+  if (bloques.length) avisos.push("los marcadores de bloque se guardan y no se ven en la página, pero la plantilla todavía no los pinta como caja");
 
   const fecha = texto(frontmatter.fecha);
   const actualizado = texto(frontmatter.actualizado) || fecha;

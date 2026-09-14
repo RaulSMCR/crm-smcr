@@ -4,6 +4,7 @@ import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import SafeImage from "@/components/SafeImage";
 import { IMAGE_FALLBACKS } from "@/lib/images";
+import { quitarComentariosHtml } from "@/lib/markdown-comentarios";
 
 const MarkdownImage = ({ src, alt }) => {
   if (!src) return null;
@@ -35,6 +36,17 @@ const MarkdownLink = ({ href, children }) => {
   );
 };
 
+/**
+ * Renderiza markdown de contenido, ya sea de un artículo, un tema del hub o un
+ * documento importado.
+ *
+ * Los comentarios HTML se filtran antes de entrar: este renderer corre sin
+ * `rehype-raw`, y en esa configuración `react-markdown` no ignora un
+ * `<!-- bloque: riesgo -->`, lo escapa y lo publica como texto visible. El cuerpo
+ * guardado los conserva —son estructura para la plantilla, ver
+ * `src/lib/markdown-comentarios.js`—; lo que no corresponde es leerlos en la
+ * página.
+ */
 export default function MarkdownRenderer({ content }) {
   return (
     <ReactMarkdown
@@ -45,7 +57,7 @@ export default function MarkdownRenderer({ content }) {
         a: MarkdownLink,
       }}
     >
-      {content}
+      {quitarComentariosHtml(content)}
     </ReactMarkdown>
   );
 }

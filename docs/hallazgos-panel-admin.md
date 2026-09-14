@@ -9,9 +9,10 @@ Cosas que aparecen al usar `/panel/admin` en el día a día. Fuera del alcance d
 | PA-02 | «Pedir ajustes» manda una nota genérica: no hay forma de decir qué corregir | **reparado** el 2026-09-03 |
 | PA-03 | La zona de subida de `.md` del hub es una sola y el módulo lo decide el nombre del archivo | **reparado** el 2026-09-13 |
 | PA-04 | El orden de aparición de las piezas del hub se editaba número por número, y el panel podía mostrar un orden distinto del publicado | **reparado** el 2026-09-13 · **requiere migración** |
+| PA-05 | Los marcadores `<!-- bloque: … -->` de los documentos importados se publicaban como texto visible | **reparado** el 2026-09-13 |
 
 PA-01 y PA-02 los reportó Raúl el 2026-09-03 revisando el alta de una profesional;
-PA-03 el 2026-09-13, editando los módulos del hub.
+PA-03, PA-04 y PA-05 el 2026-09-13, cargando y editando los módulos del hub.
 
 ---
 
@@ -247,3 +248,58 @@ SELECT migration_name, finished_at FROM _prisma_migrations
 2026-09-13. Sin verificación visual en el navegador, y sin aplicar la migración:
 la escritura en producción quedó del lado de Raúl, porque el entorno bloquea esa
 acción desde esta sesión.
+
+---
+
+## PA-05 · Los marcadores de bloque salían publicados — **reparado**
+
+Reportado por Raúl al cargar los documentos: en la página pública se leía el texto
+`<!-- bloque: riesgo -->` en medio del artículo.
+
+**No era el parser ni la ingesta.** El cuerpo se guardaba bien. El problema es que
+`src/components/MarkdownRenderer.js` corre `react-markdown` **sin `rehype-raw`**, y
+en esa configuración el HTML crudo no se ignora: se **escapa**. Reproducido:
+
+```text
+<h2>Qué ocurre</h2>
+<p>Texto.</p>
+&lt;!-- bloque: riesgo --&gt;      ← esto se lee en la página
+<p>Si hay riesgo, llamá.</p>
+```
+
+Es de todo el sitio, no solo del hub: el mismo renderer sirve los artículos del
+blog, los temas de la biblioteca y la página de 15 sesiones. Un `<!-- revisar -->`
+olvidado en cualquier `.md` importado se publicaba igual.
+
+### La reparación
+
+`quitarComentariosHtml` en `src/lib/markdown-comentarios.js`, aplicado en el
+renderer. Se filtra **al renderizar y no al importar**, y la diferencia es la
+decisión de fondo:
+
+- los marcadores son **estructura**: `leerBloques` los usa para el informe y los
+  guarda en `metadata.bloques`, pero lo que la plantilla va a necesitar el día que
+  los pinte como caja es *dónde* están, y eso solo vive en el cuerpo. Borrarlos al
+  importar lo perdería sin vuelta;
+- filtrar al renderizar arregla además **lo ya importado**, sin migrar datos.
+
+Se quitan todos los comentarios, no solo los `bloque:` — un comentario es por
+definición una nota de quien escribe. No se tocan los que están dentro de código
+cercado o en línea: ahí el comentario es el contenido, y quitarlo sería corromper
+el texto en vez de limpiarlo. Sin comentarios, la función devuelve la cadena
+idéntica.
+
+La vista previa del editor (`MarkdownEditor`) usa el mismo renderer, así que
+tampoco los muestra: es lo correcto, porque la previa tiene que mostrar lo que va
+a leer el paciente. En modo edición el textarea los sigue mostrando.
+
+El aviso del informe de ingesta ahora lo dice: «los marcadores de bloque se
+guardan **y no se ven en la página**, pero la plantilla todavía no los pinta como
+caja».
+
+**Verificado:** 13 tests nuevos, y dos de ellos son los que faltaban —
+`tests/unit/markdown-comentarios-render.test.js` renderiza el pipeline real y fija
+las dos mitades: que filtrado no llega al HTML, y que sin filtrar sale escapado.
+Un test del filtro solo no habría encontrado el bug: había que mirar el HTML que
+sale. `npm test` 1068 pasan / 37 salteados y `npm run build` compila, el
+2026-09-13. Sin verificación visual en el navegador.
