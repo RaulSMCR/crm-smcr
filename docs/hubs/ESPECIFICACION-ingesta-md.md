@@ -45,8 +45,27 @@ fuera, se vuelve a subir cuando cambia— pero deja de ser el almacén.
 
 ## 2. Qué ve el administrador
 
-Tres estados, en la misma pantalla del editor del hub, arriba de «Módulos y
-contenido».
+Tres estados, y **dos lugares** donde soltar un archivo en la pantalla del editor
+del hub.
+
+**Zona del hub**, arriba de «Módulos y contenido»: acepta un lote y el nombre de
+cada archivo decide el módulo. Es la única que puede crear módulos nuevos, y la
+única que acepta `_hub.md`. Trae además un selector de **módulo de destino**: al
+elegir uno, el nombre del archivo deja de contar y se importa un archivo por vez.
+
+**Zona de cada módulo**, dentro de su propio formulario, debajo del cuerpo: el
+destino ya está decidido por el formulario donde vive, así que `borrador-v3.md`
+se escribe en ese módulo sin que haya que renombrarlo. Nunca crea: escribe en el
+módulo que la contiene o no escribe. El módulo invisible del copy del hub
+(`_hub`) no la tiene, porque su contenido entra por `_hub.md`.
+
+Las dos usan el mismo componente y el mismo par de endpoints; la diferencia es un
+campo, `destino`, y el informe siempre dice en qué ruta va a caer el archivo
+antes de escribir. Un archivo con `tipo: hub` dirigido a un módulo se **bloquea**:
+son dos intenciones incompatibles y adivinar una sería escribir lo que nadie
+pidió.
+
+Los tres estados, en cualquiera de las dos:
 
 **Estado 1 — zona vacía.** «Arrastrá uno o varios archivos `.md` aquí · o hacé
 clic para buscarlos · hasta 2 MB cada uno». Mismo componente y mismos límites
@@ -196,8 +215,8 @@ Dos endpoints, mismo patrón que la importación editorial de carruseles
 (`src/app/api/admin/editorial/import/{preview,confirm}`), que ya estableció la
 convención `writesPerformed: false` + `confirmationRequired: true`.
 
-**`POST /api/admin/hubs/[id]/ingesta/preview`** · `multipart/form-data`, 1..12
-archivos. Solo lee. Responde:
+**`POST /api/admin/hubs/[id]/ingesta/preview`** · JSON con `archivos` (1..12) y
+`destino` opcional. Solo lee. Responde:
 
 ```json
 {
@@ -222,8 +241,15 @@ archivos. Solo lee. Responde:
 }
 ```
 
-**`POST /api/admin/hubs/[id]/ingesta/confirm`** · mismos archivos **más el
-`sha256` que devolvió el preview**. El confirm recalcula el hash y rechaza si no
+`destino` es el slug del módulo elegido en el panel. Reglas, que el servidor
+valida y no supone: solo con **un** archivo en el lote, solo sobre un módulo que
+**ya existe** en ese hub, y nunca `_hub`. Un destino que no cumple devuelve `422`
+—es un error de la pantalla, no del archivo, y no tiene que aparecer entre los
+bloqueos del documento—. Sin `destino` manda el nombre del archivo, que es el
+comportamiento de siempre.
+
+**`POST /api/admin/hubs/[id]/ingesta/confirm`** · mismos archivos y el mismo
+`destino` **más el `sha256` que devolvió el preview**. El confirm recalcula el hash y rechaza si no
 coincide. Es a propósito: no se guardan los archivos entre las dos llamadas —no
 hay dónde, y guardarlos sería inventar un almacén temporal—, así que el navegador
 los reenvía, y el hash es lo que garantiza que se aplica exactamente lo que se
@@ -238,10 +264,15 @@ Ambos exigen `session.role === "ADMIN"`, como las actions del hub.
 - **Nunca borra.** Un módulo que no viene en el lote no se toca. No hay
   sincronización destructiva: un lote es un aporte, no un estado completo.
 - **Nunca duplica.** Slug existente ⇒ actualizar esa fila.
-- **Renombrar un archivo crea otra página.** No hay rastro entre `duelo.md` y
-  `duelo-y-perdida.md`. Se avisa con las dos rutas: «esto crea un módulo nuevo;
-  el anterior sigue publicado en `/raul-olmedo-evans/duelo`». Redirigir o
-  archivar el viejo es una decisión aparte.
+- **Renombrar un archivo crea otra página**, salvo que se elija el destino. No
+  hay rastro entre `duelo.md` y `duelo-y-perdida.md`. Se avisa con las dos rutas:
+  «esto crea un módulo nuevo; el anterior sigue publicado en
+  `/raul-olmedo-evans/duelo`». Redirigir o archivar el viejo es una decisión
+  aparte. Cuando lo que se quería era actualizar el módulo de siempre con un
+  archivo que se llama distinto, eso es lo que resuelve `destino`.
+- **El tipo del módulo lo decide el panel, no el archivo.** El `.md` nunca
+  declara uno —sale de la convención de slugs—, así que un módulo marcado a mano
+  como «tratamiento» o «contenido personalizado» conserva su tipo y se avisa.
 - **Un lote, una transacción** (`prisma.$transaction`). El hub primero, luego los
   temas por `orden`. Un archivo que falla no deja el lote a medias.
 - **`metadata` se fusiona, no se reemplaza** (ver B-3).

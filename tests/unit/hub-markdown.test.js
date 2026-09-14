@@ -165,6 +165,24 @@ describe("parseHubDocument · tema", () => {
     expect(doc.avisos.some((aviso) => aviso.includes("migracion-y-desarraigo"))).toBe(true);
   });
 
+  it("el módulo elegido en el panel manda sobre el nombre del archivo", () => {
+    const doc = parseHubDocument(TEMA_MINIMO, "borrador final (v3).md", { slug: "duelo" });
+    expect(doc.slug).toBe("duelo");
+    expect(doc.modulo.slug).toBe("duelo");
+    expect(doc.bloqueos).toEqual([]);
+    expect(doc.avisos.some((aviso) => aviso.includes("se escribe en el módulo elegido"))).toBe(true);
+  });
+
+  it("el módulo elegido también decide el tipo", () => {
+    const doc = parseHubDocument(TEMA_MINIMO, "cualquier-cosa.md", { slug: "tratamiento-breve-15-sesiones" });
+    expect(doc.modulo.type).toBe("TREATMENT");
+  });
+
+  it("un archivo de hub sigue siendo de hub aunque se elija un módulo", () => {
+    const doc = parseHubDocument("---\ntipo: hub\ntitulo: X\n---\n\nNotas.", "_hub.md", { slug: "duelo" });
+    expect(doc.clase).toBe("hub");
+  });
+
   it("el tratamiento breve se reconoce como módulo de tratamiento", () => {
     const doc = parseHubDocument(TEMA_MINIMO, "tratamiento-breve-15-sesiones.md");
     expect(doc.modulo.type).toBe("TREATMENT");

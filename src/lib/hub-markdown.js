@@ -29,6 +29,15 @@ export const BLOQUES_ESPERADOS = Object.freeze(["cuando-consultar", "riesgo"]);
 export const SLUG_TRATAMIENTO = "tratamiento-breve-15-sesiones";
 
 /**
+ * El slug del módulo invisible donde vive el copy de `_hub.md`.
+ *
+ * Vive acá y no en `hub-ingest` porque el panel también tiene que reconocerlo
+ * —no es un módulo editable ni un destino elegible—, y `hub-ingest` arrastra
+ * Prisma: importarlo desde un componente cliente metería la base en el bundle.
+ */
+export const SLUG_COPY_HUB = "_hub";
+
+/**
  * Campos del hub que NO se aceptan por archivo, con la razón que se le muestra
  * a quien importa. `slug` mueve una URL viva, `profileSlug` decide de quién es
  * el hub y `status` es un acto de publicación: ninguno debería cambiar porque
@@ -279,8 +288,14 @@ export function slugDeArchivo(nombre) {
  * Nunca lanza: un archivo ilegible vuelve con `bloqueos` y el resto del lote
  * sigue su curso. Quien importa cuatro archivos tiene que poder ver los tres
  * que están bien.
+ *
+ * `opciones.slug` es el módulo elegido en el panel: cuando viene, el nombre del
+ * archivo deja de decidir el destino y pasa a ser un dato del informe. La
+ * **clase** sigue saliendo del archivo —`_hub.md` o `tipo: hub` es
+ * configuración del hub, y elegir un módulo para eso es una contradicción que
+ * `hub-ingest` bloquea en vez de resolver por su cuenta.
  */
-export function parseHubDocument(source, nombreArchivo = "") {
+export function parseHubDocument(source, nombreArchivo = "", opciones = {}) {
   const avisos = [];
   const bloqueos = [];
   const { frontmatter: crudo, body, tieneFrontmatter } = partirDocumento(source);
@@ -292,11 +307,12 @@ export function parseHubDocument(source, nombreArchivo = "") {
 
   const tipo = texto(frontmatter.tipo).toLowerCase();
   const base = slugDeArchivo(nombre);
+  const elegido = texto(opciones?.slug);
   const clase = tipo === "hub" || base === "hub" || /^_hub$/i.test(String(nombre).replace(/\.[^.]+$/, "")) ? "hub" : "tema";
 
   const comunes = { archivo: nombre, clase, frontmatter, body, avisos, bloqueos };
   if (clase === "hub") return { ...comunes, ...leerHub(frontmatter, avisos, bloqueos) };
-  return { ...comunes, ...leerTema({ frontmatter, body, base, avisos, bloqueos }) };
+  return { ...comunes, ...leerTema({ frontmatter, body, base: elegido || base, baseArchivo: base, elegido: Boolean(elegido), avisos, bloqueos }) };
 }
 
 function validarCuerpo({ body, avisos, bloqueos }) {
@@ -308,13 +324,19 @@ function validarCuerpo({ body, avisos, bloqueos }) {
   if (/^#{4,}\s/m.test(body)) avisos.push("hay encabezados de nivel 4 o más: el índice solo lee ## y ###");
 }
 
-function leerTema({ frontmatter, body, base, avisos, bloqueos }) {
+function leerTema({ frontmatter, body, base, baseArchivo = null, elegido = false, avisos, bloqueos }) {
   const slugArchivo = base;
   const slug = normalizeTopicSlug(slugArchivo);
   const errorSlug = validateTopicSlug(slug);
   if (errorSlug) bloqueos.push(errorSlug);
   if (slug && slugArchivo && slug !== slugArchivo) {
     avisos.push(`el nombre del archivo se normaliza: se va a usar «${slug}»`);
+  }
+  // Con módulo elegido el nombre del archivo no vale como slug, pero sí como
+  // aviso: quien suelta `borrador-final-v3.md` en un módulo tiene que leer en
+  // qué página va a caer antes de aplicar.
+  if (elegido && baseArchivo && normalizeTopicSlug(baseArchivo) !== slug) {
+    avisos.push(`el nombre del archivo dice «${baseArchivo}»: se escribe en el módulo elegido, «${slug}»`);
   }
 
   const titulo = texto(frontmatter.titulo || frontmatter.title);

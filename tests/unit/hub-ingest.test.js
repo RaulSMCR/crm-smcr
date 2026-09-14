@@ -301,6 +301,74 @@ describe("leerLote · no escribe", () => {
   });
 });
 
+describe("leerLote · módulo de destino elegido", () => {
+  it("escribe en el módulo elegido aunque el archivo se llame distinto, y lo avisa", async () => {
+    base.hub = hubFalso({ modules: [moduloFalso()] });
+    const informe = await leerLote({
+      hubId: HUB_ID,
+      archivos: [documento({ slug: "borrador-final-v3" })],
+      destino: "duelo",
+    });
+    const fila = informe.lote[0];
+    expect(fila.slug).toBe("duelo");
+    expect(fila.accion).toBe("actualizar");
+    expect(fila.moduloId).toBe("mod-1");
+    expect(fila.escribible).toBe(true);
+    expect(fila.avisos.join(" ")).toContain("«borrador-final-v3»");
+  });
+
+  it("sin destino, el mismo archivo crearía otro módulo", async () => {
+    base.hub = hubFalso({ modules: [moduloFalso()] });
+    const informe = await leerLote({ hubId: HUB_ID, archivos: [documento({ slug: "borrador-final-v3" })] });
+    expect(informe.lote[0].accion).toBe("crear");
+    expect(informe.lote[0].slug).toBe("borrador-final-v3");
+  });
+
+  it("rechaza un destino que el hub no tiene", async () => {
+    base.hub = hubFalso({ modules: [moduloFalso()] });
+    const informe = await leerLote({ hubId: HUB_ID, archivos: [documento()], destino: "insomnio" });
+    expect(informe.motivo).toBe("destino");
+    expect(informe.error).toContain("insomnio");
+  });
+
+  it("rechaza el módulo de copy del hub como destino", async () => {
+    base.hub = hubFalso({ modules: [moduloFalso({ slug: "_hub", id: "mod-copy" })] });
+    const informe = await leerLote({ hubId: HUB_ID, archivos: [documento()], destino: "_hub" });
+    expect(informe.motivo).toBe("destino");
+  });
+
+  it("con destino no acepta más de un archivo", async () => {
+    base.hub = hubFalso({ modules: [moduloFalso()] });
+    const informe = await leerLote({
+      hubId: HUB_ID,
+      archivos: [documento({ slug: "uno" }), documento({ slug: "dos" })],
+      destino: "duelo",
+    });
+    expect(informe.motivo).toBe("destino");
+  });
+
+  it("bloquea un archivo de configuración del hub dirigido a un módulo", async () => {
+    base.hub = hubFalso({ modules: [moduloFalso()] });
+    const hubMd = { nombre: "_hub.md", texto: ["---", "tipo: hub", "titulo: Otro título", "---", "", "Notas."].join("\n") };
+    const informe = await leerLote({ hubId: HUB_ID, archivos: [hubMd], destino: "duelo" });
+    expect(informe.lote[0].escribible).toBe(false);
+    expect(informe.lote[0].bloqueos.join(" ")).toContain("configuración del hub");
+  });
+
+  it("conserva el tipo que el administrador le puso al módulo", async () => {
+    base.hub = hubFalso({ modules: [moduloFalso({ type: "CUSTOM" })] });
+    const informe = await leerLote({ hubId: HUB_ID, archivos: [documento({ slug: "otro-nombre" })], destino: "duelo" });
+    expect(informe.lote[0].payload.type).toBe("CUSTOM");
+    expect(informe.lote[0].avisos.join(" ")).toContain("contenido personalizado");
+  });
+
+  it("un módulo publicado sigue publicado cuando se reemplaza por destino", async () => {
+    base.hub = hubFalso({ modules: [moduloFalso({ isPublished: true })] });
+    const informe = await leerLote({ hubId: HUB_ID, archivos: [documento({ slug: "otro-nombre" })], destino: "duelo" });
+    expect(informe.lote[0].payload.isPublished).toBe(true);
+  });
+});
+
 describe("aplicarLote · escribe", () => {
   it("crea el módulo en borrador y sella la importación", async () => {
     const resultado = await aplicarLote({ hubId: HUB_ID, archivos: [documento({ slug: "ansiedad-y-cuerpo" })], actor: "raul@smcr.cr" });
@@ -322,6 +390,18 @@ describe("aplicarLote · escribe", () => {
     expect(creaciones).toEqual([]);
     expect(updates).toHaveLength(1);
     expect(updates[0].where.id).toBe("mod-1");
+  });
+
+  it("con destino actualiza ese módulo por id y no crea otro", async () => {
+    base.hub = hubFalso({ modules: [moduloFalso()] });
+    const resultado = await aplicarLote({ hubId: HUB_ID, archivos: [documento({ slug: "borrador-final-v3" })], destino: "duelo" });
+    expect(resultado.writesPerformed).toBe(true);
+    expect(base.escrituras.filter((item) => item.op === "create")).toEqual([]);
+    const updates = base.escrituras.filter((item) => item.tabla === "modulo" && item.op === "update");
+    expect(updates).toHaveLength(1);
+    expect(updates[0].where.id).toBe("mod-1");
+    expect(updates[0].data.slug).toBe("duelo");
+    expect(updates[0].data.metadata.importacion.archivo).toBe("borrador-final-v3.md");
   });
 
   it("un lote enteramente bloqueado no escribe nada", async () => {

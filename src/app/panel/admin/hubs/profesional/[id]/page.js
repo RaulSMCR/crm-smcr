@@ -42,11 +42,15 @@ function serializeHub(hub) {
       position: module.position,
       isVisible: module.isVisible,
       isPublished: module.isPublished,
+      isFeatured: module.isFeatured,
       metaTitle: module.metaTitle,
       metaDescription: module.metaDescription,
       ogImage: module.ogImage,
       focusKeyword: module.focusKeyword,
       noindex: module.noindex,
+      // Va al `key` del formulario: cuando la ingesta reescribe un módulo, sin
+      // remontar el formulario los campos seguirían mostrando el texto viejo.
+      updatedAt: module.updatedAt?.toISOString?.() || null,
     })),
   };
 }

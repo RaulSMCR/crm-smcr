@@ -43,10 +43,15 @@ export async function POST(request, { params }) {
     }
   }
 
+  // `destino` es el slug del módulo elegido en el panel. Sin él manda el nombre
+  // del archivo, que es el comportamiento de siempre.
+  const destino = typeof cuerpo?.destino === "string" && cuerpo.destino.trim() ? cuerpo.destino.trim() : null;
+
   try {
-    const informe = await leerLote({ hubId: String(id || ""), archivos });
-    if (informe.error) return NextResponse.json({ error: informe.error }, { status: 404 });
-    return NextResponse.json({ ok: true, writesPerformed: false, confirmationRequired: true, ...informe });
+    const informe = await leerLote({ hubId: String(id || ""), archivos, destino });
+    // Un destino inválido lo manda la pantalla, no el hub: 422, no 404.
+    if (informe.error) return NextResponse.json({ error: informe.error }, { status: informe.motivo === "destino" ? 422 : 404 });
+    return NextResponse.json({ ok: true, writesPerformed: false, confirmationRequired: true, destino, ...informe });
   } catch (error) {
     console.error("ingesta de hub · preview falló:", error);
     return NextResponse.json({ error: "No se pudo leer el lote." }, { status: 500 });

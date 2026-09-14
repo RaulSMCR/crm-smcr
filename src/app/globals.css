@@ -132,6 +132,21 @@
   transform: translateY(-2px);
 }
 
+/*
+ * La tarjeta destacada del hub: la misma pieza con más peso.
+ *
+ * Se distingue por borde y aire, no por color de fondo: el crema es lo que hace
+ * legible el resto de la grilla, y una tarjeta de otro color competiría con el
+ * bloque de tratamiento, que ya es el único oscuro de la página. El ancho
+ * completo lo dan las clases de columna en el JSX, donde se ve junto al resto de
+ * la grilla.
+ */
+.hub-raul-card--destacada {
+  border-color: var(--coral);
+  border-width: 2px;
+  padding: 2rem;
+}
+
 .hub-raul-feature {
   display: grid;
   gap: 2rem;

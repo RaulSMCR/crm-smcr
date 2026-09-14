@@ -23,13 +23,16 @@
 > **No es asesoría legal ni tributaria.** Requiere revisión de la asesoría jurídica
 > y contable de las PARTES antes de la firma.
 
-Entre **[RAZÓN SOCIAL — PENDIENTE]**, cédula jurídica número **[__ — PENDIENTE]**,
-representada en este acto por **[NOMBRE DEL REPRESENTANTE]**, mayor,
-[estado civil], [profesión u oficio], vecino/a de [__], portador/a de la cédula
-número [__], en su condición de [__], en adelante la **PLATAFORMA** o
-**SaludMentalCR**; y **[NOMBRE COMPLETO DEL PROFESIONAL]**, [tipo de
-identificación] número **[__]**, [profesión], colegiado/a número **[__]** del
-**[colegio profesional]**, vecino/a de **[__]**, en adelante el **PROFESIONAL**;
+Entre **SALUD MENTAL COSTA RICA CINCO CERO SEIS SOCIEDAD ANONIMA**, cédula
+jurídica número **3-101-885661**, representada en este acto por
+**[nombre completo del representante legal]**, mayor, [estado civil],
+[profesión u oficio], vecino/a de [domicilio del representante], portador/a de
+la cédula número [identificación del representante], en su condición de
+[condición o cargo con facultades suficientes], en adelante la **PLATAFORMA** o
+**SaludMentalCR**; y **[nombre completo del profesional]**, [tipo de
+identificación] número **[identificación del profesional]**, [profesión],
+colegiado/a número **[número de colegiatura]** del **[colegio profesional]**,
+vecino/a de **[domicilio del profesional]**, en adelante el **PROFESIONAL**;
 conjuntamente las **PARTES**, se acuerda el presente Anexo al Contrato de
 Prestación de Servicios Profesionales celebrado el **[fecha del contrato
 principal]**, conforme a las cláusulas siguientes.
@@ -609,9 +612,9 @@ valor, en **[lugar]**, a los **[__] días del mes de [__] de [____]**.
 
 | Por la PLATAFORMA | Por el PROFESIONAL |
 |---|---|
-| Nombre: [____________________________] | Nombre: [____________________________] |
-| Identificación: [____________________] | Identificación: [____________________] |
-| Cargo: [_____________________________] | Colegio/matrícula: [_________________] |
+| Nombre: [nombre completo del representante legal] | Nombre: [nombre completo del profesional] |
+| Identificación: [identificación del representante legal] | Identificación: [identificación del profesional] |
+| Cargo: [condición o cargo con facultades suficientes] | Colegio/matrícula: [colegio y número de colegiatura] |
 | Firma: _______________________________ | Firma: _______________________________ |
 | Fecha: [_____________________________] | Fecha: [_____________________________] |
 
@@ -622,7 +625,7 @@ valor, en **[lugar]**, a los **[__] días del mes de [__] de [____]**.
 | # | Campo | Dónde |
 |---|---|---|
 | 1 | Número de este Anexo | encabezado y cláusula 1.5 |
-| 2 | Razón social, cédula jurídica y datos del representante legal | comparecencia |
+| 2 | Datos del representante legal | comparecencia |
 | 3 | Datos completos del PROFESIONAL, incluido colegio y número de colegiado | comparecencia |
 | 4 | Fecha del contrato principal | comparecencia |
 | 5 | Fecha de vigencia | cláusula 17.1 |

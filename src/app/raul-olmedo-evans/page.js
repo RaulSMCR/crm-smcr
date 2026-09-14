@@ -145,10 +145,16 @@ export default async function RaulHubPage() {
           </div>
           <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {topics.map((topic) => (
-              <HubTrackedLink key={topic.slug} href={`/raul-olmedo-evans/${topic.slug}`} eventName="click_hub_raul_tema" destination={topic.slug} className="hub-raul-card group">
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-nv-teal">Tema</p>
-                <h3 className="mt-3 font-display text-3xl font-semibold text-nv-teal-deep group-hover:text-nv-teal">{topic.titulo}</h3>
-                <p className="mt-3 text-sm leading-6 text-neutral-700">{topic.resumen || "Página en preparación. El contenido se incorporará próximamente."}</p>
+              <HubTrackedLink
+                key={topic.slug}
+                href={`/raul-olmedo-evans/${topic.slug}`}
+                eventName="click_hub_raul_tema"
+                destination={topic.slug}
+                className={`hub-raul-card group${topic.destacado ? " hub-raul-card--destacada sm:col-span-2 lg:col-span-3" : ""}`}
+              >
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-nv-teal">{topic.destacado ? "Empezá por acá" : "Tema"}</p>
+                <h3 className={`mt-3 font-display font-semibold text-nv-teal-deep group-hover:text-nv-teal ${topic.destacado ? "text-4xl sm:text-5xl" : "text-3xl"}`}>{topic.titulo}</h3>
+                <p className={`mt-3 leading-6 text-neutral-700 ${topic.destacado ? "max-w-2xl text-base" : "text-sm"}`}>{topic.resumen || "Página en preparación. El contenido se incorporará próximamente."}</p>
                 <span className="mt-5 inline-flex text-sm font-bold text-nv-teal-deep">Leer sobre {topic.titulo.toLowerCase()} →</span>
               </HubTrackedLink>
             ))}

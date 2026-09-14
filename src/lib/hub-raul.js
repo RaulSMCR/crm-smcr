@@ -42,7 +42,13 @@ const PUBLIC_HUB_INCLUDE = {
   },
   modules: {
     where: { isVisible: true, isPublished: true },
-    orderBy: { position: "asc" },
+    // La destacada primero, y después el orden que decidió el panel. El
+    // desempate por `createdAt` no es decorativo: sin él, dos módulos con la
+    // misma `position` salían en el orden que quisiera Postgres, y el panel
+    // —que sí desempata así (`ADMIN_HUB_INCLUDE`)— podía mostrar un orden que
+    // no es el que ve quien entra. El orden de las tarjetas es lo primero que
+    // se lee del hub: tiene que ser el mismo en los dos lados.
+    orderBy: [{ isFeatured: "desc" }, { position: "asc" }, { createdAt: "asc" }],
   },
 };
 
@@ -77,6 +83,7 @@ function mapManagedHub(row) {
       titulo: module.title,
       resumen: module.summary || "",
       publicado: module.isPublished,
+      destacado: module.isFeatured === true,
       body: module.body || "",
     }));
   const treatment = modules.find((module) => module.type === "TREATMENT" || module.slug === "tratamiento-breve-15-sesiones");
@@ -139,7 +146,13 @@ export async function getManagedHubData(slug = HUB_PATH) {
     });
     if (row && (row.status !== "PUBLISHED" || !row.isActive)) return null;
     return row ? mapManagedHub(row) : getHubData();
-  } catch {
+  } catch (error) {
+    // El fallback al JSON mantiene la página en pie, pero en silencio era una
+    // trampa: si la consulta falla porque el esquema del código va adelantado
+    // respecto de la base —código desplegado antes de su migración—, el hub deja
+    // de mostrar todo lo que se edita en el panel y nada lo dice. Ahora queda en
+    // los logs, que es donde se busca cuando «el panel no cambia nada».
+    console.error("getManagedHubData · se cae al JSON estático:", error?.message || error);
     return getHubData();
   }
 }

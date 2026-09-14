@@ -4,6 +4,7 @@ import { RESERVED_TOPIC_SLUGS } from "@/lib/topic";
 import {
   MAX_ARCHIVOS_LOTE,
   MAX_ARCHIVO_BYTES,
+  SLUG_COPY_HUB,
   SLUG_TRATAMIENTO,
   parseHubDocument,
 } from "@/lib/hub-markdown";
@@ -23,8 +24,7 @@ import {
  *   - nunca publica: lo nuevo entra en borrador y publicar es un acto aparte.
  */
 
-/** El slug del módulo invisible donde vive el copy de `_hub.md`. */
-export const SLUG_COPY_HUB = "_hub";
+export { SLUG_COPY_HUB };
 
 /**
  * Rutas que son carpetas en `src/app/` y por lo tanto existen siempre.
@@ -52,6 +52,9 @@ const RUTAS_ESTATICAS = new Set([
 const HUBS_CON_RUTA = new Set(["raul-olmedo-evans"]);
 
 const LIMITES_COLUMNA = { body: 50000, summary: 5000, metaTitle: 240, metaDescription: 1000, focusKeyword: 120 };
+
+/** Los mismos nombres que muestra el selector «Tipo / función» del panel. */
+const ETIQUETAS_TIPO = { TOPIC: "tema", TREATMENT: "tratamiento", CUSTOM: "contenido personalizado" };
 
 export function hashDocumento(texto) {
   return createHash("sha256").update(String(texto || ""), "utf8").digest("hex");
@@ -289,8 +292,14 @@ function acotar(payload, avisos = []) {
  * @param {object} entrada
  * @param {string} entrada.hubId
  * @param {Array<{nombre: string, texto: string}>} entrada.archivos
+ * @param {string|null} [entrada.destino] slug del módulo elegido en el panel.
+ *   Cuando viene, el nombre del archivo deja de decidir la página: se escribe en
+ *   ese módulo y punto. Solo con un archivo en el lote —«este archivo va a este
+ *   módulo» no significa nada si hay cinco archivos— y solo sobre un módulo que
+ *   ya existe: crear se sigue haciendo por nombre de archivo, que es donde el
+ *   slug queda dicho una sola vez y en un lugar.
  */
-export async function leerLote({ hubId, archivos }) {
+export async function leerLote({ hubId, archivos, destino = null }) {
   const hub = await prisma.professionalHub.findUnique({
     where: { id: String(hubId || "") },
     select: {
@@ -312,11 +321,27 @@ export async function leerLote({ hubId, archivos }) {
   const posicionesTomadas = new Map(hub.modules.map((modulo) => [modulo.position, modulo.slug]));
   const siguientePosicion = hub.modules.reduce((max, modulo) => Math.max(max, modulo.position + 1), 0);
 
+  // 0) El módulo elegido, si lo hay. Se valida contra la fila antes de parsear:
+  // un destino que no existe es un error de la pantalla, no del archivo, y
+  // mezclarlo con los bloqueos del documento lo haría parecer culpa del texto.
+  const slugDestino = String(destino || "").trim() || null;
+  if (slugDestino) {
+    if (entrada.length > 1) {
+      return { error: "Con un módulo elegido se importa un archivo por vez.", motivo: "destino" };
+    }
+    if (slugDestino === SLUG_COPY_HUB) {
+      return { error: "El copy del hub se escribe con «_hub.md», no eligiéndolo como módulo.", motivo: "destino" };
+    }
+    if (!porSlug.has(slugDestino)) {
+      return { error: `Este hub no tiene un módulo «${slugDestino}».`, motivo: "destino" };
+    }
+  }
+
   // 1) Parseo puro de cada archivo.
   const filas = entrada.map((archivo, indice) => {
     const nombre = String(archivo?.nombre || `archivo-${indice + 1}.md`);
     const texto = String(archivo?.texto ?? "");
-    const parsed = parseHubDocument(texto, nombre);
+    const parsed = parseHubDocument(texto, nombre, { slug: slugDestino });
     const bloqueos = [...parsed.bloqueos];
     if (Buffer.byteLength(texto, "utf8") > MAX_ARCHIVO_BYTES) bloqueos.push("el archivo pesa más de 2 MB");
     return { archivo: nombre, sha256: hashDocumento(texto), parsed, bloqueos, avisos: [...parsed.avisos] };
@@ -355,6 +380,11 @@ export async function leerLote({ hubId, archivos }) {
     const bloqueos = fila.bloqueos;
 
     if (parsed.clase === "hub") {
+      // Configuración del hub con un módulo elegido: no se adivina cuál de las
+      // dos intenciones vale. Se bloquea y se dice cómo resolverlo.
+      if (slugDestino) {
+        bloqueos.push(`este archivo es configuración del hub («_hub.md» o «tipo: hub») y no se puede escribir en el módulo «${slugDestino}»`);
+      }
       const diff = [];
       for (const [campo, valor] of Object.entries(parsed.hub || {})) {
         if (iguales(hub[campo], valor)) continue;
@@ -390,11 +420,13 @@ export async function leerLote({ hubId, archivos }) {
       }
     }
 
-    // Tipo: un módulo que el administrador marcó como CUSTOM no se convierte en
-    // TOPIC porque el archivo no diga nada. El archivo no sabe de esa decisión.
-    if (existente && existente.type === "CUSTOM" && payload.type !== "CUSTOM") {
-      payload.type = "CUSTOM";
-      avisos.push("el módulo está marcado como «contenido personalizado» y se mantiene así");
+    // Tipo: el archivo nunca declara uno —sale de la convención de slugs—, así
+    // que cuando la fila ya tiene otro, el que manda es el que eligió el
+    // administrador en el panel. Sin esto, soltar un `.md` sobre un módulo
+    // marcado a mano lo convertiría en tema sin que nadie lo pidiera.
+    if (existente && existente.type && payload.type !== existente.type) {
+      avisos.push(`el módulo está marcado como «${ETIQUETAS_TIPO[existente.type] || existente.type}» y se mantiene así`);
+      payload.type = existente.type;
     }
 
     // Orden: el del archivo si viene y está libre; si choca, el siguiente libre.
@@ -506,8 +538,8 @@ export async function leerLote({ hubId, archivos }) {
  * guardado entre las dos llamadas ni posibilidad de que se aplique algo
  * distinto de lo que se mostró.
  */
-export async function aplicarLote({ hubId, archivos, actor = "" }) {
-  const lectura = await leerLote({ hubId, archivos });
+export async function aplicarLote({ hubId, archivos, destino = null, actor = "" }) {
+  const lectura = await leerLote({ hubId, archivos, destino });
   if (lectura.error) return lectura;
 
   const escribibles = lectura.lote.filter((fila) => fila.escribible);

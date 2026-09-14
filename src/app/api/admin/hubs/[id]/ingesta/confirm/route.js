@@ -55,13 +55,19 @@ export async function POST(request, { params }) {
     }
   }
 
+  // El mismo destino que produjo el informe: `aplicarLote` vuelve a leer el lote
+  // con él, así que si la pantalla mandara otro, lo que se escribe no sería lo
+  // que se mostró. Viaja en el cuerpo y se revalida contra la fila del hub.
+  const destino = typeof cuerpo?.destino === "string" && cuerpo.destino.trim() ? cuerpo.destino.trim() : null;
+
   try {
     const resultado = await aplicarLote({
       hubId: String(id || ""),
       archivos,
+      destino,
       actor: session.email || session.sub || "admin",
     });
-    if (resultado.error) return NextResponse.json({ error: resultado.error }, { status: 404 });
+    if (resultado.error) return NextResponse.json({ error: resultado.error }, { status: resultado.motivo === "destino" ? 422 : 404 });
     if (resultado.writesPerformed) revalidarHub(resultado.hub?.slug);
     return NextResponse.json({ ok: true, ...resultado });
   } catch (error) {

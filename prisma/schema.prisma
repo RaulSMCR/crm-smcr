@@ -551,6 +551,12 @@ model ProfessionalHubModule {
   isVisible   Boolean @default(true)
   isPublished Boolean @default(false)
 
+  // La tarjeta que la grilla del hub pinta a ancho completo y primera. Es una
+  // columna y no un `position = 0` porque son dos decisiones distintas: el orden
+  // dice qué se lee antes, el destaque dice qué se ve antes de leer. Una por hub,
+  // y eso lo garantiza el índice parcial de abajo, no la pantalla.
+  isFeatured  Boolean @default(false)
+
   // SEO editorial: si van vacíos, el metadata se deriva del contenido (ver
   // src/lib/seo.js). Son columnas y no otra clave dentro de `metadata` porque el
   // panel de SEO audita con consultas, y lo que vive en un JSON no se puede
@@ -568,6 +574,9 @@ model ProfessionalHubModule {
 
   @@unique([hubId, slug])
   @@index([hubId, isVisible, isPublished, position])
+  // Una sola destacada por hub. Índice parcial: Prisma no sabe expresar el
+  // `WHERE`, así que esto es documentación y la migración es la que manda.
+  // Ver 20260913120000_hub_modulo_destacado.
 }
 
 model Tax {

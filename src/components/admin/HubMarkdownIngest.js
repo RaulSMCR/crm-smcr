@@ -20,8 +20,25 @@ import { EXTENSIONES, MAX_ARCHIVOS_LOTE, MAX_ARCHIVO_BYTES } from "@/lib/hub-mar
  * El texto de cada archivo se lee en el navegador y viaja como JSON; el `sha256`
  * que devuelve el informe se reenvía al confirmar, y el servidor lo recalcula.
  * Así lo que se escribe es exactamente lo que se mostró.
+ *
+ * El destino tiene dos formas y un solo mecanismo (`destino` en el cuerpo de las
+ * dos llamadas), así que el mismo componente sirve para las dos:
+ *
+ *   - **zona del hub** (`modulos`): el nombre del archivo decide el módulo —que
+ *     es lo que permite importar un lote de una vez— y un selector manda un
+ *     archivo suelto a un módulo concreto sin tener que renombrarlo;
+ *   - **zona de un módulo** (`destino` fijo + `compacto`): el módulo ya lo
+ *     decidió el formulario donde vive el bloque, y el nombre no cuenta.
+ *
+ * @param {object} props
+ * @param {string} props.hubId
+ * @param {string} props.hubSlug
+ * @param {Array<{slug: string, title: string}>} [props.modulos] módulos que ofrece
+ *   el selector; vacío ⇒ sin selector.
+ * @param {string|null} [props.destino] slug fijo: sin selector y un archivo por vez.
+ * @param {boolean} [props.compacto] chrome reducido, para vivir dentro de un formulario.
  */
-export default function HubMarkdownIngest({ hubId, hubSlug }) {
+export default function HubMarkdownIngest({ hubId, hubSlug, modulos = [], destino = null, compacto = false }) {
   const router = useRouter();
   const inputRef = useRef(null);
   const [arrastrando, setArrastrando] = useState(false);
@@ -32,6 +49,15 @@ export default function HubMarkdownIngest({ hubId, hubSlug }) {
   const [resultado, setResultado] = useState(null);
   const [publicando, publicar] = useTransition();
   const [avisoPublicacion, setAvisoPublicacion] = useState(null);
+  const [eleccion, setEleccion] = useState("");
+  // El destino que produjo el informe, congelado: el confirm vuelve a leer el
+  // lote con él, así que tiene que ser el que se mostró y no el que el selector
+  // tenga encima cuando se aprieta «Aplicar».
+  const [destinoUsado, setDestinoUsado] = useState(null);
+
+  const destinoFijo = String(destino || "").trim() || null;
+  const destinoEfectivo = destinoFijo || eleccion || null;
+  const unSoloArchivo = Boolean(destinoEfectivo);
 
   function limpiar() {
     setArchivos([]);
@@ -39,6 +65,7 @@ export default function HubMarkdownIngest({ hubId, hubSlug }) {
     setResultado(null);
     setError(null);
     setAvisoPublicacion(null);
+    setDestinoUsado(null);
     if (inputRef.current) inputRef.current.value = "";
   }
 
@@ -50,8 +77,13 @@ export default function HubMarkdownIngest({ hubId, hubSlug }) {
     setResultado(null);
     setAvisoPublicacion(null);
 
-    if (lista.length > MAX_ARCHIVOS_LOTE) {
-      setError(`Máximo ${MAX_ARCHIVOS_LOTE} archivos por lote. Llegaron ${lista.length}.`);
+    const tope = unSoloArchivo ? 1 : MAX_ARCHIVOS_LOTE;
+    if (lista.length > tope) {
+      setError(
+        unSoloArchivo
+          ? `Con un módulo elegido se importa un archivo por vez. Llegaron ${lista.length}.`
+          : `Máximo ${MAX_ARCHIVOS_LOTE} archivos por lote. Llegaron ${lista.length}.`,
+      );
       return;
     }
     for (const archivo of lista) {
@@ -66,6 +98,9 @@ export default function HubMarkdownIngest({ hubId, hubSlug }) {
     }
 
     setOcupado(true);
+    // Se congela acá y no se vuelve a leer del estado: entre el `await` de la
+    // lectura y el informe, el selector podría haber cambiado.
+    const destinoDelLote = destinoEfectivo;
     try {
       const leidos = await Promise.all(
         lista.map(async (archivo) => ({ nombre: archivo.name, texto: await archivo.text() })),
@@ -73,7 +108,7 @@ export default function HubMarkdownIngest({ hubId, hubSlug }) {
       const respuesta = await fetch(`/api/admin/hubs/${hubId}/ingesta/preview`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ archivos: leidos }),
+        body: JSON.stringify({ archivos: leidos, destino: destinoDelLote }),
       });
       const datos = await respuesta.json();
       if (!respuesta.ok) {
@@ -85,6 +120,7 @@ export default function HubMarkdownIngest({ hubId, hubSlug }) {
       // las dos llamadas, así que el navegador lo vuelve a mandar con su hash.
       setArchivos(leidos.map((archivo) => ({ ...archivo, sha256: datos.lote.find((fila) => fila.archivo === archivo.nombre)?.sha256 })));
       setInforme(datos);
+      setDestinoUsado(destinoDelLote);
     } catch (errorLectura) {
       console.error("ingesta de hub · lectura falló:", errorLectura);
       setError("No se pudieron leer los archivos.");
@@ -106,7 +142,7 @@ export default function HubMarkdownIngest({ hubId, hubSlug }) {
       const respuesta = await fetch(`/api/admin/hubs/${hubId}/ingesta/confirm`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ archivos: carga }),
+        body: JSON.stringify({ archivos: carga, destino: destinoUsado }),
       });
       const datos = await respuesta.json();
       if (!respuesta.ok) {
@@ -147,15 +183,31 @@ export default function HubMarkdownIngest({ hubId, hubSlug }) {
   }
 
   return (
-    <section className="rounded-2xl border border-brand-200 bg-white p-6 shadow-sm">
-      <h2 className="text-xl font-bold text-slate-950">Importar contenido desde archivos .md</h2>
-      <p className="mt-1 text-sm text-slate-600">
-        Un archivo por tema, con el nombre del archivo como slug. <span className="font-mono">_hub.md</span> configura el hub.
-        Se lee, se muestra qué cambiaría y recién entonces se escribe. Lo nuevo entra como borrador.
-      </p>
-
+    <Marco compacto={compacto} hubSlug={hubSlug} destinoFijo={destinoFijo}>
       {informe || resultado ? null : (
         <>
+          {destinoFijo || !modulos.length ? null : (
+            <label className="mt-5 block text-sm text-slate-700">
+              <span className="mb-1 block font-medium">Módulo de destino</span>
+              <select
+                value={eleccion}
+                onChange={(event) => { setEleccion(event.target.value); setError(null); }}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 md:w-auto"
+              >
+                <option value="">Por el nombre del archivo · varios a la vez</option>
+                {modulos.map((modulo) => (
+                  <option key={modulo.slug} value={modulo.slug}>
+                    Escribir en «{modulo.title}» · /{modulo.slug}
+                  </option>
+                ))}
+              </select>
+              <span className="mt-1 block text-xs text-slate-500">
+                {eleccion
+                  ? `El nombre del archivo deja de contar: se escribe en /${hubSlug}/${eleccion}, un archivo por vez.`
+                  : "Cada archivo va al módulo que lleva su nombre; si no existe, se crea como borrador."}
+              </span>
+            </label>
+          )}
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
@@ -165,22 +217,27 @@ export default function HubMarkdownIngest({ hubId, hubSlug }) {
             onDrop={(event) => { event.preventDefault(); setArrastrando(false); leerArchivos(event.dataTransfer?.files); }}
             disabled={ocupado}
             className={[
-              "mt-5 flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-8 text-center transition",
+              "flex w-full flex-col items-center justify-center rounded-lg border-2 border-dashed text-center transition",
+              compacto ? "mt-2 gap-1 px-3 py-4" : "mt-5 gap-2 px-4 py-8",
               arrastrando ? "border-blue-500 bg-blue-50" : "border-slate-300 bg-slate-50 hover:border-blue-400 hover:bg-blue-50/40",
               ocupado ? "cursor-wait opacity-70" : "cursor-pointer",
             ].join(" ")}
           >
-            <span className="text-sm font-semibold text-slate-800">
-              {ocupado ? "Leyendo los archivos…" : "Arrastrá uno o varios archivos .md aquí"}
+            <span className={`font-semibold text-slate-800 ${compacto ? "text-xs" : "text-sm"}`}>
+              {ocupado
+                ? unSoloArchivo ? "Leyendo el archivo…" : "Leyendo los archivos…"
+                : unSoloArchivo ? "Arrastrá acá el archivo .md de este módulo" : "Arrastrá uno o varios archivos .md aquí"}
             </span>
             <span className="text-xs text-slate-500">
-              o hacé clic para buscarlos en tu equipo · hasta {MAX_ARCHIVOS_LOTE} archivos, 2 MB cada uno
+              {unSoloArchivo
+                ? "o hacé clic para buscarlo · hasta 2 MB · primero se muestra el diff"
+                : `o hacé clic para buscarlos en tu equipo · hasta ${MAX_ARCHIVOS_LOTE} archivos, 2 MB cada uno`}
             </span>
           </button>
           <input
             ref={inputRef}
             type="file"
-            multiple
+            multiple={!unSoloArchivo}
             accept=".md,.markdown,.mdown,.txt,text/markdown,text/plain"
             className="hidden"
             onChange={(event) => leerArchivos(event.target.files)}
@@ -234,10 +291,46 @@ export default function HubMarkdownIngest({ hubId, hubSlug }) {
           ) : null}
 
           <button type="button" onClick={limpiar} className="text-sm font-semibold text-slate-600 hover:underline">
-            Importar otros archivos
+            {unSoloArchivo ? "Importar otro archivo" : "Importar otros archivos"}
           </button>
         </div>
       ) : null}
+    </Marco>
+  );
+}
+
+/**
+ * El envoltorio, que es lo único que cambia entre las dos ubicaciones.
+ *
+ * Dentro del formulario de un módulo el bloque no puede parecer otra sección de
+ * la pantalla —de ahí el borde punteado y el `h3` en vez del `h2`—, y tiene que
+ * decir lo que ahí se vuelve peligroso: escribe en la base directamente, así que
+ * lo que esté a medio escribir en ese formulario se pierde al recargar.
+ */
+function Marco({ compacto, hubSlug, destinoFijo, children }) {
+  if (compacto) {
+    return (
+      <div className="mt-3 rounded-lg border border-dashed border-brand-300 bg-white p-3">
+        <h3 className="text-sm font-bold text-slate-800">Reemplazar este módulo desde un archivo .md</h3>
+        <p className="mt-1 text-xs text-slate-600">
+          Se escribe en <span className="font-mono">/{hubSlug}/{destinoFijo}</span> aunque el archivo se llame de otra forma.
+          Primero se muestra el diff. Guardá antes lo que tengas a medias acá arriba: al aplicar, el formulario se recarga con
+          lo que quedó en la base.
+        </p>
+        {children}
+      </div>
+    );
+  }
+
+  return (
+    <section className="rounded-2xl border border-brand-200 bg-white p-6 shadow-sm">
+      <h2 className="text-xl font-bold text-slate-950">Importar contenido desde archivos .md</h2>
+      <p className="mt-1 text-sm text-slate-600">
+        Un archivo por tema, con el nombre del archivo como slug. <span className="font-mono">_hub.md</span> configura el hub.
+        Se lee, se muestra qué cambiaría y recién entonces se escribe. Lo nuevo entra como borrador. Si el archivo no se llama
+        como el módulo, elegí el destino acá abajo o usá la zona de subida del propio módulo.
+      </p>
+      {children}
     </section>
   );
 }

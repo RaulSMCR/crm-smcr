@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidarHub } from "@/lib/hub-revalidate";
 import { normalizeTopicSlug, validateTopicSlug } from "@/lib/topic";
+import { resolverOrden } from "@/lib/hub-order";
 
 const STATUSES = new Set(["DRAFT", "PUBLISHED", "ARCHIVED"]);
 const MODULE_TYPES = new Set(["TOPIC", "TREATMENT", "CUSTOM"]);
@@ -116,7 +117,12 @@ function moduleData(payload = {}) {
         fecha: clean(payload.fecha, 40),
         actualizado: clean(payload.actualizado, 40),
       },
-      position: integer(payload.position),
+      // `position` ya no se edita en este formulario: el orden se guarda completo
+      // y contiguo desde la pantalla de orden (`reorderProfessionalHubModules`).
+      // Acá solo se respeta lo que venga, y si no viene nada, no se escribe: sin
+      // este `undefined`, `integer(undefined)` daba 0 y cada «Guardar módulo»
+      // mandaba la pieza al primer lugar.
+      position: payload.position === undefined || payload.position === null || payload.position === "" ? undefined : integer(payload.position),
       isVisible: payload.isVisible !== false,
       isPublished: payload.isPublished === true,
       ...seoFields(payload),
@@ -205,6 +211,13 @@ export async function saveProfessionalHubModule(hubId, payload = {}) {
     }
     const existing = await prisma.professionalHubModule.findFirst({ where: { hubId: parentId, slug: parsed.data.slug, ...(id ? { NOT: { id } } : {}) }, select: { id: true } });
     if (existing) return { error: "Ya existe un módulo con ese slug en este hub." };
+    // Un módulo nuevo va al final y no al frente. Sin esto hereda el `DEFAULT 0`
+    // de la columna y aparece primero en la grilla del hub, que es justo lo que
+    // la pantalla de orden existe para decidir a propósito.
+    if (!id && parsed.data.position === undefined) {
+      const ultimo = await prisma.professionalHubModule.aggregate({ where: { hubId: parentId }, _max: { position: true } });
+      parsed.data.position = Number.isFinite(ultimo._max.position) ? ultimo._max.position + 1 : 0;
+    }
     const moduleRecord = id
       ? await prisma.professionalHubModule.update({ where: { id }, data: parsed.data, select: { id: true } })
       : await prisma.professionalHubModule.create({ data: { ...parsed.data, hubId: parentId }, select: { id: true } });
@@ -260,6 +273,51 @@ export async function publishProfessionalHubModules(hubId, slugs = []) {
   } catch (error) {
     console.error("publishProfessionalHubModules error:", error);
     return { error: "No se pudieron publicar los módulos." };
+  }
+}
+
+/**
+ * Guarda el orden de aparición y la tarjeta destacada de un hub.
+ *
+ * Renumera contiguo en vez de editar el número de un módulo: con números
+ * sueltos, dos módulos podían compartir `position` y el empate lo resolvía la
+ * base —el panel mostraba un orden y la página publicaba otro—. Las reglas y el
+ * cálculo están en `src/lib/hub-order.js`, que es puro y sí tiene tests.
+ *
+ * Una transacción con la lista de escrituras en orden: las destacadas que se
+ * apagan van antes de la que se enciende, porque el índice parcial admite una
+ * sola por hub y Postgres lo comprueba en cada sentencia.
+ */
+export async function reorderProfessionalHubModules(hubId, intencion = {}) {
+  await admin();
+  const parentId = String(hubId || "");
+  if (!parentId) return { error: "Hub inválido." };
+
+  try {
+    const hub = await prisma.professionalHub.findUnique({
+      where: { id: parentId },
+      select: {
+        slug: true,
+        modules: {
+          select: { id: true, slug: true, title: true, type: true, position: true, isFeatured: true },
+          orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+        },
+      },
+    });
+    if (!hub) return { error: "No se encontró el hub." };
+
+    const plan = resolverOrden(hub.modules, intencion);
+    if (plan.error) return plan;
+    if (!plan.escrituras.length) return { success: true, cambios: 0 };
+
+    await prisma.$transaction(
+      plan.escrituras.map(({ id, ...data }) => prisma.professionalHubModule.update({ where: { id }, data })),
+    );
+    revalidateHub(hub.slug);
+    return { success: true, cambios: plan.escrituras.length };
+  } catch (error) {
+    console.error("reorderProfessionalHubModules error:", error);
+    return { error: "No se pudo guardar el orden." };
   }
 }
 

@@ -39,7 +39,7 @@ Quincenas del **1 al 15** y del **16 a fin de mes**, hora de Costa Rica → liqu
 
 ### Lo que falta antes de firmar
 
-**Datos:** razón social, cédula jurídica y representante legal; datos del profesional y su colegiatura; número de anexo; fechas de vigencia y firma; tarifas de SINPE y SINPE Móvil. El plazo de pago de 5 días hábiles debe consignarse también en la cláusula 4.3 del contrato principal y completarse la cuenta IBAN del Anexo A.
+**Datos:** representante legal; datos del profesional y su colegiatura; número de anexo; fechas de vigencia y firma; tarifas de SINPE y SINPE Móvil. La razón social ya queda consignada como **SALUD MENTAL COSTA RICA CINCO CERO SEIS SOCIEDAD ANONIMA**, cédula jurídica **3-101-885661**. El plazo de pago de 5 días hábiles debe consignarse también en la cláusula 4.3 del contrato principal y completarse la cuenta IBAN del Anexo A.
 
 **Desarrollo en el CRM:** el canal de objeción por CRM con acuse; la ingesta del costo real de la pasarela —hoy toda cifra es estimación—; el registro del medio de pago y del cargo fijo absorbido; el desglose completo en la vista del profesional; y el tratamiento de reembolsos y contracargos, que no está implementado.
 
