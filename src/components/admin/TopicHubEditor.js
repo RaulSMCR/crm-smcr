@@ -21,6 +21,7 @@ import {
   updateTopicPerspective,
 } from "@/actions/topic-actions";
 import { topicSectionLabel } from "@/lib/topic";
+import { SEO_LIMITS, TITLE_FIELD_LIMITS, TITLE_SUFFIX, tituloEnBuscador } from "@/lib/seo";
 
 function useTopicAction() {
   const router = useRouter();
@@ -54,8 +55,62 @@ function Field({ label, name, defaultValue, type = "text", ...props }) {
   );
 }
 
+/**
+ * Vista previa de lo que el buscador va a mostrar.
+ *
+ * El editor de temas no tenía ninguna referencia de largo, y los otros
+ * editores la tenían mal: medían el campo contra 60 sin contar que el layout
+ * raíz le suma « | Salud Mental Costa Rica». Acá se muestra el resultado
+ * completo, que es sobre lo que se decide.
+ */
+function PreviaBuscador({ slug, metaTitle, metaDescription, fallbackTitle, fallbackDescription }) {
+  const titulo = tituloEnBuscador(metaTitle, fallbackTitle);
+  const descripcion = String(metaDescription || "").trim() || String(fallbackDescription || "").trim();
+  const largoCampo = String(metaTitle || "").trim().length;
+  const excedeTitulo = titulo.length > SEO_LIMITS.title.max;
+  const excedeDesc = descripcion.length > SEO_LIMITS.description.max;
+
+  const tono = (excede) => (excede ? "text-amber-700" : "text-slate-500");
+
+  return (
+    <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Así se vería en Google</p>
+      <p className="mt-2 truncate text-xs text-slate-600">saludmentalcostarica.com/{slug}</p>
+      <p className="truncate text-base font-medium text-blue-800">{titulo || "Sin título"}</p>
+      <p className="mt-1 line-clamp-2 text-sm text-slate-700">
+        {descripcion || "Sin descripción: Google va a inventar una con texto de la página."}
+      </p>
+
+      <dl className="mt-3 space-y-1 text-xs">
+        <div className={`flex flex-wrap gap-x-2 ${tono(excedeTitulo)}`}>
+          <dt className="font-semibold">Título:</dt>
+          <dd>
+            {largoCampo}/{TITLE_FIELD_LIMITS.max} en el campo · {titulo.length}/{SEO_LIMITS.title.max} con la marca
+            {excedeTitulo ? " — Google lo va a cortar" : ""}
+          </dd>
+        </div>
+        <div className={`flex flex-wrap gap-x-2 ${tono(excedeDesc)}`}>
+          <dt className="font-semibold">Descripción:</dt>
+          <dd>
+            {descripcion.length}/{SEO_LIMITS.description.max}
+            {excedeDesc ? " — se corta" : ""}
+          </dd>
+        </div>
+      </dl>
+      <p className="mt-2 text-xs text-slate-500">
+        El campo va <strong>sin la marca</strong>: el sitio agrega
+        <span className="font-mono"> {TITLE_SUFFIX.trim()}</span> solo.
+      </p>
+    </div>
+  );
+}
+
 function CoreForm({ topic }) {
   const { pending, message, run } = useTopicAction();
+  const [metaTitle, setMetaTitle] = useState(topic.metaTitle || "");
+  const [metaDescription, setMetaDescription] = useState(topic.metaDescription || "");
+  const [titulo, setTitulo] = useState(topic.title || "");
+  const [excerpt, setExcerpt] = useState(topic.excerpt || "");
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <h2 className="text-xl font-bold text-slate-950">Identidad y SEO</h2>
@@ -64,17 +119,18 @@ function CoreForm({ topic }) {
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Nombre interno" name="name" defaultValue={topic.name} required />
           <Field label="Slug raíz" name="slug" defaultValue={topic.slug} required pattern="[a-z0-9-]+" />
-          <Field label="Título visible (H1)" name="title" defaultValue={topic.title} required />
+          <label className="block text-sm text-slate-700"><span className="mb-1 block font-medium">Título visible (H1)</span><input name="title" value={titulo} onChange={(e) => setTitulo(e.target.value)} required className="w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
           <Field label="Subtítulo" name="subtitle" defaultValue={topic.subtitle} />
           <Field label="Imagen hero" name="heroImage" defaultValue={topic.heroImage} placeholder="URL o ruta pública" />
           <Field label="Texto alternativo de la imagen" name="heroImageAlt" defaultValue={topic.heroImageAlt} />
           <Field label="Video de introducción" name="introVideoUrl" defaultValue={topic.introVideoUrl} placeholder="https://..." />
           <Field label="Podcast / audio" name="podcastUrl" defaultValue={topic.podcastUrl} placeholder="https://..." />
-          <Field label="Título SEO" name="metaTitle" defaultValue={topic.metaTitle} required />
+          <label className="block text-sm text-slate-700"><span className="mb-1 block font-medium">Título SEO</span><input name="metaTitle" value={metaTitle} onChange={(e) => setMetaTitle(e.target.value)} required placeholder={`Sin la marca · ${TITLE_FIELD_LIMITS.min}-${TITLE_FIELD_LIMITS.max} caracteres`} className="w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
           <Field label="Orden del hub" name="order" type="number" min="0" defaultValue={topic.order} />
         </div>
-        <label className="block text-sm text-slate-700"><span className="mb-1 block font-medium">Extracto</span><textarea name="excerpt" rows={3} defaultValue={topic.excerpt || ""} className="w-full rounded-lg border border-slate-300 px-3 py-2" required /></label>
-        <label className="block text-sm text-slate-700"><span className="mb-1 block font-medium">Meta description</span><textarea name="metaDescription" rows={3} defaultValue={topic.metaDescription || ""} className="w-full rounded-lg border border-slate-300 px-3 py-2" required /></label>
+        <label className="block text-sm text-slate-700"><span className="mb-1 block font-medium">Extracto</span><textarea name="excerpt" rows={3} value={excerpt} onChange={(e) => setExcerpt(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2" required /></label>
+        <label className="block text-sm text-slate-700"><span className="mb-1 block font-medium">Meta description</span><textarea name="metaDescription" rows={3} value={metaDescription} onChange={(e) => setMetaDescription(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2" required /></label>
+        <PreviaBuscador slug={topic.slug} metaTitle={metaTitle} metaDescription={metaDescription} fallbackTitle={titulo || topic.name} fallbackDescription={excerpt} />
         <div className="flex flex-wrap items-center gap-4">
           <label className="flex items-center gap-2 text-sm text-slate-700"><input name="featured" type="checkbox" defaultChecked={topic.featured} /> Hub destacado</label>
           <label className="flex items-center gap-2 text-sm text-slate-700">Estado <select name="status" defaultValue={topic.status} className="rounded-lg border border-slate-300 px-3 py-2"><option value="DRAFT">Borrador</option><option value="ARCHIVED">Archivado</option><option value="PUBLISHED">Publicado</option></select></label>

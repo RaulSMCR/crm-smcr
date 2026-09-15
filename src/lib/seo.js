@@ -22,6 +22,42 @@ export const SEO_LIMITS = {
 const SITE_NAME = "Salud Mental Costa Rica";
 
 /**
+ * Lo que el layout raíz le agrega a cada título hijo.
+ *
+ * `src/app/layout.js` declara `title.template: "%s | Salud Mental Costa Rica"`,
+ * así que lo que se escribe en el campo «Título SEO» **no** es lo que sale en
+ * el buscador: salen 26 caracteres más. Los contadores del panel medían el
+ * campo contra 60 e ignoraban el sufijo, de modo que un título que el panel
+ * daba por bueno llegaba a Google con 80 y se cortaba.
+ *
+ * Vive acá y el layout lo importa, para que no se puedan separar.
+ */
+export const TITLE_SUFFIX = ` | ${SITE_NAME}`;
+
+/**
+ * Presupuesto real del campo: lo que cabe **antes** del sufijo.
+ *
+ * El mínimo no se deriva del de `SEO_LIMITS` —restarle 26 daría 4, que no
+ * orienta a nadie—: es el largo por debajo del cual un título no llega a decir
+ * de qué trata la página.
+ */
+export const TITLE_FIELD_LIMITS = {
+  min: 15,
+  max: SEO_LIMITS.title.max - TITLE_SUFFIX.length,
+};
+
+/**
+ * El título tal como va a verse en el buscador, con el sufijo del sitio.
+ *
+ * @param {string} metaTitle  lo escrito en el campo
+ * @param {string} [fallback] lo que se usaría si el campo va vacío
+ */
+export function tituloEnBuscador(metaTitle, fallback = "") {
+  const base = String(metaTitle || "").trim() || String(fallback || "").trim();
+  return base ? `${base}${TITLE_SUFFIX}` : "";
+}
+
+/**
  * Imagen social por defecto: se genera en `/og` con el título de la página.
  *
  * Antes esto era la constante `"/og-image.png"`, un archivo que no existía en

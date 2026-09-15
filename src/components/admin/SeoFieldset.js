@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { SEO_LIMITS } from "@/lib/seo";
+import { SEO_LIMITS, TITLE_FIELD_LIMITS, TITLE_SUFFIX, tituloEnBuscador } from "@/lib/seo";
 
 /**
  * Bloque colapsable de SEO editorial, reutilizable en cualquier editor.
@@ -54,6 +54,12 @@ export default function SeoFieldset({ initialValues = {}, fallbackTitle = "", fa
   const titleLen = values.metaTitle.trim().length;
   const descLen = values.metaDescription.trim().length;
 
+  // El contador medía el campo contra 60 e ignoraba que el layout raíz le suma
+  // « | Salud Mental Costa Rica». Un título que acá salía en verde llegaba al
+  // buscador con 26 caracteres de más y se cortaba. Se mide contra lo que cabe
+  // antes del sufijo, y además se muestra el resultado completo.
+  const tituloFinal = tituloEnBuscador(values.metaTitle, fallbackTitle);
+
   return (
     <details className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <summary className="cursor-pointer select-none text-sm font-bold text-slate-900">
@@ -73,8 +79,8 @@ export default function SeoFieldset({ initialValues = {}, fallbackTitle = "", fa
         <div>
           <div className="mb-1 flex items-center justify-between">
             <label className="text-sm font-semibold text-slate-700">Título SEO</label>
-            <span className={`text-xs ${counterClass(titleLen, SEO_LIMITS.title)}`}>
-              {titleLen}/{SEO_LIMITS.title.max}
+            <span className={`text-xs ${counterClass(titleLen, TITLE_FIELD_LIMITS)}`}>
+              {titleLen}/{TITLE_FIELD_LIMITS.max}
             </span>
           </div>
           <input
@@ -82,8 +88,18 @@ export default function SeoFieldset({ initialValues = {}, fallbackTitle = "", fa
             value={values.metaTitle}
             onChange={(e) => set("metaTitle", e.target.value)}
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            placeholder={fallbackTitle || `Recomendado ${SEO_LIMITS.title.min}-${SEO_LIMITS.title.max} caracteres`}
+            placeholder={fallbackTitle || `Recomendado ${TITLE_FIELD_LIMITS.min}-${TITLE_FIELD_LIMITS.max} caracteres`}
           />
+          <p className="mt-1 text-xs text-slate-500">
+            El sitio le agrega <span className="font-mono">{TITLE_SUFFIX}</span> al final, así que el
+            campo va sin la marca.
+          </p>
+          {tituloFinal ? (
+            <p className={`mt-1 text-xs ${tituloFinal.length > SEO_LIMITS.title.max ? "text-amber-700" : "text-slate-500"}`}>
+              En el buscador: «{tituloFinal}» ({tituloFinal.length} car.
+              {tituloFinal.length > SEO_LIMITS.title.max ? " — Google lo va a cortar" : ""})
+            </p>
+          ) : null}
         </div>
 
         <div>

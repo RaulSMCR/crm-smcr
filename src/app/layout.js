@@ -13,7 +13,7 @@ import { SITE_URL, siteUrl } from '@/lib/site-url';
 import { grafo, nodoOrganizacion, nodoSitio } from '@/lib/jsonld';
 import { prisma } from '@/lib/prisma';
 import { unstable_cache } from 'next/cache';
-import { defaultOgImage } from '@/lib/seo';
+import { TITLE_SUFFIX, defaultOgImage } from '@/lib/seo';
 
 // Tipografía display (Art Nouveau contenido). Solo para titulares: el cuerpo
 // sigue en la sans del sistema. El fallback es serif a propósito, para que si
@@ -69,7 +69,9 @@ export const metadata = {
   metadataBase: new URL(BASE_URL),
   title: {
     default: 'Psicoterapia y salud mental en Costa Rica | En línea y presencial',
-    template: '%s | Salud Mental Costa Rica',
+    // El sufijo sale de `TITLE_SUFFIX` para que los contadores del panel midan
+    // contra lo que de verdad se publica, y no contra el campo pelado.
+    template: `%s${TITLE_SUFFIX}`,
   },
   description:
     'Plataforma interdisciplinaria de bienestar y salud mental en Costa Rica. Psicología, nutrición, deporte y más. Consultas virtuales y presenciales con profesionales verificados.',
