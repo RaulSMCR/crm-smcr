@@ -1,6 +1,5 @@
 // src/app/layout.js
 import './globals.css';
-import Script from 'next/script';
 import { Cormorant_Garamond } from 'next/font/google';
 import Header from '@/components/PublicHeader';
 import Footer from '@/components/Footer';
@@ -132,29 +131,30 @@ export default async function RootLayout({ children }) {
       {/* Google Consent Mode v2: por defecto TODO denegado, antes de cargar
           cualquier script de analítica. GA/Pixel se cargan solo tras aceptar
           (ver AnalyticsLoader) y respetan este estado. */}
-      {process.env.NODE_ENV === 'production' && (
-        <>
-          <Script
-            async
-            src={`https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ADS_ID}`}
-            strategy="beforeInteractive"
-          />
-          <Script id="consent-default" strategy="beforeInteractive">
-            {`
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('consent', 'default', {
-                analytics_storage: 'denied',
-                ad_storage: 'denied',
-                ad_user_data: 'denied',
-                ad_personalization: 'denied'
-              });
-              gtag('js', new Date());
-              gtag('config', '${GOOGLE_ADS_ID}');
-            `}
-          </Script>
-        </>
-      )}
+      <head>
+        {process.env.NODE_ENV === 'production' && (
+          <>
+            <script async src={`https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ADS_ID}`} />
+            <script
+              id="google-ads-consent-default"
+              dangerouslySetInnerHTML={{
+                __html: `
+                  window.dataLayer = window.dataLayer || [];
+                  function gtag(){dataLayer.push(arguments);}
+                  gtag('consent', 'default', {
+                    analytics_storage: 'denied',
+                    ad_storage: 'denied',
+                    ad_user_data: 'denied',
+                    ad_personalization: 'denied'
+                  });
+                  gtag('js', new Date());
+                  gtag('config', '${GOOGLE_ADS_ID}');
+                `,
+              }}
+            />
+          </>
+        )}
+      </head>
       {/* 1. flex flex-col: Permite organizar header-main-footer verticalmente.
          2. min-h-screen: Asegura que el cuerpo ocupe al menos toda la altura de la ventana.
       */}
