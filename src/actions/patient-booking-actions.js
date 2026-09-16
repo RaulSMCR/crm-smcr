@@ -254,6 +254,7 @@ export async function createAppointmentForPatient({
       success: true,
       appointmentId: hydratedAppointments[0]?.id || null,
       createdCount: hydratedAppointments.length,
+      reportGoogleAdsConversion: false,
       // Lo que el paciente aceptó, para confirmárselo en pantalla. El adelanto
       // se informa aparte porque cambia lo que tiene que hacer a continuación:
       // esperar el correo con el enlace de pago.

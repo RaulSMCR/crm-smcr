@@ -14,7 +14,7 @@ import Toast from "@/components/ui/Toast";
 import BookingConfirmationToast from "@/components/booking/BookingConfirmationToast";
 import CuentaParaAgendar from "@/components/booking/CuentaParaAgendar";
 import RecordatorioSegundaCita from "@/components/booking/RecordatorioSegundaCita";
-import { trackEvent } from "@/lib/analytics";
+import { trackAppointmentBookingConversion, trackEvent } from "@/lib/analytics";
 import { trackSchedule } from "@/lib/meta-pixel";
 import { modalityLabel } from "@/lib/rates";
 
@@ -267,6 +267,7 @@ export default function BookingInterface({
 
     if (result.success) {
       trackEvent('schedule_appointment', { service: serviceTitle, professional: professionalName, topic_slug: getTopicAttribution() || undefined });
+      if (result.reportGoogleAdsConversion) trackAppointmentBookingConversion();
       trackSchedule();
       setConflict(null);
 

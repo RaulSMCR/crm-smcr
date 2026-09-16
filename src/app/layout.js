@@ -54,7 +54,7 @@ const disciplinasDelEquipo = unstable_cache(
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID;
-const GOOGLE_ADS_ID = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID;
+const GOOGLE_ADS_ID = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID || 'AW-18327930588';
 
 const BASE_URL = SITE_URL;
 
@@ -134,6 +134,11 @@ export default async function RootLayout({ children }) {
           (ver AnalyticsLoader) y respetan este estado. */}
       {process.env.NODE_ENV === 'production' && (
         <>
+          <Script
+            async
+            src={`https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ADS_ID}`}
+            strategy="beforeInteractive"
+          />
           <Script id="consent-default" strategy="beforeInteractive">
             {`
               window.dataLayer = window.dataLayer || [];
@@ -145,6 +150,7 @@ export default async function RootLayout({ children }) {
                 ad_personalization: 'denied'
               });
               gtag('js', new Date());
+              gtag('config', '${GOOGLE_ADS_ID}');
             `}
           </Script>
         </>
@@ -162,7 +168,7 @@ export default async function RootLayout({ children }) {
         <ToastProvider>
         <MarketingAttributionCapture />
         {process.env.NODE_ENV === 'production' && (
-          <AnalyticsLoader gaId={GA_ID} metaPixelId={META_PIXEL_ID} googleAdsId={GOOGLE_ADS_ID} />
+          <AnalyticsLoader gaId={GA_ID} metaPixelId={META_PIXEL_ID} />
         )}
         <JsonLd data={grafoSitio} />
         <Header />

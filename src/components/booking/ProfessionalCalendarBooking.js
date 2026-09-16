@@ -26,6 +26,7 @@ import RecordatorioSegundaCita from "@/components/booking/RecordatorioSegundaCit
 import { SafeAvatar } from "@/components/SafeImage";
 import { modalityLabel } from "@/lib/rates";
 import { formatCRC as formatCRCBase } from "@/lib/service-pricing";
+import { trackAppointmentBookingConversion } from "@/lib/analytics";
 
 // Formato compartido; este componente muestra "—" cuando no hay monto.
 const formatCRC = (value) => formatCRCBase(value, { vacio: "—" });
@@ -139,6 +140,7 @@ export default function ProfessionalCalendarBooking({
         });
   
         if (res?.success) {
+          if (res.reportGoogleAdsConversion) trackAppointmentBookingConversion();
           // Se muestra la confirmación un instante antes de navegar, para que el
           // paciente vea el detalle de lo que aceptó.
           setConfirmation(

@@ -271,6 +271,13 @@ export async function requestAppointment(
       },
     });
     const isFirstWithProfessional = previousCount === 0;
+    const previousPlatformCount = await prisma.appointment.count({
+      where: {
+        patientId: session.sub,
+        status: { notIn: CANCELLED_STATUSES },
+      },
+    });
+    const isFirstAppointmentInPlatform = previousPlatformCount === 0;
 
     // Ya no se exige un enlace ONVO preconfigurado: el enlace se crea por cita,
     // con el monto congelado, en el momento de cobrar.
@@ -345,6 +352,7 @@ export async function requestAppointment(
       success: true,
       appointmentId: hydratedAppointments[0]?.id || null,
       createdCount: hydratedAppointments.length,
+      reportGoogleAdsConversion: Boolean(isFirstAppointmentInPlatform && gaGclid),
       requiresDeposit: Boolean(firstAppointment && pricePaid),
       depositAmount,
       // Lo que el paciente acaba de aceptar, para confirmárselo en pantalla.
