@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { parseGaClientId, makeSyntheticClientId } from "../../src/lib/analytics/client-identifiers.js";
 import { deterministicClientId } from "../../src/lib/analytics/reportDepositConversion.js";
 import { sendServerConversionEvent } from "../../src/lib/analytics/sendServerConversionEvent.js";
+import { trackAppointmentBookingConversion } from "../../src/lib/analytics.js";
 
 describe("parseGaClientId", () => {
   it("extrae el client_id del cookie _ga", () => {
@@ -118,5 +119,34 @@ describe("sendServerConversionEvent", () => {
 
     const ok = await sendServerConversionEvent({ clientId: "1.2", transactionId: "t3", value: 100 });
     expect(ok).toBe(false);
+  });
+});
+
+describe("trackAppointmentBookingConversion", () => {
+  afterEach(() => {
+    delete globalThis.window;
+    delete globalThis.document;
+  });
+
+  it("envía el evento de Google Ads con el identificador correcto", () => {
+    const gtag = vi.fn();
+    globalThis.window = { gtag, localStorage: { getItem: () => null } };
+    globalThis.document = { cookie: "consent=granted" };
+
+    trackAppointmentBookingConversion();
+
+    expect(gtag).toHaveBeenCalledWith("event", "conversion", {
+      send_to: "AW-18327930588/mQ5SCMOkwtEcENyNuKNE",
+    });
+  });
+
+  it("no envía la conversión sin consentimiento", () => {
+    const gtag = vi.fn();
+    globalThis.window = { gtag, localStorage: { getItem: () => null } };
+    globalThis.document = { cookie: "consent=denied" };
+
+    trackAppointmentBookingConversion();
+
+    expect(gtag).not.toHaveBeenCalled();
   });
 });
