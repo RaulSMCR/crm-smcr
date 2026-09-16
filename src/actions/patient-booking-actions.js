@@ -12,6 +12,7 @@ import {
   RECURRENCE_RULES,
 } from "@/lib/appointment-recurrence";
 import { APPOINTMENT_OVERLAP_MESSAGE, isAppointmentOverlapError } from "@/lib/appointment-errors";
+import { motivoDeAnticipacion } from "@/lib/anticipacion-de-reserva";
 import {
   buildOccurrenceEnds,
   CANCELLED_APPOINTMENT_STATUSES as CANCELLED_STATUSES,
@@ -102,6 +103,11 @@ export async function createAppointmentForPatient({
     if (start < new Date()) {
       return { success: false, error: "El horario seleccionado ya pasó." };
     }
+
+    // El paciente agendando por su cuenta desde su panel: mismas horas de
+    // anticipación que en la agenda pública. Ver `lib/anticipacion-de-reserva.js`.
+    const demasiadoPronto = motivoDeAnticipacion(start);
+    if (demasiadoPronto) return { success: false, error: demasiadoPronto };
 
     // La pausa no es solo sobre mover una cita: mientras esté puesta el paciente
     // tampoco puede agendar una nueva. Si no, bastaría con cancelar y volver a
@@ -448,6 +454,12 @@ export async function rescheduleAppointmentByPatient(
   if (Number.isNaN(newStart.getTime()) || newStart <= new Date()) {
     return { error: "Horario inválido." };
   }
+
+  // Mover una cita es volver a elegir horario, así que rige la misma
+  // anticipación: si no, alcanzaría con reprogramar para meter una consulta
+  // mañana a las siete.
+  const demasiadoPronto = motivoDeAnticipacion(newStart);
+  if (demasiadoPronto) return { error: demasiadoPronto };
 
   const durationMin = appointment.service?.durationMin ?? 60;
   const starts = buildRecurringStarts(newStart, rule, count);

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { parse } from "date-fns";
 import { fromZonedTime } from "date-fns-tz";
 import { buildSlotDaysCR, crAddDays, crDay } from "@/lib/appointment-slots";
+import { motivoDeAnticipacion, primerInstanteReservable } from "@/lib/anticipacion-de-reserva";
 import { cargarAgendaReservable } from "@/lib/booking-availability";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
@@ -142,6 +143,9 @@ export async function getAvailableDays(professionalId, serviceId, { startDay, da
       booked,
       daysAhead: dias,
       startDay: desde,
+      // Acá reserva el paciente por su cuenta: hoy y las primeras horas de
+      // mañana no se ofrecen. Ver `lib/anticipacion-de-reserva.js`.
+      noAntesDe: primerInstanteReservable(),
     });
 
     return { success: true, days, warnings, nextStartDay: hasta };
@@ -235,6 +239,13 @@ export async function requestAppointment(
     if (starts.some((start) => start <= new Date())) {
       return { error: "Uno de los horarios de la serie ya pasó." };
     }
+
+    // Que el cupo no se ofrezca en pantalla no alcanza: esta acción se puede
+    // llamar con cualquier fecha. La regla se aplica sobre la primera cita de
+    // la serie, que es la que puede caer encima; las repeticiones van semanas
+    // después y arrastrarían un mensaje que no se entiende.
+    const demasiadoPronto = motivoDeAnticipacion(starts[0]);
+    if (demasiadoPronto) return { error: demasiadoPronto };
 
     const conflictError = describeRecurringConflict(
       await findRecurringConflict({ professionalId, starts, ends })

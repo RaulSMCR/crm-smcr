@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useToast } from "@/components/ui/ToastProvider";
 import { useRouter } from "next/navigation";
 import { reorderProfessionalHubModules } from "@/actions/professional-hub-actions";
+import { useParteGuardable } from "@/components/admin/GuardadoDeFormularios";
+import { textoDeValor } from "@/lib/cambios-de-formulario";
 import { motivoFueraDeGrilla } from "@/lib/hub-order";
 
 /**
@@ -45,6 +47,38 @@ export default function HubModuleOrder({ hubId, hubSlug, modulos = [] }) {
     lista.map((modulo) => modulo.id).join("|") !== modulos.map((modulo) => modulo.id).join("|") ||
     destacada !== (modulos.find((modulo) => modulo.isFeatured)?.id || "");
 
+  // Lo mismo que muestra el botón de acá, dicho en las palabras de la barra del
+  // final: un reordenamiento a medio hacer también es un cambio sin guardar, y
+  // «guardar todos los cambios» mentiría si lo dejara afuera.
+  const lineasPendientes = useMemo(() => {
+    if (!sucio) return [];
+    const lineas = [];
+    const titulos = (piezas) => piezas.map((modulo) => modulo.title).join(" → ");
+    const antesDelOrden = titulos(modulos);
+    const despuesDelOrden = titulos(lista);
+    if (antesDelOrden !== despuesDelOrden) {
+      lineas.push({ campo: "orden", etiqueta: "Orden de las piezas", antes: textoDeValor(antesDelOrden), despues: textoDeValor(despuesDelOrden) });
+    }
+    const destacadaAntes = modulos.find((modulo) => modulo.isFeatured);
+    if (destacada !== (destacadaAntes?.id || "")) {
+      lineas.push({
+        campo: "destacada",
+        etiqueta: "Pieza destacada",
+        antes: destacadaAntes?.title || "(ninguna)",
+        despues: lista.find((modulo) => modulo.id === destacada)?.title || "(ninguna)",
+      });
+    }
+    return lineas;
+  }, [sucio, lista, modulos, destacada]);
+
+  useParteGuardable({
+    id: `orden:${hubId}`,
+    nombre: "Orden de aparición",
+    lineas: lineasPendientes,
+    guardar: () => escribirOrden(),
+    sincronizar: () => setAviso(null),
+  });
+
   function mover(indice, salto) {
     const destino = indice + salto;
     if (destino < 0 || destino >= lista.length) return;
@@ -60,16 +94,25 @@ export default function HubModuleOrder({ hubId, hubSlug, modulos = [] }) {
     setAviso(null);
   }
 
+  // La escritura pelada, sin avisos ni refresco: la usan el botón de acá —que
+  // además cuenta lo que pasó— y «guardar todos los cambios» del final de la
+  // página, que informa por su cuenta y refresca una sola vez al terminar.
+  async function escribirOrden() {
+    const salida = await reorderProfessionalHubModules(hubId, {
+      orden: lista.map((modulo) => modulo.id),
+      destacada: destacada || null,
+    });
+    return salida?.error ? { error: salida.error } : { cambios: salida?.cambios || 0 };
+  }
+
   function aplicar() {
     setAviso(null);
     guardar(async () => {
      try {
-      const salida = await reorderProfessionalHubModules(hubId, {
-        orden: lista.map((modulo) => modulo.id),
-        destacada: destacada || null,
-      });
+      const salida = await escribirOrden();
       if (salida?.error) {
         setAviso({ tipo: "error", texto: salida.error });
+        avisar(salida.error, "error");
         return;
       }
       const texto = salida.cambios

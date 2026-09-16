@@ -52,7 +52,7 @@ const fadeUp = {
 };
 
 // ─── Sub-componente: formulario dentro del panel ──────────────────────────────
-function PanelForm({ panelKey, onBack, registered }) {
+function PanelForm({ panelKey, onBack, registered, intencion }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError]     = useState("");
@@ -137,6 +137,21 @@ function PanelForm({ panelKey, onBack, registered }) {
 
       {/* Avisos */}
       <AnimatePresence>
+        {intencion && !isGenericRegistered && (
+          // Quien llega desde una agenda no vino a ingresar: vino a agendar, y
+          // el ingreso es un peaje. Que se vea que la cita sigue del otro lado.
+          <motion.div key="intencion" {...fadeUp} transition={{ duration: 0.3 }}
+            className="mb-5 rounded-xl border border-brand-400/30 bg-brand-950/60 p-4 text-sm text-brand-100 backdrop-blur-sm"
+          >
+            <p className="font-bold">Entrá y confirmás tu cita</p>
+            {intencion.horario && <p className="mt-1 text-brand-200">{intencion.horario}</p>}
+            {(intencion.profesional || intencion.servicio) && (
+              <p className="text-xs text-brand-200">
+                {[intencion.profesional, intencion.servicio].filter(Boolean).join(" · ")}
+              </p>
+            )}
+          </motion.div>
+        )}
         {isProfessionalRegistered && (
           <motion.div {...fadeUp} transition={{ duration: 0.3 }}
             className="mb-5 rounded-xl border border-brand-400/30 bg-brand-950/60 p-4 text-sm text-brand-100 backdrop-blur-sm"
@@ -160,6 +175,15 @@ function PanelForm({ panelKey, onBack, registered }) {
             className="mb-5 rounded-xl border border-brand-400/30 bg-brand-950/60 p-4 text-sm text-brand-100 backdrop-blur-sm"
           >
             Cuenta creada con éxito. Revisá tu correo para verificarla.
+            {intencion ? (
+              // Sin esta línea, quien venía a agendar lee «verificá tu correo» y
+              // no sabe si la cita quedó hecha, perdida, o esperándolo.
+              <p className="mt-2 text-brand-100">
+                Cuando la confirmes, entrá acá mismo y te devolvemos a tu horario
+                {intencion.horario ? <> de <strong className="font-semibold">{intencion.horario}</strong></> : null}
+                {intencion.profesional ? ` con ${intencion.profesional}` : ""}.
+              </p>
+            ) : null}
             <p className="mt-2 text-xs text-brand-200">
               Si necesitás ayuda, escribinos por{" "}
               <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="font-semibold underline hover:text-white">
@@ -252,10 +276,13 @@ function PanelForm({ panelKey, onBack, registered }) {
 }
 
 // ─── Componente principal ─────────────────────────────────────────────────────
-export default function LoginClient() {
+export default function LoginClient({ intencion = null }) {
   const searchParams = useSearchParams();
-  const [phase, setPhase]           = useState("choose"); // 'choose' | 'form'
-  const [activeSide, setActiveSide] = useState(null);
+  // Quien viene de una agenda ya dijo quién es: es paciente, y viene a terminar
+  // una reserva. Hacerlo elegir de nuevo entre «busco mi bienestar» y «soy
+  // profesional» es un paso de más en un camino que ya lleva varios.
+  const [phase, setPhase]           = useState(intencion ? "form" : "choose"); // 'choose' | 'form'
+  const [activeSide, setActiveSide] = useState(intencion ? "patient" : null);
   const [hovered, setHovered]       = useState(null);
 
   const registered  = searchParams.get("registered");
@@ -405,7 +432,7 @@ export default function LoginClient() {
                   className="absolute inset-0 overflow-y-auto overscroll-contain"
                 >
                   <div className="flex min-h-full items-center justify-center px-6 py-10 md:px-12">
-                    <PanelForm panelKey={panelKey} onBack={handleBack} registered={registered} />
+                    <PanelForm panelKey={panelKey} onBack={handleBack} registered={registered} intencion={panelKey === "patient" ? intencion : null} />
                   </div>
                 </motion.div>
               )}

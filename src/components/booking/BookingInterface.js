@@ -6,11 +6,13 @@ import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { getAvailableDays, getSlotOptions, requestAppointment } from "@/actions/booking-actions";
-import { CR_TZ, findWarningForRange, formatDayTab } from "@/lib/appointment-slots";
+import { CR_TZ, findWarningForRange, formatDayTab, instanteDeHoraCR } from "@/lib/appointment-slots";
 import { RECURRENCE_RULES } from "@/lib/appointment-recurrence";
+import { textoDeAnticipacion } from "@/lib/anticipacion-de-reserva";
 import RecurrenceFields from "@/components/appointments/RecurrenceFields";
 import Toast from "@/components/ui/Toast";
 import BookingConfirmationToast from "@/components/booking/BookingConfirmationToast";
+import CuentaParaAgendar from "@/components/booking/CuentaParaAgendar";
 import RecordatorioSegundaCita from "@/components/booking/RecordatorioSegundaCita";
 import { trackEvent } from "@/lib/analytics";
 import { trackSchedule } from "@/lib/meta-pixel";
@@ -23,12 +25,21 @@ import { getTopicAttribution } from "@/lib/topic-attribution-client";
 // Formato compartido; este componente muestra "—" cuando no hay monto.
 const formatCRC = (value) => formatCRCBase(value, { vacio: "—" });
 
-/** El instante de una fecha y hora de pared ticas. Costa Rica no tiene horario de verano. */
-function instanteCR(date, time = "12:00") {
-  return new Date(`${date}T${time}:00-06:00`);
-}
-
-export default function BookingInterface({ professionalId, servicePrice, serviceTitle, serviceId, durationMin = 60, professionalName }) {
+export default function BookingInterface({
+  professionalId,
+  servicePrice,
+  serviceTitle,
+  serviceId,
+  durationMin = 60,
+  professionalName,
+  // Quién mira. Sin esto, la pantalla trataba igual a un paciente con sesión y a
+  // un visitante, y el segundo solo se enteraba de que necesitaba cuenta cuando
+  // el servidor le rechazaba la reserva.
+  autenticado = true,
+  // El horario que traía puesto quien vuelve de crear su usuario.
+  fechaInicial = null,
+  horaInicial = null,
+}) {
   const router = useRouter();
   const hasValidPrice = Number.isFinite(Number(servicePrice)) && Number(servicePrice) > 0;
 
@@ -58,6 +69,12 @@ export default function BookingInterface({ professionalId, servicePrice, service
   // antes de navegar: es la unica constancia en pantalla de las condiciones que
   // acepto (fecha, lugar, costo y, en la primera cita, el adelanto del 50%).
   const [confirmation, setConfirmation] = useState(null);
+  // Se pidió reservar sin sesión: en vez de saltar a una pantalla de ingreso sin
+  // explicación, se pregunta acá mismo, con el horario ya elegido a la vista.
+  const [pideCuenta, setPideCuenta] = useState(false);
+  // El horario con el que alguien volvió de crear su usuario y que, entre medio,
+  // otra persona tomó. Callarlo sería dejarlo confirmar otra cosa sin avisar.
+  const [horarioPerdido, setHorarioPerdido] = useState(false);
 
   useEffect(() => {
     let cancelado = false;
@@ -67,6 +84,7 @@ export default function BookingInterface({ professionalId, servicePrice, service
       setLoadError(false);
       setMoreWasEmpty(false);
       setSelectedSlot(null);
+      setHorarioPerdido(false);
 
       try {
         const result = await getAvailableDays(professionalId, serviceId);
@@ -76,7 +94,16 @@ export default function BookingInterface({ professionalId, servicePrice, service
           setDays(result.days);
           setWarnings(result.warnings || []);
           setNextStartDay(result.nextStartDay || null);
-          setSelectedDate(result.days[0]?.date || "");
+
+          // Quien vuelve de crear su usuario trae puesto el horario que había
+          // elegido. Se vuelve a elegir solo si sigue libre: entre el registro y
+          // la vuelta pudo tomarlo otra persona, y darlo por elegido sería
+          // dejarlo confirmar una cita que ya no existe.
+          const pedido = result.days.find((day) => day.date === fechaInicial);
+          const sigueLibre = Boolean(horaInicial) && Boolean(pedido?.slots?.includes(horaInicial));
+          setSelectedDate(sigueLibre ? fechaInicial : result.days[0]?.date || "");
+          if (sigueLibre) setSelectedSlot(horaInicial);
+          else if (fechaInicial && horaInicial) setHorarioPerdido(true);
         } else {
           setDays([]);
           setLoadError(true);
@@ -96,7 +123,7 @@ export default function BookingInterface({ professionalId, servicePrice, service
     return () => {
       cancelado = true;
     };
-  }, [professionalId, serviceId]);
+  }, [professionalId, serviceId, fechaInicial, horaInicial]);
 
   async function loadMoreDays() {
     if (!nextStartDay || loadingMore) return;
@@ -159,8 +186,8 @@ export default function BookingInterface({ professionalId, servicePrice, service
     selectedDate && selectedSlot
       ? findWarningForRange(
           warnings,
-          instanteCR(selectedDate, selectedSlot).toISOString(),
-          new Date(instanteCR(selectedDate, selectedSlot).getTime() + durationMin * 60000).toISOString()
+          instanteDeHoraCR(selectedDate, selectedSlot).toISOString(),
+          new Date(instanteDeHoraCR(selectedDate, selectedSlot).getTime() + durationMin * 60000).toISOString()
         )
       : null;
 
@@ -205,6 +232,16 @@ export default function BookingInterface({ professionalId, servicePrice, service
   const faltaConfirmarReglas = esSegundaCita && !entiendeReglas;
 
   async function submitBooking(timeOverride) {
+    // Sin sesión no se molesta al servidor: la respuesta ya se sabe, y lo que
+    // hay que resolver no es la reserva sino la cuenta. Se pregunta acá, con el
+    // horario recién elegido en la mano, que es cuando la intención está hecha.
+    if (!autenticado) {
+      if (timeOverride) setSelectedSlot(timeOverride);
+      setConflict(null);
+      setPideCuenta(true);
+      return;
+    }
+
     setIsBooking(true);
 
     let result;
@@ -249,8 +286,10 @@ export default function BookingInterface({ professionalId, servicePrice, service
 
       router.push(destino);
     } else if (result.errorCode === "UNAUTHENTICATED") {
-      const nextPath = `/agendar/${professionalId}${serviceId ? `?serviceId=${encodeURIComponent(serviceId)}` : ""}`;
-      router.push(`/ingresar?next=${encodeURIComponent(nextPath)}`);
+      // La sesión venció entre que se abrió la página y se confirmó. Misma
+      // pregunta que para un visitante, con el horario elegido puesto: saltar a
+      // la pantalla de ingreso sin decir nada era perderlo todo de golpe.
+      setPideCuenta(true);
     } else if (result.errorCode === "ACUERDO_PENDIENTE") {
       // Tiene un repaso pendiente: se lo lleva al acuerdo en vez de dejarlo
       // frente a un error que no explica nada.
@@ -370,11 +409,29 @@ export default function BookingInterface({ professionalId, servicePrice, service
         )}
 
         <div className="space-y-6 p-6">
-          <p className="rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-900">
-            Para solicitar esta cita necesitás una cuenta. Al confirmar el horario podrás iniciar sesión o registrarte para continuar.
-          </p>
+          {!autenticado && (
+            <CuentaParaAgendar
+              professionalId={professionalId}
+              serviceId={serviceId}
+              professionalName={professionalName}
+              serviceTitle={serviceTitle}
+              variante="entrada"
+            />
+          )}
+
+          {horarioPerdido && (
+            <p className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <strong className="font-semibold">El horario que habías elegido ya no está libre.</strong>{" "}
+              Alguien lo tomó mientras creabas tu cuenta. Elegí otro acá abajo: ya tenés todo lo
+              demás listo.
+            </p>
+          )}
+
           <div>
-            <p className="mb-2 block text-sm font-medium text-brand-900">1. Elegí el día</p>
+            <p className="mb-1 block text-sm font-medium text-brand-900">1. Elegí el día</p>
+            {/* Dicho antes de que estorbe: quien busca «hoy» y no lo encuentra
+                merece saber que no es un error de la agenda. */}
+            <p className="mb-2 text-xs text-neutral-600">{textoDeAnticipacion()}</p>
 
             {loading ? (
               <div className="flex flex-col items-center py-8 text-center text-neutral-700">
@@ -425,7 +482,7 @@ export default function BookingInterface({ professionalId, servicePrice, service
                             : "border-neutral-300 bg-white text-neutral-950 hover:border-brand-400 hover:bg-brand-50"
                         }`}
                       >
-                        {formatDayTab(instanteCR(day.date), CR_TZ)}
+                        {formatDayTab(instanteDeHoraCR(day.date), CR_TZ)}
                       </button>
                     );
                   })}
@@ -565,6 +622,21 @@ export default function BookingInterface({ professionalId, servicePrice, service
           )}
 
           <div className="border-t border-neutral-200 pt-4">
+            {pideCuenta && (
+              <div className="mb-4">
+                <CuentaParaAgendar
+                  professionalId={professionalId}
+                  serviceId={serviceId}
+                  professionalName={professionalName}
+                  serviceTitle={serviceTitle}
+                  fecha={selectedDate}
+                  hora={selectedSlot}
+                  variante="confirmar"
+                  onElegirOtro={() => setPideCuenta(false)}
+                />
+              </div>
+            )}
+
             <button
               disabled={!selectedSlot || isBooking || !!conflict || hayQueElegir || faltaConfirmarReglas}
               onClick={() => selectedSlot && submitBooking(null)}
@@ -576,7 +648,10 @@ export default function BookingInterface({ professionalId, servicePrice, service
                   Procesando...
                 </>
               ) : selectedSlot ? (
-                `Solicitar reserva (${selectedSlot})`
+                // Para quien no tiene sesión el botón no reserva nada: abre la
+                // pregunta por la cuenta. Decir «solicitar reserva» y que no se
+                // solicite ninguna es la clase de promesa que hace desconfiar.
+                autenticado ? `Solicitar reserva (${selectedSlot})` : `Quiero esta cita (${selectedSlot})`
               ) : (
                 "Elegí un horario"
               )}

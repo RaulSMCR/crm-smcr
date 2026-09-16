@@ -85,7 +85,20 @@ function instanteCR(ymd, minutosDesdeMedianoche) {
  * `startDay` ('YYYY-MM-DD' tico) corre el comienzo de la ventana. Sin él se
  * arranca hoy; con él se puede pedir una fecha puntual o la tanda siguiente.
  */
-export function buildSlots({ availability = [], durationMin = 60, booked = [], daysAhead = 14, now = new Date(), startDay }) {
+export function buildSlots({
+  availability = [],
+  durationMin = 60,
+  booked = [],
+  daysAhead = 14,
+  now = new Date(),
+  startDay,
+  // Piso de anticipación: nada que empiece antes de este instante se ofrece.
+  // Lo pasan las pantallas donde reserva el paciente (ver
+  // `lib/anticipacion-de-reserva.js`); las del profesional no, porque ahí hay
+  // alguien despierto decidiendo. Sin él, la única condición es que el cupo no
+  // haya pasado, que es como funcionaba antes.
+  noAntesDe = null,
+}) {
   const bookedIntervals = booked.map((item) => ({
     start: new Date(item.startISO).getTime(),
     end: new Date(item.endISO).getTime(),
@@ -101,6 +114,9 @@ export function buildSlots({ availability = [], durationMin = 60, booked = [], d
   const days = [];
   const primerDia = startDay || diaCR(now);
   const ahora = now.getTime();
+  // El cupo que empieza justo en el piso sí se ofrece: «desde las 9:00» incluye
+  // las 9:00, y «12 horas de aviso» incluye las 12 horas justas.
+  const piso = noAntesDe ? new Date(noAntesDe).getTime() : null;
 
   for (let offset = 0; offset < daysAhead; offset += 1) {
     const ymd = sumarDias(primerDia, offset);
@@ -117,6 +133,7 @@ export function buildSlots({ availability = [], durationMin = 60, booked = [], d
 
         const startMs = start.getTime();
         if (startMs <= ahora) continue;
+        if (piso !== null && startMs < piso) continue;
 
         const isTaken = bookedIntervals.some((interval) =>
           overlaps(startMs, end.getTime(), interval.start, interval.end)
@@ -153,6 +170,19 @@ function horaCR(date) {
   const horas = String(Math.floor(minutes / 60)).padStart(2, "0");
   const minutos = String(minutes % 60).padStart(2, "0");
   return `${horas}:${minutos}`;
+}
+
+/**
+ * El instante de una hora de pared tica escrita como 'HH:mm'.
+ *
+ * Es el par que viaja por toda la agenda —'2026-09-18' + '15:00'— y que ya
+ * convertían por su cuenta la pantalla de reserva y la ruta de regreso de quien
+ * todavía no tiene cuenta, cada una con su propio `-06:00` escrito a mano. El
+ * desfase fijo de Costa Rica se declara una sola vez, arriba, y sale de acá.
+ */
+export function instanteDeHoraCR(ymd, hhmm = "12:00") {
+  const [horas, minutos] = String(hhmm).split(":").map(Number);
+  return instanteCR(ymd, (horas || 0) * 60 + (minutos || 0));
 }
 
 /** La zona horaria del navegador o del servidor que ejecuta. */

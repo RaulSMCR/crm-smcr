@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { leerIntencionGuardada, olvidarIntencion } from "@/lib/intencion-guardada";
 
 export default function VerifyEmailClient() {
   const sp = useSearchParams();
@@ -45,11 +46,21 @@ export default function VerifyEmailClient() {
           return;
         }
 
+        // La reserva que quedó a medias cuando hubo que crear la cuenta. El
+        // enlace del correo no la trae —lo abre el correo, no la pantalla que
+        // la tenía—, así que se recupera de donde la dejó el registro.
+        const reserva = leerIntencionGuardada();
+        olvidarIntencion();
+
         setStatus("ok");
-        setMessage("Tu correo quedó confirmado. Comenzá tu camino.");
+        setMessage(
+          reserva
+            ? "Tu correo quedó confirmado. Entrá y confirmás tu cita."
+            : "Tu correo quedó confirmado. Comenzá tu camino."
+        );
 
         setTimeout(() => {
-          if (!cancelled) router.push("/ingresar");
+          if (!cancelled) router.push(reserva ? `/ingresar?next=${encodeURIComponent(reserva)}` : "/ingresar");
         }, 1200);
       } catch {
         if (cancelled) return;

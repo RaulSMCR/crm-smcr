@@ -8,6 +8,8 @@ import { defaultOgImage } from "@/lib/seo";
 import { SafeAvatar } from "@/components/SafeImage";
 import { SELECT_TARIFA_PUBLICA, TARIFA_VIGENTE, rangoDePrecios } from "@/lib/service-pricing";
 import { getManagedHubData } from "@/lib/hub-raul";
+import { getSession } from "@/lib/auth";
+import { horarioPedido } from "@/lib/intencion-de-agenda";
 
 export async function generateMetadata({ params }) {
   const { id } = await params;
@@ -53,6 +55,11 @@ export default async function AgendarPage({ params, searchParams }) {
   const { id } = await params;
   const resolvedSearchParams = await searchParams;
   const preSelectedServiceId = resolvedSearchParams?.serviceId;
+  // Quién mira y con qué horario vuelve. Los dos se resuelven acá, en el
+  // servidor, porque de otro modo la agenda no puede saber si a quien la está
+  // leyendo hay que pedirle una cuenta o pedirle que confirme.
+  const session = await getSession();
+  const { fecha, hora } = horarioPedido(resolvedSearchParams?.fecha, resolvedSearchParams?.hora);
 
   const professional = await prisma.professionalProfile.findUnique({
     where: { id },
@@ -224,6 +231,9 @@ export default async function AgendarPage({ params, searchParams }) {
             serviceId={activeService.id}
             durationMin={activeService.durationMin}
             professionalName={professionalName}
+            autenticado={Boolean(session?.sub)}
+            fechaInicial={fecha}
+            horaInicial={hora}
           />
         </div>
       </div>

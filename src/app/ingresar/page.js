@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { resolverIntencionDeAgenda } from "@/lib/intencion-de-agenda-servidor";
 
 export const metadata = {
   title: "Ingresar",
@@ -6,7 +7,14 @@ export const metadata = {
 };
 import LoginClient from "./LoginClient";
 
-export default function LoginPage() {
+export default async function LoginPage({ searchParams }) {
+  const resueltos = await searchParams;
+  const next = typeof resueltos?.next === "string" ? resueltos.next : "";
+  // Para quien viene de una agenda, esta pantalla no es un destino sino un
+  // peaje: hay que decirle qué cita lo está esperando del otro lado, y con los
+  // datos de la base, no con los del enlace.
+  const intencion = await resolverIntencionDeAgenda(next);
+
   return (
     <Suspense
       fallback={
@@ -15,7 +23,7 @@ export default function LoginPage() {
         </div>
       }
     >
-      <LoginClient />
+      <LoginClient intencion={intencion} />
     </Suspense>
   );
 }

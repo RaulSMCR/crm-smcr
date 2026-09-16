@@ -13,6 +13,7 @@ import {
   CR_TZ,
 } from "@/lib/appointment-slots";
 import { RECURRENCE_RULES } from "@/lib/appointment-recurrence";
+import { primerInstanteReservable, textoDeAnticipacion } from "@/lib/anticipacion-de-reserva";
 import RecurrenceFields from "@/components/appointments/RecurrenceFields";
 
 export default function RescheduleAppointmentModal({ appointment, onClose }) {
@@ -52,6 +53,9 @@ export default function RescheduleAppointmentModal({ appointment, onClose }) {
       availability: data.availability,
       durationMin: data.durationMin,
       booked: data.booked,
+      // Mover la cita es volver a elegir horario, con la misma anticipación
+      // que para pedirla por primera vez.
+      noAntesDe: primerInstanteReservable(),
     });
   }, [data]);
 
@@ -109,6 +113,8 @@ export default function RescheduleAppointmentModal({ appointment, onClose }) {
           Elegí un nuevo horario para la cita de <strong>{appointment.service?.title || "consulta"}</strong>.
           Queda en estado <strong>Pendiente</strong> hasta que el profesional la confirme.
         </p>
+
+        <p className="text-xs text-slate-500">{textoDeAnticipacion()}</p>
 
         {loadingData && <div className="py-8 text-center text-sm text-slate-500">Cargando disponibilidad...</div>}
 

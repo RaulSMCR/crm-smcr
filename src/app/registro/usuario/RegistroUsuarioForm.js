@@ -1,0 +1,441 @@
+"use client";
+
+import { useEffect, useRef, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { registerUser } from "@/actions/auth-actions";
+import AuthTurnstile, { CAPTCHA_ENABLED } from "@/components/AuthTurnstile";
+import Link from "next/link";
+import { trackEvent } from "@/lib/analytics";
+import { trackLead } from "@/lib/meta-pixel";
+import { WHATSAPP_DISPLAY, WHATSAPP_URL } from "@/lib/contact-info";
+import { getMarketingAttributionFields, getMarketingAttributionRaw } from "@/lib/marketing-attribution-client";
+import { guardarIntencion } from "@/lib/intencion-guardada";
+import { VERSION_ACUERDO } from "@/lib/acuerdo";
+
+function isEmailFormatValid(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim().toLowerCase());
+}
+
+function StatusBadge({ valid, label }) {
+  return (
+    <span className={`inline-flex items-center rounded px-2 py-1 text-xs font-medium transition-colors ${
+      valid ? "bg-brand-900/60 text-brand-200" : "bg-white/10 text-neutral-400"
+    }`}>
+      <span className={`mr-1.5 h-1.5 w-1.5 rounded-full ${valid ? "bg-brand-400" : "bg-neutral-500"}`} />
+      {label}
+    </span>
+  );
+}
+
+// ─── Panel izquierdo (hero fijo) ──────────────────────────────────────────────
+function HeroPanel() {
+  return (
+    <div className="relative min-h-[35vh] w-full flex-shrink-0 md:sticky md:top-0 md:h-screen md:w-[38%]">
+      <div
+        className="absolute inset-0 bg-cover bg-center"
+        style={{
+          backgroundImage:
+            "url('/images/registro-paciente.jpg'), url('/images/paciente-hero.webp')",
+        }}
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/85 via-neutral-950/40 to-neutral-950/10" />
+
+      <div className="absolute inset-0 flex flex-col justify-between p-8 md:p-10">
+        <Link
+          href="/registro"
+          className="flex w-fit items-center gap-2 text-sm text-neutral-300 transition-colors hover:text-white"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+            <path fillRule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z" clipRule="evenodd" />
+          </svg>
+          Elegir tipo de cuenta
+        </Link>
+
+        <div>
+          <p className="font-display mb-3 text-lg font-light italic text-neutral-300 md:text-xl">
+            El bienestar empieza por buscarlo
+          </p>
+          <h2 className="font-display text-3xl font-semibold text-white md:text-4xl">
+            Registro de paciente
+          </h2>
+          <p className="mt-2 text-sm text-neutral-400">
+            Accede a una red de profesionales validados en salud mental.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Qué vino a hacer acá quien llega desde una agenda.
+ *
+ * Crear el usuario no es el final del camino: hay que confirmar el correo y
+ * recién entonces se puede reservar. Ese paso intermedio, sin anunciar, es donde
+ * la gente se cae —crea la cuenta, no ve la cita, y se va—. Así que el camino
+ * entero se muestra desde el principio, con el horario elegido a la vista para
+ * que se entienda qué es lo que está esperando del otro lado.
+ */
+function IntencionDeAgenda({ intencion }) {
+  if (!intencion) return null;
+
+  const pasos = [
+    "Creás tu usuario",
+    "Confirmás tu correo con el enlace que te enviamos",
+    "Volvés y confirmás la cita",
+  ];
+
+  return (
+    <section className="mb-8 rounded-2xl border border-brand-200 bg-brand-50 p-5">
+      <p className="text-xs font-bold uppercase tracking-widest text-brand-700">
+        Estás a un paso de agendar
+      </p>
+
+      {intencion.profesional && (
+        <p className="mt-2 text-lg font-bold leading-snug text-neutral-950">{intencion.profesional}</p>
+      )}
+      {intencion.servicio && <p className="text-sm text-neutral-700">{intencion.servicio}</p>}
+      {intencion.horario && (
+        <p className="mt-1 text-sm font-semibold text-brand-900">{intencion.horario}</p>
+      )}
+
+      <ol className="mt-4 space-y-1.5">
+        {pasos.map((paso, indice) => (
+          <li key={paso} className="flex gap-2.5 text-sm text-neutral-800">
+            <span
+              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                indice === 0 ? "bg-brand-700 text-white" : "border border-brand-300 text-brand-800"
+              }`}
+            >
+              {indice + 1}
+            </span>
+            <span className={indice === 0 ? "font-semibold text-neutral-950" : ""}>
+              {paso}
+              {indice === 0 ? " — estás acá" : ""}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+// ─── Página principal ─────────────────────────────────────────────────────────
+export default function RegistroUsuarioForm({ intencion = null }) {
+  const router = useRouter();
+  const [nextPath, setNextPath] = useState(intencion?.next || "");
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [touched, setTouched] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  // Sin esto no se crea la cuenta. El servidor lo vuelve a exigir: es el
+  // consentimiento expreso que pide la Ley 8968 para datos de salud.
+  const [aceptaAcuerdo, setAceptaAcuerdo] = useState(false);
+  const [attribution, setAttribution] = useState({ acquisitionChannel: "Directo", campaignName: "" });
+  const turnstileRef = useRef(null);
+
+  useEffect(() => {
+    const next = new URLSearchParams(window.location.search).get("next") || "";
+    setNextPath(next.startsWith("/") && !next.startsWith("//") ? next : "");
+  }, []);
+
+  const [form, setForm] = useState({
+    name: "", email: "", identification: "", birthDate: "",
+    phone: "", password: "", confirmPassword: "", gender: "", interests: "",
+  });
+
+  const passwordChecks = useMemo(() => {
+    const pwd = form.password || "";
+    return {
+      length:  pwd.length >= 8,
+      number:  /\d/.test(pwd),
+      special: /[!@#$%^&*(),.?":{}|<>]/.test(pwd),
+      match:   pwd && pwd === form.confirmPassword,
+    };
+  }, [form.password, form.confirmPassword]);
+
+  const isPasswordValid = Object.values(passwordChecks).every(Boolean);
+
+  // Ver la nota en registro/profesional: el botón deshabilitado no explicaba
+  // nada, y los mensajes que sí explican estaban en handleSubmit, inalcanzables.
+  const faltantes = [
+    !isPasswordValid && "una contraseña que cumpla los requisitos",
+    !aceptaAcuerdo && "aceptar el acuerdo de atención y privacidad",
+    CAPTCHA_ENABLED && !captchaToken && "la verificación de seguridad",
+  ].filter(Boolean);
+
+  useEffect(() => {
+    setAttribution(getMarketingAttributionFields({ acquisitionChannel: "Directo" }));
+  }, []);
+
+  function handleChange(e) {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+    if (name === "password" || name === "confirmPassword") setTouched(true);
+  }
+
+  async function onSubmit(e) {
+    e.preventDefault();
+    setErrorMsg("");
+    setTouched(true);
+
+    if (!String(form.name || "").trim())           { setErrorMsg("Falta el nombre completo."); return; }
+    if (!String(form.email || "").trim())          { setErrorMsg("Falta el correo electrónico."); return; }
+    if (!isEmailFormatValid(form.email))           { setErrorMsg("El correo no tiene un formato válido."); return; }
+    if (!String(form.phone || "").trim())          { setErrorMsg("Falta el teléfono de contacto."); return; }
+    if (!String(form.identification || "").trim()) { setErrorMsg("Falta la identificación."); return; }
+    if (!isPasswordValid)                          { setErrorMsg("Revisá los requisitos de contraseña."); return; }
+    if (!aceptaAcuerdo)                            { setErrorMsg("Necesitamos que leas y aceptes el acuerdo de atención para crear tu cuenta."); return; }
+    if (CAPTCHA_ENABLED && !captchaToken)          { setErrorMsg("Completá la verificación de seguridad antes de continuar."); return; }
+
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      Object.entries(form).forEach(([k, v]) => formData.append(k, v));
+      formData.append("acquisitionChannel", attribution.acquisitionChannel);
+      formData.append("campaignName", attribution.campaignName);
+      Object.entries(getMarketingAttributionRaw()).forEach(([k, v]) => formData.append(k, v));
+      formData.append("acuerdoVersion", aceptaAcuerdo ? VERSION_ACUERDO : "");
+      formData.append("captchaToken", captchaToken || "");
+      const res = await registerUser(formData);
+      if (res?.error || res?.warning) {
+        setErrorMsg(res.error || res.warning);
+        setLoading(false);
+        turnstileRef.current?.reset();
+        setCaptchaToken("");
+      } else {
+        trackEvent("sign_up", { method: "email" });
+        trackLead();
+        // El enlace de verificación llega por correo y abre una pestaña sin la
+        // reserva puesta. Se deja acá para que, al confirmar, el camino de
+        // vuelta sea directo.
+        if (nextPath) guardarIntencion(nextPath);
+        const nextQuery = nextPath ? `&next=${encodeURIComponent(nextPath)}` : "";
+        router.push(`/ingresar?registered=true${nextQuery}`);
+      }
+    } catch {
+      setErrorMsg("No pudimos conectar. Revisá tu conexión e intentá de nuevo.");
+      setLoading(false);
+    }
+  }
+
+  const inputClass =
+    "w-full rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm text-neutral-900 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400 transition-all placeholder-neutral-400";
+
+  const labelClass = "mb-1 block text-xs font-semibold uppercase tracking-widest text-neutral-500";
+
+  return (
+    <div className="flex min-h-screen flex-col md:flex-row">
+      <HeroPanel />
+
+      {/* Formulario */}
+      <div className="flex-1 bg-surface px-6 py-12 md:px-12 md:py-14">
+        <div className="mx-auto max-w-xl">
+          <IntencionDeAgenda intencion={intencion} />
+
+          <h1 className="mb-1 text-2xl font-bold text-neutral-950">Aquí empieza tu camino</h1>
+          <p className="mb-8 text-sm text-neutral-600">
+            {intencion
+              ? "Completá tus datos y seguimos con la cita. Son los mismos que va a ver el profesional que te atienda."
+              : "Completa los datos para acceder a la red de profesionales SMCR."}
+          </p>
+
+          {errorMsg && (
+            <div className="mb-6 rounded-xl border border-accent-400 bg-accent-100 p-4 text-sm font-medium text-accent-950">
+              {errorMsg}
+            </div>
+          )}
+
+          <form className="space-y-6" onSubmit={onSubmit}>
+            {/* Información personal */}
+            <section className="space-y-4">
+              <h2 className="border-b border-neutral-200 pb-2 text-xs font-bold uppercase tracking-widest text-neutral-400">
+                Información personal
+              </h2>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <label className={labelClass}>Nombre completo</label>
+                  <input name="name" type="text" required className={inputClass}
+                    value={form.name} onChange={handleChange} />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className={labelClass}>Correo electrónico</label>
+                  <input name="email" type="email" required className={inputClass}
+                    placeholder="correo@dominio.com" value={form.email} onChange={handleChange} />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className={labelClass}>Teléfono / WhatsApp</label>
+                  <input name="phone" type="tel" required inputMode="tel"
+                    placeholder="+506 8888 8888" className={inputClass}
+                    value={form.phone} onChange={handleChange} />
+                  <p className="mt-1 text-xs text-neutral-500">
+                    ¿Necesitás ayuda con el registro? Escribinos por{" "}
+                    <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-brand-700 underline hover:text-brand-900">
+                      WhatsApp al {WHATSAPP_DISPLAY}
+                    </a>
+                    .
+                  </p>
+                </div>
+
+                <div>
+                  <label className={labelClass}>DNI / Cédula</label>
+                  <input name="identification" type="text" className={inputClass}
+                    value={form.identification} onChange={handleChange} />
+                </div>
+
+                <div>
+                  <label className={labelClass}>Fecha de nacimiento</label>
+                  <input name="birthDate" type="date"
+                    max={new Date().toISOString().split("T")[0]}
+                    className={inputClass} value={form.birthDate} onChange={handleChange} />
+                </div>
+
+                <div>
+                  <label className={labelClass}>Género</label>
+                  <select name="gender" className={inputClass} value={form.gender} onChange={handleChange}>
+                    <option value="">Prefiero no indicar</option>
+                    <option value="femenino">Femenino</option>
+                    <option value="masculino">Masculino</option>
+                    <option value="no_binario">No binario</option>
+                    <option value="otro">Otro</option>
+                  </select>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className={labelClass}>Intereses terapéuticos</label>
+                  <textarea name="interests" rows={3}
+                    placeholder="Ej: manejo de ansiedad, terapia de pareja, autoestima…"
+                    className={inputClass} value={form.interests} onChange={handleChange} />
+                </div>
+              </div>
+            </section>
+
+            {/* Seguridad */}
+            <section className="space-y-4">
+              <h2 className="border-b border-neutral-200 pb-2 text-xs font-bold uppercase tracking-widest text-neutral-400">
+                Seguridad
+              </h2>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className={labelClass}>Contraseña</label>
+                  <div className="relative">
+                    <input name="password" type={showPassword ? "text" : "password"} required
+                      className={`${inputClass} pr-16`} value={form.password} onChange={handleChange} />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-3 flex items-center text-xs font-bold text-neutral-600 hover:text-neutral-900">
+                      {showPassword ? "OCULTAR" : "VER"}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className={labelClass}>Confirmar</label>
+                  <div className="relative">
+                    <input name="confirmPassword" type={showConfirmPassword ? "text" : "password"} required
+                      className={`${inputClass} pr-16 ${touched && !passwordChecks.match ? "border-accent-400 bg-accent-50" : ""}`}
+                      value={form.confirmPassword} onChange={handleChange} />
+                    <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute inset-y-0 right-3 flex items-center text-xs font-bold text-neutral-600 hover:text-neutral-900">
+                      {showConfirmPassword ? "OCULTAR" : "VER"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <StatusBadge valid={passwordChecks.length}  label="8+ caracteres" />
+                <StatusBadge valid={passwordChecks.number}  label="Número" />
+                <StatusBadge valid={passwordChecks.special} label="Símbolo" />
+                <StatusBadge valid={passwordChecks.match}   label="Coinciden" />
+              </div>
+            </section>
+
+            {/* El acuerdo va acá, con este tamaño y con las reglas a la vista.
+                Antes vivía escondido al final de /terminos y la gente se
+                enteraba de la política de cancelación cuando ya se le había
+                aplicado. */}
+            <section className="space-y-4">
+              <h2 className="border-b border-neutral-200 pb-2 text-xs font-bold uppercase tracking-widest text-neutral-400">
+                Acuerdo de atención
+              </h2>
+
+              <div className="rounded-xl border border-brand-200 bg-brand-50 p-4 text-sm text-brand-950">
+                <p className="font-semibold">Antes de empezar, lo esencial:</p>
+                <ul className="mt-2 space-y-1.5 leading-relaxed">
+                  <li>· El precio que ves es el final y se congela al reservar.</li>
+                  <li>
+                    · Podés mover tu cita desde tu panel con <b>24 horas</b> de aviso, gratis y sin
+                    dar explicaciones.
+                  </li>
+                  <li>
+                    · Con menos de 24 horas, o si no llegás, se cobra el <b>50%</b> y tu agenda queda
+                    en pausa hasta que conversemos.
+                  </li>
+                  <li>· Tu expediente clínico lo conserva tu profesional, no la plataforma.</li>
+                </ul>
+                <a
+                  href="/terminos"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 inline-block font-semibold text-brand-700 underline hover:text-brand-900"
+                >
+                  Leer el acuerdo completo
+                </a>
+              </div>
+
+              <label className="flex cursor-pointer items-start gap-3 text-sm text-neutral-700">
+                <input
+                  type="checkbox"
+                  checked={aceptaAcuerdo}
+                  onChange={(e) => setAceptaAcuerdo(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-neutral-300 text-brand-600 focus:ring-brand-400"
+                />
+                <span>
+                  Leí el acuerdo de atención y la política de privacidad, y doy mi consentimiento
+                  expreso para el tratamiento de mis datos de salud.
+                </span>
+              </label>
+            </section>
+
+            <AuthTurnstile ref={turnstileRef} onToken={setCaptchaToken} className="flex justify-center" />
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-xl bg-brand-600 px-6 py-3.5 font-bold text-white transition-colors hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {loading ? "Avanzando…" : intencion ? "Crear mi usuario y seguir con la cita" : "¿Estás listo?"}
+            </button>
+
+            {/* El error, junto al botón: arriba también se muestra, pero quien
+                hace clic acá no ve un aviso que quedó al principio del formulario. */}
+            {errorMsg ? (
+              <p role="alert" className="mt-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+                {errorMsg}
+              </p>
+            ) : null}
+
+            {!loading && !errorMsg && faltantes.length ? (
+              <p className="mt-3 text-sm text-neutral-600">
+                Para poder enviar falta {faltantes.join(", ")}.
+              </p>
+            ) : null}
+          </form>
+
+          <p className="mt-6 text-center text-sm text-neutral-500">
+            ¿Ya tienes cuenta?{" "}
+            <Link href="/ingresar" className="font-medium text-brand-700 hover:text-brand-900">
+              Ingresar
+            </Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -19,6 +19,7 @@ import {
   CR_TZ,
 } from "@/lib/appointment-slots";
 import { RECURRENCE_RULES } from "@/lib/appointment-recurrence";
+import { primerInstanteReservable, textoDeAnticipacion } from "@/lib/anticipacion-de-reserva";
 import RecurrenceFields from "@/components/appointments/RecurrenceFields";
 import BookingConfirmationToast from "@/components/booking/BookingConfirmationToast";
 import RecordatorioSegundaCita from "@/components/booking/RecordatorioSegundaCita";
@@ -61,7 +62,9 @@ export default function ProfessionalCalendarBooking({
   const [entiendeReglas, setEntiendeReglas] = useState(false);
 
   const days = useMemo(
-    () => buildSlots({ availability, durationMin, booked, daysAhead: 14 }),
+    // Acá reserva el paciente: hoy y las primeras horas de mañana no se
+    // ofrecen. El servidor lo vuelve a exigir al confirmar.
+    () => buildSlots({ availability, durationMin, booked, daysAhead: 14, noAntesDe: primerInstanteReservable() }),
     [availability, durationMin, booked]
   );
 
@@ -194,6 +197,9 @@ export default function ProfessionalCalendarBooking({
           </div>
         ) : (
           <div className="mt-6 space-y-6">
+            <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs text-slate-600">
+              {textoDeAnticipacion()}
+            </p>
             {muestraEquivalencia && (
               <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs text-slate-600">
                 Las horas se muestran en su hora local ({timeZoneAbbr(zonaPaciente)}). El profesional
