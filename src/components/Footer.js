@@ -22,6 +22,21 @@ export default function Footer() {
           <p className="mt-3 max-w-xs text-sm text-neutral-200">
             Divulgación y atención interdisciplinaria para la salud mental.
           </p>
+
+          {/* Las líneas de crisis estaban enlazadas solo desde el hub de Raúl y
+              desde sus temas. Quien entra por un artículo de la biblioteca
+              —que es por donde entra casi todo el tráfico— no tenía ninguna
+              forma de llegar a ellas. Va en el pie, que está en toda página, y
+              en la primera columna, que en móvil es lo primero del pie.
+
+              Fuera de la lista de "Navegación" a propósito: no es un destino
+              más del sitio y no debe leerse como uno. */}
+          <Link
+            href="/ayuda-inmediata"
+            className="mt-4 block max-w-xs rounded-lg border border-accent-200/60 px-3 py-2 text-sm font-semibold text-accent-100 hover:border-accent-100 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-100"
+          >
+            ¿Necesitás ayuda ahora? Líneas de apoyo y emergencia
+          </Link>
         </div>
 
         <div>

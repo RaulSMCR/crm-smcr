@@ -1,3 +1,4 @@
+import Link from "next/link";
 import AccordionItem from "@/components/AccordionItem";
 import FaqContactSection from "@/components/FaqContactSection";
 import JsonLd from "@/components/JsonLd";
@@ -203,7 +204,13 @@ export default function FaqPage() {
                     <p className="text-sm font-medium text-accent-800">
                       Si te encontrás en una situación de crisis inmediata,
                       comunicate con los servicios de emergencia de tu
-                      localidad o concurrí al centro de salud más cercano.
+                      localidad o concurrí al centro de salud más cercano.{" "}
+                      {/* El aviso mandaba a buscar las líneas «de tu localidad»
+                          teniendo una página con esas líneas a un clic. */}
+                      <Link href="/ayuda-inmediata" className="font-bold underline underline-offset-2 hover:text-accent-900">
+                        Ver líneas de apoyo y emergencia en Costa Rica
+                      </Link>
+                      .
                     </p>
                   </div>
                 )}
