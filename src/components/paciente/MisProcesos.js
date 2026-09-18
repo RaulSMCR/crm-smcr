@@ -14,6 +14,7 @@
 // que es su custodio. El botón le hace llegar la solicitud a él.
 
 import { useState, useTransition } from "react";
+import { useToast } from "@/components/ui/ToastProvider";
 import { solicitarCopiaExpediente } from "@/actions/caso-actions";
 
 const TONOS = {

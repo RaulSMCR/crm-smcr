@@ -13,6 +13,20 @@ const config = [
     ],
   },
   {
+    files: [
+      "src/app/panel/paciente/**/*.js",
+      "src/components/paciente/**/*.js",
+      "src/components/appointments/**/*.js",
+      "src/components/UserAppointmentsPanel.js",
+      "src/components/PaymentReceivedToast.js",
+      "src/components/mi/InstallPrompt.js",
+    ],
+    rules: {
+      // Un hook sin importar puede romper el panel solo cuando ya tiene datos.
+      "no-undef": "error",
+    },
+  },
+  {
     rules: {
       // Existing client effects use state synchronization intentionally.
       "react-hooks/set-state-in-effect": "off",

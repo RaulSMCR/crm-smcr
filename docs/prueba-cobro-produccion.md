@@ -3,11 +3,13 @@
 ## Diagnóstico del 18 de septiembre de 2026
 
 - El panel del paciente fallaba al renderizar `PatientProfileEditorCard`: faltaba importar `useToast`.
+- Seguimiento: `MisProcesos` también llamaba a `useToast` sin importarlo y fallaba al existir un proceso. Se corrigió y se habilitó `no-undef` en el panel y los componentes del paciente. Una petición autenticada al dominio de producción pasó de HTTP 500 a HTTP 200, con perfil, citas y procesos renderizados, después del despliegue `dpl_GXnPtGjKoS8nrx3oadcMqMLHbosF`.
 - Los logs de producción confirman ONVO live y `FE_AMBIENTE=02`. El control de coherencia bloquea la creación del enlace antes de llamar a ONVO.
 - La cuenta examinada tiene dos citas pendientes, sin transacciones ni facturas. Solo la primera conserva `isFirstWithProfessional=true`. Crear otra cita no repite el adelanto inicial.
 - En esa primera cita se confirmó un adelanto calculado de ₡1.000, CABYS de 13 dígitos, impuesto configurado del 4% y presencia de correo e identificación del paciente. Esto verifica presencia y formato básico, no aceptación por Hacienda.
 - Vercel oculta los valores de variables `sensitive` al descargarlas. Que aparezcan vacías en `env pull` no significa que estén vacías en ejecución.
 - Las credenciales fiscales locales corresponden al sandbox. El certificado local se pudo abrir y está vigente; eso no acredita su habilitación para producción.
+- Por indicación del usuario se intentó autenticar contra Hacienda producción con esas credenciales locales, sin alterarlas: respondió HTTP 401, `invalid_grant`. No se obtuvo acceso para emitir. Este intento no verifica las credenciales protegidas de Vercel, cuyos valores no están disponibles mediante la descarga de variables.
 
 ## Configuración pendiente antes de cobrar
 
