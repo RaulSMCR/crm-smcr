@@ -200,6 +200,12 @@ export async function createPaymentRequestForAppointment(appointmentEntrante, re
       success: false,
       error: "No se pudo generar el enlace de pago con ONVO.",
       code: "ONVO_LINK_FAILED",
+      // `error` es el texto que puede llegar a verse en pantalla, así que no
+      // lleva nada del proveedor. `causa` es para el aviso al admin y el log: sin
+      // ella, «no se pudo generar el enlace» no distingue una llave vencida de
+      // una incoherencia de ambientes o de una caída de ONVO, y el motivo real
+      // quedaba solo en los logs de Vercel, que se pierden en minutos.
+      causa: String(error?.message || "").slice(0, 300),
     };
   }
 

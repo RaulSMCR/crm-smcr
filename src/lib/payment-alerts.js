@@ -115,6 +115,8 @@ export async function alertarCobroNoGenerado(appointment, resultado = {}) {
               <td style="padding:6px 8px;">${cuando}</td></tr>
           <tr style="background:#f8fafc;"><td style="padding:6px 8px;color:#64748b;">Motivo</td>
               <td style="padding:6px 8px;font-weight:600;">${resultado.code || ""} ${resultado.error || ""}</td></tr>
+          ${resultado.causa ? `<tr><td style="padding:6px 8px;color:#64748b;">Causa</td>
+              <td style="padding:6px 8px;font-family:monospace;font-size:13px;">${resultado.causa}</td></tr>` : ""}
         </table>
         <p style="font-size:13px;color:#475569;">Acción: generar el cobro a mano desde el panel,
            o corregir la configuración y reintentar.</p>

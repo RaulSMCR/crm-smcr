@@ -70,7 +70,7 @@ export default async function PacientePanelPage({ searchParams }) {
       orderBy: { date: "asc" },
       include: {
         professional: {
-          include: {
+          select: {
             user: {
               select: { name: true, image: true },
             },

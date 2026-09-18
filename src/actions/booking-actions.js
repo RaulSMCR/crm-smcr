@@ -368,7 +368,7 @@ export async function requestAppointment(
       console.error("[agendar] ADELANTO_NO_GENERADO", {
         appointmentId: firstAppointment.id,
         code: depositPayment.code || "SIN_CODIGO",
-        detalle: depositPayment.error,
+        detalle: depositPayment.causa || depositPayment.error,
       });
       // La cita ya quedó reservada y el paciente no recibió enlace: sin este
       // aviso el fallo solo existe en los logs de Vercel.
