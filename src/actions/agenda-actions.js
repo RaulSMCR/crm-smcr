@@ -177,13 +177,13 @@ async function hydrateAppointments(appointmentIds) {
   });
 }
 
-async function notifyAppointments(appointments, reason) {
+async function notifyAppointments(appointments, reason, { titulo = null } = {}) {
   await Promise.allSettled(
     appointments.flatMap((appointment) => {
       const appointmentMs = appointment.date.getTime();
       return [
         syncGoogleCalendarEvent(appointment),
-        sendAppointmentNotifications(appointment, reason),
+        sendAppointmentNotifications(appointment, reason, null, { titulo }),
         scheduleReminder({
           appointmentId: appointment.id,
           type: "24h",
@@ -396,7 +396,7 @@ export async function createAppointmentByProfessional({
     );
 
     const hydratedAppointments = await hydrateAppointments(createdAppointments.map((item) => item.id));
-    await notifyAppointments(hydratedAppointments, "El profesional creó una nueva cita en estado pendiente.");
+    await notifyAppointments(hydratedAppointments, "El profesional creó una nueva cita en estado pendiente.", { titulo: "Cita agendada" });
 
     // También acá se abre el caso: la primera cita puede nacer del profesional y
     // no del paciente, y el expediente no puede depender de por dónde entró.
@@ -912,7 +912,7 @@ export async function createFollowUpAppointment(parentAppointmentId, startISO) {
 
     await Promise.allSettled([
       syncGoogleCalendarEvent(created),
-      sendAppointmentNotifications(created, "Se agendó una cita de seguimiento."),
+      sendAppointmentNotifications(created, "Se agendó una cita de seguimiento.", null, { titulo: "Cita agendada" }),
     ]);
 
     revalidateAgendaPaths();

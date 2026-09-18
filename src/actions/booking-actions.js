@@ -67,13 +67,13 @@ async function hydrateAppointments(appointmentIds) {
   });
 }
 
-async function notifyAppointments(appointments, reason) {
+async function notifyAppointments(appointments, reason, { titulo = null } = {}) {
   await Promise.allSettled(
     appointments.flatMap((appointment) => {
       const appointmentMs = appointment.date.getTime();
       return [
         syncGoogleCalendarEvent(appointment),
-        sendAppointmentNotifications(appointment, reason),
+        sendAppointmentNotifications(appointment, reason, null, { titulo }),
         scheduleReminder({ appointmentId: appointment.id, type: "24h", sendAt: new Date(appointmentMs - 24 * 60 * 60 * 1000) }),
         scheduleReminder({ appointmentId: appointment.id, type: "1h", sendAt: new Date(appointmentMs - 60 * 60 * 1000) }),
       ];
@@ -156,6 +156,25 @@ export async function getAvailableDays(professionalId, serviceId, { startDay, da
   }
 }
 
+/**
+ * Una reserva rechazada tiene que dejar rastro.
+ *
+ * Todas las salidas de abajo devolvían `{ error }` sin registrar nada. El
+ * 2026-09-18 una reserva falló en producción y cien líneas de log no traían una
+ * sola pista: hubo que reconstruir el estado desde la base y aun así el motivo
+ * quedó sin determinar. El mensaje que ve la persona no sirve para diagnosticar
+ * —se pierde en cuanto cierra la pestaña— y el silencio hace indistinguible
+ * «la rechacé por esto» de «nunca llegó».
+ *
+ * Se registra el motivo, el profesional y el horario pedido. Nunca quién
+ * reservaba: el motivo alcanza para diagnosticar y el paciente no tiene por qué
+ * quedar en los logs de Vercel.
+ */
+function rechazarReserva(motivo, respuesta, contexto = {}) {
+  console.warn("[agendar] RECHAZADA", { motivo, ...contexto });
+  return respuesta;
+}
+
 export async function requestAppointment(
   professionalId,
   dateString,
@@ -173,21 +192,26 @@ export async function requestAppointment(
   const topicSlug = String(attribution?.topicSlug || "").trim().toLowerCase().slice(0, 80) || null;
   const session = await getSession();
 
+  // Lo que identifica el intento en los logs. El horario va tal como llegó:
+  // media hora de diferencia entre lo que pidió y lo que se resolvió es
+  // justamente el tipo de cosa que hay que poder ver.
+  const intento = { professionalId, serviceId, cuando: `${dateString} ${timeString}` };
+
   if (!session || !session.sub) {
-    return { error: "Debe iniciar sesión para agendar.", errorCode: "UNAUTHENTICATED" };
+    return rechazarReserva("SIN_SESION", { error: "Debe iniciar sesión para agendar.", errorCode: "UNAUTHENTICATED" }, intento);
   }
 
   // Esta es la única ruta de agendado que no mira el rol de quien reserva, así
   // que es la única por la que un profesional podía sentarse en las dos sillas.
   const autoconsulta = await bloqueoPorAutoconsulta(session.sub, professionalId);
-  if (autoconsulta) return autoconsulta;
+  if (autoconsulta) return rechazarReserva("AUTOCONSULTA", autoconsulta, intento);
 
   // Si quedó un repaso del acuerdo pendiente, se resuelve antes de reservar.
   const repasoPendiente = await bloqueoPorAcuerdoPendiente(session.sub);
-  if (repasoPendiente) return repasoPendiente;
+  if (repasoPendiente) return rechazarReserva("ACUERDO_PENDIENTE", repasoPendiente, intento);
 
   const cierreEnRevision = await bloqueoPorCierreEnCurso(session.sub, professionalId);
-  if (cierreEnRevision) return cierreEnRevision;
+  if (cierreEnRevision) return rechazarReserva("CIERRE_EN_REVISION", cierreEnRevision, intento);
 
   try {
     let duration = 60;
@@ -207,7 +231,7 @@ export async function requestAppointment(
       });
 
       if (!assignment || assignment.status !== "APPROVED") {
-        return { error: "El servicio seleccionado no está disponible para este profesional." };
+        return rechazarReserva("SERVICIO_NO_HABILITADO", { error: "El servicio seleccionado no está disponible para este profesional." }, intento);
       }
 
       duration = assignment.service?.durationMin || 60;
@@ -232,7 +256,7 @@ export async function requestAppointment(
         // Quién reserva decide si le toca un escalón de la escalera de precios.
         patientId: session.sub,
       });
-      if (selection.error) return { error: selection.error };
+      if (selection.error) return rechazarReserva("SIN_TARIFA_O_LUGAR", { error: selection.error }, { ...intento, locationId, detalle: selection.error });
       booking = selection.data;
     }
 
@@ -243,7 +267,7 @@ export async function requestAppointment(
     const ends = buildOccurrenceEnds(starts, duration);
 
     if (starts.some((start) => start <= new Date())) {
-      return { error: "Uno de los horarios de la serie ya pasó." };
+      return rechazarReserva("HORARIO_PASADO", { error: "Uno de los horarios de la serie ya pasó." }, intento);
     }
 
     // Que el cupo no se ofrezca en pantalla no alcanza: esta acción se puede
@@ -251,21 +275,25 @@ export async function requestAppointment(
     // la serie, que es la que puede caer encima; las repeticiones van semanas
     // después y arrastrarían un mensaje que no se entiende.
     const demasiadoPronto = motivoDeAnticipacion(starts[0]);
-    if (demasiadoPronto) return { error: demasiadoPronto };
+    if (demasiadoPronto) return rechazarReserva("DEMASIADO_PRONTO", { error: demasiadoPronto }, intento);
 
     const conflictError = describeRecurringConflict(
       await findRecurringConflict({ professionalId, starts, ends })
     );
 
     if (conflictError) {
-      return {
-        error: `${conflictError.label} Seleccione un horario alternativo para esa sesión.`,
-        conflictInfo: {
-          dateString: conflictError.dateString,
-          occurrenceIndex: conflictError.occurrenceIndex,
-          label: conflictError.label,
+      return rechazarReserva(
+        "CHOQUE_DE_AGENDA",
+        {
+          error: `${conflictError.label} Seleccione un horario alternativo para esa sesión.`,
+          conflictInfo: {
+            dateString: conflictError.dateString,
+            occurrenceIndex: conflictError.occurrenceIndex,
+            label: conflictError.label,
+          },
         },
-      };
+        { ...intento, choca: conflictError.dateString }
+      );
     }
 
     // Determinar si es la primera cita de este paciente con este profesional
@@ -323,7 +351,7 @@ export async function requestAppointment(
     );
 
     const hydratedAppointments = await hydrateAppointments(createdAppointments.map((item) => item.id));
-    await notifyAppointments(hydratedAppointments, "Se creó una nueva cita en estado pendiente.");
+    await notifyAppointments(hydratedAppointments, "Se creó una nueva cita en estado pendiente.", { titulo: "Cita agendada" });
 
     // Con la primera cita se abre el caso, y en la segunda queda constancia de
     // que se le recordaron las reglas. Ninguna de las dos puede tumbar una
@@ -335,8 +363,13 @@ export async function requestAppointment(
     const depositPayment = firstAppointment && pricePaid
       ? await createPaymentRequestForAppointment(firstAppointment, "DEPOSIT_50")
       : null;
-    if (depositPayment && !depositPayment.success) {
-      console.error("No se pudo generar el adelanto de primera cita:", depositPayment.error);
+    const cobroFallado = Boolean(depositPayment && !depositPayment.success);
+    if (cobroFallado) {
+      console.error("[agendar] ADELANTO_NO_GENERADO", {
+        appointmentId: firstAppointment.id,
+        code: depositPayment.code || "SIN_CODIGO",
+        detalle: depositPayment.error,
+      });
       // La cita ya quedó reservada y el paciente no recibió enlace: sin este
       // aviso el fallo solo existe en los logs de Vercel.
       await alertarCobroNoGenerado(firstAppointment, depositPayment);
@@ -359,7 +392,14 @@ export async function requestAppointment(
       appointmentId: hydratedAppointments[0]?.id || null,
       createdCount: hydratedAppointments.length,
       reportGoogleAdsConversion: Boolean(isFirstAppointmentInPlatform && gaGclid),
-      requiresDeposit: Boolean(firstAppointment && pricePaid),
+      // Que la cita lleve adelanto y que el enlace haya salido son dos cosas
+      // distintas, y antes acá se decía solo la primera. Cuando ONVO fallaba, el
+      // paciente leía «te enviamos el enlace a tu correo» y se quedaba esperando
+      // un correo que nadie mandó: el 2026-09-18 pasó en producción y el fallo
+      // solo existía en los logs. La cita sigue reservada —eso no cambia— pero
+      // la pantalla dice lo que de verdad ocurrió.
+      requiresDeposit: Boolean(depositPayment?.success),
+      depositPendienteDeEnlace: cobroFallado,
       depositAmount,
       // Lo que el paciente acaba de aceptar, para confirmárselo en pantalla.
       confirmation: {

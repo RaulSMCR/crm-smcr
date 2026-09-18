@@ -48,7 +48,7 @@ function bloqueLugar(appointment) {
       </div>`;
 }
 
-function buildNotificationHtml({ recipientName, appointment, reason }) {
+function buildNotificationHtml({ recipientName, appointment, reason, titulo }) {
   const start = new Date(appointment.date);
   const end = new Date(appointment.endDate);
   const fechaHoraInicio = formatDateTimeInTZ(start, "es-CR", TZ);
@@ -56,7 +56,7 @@ function buildNotificationHtml({ recipientName, appointment, reason }) {
 
   return `
     <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;line-height:1.4;color:#0f172a;">
-      <h2 style="margin-bottom:4px;">Actualización de cita</h2>
+      <h2 style="margin-bottom:4px;">${titulo}</h2>
       <p>Estimado/a ${recipientName || ""},</p>
       <p>${reason}</p>
       <ul>
@@ -87,9 +87,18 @@ function buildSecondaryButton(label, href) {
  * @param {{ processUrl: string, amount: number, isFirst: boolean }|null} [paymentInfo]
  *   Si se provee, se incluye un botón de pago en el email al paciente.
  */
-export async function sendAppointmentNotifications(appointment, reason, paymentInfo = null) {
+export async function sendAppointmentNotifications(appointment, reason, paymentInfo = null, { titulo = null } = {}) {
   const patientEmail = appointment.patient?.email;
   const proEmail = appointment.professional?.user?.email;
+
+  // El encabezado y el asunto decían siempre «Actualización de cita», también al
+  // reservar por primera vez: el cuerpo anunciaba «Se creó una nueva cita» bajo
+  // un título que afirmaba lo contrario, y ese era el primer correo que recibía
+  // un paciente nuevo. Quien crea la cita declara su propio título; lo demás
+  // —cambios de estado, reagendas, cancelaciones— sí es una actualización y
+  // conserva el texto de siempre.
+  const tituloPaciente = titulo || "Actualización de cita";
+  const tituloProfesional = titulo || "Actualización de agenda";
 
   if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY === "re_dummy_key") {
     console.warn("[Resend] RESEND_API_KEY no configurada, omitiendo envío de emails.");
@@ -99,7 +108,7 @@ export async function sendAppointmentNotifications(appointment, reason, paymentI
   const deliveries = [];
 
   if (patientEmail) {
-    let patientHtml = buildNotificationHtml({ recipientName: appointment.patient?.name, appointment, reason });
+    let patientHtml = buildNotificationHtml({ recipientName: appointment.patient?.name, appointment, reason, titulo: tituloPaciente });
 
     if (paymentInfo?.emailUrl || paymentInfo?.processUrl) {
       const paymentUrl = paymentInfo.emailUrl || paymentInfo.processUrl;
@@ -146,7 +155,7 @@ export async function sendAppointmentNotifications(appointment, reason, paymentI
       resend.emails.send({
         from: FROM_EMAIL,
         to: patientEmail,
-        subject: appointment.status === "COMPLETED" ? "Su sesión fue completada — pago pendiente" : "Actualización de cita",
+        subject: appointment.status === "COMPLETED" ? "Su sesión fue completada — pago pendiente" : tituloPaciente,
         html: patientHtml,
       }).then((res) => {
         if (res.error) console.error("[Resend] Error enviando email al paciente:", res.error);
@@ -161,8 +170,8 @@ export async function sendAppointmentNotifications(appointment, reason, paymentI
       resend.emails.send({
         from: FROM_EMAIL,
         to: proEmail,
-        subject: "Actualización de agenda",
-        html: buildNotificationHtml({ recipientName: appointment.professional?.user?.name, appointment, reason }),
+        subject: tituloProfesional,
+        html: buildNotificationHtml({ recipientName: appointment.professional?.user?.name, appointment, reason, titulo: tituloProfesional }),
       }).then((res) => {
         if (res.error) console.error("[Resend] Error enviando email al profesional:", res.error);
         else console.log("[Resend] Email enviado al profesional:", proEmail, "id:", res.data?.id);

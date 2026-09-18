@@ -55,13 +55,13 @@ async function hydrateAppointments(appointmentIds) {
   });
 }
 
-async function notifyAppointments(appointments, reason) {
+async function notifyAppointments(appointments, reason, { titulo = null } = {}) {
   await Promise.allSettled(
     appointments.flatMap((appointment) => {
       const appointmentMs = appointment.date.getTime();
       return [
         syncGoogleCalendarEvent(appointment),
-        sendAppointmentNotifications(appointment, reason),
+        sendAppointmentNotifications(appointment, reason, null, { titulo }),
         scheduleReminder({
           appointmentId: appointment.id,
           type: "24h",
@@ -225,7 +225,7 @@ export async function createAppointmentForPatient({
     );
 
     const hydratedAppointments = await hydrateAppointments(createdAppointments.map((item) => item.id));
-    await notifyAppointments(hydratedAppointments, "Se creó una nueva cita en estado pendiente.");
+    await notifyAppointments(hydratedAppointments, "Se creó una nueva cita en estado pendiente.", { titulo: "Cita agendada" });
 
     await abrirCasoSiNoExiste({ patientId, professionalId: pid });
     await anotarRecordatorioSegundaCita(patientId, previousCount);

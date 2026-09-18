@@ -271,7 +271,12 @@ export default function BookingInterface({
       trackSchedule();
       setConflict(null);
 
-      const destino = `/panel/paciente?new_appointment=true&series=${result.createdCount || 1}`;
+      // `created=1` es lo que el panel lee para dar el acuse de la reserva y
+      // ofrecer instalar la app. Acá decía `new_appointment=true`, que no lo lee
+      // nadie: quien reservaba por la agenda pública —o sea, casi todo el
+      // mundo— llegaba al panel sin ninguna confirmación de lo que acababa de
+      // hacer. ProfessionalCalendarBooking ya mandaba el nombre correcto.
+      const destino = `/panel/paciente?created=1&series=${result.createdCount || 1}`;
 
       if (result.confirmation) {
         setConfirmation({

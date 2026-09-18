@@ -112,6 +112,15 @@ export default function BookingConfirmationToast({ confirmation, onDismiss, auto
           {formatCRC(confirmation.depositAmount)}). La cita queda reservada; el resto se
           cobra al concluir la consulta.
         </p>
+      ) : confirmation.depositPendienteDeEnlace ? (
+        // El enlace de pago no se pudo generar. La cita está reservada igual, así
+        // que lo que corresponde no es alarmar sino no mentir: nadie tiene que
+        // quedarse esperando un correo que no salió, ni volver a reservar.
+        <p className="mt-3 rounded-lg bg-white/10 p-3 text-xs">
+          Tu cita quedó <b>reservada</b>. El enlace para pagar el adelanto no se pudo generar
+          en este momento; te lo hacemos llegar por correo apenas se resuelva. No hace falta
+          que reserves de nuevo.
+        </p>
       ) : null}
 
       <p className="mt-3 text-xs text-white/70">
