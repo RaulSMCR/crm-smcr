@@ -34,6 +34,7 @@ import {
   bloqueoPorAcuerdoPendiente,
 } from "@/lib/acuerdo-server";
 import { abrirCasoSiNoExiste, bloqueoPorCierreEnCurso } from "@/lib/casos";
+import { bloqueoPorAutoconsulta } from "@/lib/autoconsulta";
 
 function describeRecurringConflict(conflict) {
   if (!conflict) return null;
@@ -175,6 +176,11 @@ export async function requestAppointment(
   if (!session || !session.sub) {
     return { error: "Debe iniciar sesión para agendar.", errorCode: "UNAUTHENTICATED" };
   }
+
+  // Esta es la única ruta de agendado que no mira el rol de quien reserva, así
+  // que es la única por la que un profesional podía sentarse en las dos sillas.
+  const autoconsulta = await bloqueoPorAutoconsulta(session.sub, professionalId);
+  if (autoconsulta) return autoconsulta;
 
   // Si quedó un repaso del acuerdo pendiente, se resuelve antes de reservar.
   const repasoPendiente = await bloqueoPorAcuerdoPendiente(session.sub);
