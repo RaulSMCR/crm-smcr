@@ -127,6 +127,27 @@ async function emailPaymentRequest({ appointment, paymentUrl, amount, paymentTyp
   });
 }
 
+async function deliverPaymentRequest(appointment, transaction, paymentUrl, reused) {
+  const result = { reused, paymentUrl, amount: Number(transaction.amount), type: transaction.type };
+  try {
+    await emailPaymentRequest({
+      appointment, paymentUrl, amount: result.amount, paymentType: result.type,
+    });
+    // El webhook puede acreditar el pago mientras se envía el correo.
+    await prisma.paymentTransaction.updateMany({
+      where: { id: transaction.id, status: { in: ACTIVE_PAYMENT_STATUSES } },
+      data: { status: "LINK_SENT" },
+    });
+    return { success: true, ...result };
+  } catch {
+    console.error("[payment] PAYMENT_EMAIL_FAILED", { transactionId: transaction.id });
+    return {
+      success: false, ...result, code: "PAYMENT_EMAIL_FAILED",
+      error: "El enlace de pago está disponible en el panel, pero no se pudo confirmar el envío del correo.",
+    };
+  }
+}
+
 export async function createPaymentRequestForAppointment(appointmentEntrante, requestedType) {
   if (!appointmentEntrante?.id) {
     return { success: false, error: "Cita invalida.", code: "INVALID_APPOINTMENT" };
@@ -158,20 +179,7 @@ export async function createPaymentRequestForAppointment(appointmentEntrante, re
     }
 
     const reusedUrl = buildPaymentLinkUrl(active.onvoPaymentLinkId);
-    await emailPaymentRequest({
-      appointment,
-      paymentUrl: reusedUrl,
-      amount: Number(active.amount),
-      paymentType: active.type,
-    });
-
-    return {
-      success: true,
-      reused: true,
-      paymentUrl: reusedUrl,
-      amount: Number(active.amount),
-      type: active.type,
-    };
+    return deliverPaymentRequest(appointment, active, reusedUrl, true);
   }
 
   const totalAmount = await resolvePriceForAppointment(appointment);
@@ -211,7 +219,7 @@ export async function createPaymentRequestForAppointment(appointmentEntrante, re
 
   const paymentUrl = link.url;
 
-  await prisma.paymentTransaction.create({
+  const transaction = await prisma.paymentTransaction.create({
     data: {
       appointmentId: appointment.id,
       professionalId: appointment.professionalId,
@@ -220,24 +228,11 @@ export async function createPaymentRequestForAppointment(appointmentEntrante, re
       amount,
       currency: "CRC",
       onvoPaymentLinkId: link.id,
-      status: "LINK_SENT",
+      status: "PENDING",
     },
   });
 
-  await emailPaymentRequest({
-    appointment,
-    paymentUrl,
-    amount,
-    paymentType: requestedType,
-  });
-
-  return {
-    success: true,
-    reused: false,
-    paymentUrl,
-    amount,
-    type: requestedType,
-  };
+  return deliverPaymentRequest(appointment, transaction, paymentUrl, false);
 }
 
 export function paymentRequestMessage(result) {

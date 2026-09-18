@@ -256,10 +256,9 @@ export async function sendPaymentRequestEmail({
   isFirst,
   paymentType = "FULL_100",
 }) {
-  if (!patientEmail) return;
+  if (!patientEmail) throw new Error("PAYMENT_EMAIL_RECIPIENT_MISSING");
   if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY === "re_dummy_key") {
-    console.warn("[Resend] RESEND_API_KEY no configurada, omitiendo email de solicitud de pago.");
-    return;
+    throw new Error("PAYMENT_EMAIL_NOT_CONFIGURED");
   }
 
   const amountFormatted = new Intl.NumberFormat("es-CR", { style: "currency", currency: "CRC", maximumFractionDigits: 0 }).format(amount);
@@ -302,10 +301,10 @@ export async function sendPaymentRequestEmail({
       subject,
       html,
     });
-    if (result.error) console.error("[Resend] Error enviando email de solicitud de pago:", result.error);
-    else console.log("[Resend] Email de pago enviado a:", patientEmail, "id:", result.data?.id);
-  } catch (error) {
-    console.error("[Resend] Error enviando email de solicitud de pago:", error);
+    if (result.error || !result.data?.id) throw new Error("PAYMENT_EMAIL_NOT_ACCEPTED");
+    return { providerId: result.data.id };
+  } catch {
+    throw new Error("PAYMENT_EMAIL_NOT_ACCEPTED");
   }
 }
 

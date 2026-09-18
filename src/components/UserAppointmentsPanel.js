@@ -323,7 +323,10 @@ export default function UserAppointmentsPanel({
                     <>
                       <p className="font-semibold">{paymentLabel} pendiente</p>
                       <p className="mt-1 text-xs text-amber-700">
-                        {amountLabel ? `${amountLabel}. ` : ""}Te enviamos un enlace de pago al correo. Tambien podes pagar directamente:
+                        {amountLabel ? `${amountLabel}. ` : ""}
+                        {tx.status === "LINK_SENT"
+                          ? "Enviamos el enlace por correo. También podés pagar directamente:"
+                          : "El envío del correo está pendiente. Podés pagar directamente:"}
                       </p>
                       <a
                         href={payUrl}

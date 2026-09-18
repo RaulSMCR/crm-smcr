@@ -117,9 +117,9 @@ export default function BookingConfirmationToast({ confirmation, onDismiss, auto
         // que lo que corresponde no es alarmar sino no mentir: nadie tiene que
         // quedarse esperando un correo que no salió, ni volver a reservar.
         <p className="mt-3 rounded-lg bg-white/10 p-3 text-xs">
-          Tu cita quedó <b>reservada</b>. El enlace para pagar el adelanto no se pudo generar
-          en este momento; te lo hacemos llegar por correo apenas se resuelva. No hace falta
-          que reserves de nuevo.
+          Tu cita quedó <b>reservada</b>. No pudimos completar el envío del enlace para pagar
+          el adelanto. Revisá el pago en tu panel o contactá a la administración.
+          No hace falta que reserves de nuevo.
         </p>
       ) : null}
 

@@ -145,7 +145,12 @@ export default function ProfessionalCalendarBooking({
           // paciente vea el detalle de lo que aceptó.
           setConfirmation(
             res.confirmation
-              ? { ...res.confirmation, requiresDeposit: res.requiresDeposit, depositAmount: res.depositAmount }
+              ? {
+                  ...res.confirmation,
+                  requiresDeposit: res.depositLinkSent === true,
+                  depositPendienteDeEnlace: res.depositLinkSent === false,
+                  depositAmount: res.depositAmount,
+                }
               : null
           );
           setTimeout(() => {

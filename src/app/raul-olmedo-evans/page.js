@@ -147,7 +147,7 @@ export default async function RaulHubPage() {
               <p className="hub-kicker">Temas</p>
               <h2 id="hub-temas" className="hub-heading">Encontrá tu punto de partida</h2>
             </div>
-            <p className="max-w-md text-sm leading-6 text-neutral-700">Cada página aborda una intención de consulta específica y se mantiene separada de la información general del sitio.</p>
+            <p className="max-w-md text-sm leading-6 text-neutral-700">Cada página aborda una intención de consulta, ¿alguna sentís que es tuya?.</p>
           </div>
           <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {topics.map((topic) => (
