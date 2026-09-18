@@ -22,10 +22,16 @@ export default function ServiceAssignmentsReviewPanel({
   const router = useRouter();
   const { pendiente: isPending, ejecutar } = useAccionServidor();
 
+  // El precio arranca en la tarifa general vigente —lo que el paciente paga
+  // hoy—, no en la propuesta de la asignación, que puede ser vieja. Si no hay
+  // tarifa todavía, se ofrece la propuesta como punto de partida.
   const [edits, setEdits] = useState(() => {
     const base = {};
     for (const a of assignments) {
-      base[a.professional.id] = { adminReviewNote: a.adminReviewNote ?? "" };
+      base[a.professional.id] = {
+        adminReviewNote: a.adminReviewNote ?? "",
+        approvedSessionPrice: a.tarifaGeneral ?? a.proposedSessionPrice ?? "",
+      };
     }
     return base;
   });
@@ -78,6 +84,7 @@ export default function ServiceAssignmentsReviewPanel({
       professionalId: a.professional.id,
       decision,
       adminReviewNote: edits[a.professional.id]?.adminReviewNote,
+      approvedSessionPrice: edits[a.professional.id]?.approvedSessionPrice,
       ...fiscal,
     }));
     ejecutar(
@@ -185,6 +192,7 @@ export default function ServiceAssignmentsReviewPanel({
               <tr className="text-sm text-slate-700">
                 <th className="px-4 py-3">Profesional</th>
                 <th className="px-4 py-3">Estado</th>
+                <th className="px-4 py-3">Precio por sesión</th>
                 <th className="px-4 py-3">Nota admin</th>
                 <th className="px-4 py-3">Acciones</th>
               </tr>
@@ -203,6 +211,22 @@ export default function ServiceAssignmentsReviewPanel({
                       <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${statusBadge(a.status)}`}>
                         {a.status}
                       </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <input
+                        value={edit.approvedSessionPrice}
+                        onChange={(e) => setField(a.professional.id, "approvedSessionPrice", e.target.value)}
+                        inputMode="numeric"
+                        placeholder="₡"
+                        className="w-28 rounded-lg border border-slate-300 px-2 py-1"
+                      />
+                      <div className="mt-1 text-xs text-slate-500">
+                        {a.tarifaGeneral
+                          ? `Vigente: ₡${a.tarifaGeneral}`
+                          : a.proposedSessionPrice
+                            ? `Propuesto: ₡${a.proposedSessionPrice}`
+                            : "Sin tarifa"}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <input

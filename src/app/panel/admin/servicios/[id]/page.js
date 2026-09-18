@@ -73,6 +73,23 @@ export default async function AdminServicioDetallePage({ params }) {
 
   const taxes = await prisma.tax.findMany({ where: { isActive: true, scope: { in: ["SALES", "BOTH"] } }, orderBy: { rate: "asc" }, select: { id: true, label: true, rate: true } });
 
+  // El precio que se cobra NO es `Service.price` —ese es el del catálogo, el que
+  // se siembra al vincular a alguien nuevo— sino la tarifa general del
+  // profesional, el catch-all sin lugar ni franja. Mostrar el del catálogo en la
+  // fila de cada profesional sería mostrar un número que nadie paga.
+  const tarifasGenerales = await prisma.professionalRate.findMany({
+    where: {
+      serviceId,
+      professionalId: { in: service.professionalAssignments.map((a) => a.professional.id) },
+      locationId: null,
+      timeBandId: null,
+    },
+    select: { professionalId: true, approvedPrice: true },
+  });
+  const tarifaPorProfesional = new Map(
+    tarifasGenerales.map((rate) => [rate.professionalId, rate.approvedPrice])
+  );
+
   const priceStr = service.price?.toString?.() ?? String(service.price);
 
   const approvedCount = service.professionalAssignments.filter(
@@ -92,9 +109,15 @@ export default async function AdminServicioDetallePage({ params }) {
           <h1 className="text-3xl font-bold text-slate-900 mt-2">{service.title}</h1>
 
           <div className="text-sm text-slate-700 mt-3">
-            <b>Duración:</b> {service.durationMin} min · <b>Precio:</b> ₡{priceStr} ·{" "}
+            <b>Duración:</b> {service.durationMin} min · <b>Precio de catálogo:</b> ₡{priceStr} ·{" "}
             <b>Estado:</b> {service.isActive ? "Activo" : "Inactivo"}
           </div>
+
+          <p className="mt-2 text-xs text-slate-500">
+            El precio de catálogo es el que se le siembra a un profesional al vincularlo por primera
+            vez. No es lo que se cobra: eso sale de la tarifa de cada profesional, que se edita más
+            abajo.
+          </p>
 
           {service.description ? (
             <p className="text-slate-700 mt-4">{service.description}</p>
@@ -136,6 +159,8 @@ export default async function AdminServicioDetallePage({ params }) {
                 ...a,
                 proposedSessionPrice: a.proposedSessionPrice?.toString?.() ?? null,
                 approvedSessionPrice: a.approvedSessionPrice?.toString?.() ?? null,
+                // Lo que el paciente paga hoy, que es lo único editable acá.
+                tarifaGeneral: tarifaPorProfesional.get(a.professional.id)?.toString?.() ?? null,
               }))}
             />
           </div>

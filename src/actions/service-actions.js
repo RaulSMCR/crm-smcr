@@ -378,12 +378,26 @@ export async function reviewServiceAssignment(serviceId, professionalId, payload
 
     if (!current) return { error: "No se encontro la solicitud." };
 
+    // Re-aprobar una asignación que ya regía no puede revertir el precio.
+    // `proposedSessionPrice` es lo que el profesional pidió alguna vez, y puede
+    // ser más viejo que lo que el admin negoció después en /panel/admin/tarifas:
+    // caer a la propuesta cuando no se indica monto le devolvía al profesional su
+    // precio original sin que nadie lo pidiera ni se enterara. Manda la tarifa
+    // general vigente, que es de donde lee el sitio; la propuesta queda solo
+    // para la primera aprobación, cuando todavía no hay tarifa.
+    const vigente = await prisma.professionalRate.findFirst({
+      where: { professionalId: pid, serviceId: sid, locationId: null, timeBandId: null },
+      select: { approvedPrice: true },
+    });
+    const precioVigente = Number(vigente?.approvedPrice);
+
     // Aprobar sin precio deja al profesional en el peor de los mundos: figura
     // habilitado en el panel, pero su ficha pública no lo muestra en el servicio
     // y la pantalla de agendar lo rechaza, sin que nada avise. Es lo que dejó a
     // tres de cuatro profesionales publicados y sin agenda. El precio es
     // requisito de la aprobación, no un campo opcional que se llena después.
-    const precioFinal = decision === "APPROVED" ? (approvedPrice ?? Number(current.proposedSessionPrice)) : null;
+    const precioHeredado = precioVigente > 0 ? precioVigente : Number(current.proposedSessionPrice);
+    const precioFinal = decision === "APPROVED" ? (approvedPrice ?? precioHeredado) : null;
 
     if (decision === "APPROVED" && (!Number.isFinite(precioFinal) || precioFinal <= 0)) {
       return {
