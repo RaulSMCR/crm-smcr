@@ -13,6 +13,8 @@ export const TIPOS_IDENTIFICACION = Object.freeze({
   JURIDICA: "02",
   DIMEX: "03",
   NITE: "04",
+  EXTRANJERO: "05",
+  NO_CONTRIBUYENTE: "06",
 });
 
 export const ETIQUETAS_IDENTIFICACION = Object.freeze({
@@ -20,7 +22,48 @@ export const ETIQUETAS_IDENTIFICACION = Object.freeze({
   "02": "Cédula jurídica",
   "03": "DIMEX (residencia)",
   "04": "NITE",
+  "05": "Extranjero no domiciliado (pasaporte o documento del país)",
+  "06": "No contribuyente",
 });
+
+/**
+ * El NITE y el extranjero no domiciliado se confunden con facilidad y no son lo
+ * mismo:
+ *
+ *   NITE (04)        lo ASIGNA Hacienda a quien, sin residir en el país, hace
+ *                    actividad que genera obligaciones tributarias acá. No se
+ *                    inventa: si la persona no tiene uno, no hay NITE que poner.
+ *   Extranjero (05)  es para quien no tiene domicilio fiscal en Costa Rica ni
+ *                    DIMEX ni NITE, y se identifica con el documento de su país.
+ *                    Apareció en la 4.4 justamente para este hueco.
+ *
+ * Antes, cualquier documento que no calzara con los tres formatos costarricenses
+ * caía en NITE por descarte —así se declaró como NITE el DNI de 8 dígitos de una
+ * paciente extranjera—, lo que equivale a declarar un número que no existe en el
+ * registro de Hacienda.
+ */
+
+/** Longitud máxima del número de identificación en la 4.4. */
+export const MAX_LARGO_IDENTIFICACION = 20;
+
+/**
+ * Normaliza el número según su tipo.
+ *
+ * Los documentos costarricenses son solo dígitos; un pasaporte o un documento
+ * extranjero llevan letras, y borrarlas dejaría un número distinto del que la
+ * persona tiene en la mano.
+ */
+export function normalizarIdentificacion(tipo, valor) {
+  const texto = String(valor || "").trim();
+  const codigo = String(tipo || "").trim();
+  if (codigo === TIPOS_IDENTIFICACION.EXTRANJERO || codigo === TIPOS_IDENTIFICACION.NO_CONTRIBUYENTE) {
+    // No se recorta al máximo: un identificador fiscal truncado es OTRO número,
+    // y emitirlo en silencio es peor que rechazarlo. Del largo se encarga
+    // validarIdentificacionFiscal, que avisa.
+    return texto.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  }
+  return texto.replace(/\D/g, "");
+}
 
 /** Deja solo dígitos: Hacienda no acepta guiones ni espacios. */
 export function limpiarIdentificacion(valor) {
@@ -37,7 +80,11 @@ export function inferirTipoIdentificacion(idNumber) {
   if (limpio.length === 9) return TIPOS_IDENTIFICACION.FISICA;
   if (limpio.length === 10 && limpio.startsWith("3")) return TIPOS_IDENTIFICACION.JURIDICA;
   if (limpio.length === 11 || limpio.length === 12) return TIPOS_IDENTIFICACION.DIMEX;
-  return TIPOS_IDENTIFICACION.NITE;
+  // Lo que no calza con ninguno NO es un NITE: un NITE lo asigna Hacienda y
+  // tiene 10 dígitos. Devolver NITE por descarte declaraba un número inexistente
+  // ante Tributación. Sin tipo, el comprobante sale sin bloque de
+  // identificación, que es correcto, en vez de con uno inventado.
+  return null;
 }
 
 /**
@@ -50,8 +97,8 @@ export function inferirTipoIdentificacion(idNumber) {
  * @returns {{ok: true, numero: string} | {ok: false, error: string}}
  */
 export function validarIdentificacionFiscal(tipo, numero) {
-  const limpio = limpiarIdentificacion(numero);
   const codigo = String(tipo || "").trim();
+  const limpio = normalizarIdentificacion(codigo, numero);
 
   if (!limpio) return { ok: false, error: "Indique el número de identificación." };
   if (!ETIQUETAS_IDENTIFICACION[codigo]) {
@@ -72,8 +119,18 @@ export function validarIdentificacionFiscal(tipo, numero) {
   if (codigo === TIPOS_IDENTIFICACION.DIMEX && (limpio.length < 11 || limpio.length > 12)) {
     return { ok: false, error: "El DIMEX tiene 11 o 12 dígitos." };
   }
-  if (codigo === TIPOS_IDENTIFICACION.NITE && limpio.length !== 10) {
-    return { ok: false, error: "El NITE tiene 10 dígitos." };
+  if (codigo === TIPOS_IDENTIFICACION.NITE) {
+    if (limpio.length !== 10) return { ok: false, error: "El NITE tiene 10 dígitos." };
+  }
+  if (codigo === TIPOS_IDENTIFICACION.EXTRANJERO || codigo === TIPOS_IDENTIFICACION.NO_CONTRIBUYENTE) {
+    // Sin formato que comprobar: cada país emite el suyo. Lo único que se exige
+    // es que quepa y que no traiga separadores, que ya los quitó el normalizador.
+    if (limpio.length > MAX_LARGO_IDENTIFICACION) {
+      return { ok: false, error: `El documento extranjero admite hasta ${MAX_LARGO_IDENTIFICACION} caracteres.` };
+    }
+    if (!/^[A-Z0-9]+$/.test(limpio)) {
+      return { ok: false, error: "El documento extranjero solo admite letras y números." };
+    }
   }
 
   return { ok: true, numero: limpio };
@@ -91,7 +148,10 @@ export function validarIdentificacionFiscal(tipo, numero) {
  * igual aceptaría, así que se exige la pareja completa para tomarlos.
  */
 export function datosFacturacionDe(user) {
-  const billingNumero = limpiarIdentificacion(user?.billingIdNumber);
+  // Se normaliza CON el tipo declarado: un pasaporte lleva letras y
+  // `limpiarIdentificacion` las borraba, así que el número que viajaba al
+  // comprobante no era el que la persona tiene en el documento.
+  const billingNumero = normalizarIdentificacion(user?.billingIdType, user?.billingIdNumber);
   const billingNombre = String(user?.billingName || "").trim();
   const usaFacturacion = Boolean(billingNumero && billingNombre);
 

@@ -19,7 +19,7 @@ const {
 } = vi.hoisted(() => ({
   prisma: {
     appointment: { findUnique: vi.fn(), update: vi.fn() },
-    paymentTransaction: { findFirst: vi.fn(), create: vi.fn() },
+    paymentTransaction: { findFirst: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
     serviceAssignment: { findUnique: vi.fn() },
     // El rótulo del cobro nombra al profesional con su título, así que el cobro
     // completa la cita desde la base antes de crear el enlace.
@@ -81,7 +81,9 @@ import { cancelAppointmentByPatient } from "@/actions/patient-booking-actions";
 beforeEach(() => {
   vi.clearAllMocks();
   prisma.appointment.update.mockResolvedValue({});
-  prisma.paymentTransaction.create.mockResolvedValue({});
+  prisma.paymentTransaction.create.mockImplementation(async ({ data }) => ({ id: "tx1", ...data }));
+  prisma.paymentTransaction.updateMany.mockResolvedValue({ count: 1 });
+  prisma.paymentTransaction.findFirst.mockResolvedValue(null);
   prisma.professionalProfile.findUnique.mockResolvedValue({
     academicDegree: "licenciada",
     user: { name: "Ana Solano" },
@@ -89,6 +91,37 @@ beforeEach(() => {
 });
 
 describe("cobrarCita — pertenencia del profesional (SEC-03)", () => {
+  it.each(["PENDING", "CONFIRMED"])("recupera el adelanto de la primera cita %s sin cambiar su estado", async (status) => {
+    libGetSession.mockResolvedValue({ role: "ADMIN" });
+    prisma.appointment.findUnique.mockResolvedValue({
+      id: "apt1", status, paymentStatus: "UNPAID", isFirstWithProfessional: true,
+      professionalId: "proA", patientId: "patX", pricePaid: 2000,
+      patient: { name: "Paciente", email: "p@example.com" },
+      professional: { academicDegree: "licenciada", user: { name: "Profesional" } },
+    });
+    const result = await cobrarCita("apt1");
+    expect(result.success).toBe(true);
+    expect(prisma.paymentTransaction.create).toHaveBeenCalledWith({ data: expect.objectContaining({
+      appointmentId: "apt1", type: "DEPOSIT_50", amount: 1000,
+    }) });
+    expect(prisma.appointment.update).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["CANCELLED_BY_USER", "UNPAID", true],
+    ["CANCELLED_BY_PRO", "UNPAID", true],
+    ["NO_SHOW", "UNPAID", true],
+    ["PENDING", "PARTIALLY_PAID", true],
+    ["CONFIRMED", "PAID", true],
+    ["PENDING", "UNPAID", false],
+  ])("no genera adelanto para %s / %s / primera=%s", async (status, paymentStatus, isFirstWithProfessional) => {
+    libGetSession.mockResolvedValue({ role: "ADMIN" });
+    prisma.appointment.findUnique.mockResolvedValue({ id: "apt1", status, paymentStatus, isFirstWithProfessional });
+    expect((await cobrarCita("apt1")).success).toBe(false);
+    expect(prisma.paymentTransaction.create).not.toHaveBeenCalled();
+    expect(sendPaymentRequestEmail).not.toHaveBeenCalled();
+  });
+
   it("un profesional NO puede cobrar la cita de otro profesional", async () => {
     libGetSession.mockResolvedValue({ role: "PROFESSIONAL", professionalProfileId: "proA" });
     prisma.appointment.findUnique.mockResolvedValue({

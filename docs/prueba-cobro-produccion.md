@@ -11,7 +11,21 @@
 - Las credenciales fiscales locales corresponden al sandbox. El certificado local se pudo abrir y está vigente; eso no acredita su habilitación para producción.
 - Por indicación del usuario se intentó autenticar contra Hacienda producción con esas credenciales locales, sin alterarlas: respondió HTTP 401, `invalid_grant`. No se obtuvo acceso para emitir. Este intento no verifica las credenciales protegidas de Vercel, cuyos valores no están disponibles mediante la descarga de variables.
 
-## Configuración pendiente antes de cobrar
+## Seguimiento del correo de adelanto
+
+- La cita recreada para el 21 de septiembre conserva tarifa de ₡2.000 y condición de primera cita. Al iniciar la recuperación seguía pendiente, sin transacciones ni facturas; el adelanto corresponde a ₡1.000.
+- Se alinearon en Vercel Production `FE_AMBIENTE`, `FE_API_URL`, `FE_TOKEN_URL` y `FE_CLIENT_ID` con Hacienda producción. Se verificaron los valores descargados y se conservaron las variables de Preview y las credenciales protegidas existentes. No se activó `FISCAL_AMBIENTE_MIXTO`.
+- El correo de pago ahora exige una referencia de aceptación de Resend. Una respuesta con error, sin identificador, sin configuración o sin destinatario ya no se considera un envío exitoso.
+- El cobro se guarda como `PENDING` antes del envío y pasa a `LINK_SENT` después de la aceptación. Si el envío falla, el enlace queda disponible en el panel y el reintento reutiliza el mismo cobro. La actualización condicional no sustituye un `APPROVED` concurrente.
+- La confirmación de reserva y el panel distinguen el envío pendiente. `LINK_SENT` significa aceptación del proveedor; no acredita por sí solo entrega en el buzón.
+- Administración dispone de «Enviar adelanto 50%» para primeras citas pendientes o confirmadas y todavía impagas. La acción mantiene la reserva y comprueba autorización; rechaza adelantos de citas canceladas, ausentes, posteriores o con pago ya acreditado. También se corrigió el import de `useToast` necesario para renderizar esa pantalla administrativa.
+- Validación de este seguimiento: lint, 1.209 pruebas aprobadas (37 omitidas) y build correctos. Las pruebas nuevas cubren rechazo de Resend, recuperación del mismo enlace, estados permitidos y concurrencia con la acreditación. No existe script `typecheck`.
+- La copia de los 13 campos del emisor desde la configuración local a Vercel quedó pendiente de autorización específica solicitada por la revisión automática. No se copió ese contenido.
+- Recuperación verificada en producción con el despliegue `dpl_5AHtzsrkCXZB3MwnW6TkzMQti6Vc`: el 18 de septiembre, a las 23:45 UTC, se generó un único adelanto `DEPOSIT_50` de ₡1.000 con enlace ONVO `live`. La acción administrativa devolvió éxito y el cobro quedó `LINK_SENT`.
+- Resend confirmó `delivered` para el mensaje nuevo; se verificó que su HTML contiene el enlace de ese mismo cobro live. No se confundió con el correo de prueba anterior.
+- El panel autenticado del paciente respondió HTTP 200 y contiene el enlace del cobro. La reserva sigue `PENDING`, el pago `UNPAID` y todavía no hay factura: el pago manual y la aceptación fiscal continúan pendientes.
+
+## Configuración y verificaciones fiscales pendientes
 
 En Vercel, proyecto `crm-smcr`, revisar las variables del entorno **Production**. No copiar claves al chat, a documentos ni a logs.
 

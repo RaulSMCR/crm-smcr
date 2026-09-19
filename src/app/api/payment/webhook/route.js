@@ -49,7 +49,16 @@ export async function POST(request) {
   const secretHeader = request.headers.get("x-webhook-secret") || "";
   const isValid = verifyOnvoWebhookSecret(secretHeader, ONVO_WEBHOOK_SECRET);
   if (!isValid) {
-    logOnvoWebhook("warn", "AUTH_REJECTED");
+    // Un rechazo tiene dos causas muy distintas y hasta acá se veían iguales:
+    // que la cabecera llegue con otro valor, o que no llegue del todo porque
+    // ONVO firma en vez de mandar el secreto. Lo segundo significaría que este
+    // módulo autentica por un esquema equivocado y que ningún valor funcionaría
+    // nunca. Se registran los nombres de las cabeceras —no sus valores— para
+    // poder distinguirlo con el próximo aviso real en vez de deducirlo.
+    logOnvoWebhook("warn", "AUTH_REJECTED", {
+      reason: secretHeader ? "SECRET_MISMATCH" : "SECRET_HEADER_ABSENT",
+      headerNames: [...request.headers.keys()],
+    });
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 

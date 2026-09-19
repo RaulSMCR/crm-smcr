@@ -78,7 +78,8 @@ export function formatCodigoActividad(codigo) {
 /**
  * Infiere el tipo de identificación a partir del número.
  * 01=Cédula Física (9 dig), 02=Cédula Jurídica (10 dig, empieza con 3),
- * 03=DIMEX (11-12 dig), 04=NITE
+ * 03=DIMEX (11-12 dig). El 04 (NITE), el 05 (extranjero no domiciliado) y el
+ * 06 (no contribuyente) NO se infieren: hay que declararlos.
  */
 function inferIdType(idNumber) {
   if (!idNumber) return null;
@@ -86,7 +87,12 @@ function inferIdType(idNumber) {
   if (clean.length === 9)                             return "01";
   if (clean.length === 10 && clean.startsWith("3"))   return "02";
   if (clean.length === 11 || clean.length === 12)      return "03";
-  return "04";
+  // Copia de la regla de lib/fiscal-identity: lo que no calza NO es un NITE.
+  // Un NITE lo asigna Hacienda y tiene 10 dígitos; ponerlo por descarte declara
+  // un número que no existe en el registro. Sin tipo la emisión falla, que es lo
+  // correcto: la 4.4 exige identificar al receptor, así que el dato hay que
+  // pedirlo, no adivinarlo.
+  return null;
 }
 
 /**
@@ -219,25 +225,57 @@ export function generateFeXml(invoice, lines) {
   telEl.ele("NumTelefono").txt(FE_EMISOR.telefono.numTelefono);
   emisorEl.ele("CorreoElectronico").txt(FE_EMISOR.correo);
 
-  // ─── Receptor (opcional si no hay identificación) ────────────────────────
+  // ─── Receptor (obligatorio, con identificación obligatoria) ──────────────
   const contactName   = invoice.contactName   || "";
-  const contactIdNum  = invoice.contactIdNumber ? String(invoice.contactIdNumber).replace(/\D/g, "") : "";
   // El tipo declarado manda. Solo se deduce del largo cuando la factura es
   // anterior a que se guardara, porque jurídica y NITE tienen los mismos
   // 10 dígitos y ahí adivinar se equivoca justo con quien pide deducible.
-  const idType        = invoice.contactIdType || inferIdType(contactIdNum);
+  const idTypeDeclarado = invoice.contactIdType || null;
+  const contactIdRaw    = invoice.contactIdNumber ? String(invoice.contactIdNumber).trim() : "";
+  // El extranjero no domiciliado (05) se identifica con el documento de su país,
+  // que puede llevar letras. Borrarlas —como se hacía con todos— dejaba un
+  // número distinto del que la persona tiene en la mano.
+  // Tampoco se recorta acá: si algo sobrepasara el largo, que lo rechace
+  // Hacienda antes que emitir un número que no es el del receptor.
+  const contactIdNum    = idTypeDeclarado === "05"
+    ? contactIdRaw.replace(/[^A-Za-z0-9]/g, "").toUpperCase()
+    : contactIdRaw.replace(/\D/g, "");
+  const idType          = idTypeDeclarado || inferIdType(contactIdNum);
 
-  if (contactName) {
-    const recEl = root.ele("Receptor");
-    recEl.ele("Nombre").txt(contactName.substring(0, 100));
-    if (idType && contactIdNum) {
-      const idRecEl = recEl.ele("Identificacion");
-      idRecEl.ele("Tipo").txt(idType);
-      idRecEl.ele("Numero").txt(contactIdNum);
-    }
-    if (invoice.contact?.email) {
-      recEl.ele("CorreoElectronico").txt(invoice.contact.email);
-    }
+  // El XSD de la 4.4 (docs/esquemas/FacturaElectronica_V4.4.xsd) define
+  // `Receptor` sin minOccurs="0", y dentro de él `Identificacion` tampoco lo
+  // lleva: en una FacturaElectronica los dos son OBLIGATORIOS. Lo que sí es
+  // opcional es Ubicacion, OtrasSenasExtranjero, Telefono y CorreoElectronico.
+  //
+  // Emitirlos condicionalmente producía un XML que el esquema rechaza. Se falla
+  // acá, antes de firmar y enviar, porque un rechazo de Hacienda consume el
+  // consecutivo igual: es preferible una factura que no sale a un número quemado
+  // en un documento inválido. La factura sin receptor identificado es un
+  // Tiquete Electrónico, que es otro tipo de comprobante.
+  if (!contactName || contactName.trim().length < 3) {
+    throw new Error(
+      "La factura no tiene receptor: la 4.4 lo exige con nombre de al menos 3 caracteres. " +
+        "Complete los datos del cliente antes de emitir."
+    );
+  }
+  if (!idType || !contactIdNum) {
+    throw new Error(
+      `El receptor "${contactName}" no tiene identificación utilizable y la 4.4 la exige. ` +
+        "Declare el tipo y el número (05 para extranjero no domiciliado, con el documento de su país)."
+    );
+  }
+
+  const recEl = root.ele("Receptor");
+  recEl.ele("Nombre").txt(contactName.substring(0, 100));
+  const idRecEl = recEl.ele("Identificacion");
+  idRecEl.ele("Tipo").txt(idType);
+  idRecEl.ele("Numero").txt(contactIdNum.substring(0, 20));
+  // Telefono se omite a propósito. Es opcional, y es el ÚNICO lugar donde el
+  // receptor lleva un país (`Telefono/CodigoPais`): emitirlo con el 506 por
+  // defecto para alguien que vive afuera declararía una residencia falsa.
+  // Mientras no se le pida el teléfono al paciente, no se pone el nodo.
+  if (invoice.contact?.email) {
+    recEl.ele("CorreoElectronico").txt(invoice.contact.email);
   }
 
   root.ele("CondicionVenta").txt(condVenta);

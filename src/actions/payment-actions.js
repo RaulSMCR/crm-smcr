@@ -55,8 +55,8 @@ function paymentErrorMessage(paymentRequest) {
 }
 
 /**
- * Envia o reenvia el enlace de pago ONVO al paciente cuando la cita esta
- * completada. Para primeras citas, respeta adelanto/saldo 50%.
+ * Envia o reenvia el adelanto de una primera cita reservada, o el cobro de
+ * una cita completada. Respeta adelanto/saldo 50% sin cambiar la reserva.
  */
 export async function cobrarCita(appointmentId) {
   try {
@@ -86,8 +86,11 @@ export async function cobrarCita(appointmentId) {
       return { success: false, error: "No autorizado." };
     }
 
-    if (appointment.status !== "COMPLETED") {
-      return { success: false, error: "Solo se puede cobrar citas completadas." };
+    const pendingDeposit = appointment.isFirstWithProfessional &&
+      appointment.paymentStatus === "UNPAID" &&
+      ["PENDING", "CONFIRMED"].includes(appointment.status);
+    if (appointment.status !== "COMPLETED" && !pendingDeposit) {
+      return { success: false, error: "Solo se puede enviar el adelanto de una primera cita pendiente o cobrar una cita completada." };
     }
     if (appointment.paymentStatus === "PAID") {
       return { success: false, error: "Esta cita ya esta pagada." };

@@ -3,6 +3,8 @@
 import { Fragment, useCallback, useState, useTransition } from "react";
 import { adminUpdateAppointmentStatus, adminRescheduleAppointment } from "@/actions/admin-appointments-actions";
 import Toast from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/ToastProvider";
+import { cobrarCita } from "@/actions/payment-actions";
 
 const STATUS_OPTIONS = ["PENDING", "CONFIRMED", "COMPLETED", "NO_SHOW", "CANCELLED_BY_USER", "CANCELLED_BY_PRO"];
 
@@ -76,6 +78,20 @@ export default function AdminAppointmentsManager({ appointments = [] }) {
 
   const [pendingReschedule, setPendingReschedule] = useState(null);
   const [rescheduleDateTime, setRescheduleDateTime] = useState("");
+
+  const handleDeposit = (appointmentId) => {
+    startTransition(async () => {
+      try {
+        const result = await cobrarCita(appointmentId);
+        setToast({
+          message: result?.success ? result.message : result?.error || "No se pudo enviar el adelanto.",
+          type: result?.success ? "success" : "error",
+        });
+      } catch {
+        setToast({ message: "No se pudo confirmar el envío. Revisá el cobro antes de reintentar.", type: "error" });
+      }
+    });
+  };
 
   const handleStatusChange = (appointmentId, nextStatus) => {
     if (CANCEL_STATUSES.has(nextStatus)) {
@@ -243,6 +259,18 @@ export default function AdminAppointmentsManager({ appointments = [] }) {
                         Pendiente
                       </span>
                     )}
+                    {row.isFirstWithProfessional && row.paymentStatus === "UNPAID" &&
+                      ["PENDING", "CONFIRMED"].includes(row.status) ? (
+                      <button
+                        type="button"
+                        onClick={() => handleDeposit(row.id)}
+                        disabled={isPending}
+                        className="mt-2 block rounded border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+                        title="Enviar o reenviar el mismo enlace de adelanto del 50%"
+                      >
+                        {isPending ? "Enviando…" : "Enviar adelanto 50%"}
+                      </button>
+                    ) : null}
                   </td>
                   <td className="max-w-[210px] px-4 py-3 text-xs text-slate-700">
                     {approvedPayment ? (

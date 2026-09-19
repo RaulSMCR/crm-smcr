@@ -91,9 +91,40 @@ describe("generateFeXml — receptor", () => {
     expect(dimex).toMatch(/<Identificacion><Tipo>03<\/Tipo><Numero>155812345678</);
   });
 
-  it("omite el receptor cuando no hay nombre", () => {
-    const { xml } = generateFeXml({ ...baseInvoice, contactName: "" }, baseLines);
-    expect(xml).not.toContain("<Receptor>");
+  // Este caso afirmaba lo contrario —que sin nombre se omitia el Receptor— hasta
+  // que se leyo el XSD de la 4.4: ni `Receptor` ni su `Identificacion` llevan
+  // minOccurs="0", o sea que los dos son obligatorios en una FacturaElectronica.
+  // Omitirlos producia un XML que el esquema rechaza, y un rechazo consume el
+  // consecutivo igual. Ahora falla antes de firmar y de enviar.
+  it("se niega a emitir sin receptor: la 4.4 lo exige", () => {
+    expect(() => generateFeXml({ ...baseInvoice, contactName: "" }, baseLines))
+      .toThrow(/receptor/i);
+  });
+
+  it("se niega a emitir sin identificacion del receptor", () => {
+    expect(() => generateFeXml({ ...baseInvoice, contactIdNumber: "", contactIdType: null }, baseLines))
+      .toThrow(/identificaci/i);
+  });
+
+  it("acepta el 05 con un documento extranjero con letras", () => {
+    const { xml } = generateFeXml(
+      { ...baseInvoice, contactIdType: "05", contactIdNumber: "ab-123 456" },
+      baseLines
+    );
+    expect(xml).toMatch(/<Identificacion><Tipo>05<\/Tipo><Numero>AB123456</);
+  });
+
+  // El unico pais que el receptor puede declarar vive en Telefono/CodigoPais, y
+  // Telefono es opcional. Poner el 506 por omision a alguien que vive afuera
+  // seria declarar una residencia que no es la suya.
+  it("no inventa un telefono ni un codigo de pais para el receptor", () => {
+    const { xml } = generateFeXml(
+      { ...baseInvoice, contactIdType: "05", contactIdNumber: "95930281" },
+      baseLines
+    );
+    const receptor = xml.match(/<Receptor>[\s\S]*?<\/Receptor>/)[0];
+    expect(receptor).not.toContain("<Telefono>");
+    expect(receptor).not.toContain("<CodigoPais>");
   });
 
   it("incluye el correo del receptor solo si viene en el contacto", () => {
