@@ -56,6 +56,35 @@ La [documentación de ONVO](https://docs.onvopay.com/) especifica que el entorno
 7. Verificar una sola factura por ese pago, total ₡1.000 y `feStatus=ACCEPTED`, con clave y comprobante de Hacienda. `Invoice.status=PAID` por sí solo no prueba aceptación fiscal.
 8. Comprobar entrega del correo del comprobante. Revisar pendientes o errores en `/panel/admin/contabilidad/conciliacion`.
 
+## Webhook rechazado y receptor extranjero (18 de septiembre de 2026)
+
+- El pago se completó en ONVO live, pero la transacción quedó en `LINK_SENT` sin
+  `paidAt` ni `onvoEventId`, sin factura, sin trabajos de envío y con el
+  consecutivo intacto en 188. La factura se crea dentro de `processOnvoPayment`,
+  que solo corre desde el webhook: la parte fiscal no llegó a iniciarse.
+- Los logs de producción muestran cuatro POST a `/api/payment/webhook`
+  rechazados con 401 `AUTH_REJECTED`. ONVO sí envía; el secreto configurado no
+  coincide con el que llega. No hay filas en `UnmatchedPayment`, lo que descarta
+  que el aviso entrara y fallara al emparejar.
+- El endpoint responde 401 ante un secreto incorrecto y 200 ante el valor
+  cargado en Vercel, así que la ruta y la comparación funcionan. La discrepancia
+  está entre ese valor y el que ONVO emite.
+- El rechazo ahora registra `reason` (`SECRET_MISMATCH` o `SECRET_HEADER_ABSENT`)
+  y los **nombres** de las cabeceras recibidas, nunca sus valores. Con el próximo
+  aviso real eso distingue un secreto compartido de una firma, que es la duda de
+  fondo sobre el esquema de autenticación del webhook.
+- El dashboard de ONVO no ofrece reenviar un evento. `tmp/reenviar-evento-onvo.mjs`
+  publica el payload original contra el endpoint y, antes de enviarlo, comprueba
+  con los módulos del servidor que vaya a emparejar. El endpoint es idempotente
+  por `onvoEventId`.
+- Al preparar esa emisión se detectó que el receptor habría salido con
+  `TipoIdentificacion=04` (NITE) sobre una identificación de relleno. La lectura
+  del XSD 4.4 estableció que `Receptor` y su `Identificacion` son obligatorios y
+  que no existe campo de país fuera de `Telefono/CodigoPais`. Ver
+  [factura-electronica-receptor.md](factura-electronica-receptor.md).
+- Queda pendiente guardar el XSD en `docs/esquemas/` y validar contra él en las
+  pruebas. Hacienda responde 403 a la descarga automatizada.
+
 ## Validación realizada
 
 `pnpm run lint`, `pnpm test` (1.190 pruebas aprobadas; 37 omitidas) y `pnpm run build` pasaron. Se reprodujo el `ReferenceError` del perfil antes del cambio y se renderizó correctamente después. El build necesitó ejecutarse fuera del sandbox por un fallo TLS de Prisma al leer datos para páginas estáticas. No existe script `typecheck`.
