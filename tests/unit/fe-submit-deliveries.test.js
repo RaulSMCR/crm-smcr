@@ -24,6 +24,29 @@ it("un fallo de comunicación conserva clave y XML, sin convertirlo en rechazo",
   expect(JSON.stringify(console.error.mock.calls)).not.toContain("PRIVATE_PROVIDER_TEXT");
   expect(mocks.enqueue).not.toHaveBeenCalled(); expect(mocks.send).not.toHaveBeenCalled();
 });
+it("nombra el motivo cuando es uno de nuestros codigos, para no adivinar la causa", async () => {
+  // Distinguir una credencial de ATV equivocada de una caida de Hacienda era
+  // imposible: el comprobante quedaba PENDING con un texto generico y el log no
+  // traia el error. Estos codigos los lanzan lib/fe/client.js y lib/fe/auth.js.
+  mocks.submit.mockRejectedValue(new Error("FE_AUTH_UNAVAILABLE"));
+  const res = await run();
+  expect(res.feStatus).toBe("PENDING");
+  expect(mocks.update).toHaveBeenCalledWith({
+    where: { id: "invoice-local", feStatus: "PENDING" },
+    data: { feErrorMessage: expect.stringContaining("FE_AUTH_UNAVAILABLE") },
+  });
+  expect(JSON.stringify(console.error.mock.calls)).toContain("FE_AUTH_UNAVAILABLE");
+});
+
+it("reduce a una marca cualquier motivo que no sea nuestro", async () => {
+  mocks.submit.mockRejectedValue(new Error("Hacienda dice: <Receptor><Nombre>Ana</Nombre>"));
+  await run();
+  const guardado = JSON.stringify(mocks.update.mock.calls);
+  expect(guardado).toContain("FE_ERROR_NO_CLASIFICADO");
+  expect(guardado).not.toContain("Ana");
+  expect(JSON.stringify(console.error.mock.calls)).not.toContain("Ana");
+});
+
 it("una factura ya aceptada recupera únicamente su tarea de correo", async () => {
   mocks.find.mockResolvedValue({ ...snapshot, feStatus: "ACCEPTED" });
   expect((await run()).feStatus).toBe("ACCEPTED");

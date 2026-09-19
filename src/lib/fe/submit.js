@@ -18,6 +18,26 @@ import { enqueueDelivery } from "@/lib/delivery-jobs";
 const FROM_EMAIL = process.env.EMAIL_FROM || "Salud Mental Costa Rica <onboarding@resend.dev>";
 const FE_REAL_API_URL = process.env.FE_API_URL || null;
 
+/**
+ * Motivos de fallo que sí se pueden nombrar.
+ *
+ * Son los que lanzan `lib/fe/client.js` y `lib/fe/auth.js`: cadenas fijas, sin
+ * nada del comprobante ni del paciente adentro. Cada una apunta a un sitio
+ * distinto —las credenciales de ATV, el envío, la consulta de estado, el propio
+ * documento—, que es justo lo que hacía falta para no adivinar.
+ *
+ * La lista es explícita a propósito: un patrón como «mayúsculas y guiones bajos»
+ * dejaría pasar el texto de Hacienda, que puede traer fragmentos del XML.
+ */
+const CAUSAS_FE_PUBLICABLES = new Set([
+  "FE_AUTH_UNAVAILABLE",
+  "FE_SUBMISSION_FAILED",
+  "FE_STATUS_UNAVAILABLE",
+  "FE_DOCUMENT_REVIEW_REQUIRED",
+  "FE_DOCUMENT_INVALID",
+  "FE_DOCUMENT_ID_MISMATCH",
+]);
+
 // ─── Email al paciente ───────────────────────────────────────────────────────
 
 /**
@@ -379,9 +399,19 @@ export async function submitInvoiceToFe(invoiceId) {
       persistDocument: (document) => persistFeDocument(prisma, invoiceId, document),
     });
   } catch (error) {
-    console.error("[FE] SUBMISSION_PENDING", { invoiceId });
+    // El comprobante quedaba en PENDING con un mensaje que no distingue una
+    // credencial de ATV equivocada de una caída de Hacienda o de un documento
+    // mal armado, y ni el log traía el error. Pero el texto de un proveedor
+    // puede arrastrar datos del comprobante, así que no se vuelca: se publica
+    // solo si es uno de los códigos que lanzan nuestros propios módulos, que son
+    // estables y no llevan nada dentro. Cualquier otra cosa se reduce a una
+    // marca. Lo fija `tests/unit/fe-submit-deliveries.test.js`.
+    const causa = CAUSAS_FE_PUBLICABLES.has(error?.message) ? error.message : "FE_ERROR_NO_CLASIFICADO";
+    console.error("[FE] SUBMISSION_PENDING", { invoiceId, causa });
     // Un timeout no es un rechazo. No borrar clave/XML ni degradar una aceptación concurrente.
-    const feErrorMessage = "No se pudo confirmar el estado fiscal. Se conserva el comprobante para revisión o reintento.";
+    const feErrorMessage =
+      `No se pudo confirmar el estado fiscal (${causa}). ` +
+      "Se conserva el comprobante para revisión o reintento.";
     await prisma.invoice.updateMany({ where: { id: invoiceId, feStatus: "PENDING" }, data: { feErrorMessage } });
     const saved = await prisma.invoice.findUnique({ where: { id: invoiceId }, select: { feStatus: true, feNumber: true, feClave: true, feErrorMessage: true } });
     return { ...saved, reviewRequired: Boolean(error.reviewRequired || error.message === "FE_DOCUMENT_REVIEW_REQUIRED" || error.message === "FE_DOCUMENT_INVALID" || error.message === "FE_DOCUMENT_ID_MISMATCH") };
