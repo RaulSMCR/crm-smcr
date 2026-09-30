@@ -124,6 +124,28 @@ describe("lectura del cuerpo", () => {
     ]);
   });
 
+  it("marca el encabezado que sigue a un bloque, aunque haya una línea en blanco", () => {
+    const encabezados = leerEncabezados(
+      "## Cómo se trabaja\n\nTexto.\n\n<!-- bloque: cuando-consultar -->\n## Cuándo conviene consultar\n\n- Algo.\n\n<!-- bloque: riesgo -->\n\n## Si estás en una situación de riesgo",
+    );
+    expect(encabezados).toEqual([
+      { nivel: 2, texto: "Cómo se trabaja", id: "como-se-trabaja" },
+      { nivel: 2, texto: "Cuándo conviene consultar", id: "cuando-conviene-consultar", bloque: "cuando-consultar" },
+      { nivel: 2, texto: "Si estás en una situación de riesgo", id: "si-estas-en-una-situacion-de-riesgo", bloque: "riesgo" },
+    ]);
+  });
+
+  it("un marcador separado del encabezado por prosa no lo marca", () => {
+    const [encabezado] = leerEncabezados("<!-- bloque: aviso -->\nUna frase suelta.\n\n## Después");
+    expect(encabezado).toEqual({ nivel: 2, texto: "Después", id: "despues" });
+  });
+
+  it("el texto de un encabezado con enlace es el que se lee, no la sintaxis", () => {
+    const [encabezado] = leerEncabezados("## Sobre [la serie](/blog/serie/x) ##");
+    expect(encabezado.texto).toBe("Sobre la serie");
+    expect(encabezado.id).toBe("sobre-la-serie");
+  });
+
   it("lee los marcadores de bloque en orden y sin repetir", () => {
     expect(leerBloques("<!-- bloque: cuando-consultar -->\n## A\n<!-- bloque: riesgo -->\n## B")).toEqual([
       "cuando-consultar",

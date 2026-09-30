@@ -14,9 +14,10 @@ import {
   getRaulAgenda,
   getRaulProfile,
   getRaulWriting,
+  raulPerson,
 } from "@/lib/hub-raul";
 import { buildMetadata, resolveSeo } from "@/lib/seo";
-import { grafo, nodoMigas, ref, ID_ORGANIZACION } from "@/lib/jsonld";
+import { grafo, nodoMigas, ref } from "@/lib/jsonld";
 import { siteUrl } from "@/lib/site-url";
 import { notFound } from "next/navigation";
 
@@ -50,33 +51,6 @@ export async function generateMetadata() {
     subtitle: hub.titulo,
     noindex: seo.noindex,
   });
-}
-
-function raulPerson(hub, profile) {
-  return {
-    "@type": "Person",
-    // Mismo `@id` que la ficha: las dos páginas describen a la misma persona y
-    // sus señales se suman en vez de competir. Ver la nota en lib/hub-raul.js.
-    "@id": RAUL_PERSON_ID,
-    name: hub.nombre,
-    jobTitle: "Psicólogo clínico y psicoanalista",
-    url: siteUrl(hub.url_perfil),
-    // La foto y el vínculo con la organización se repiten acá a propósito: si el
-    // hub es la única página que un buscador rastrea, la persona igual queda
-    // descrita y atada a la marca, no suelta en internet.
-    ...(profile?.user?.image ? { image: profile.user.image } : {}),
-    worksFor: ref(ID_ORGANIZACION),
-    hasCredential: {
-      "@type": "EducationalOccupationalCredential",
-      credentialCategory: "Colegiatura profesional",
-      identifier: { "@type": "PropertyValue", propertyID: hub.credencial.colegio, value: hub.credencial.numero },
-      recognizedBy: {
-        "@type": "Organization",
-        name: hub.credencial.colegio,
-        ...(hub.credencial.url_verificacion ? { url: hub.credencial.url_verificacion } : {}),
-      },
-    },
-  };
 }
 
 export default async function RaulHubPage() {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { HUB_PROFILE_SLUG, RAUL_PERSON_ID, buildWaLink, formatHubPrice, getPublishedHubTopics, readHubTheme, seoDeModulo } from "../../src/lib/hub-raul.js";
-import { idPersona } from "../../src/lib/jsonld.js";
+import { HUB_PROFILE_SLUG, RAUL_PERSON_ID, buildWaLink, esquemaTemaHub, formatHubPrice, getHubData, getPublishedHubTopics, readHubTheme, seoDeModulo } from "../../src/lib/hub-raul.js";
+import { ID_ORGANIZACION, idPersona } from "../../src/lib/jsonld.js";
+import { siteUrl } from "../../src/lib/site-url.js";
 import { countUniquePatientIds, groupHubAppointments, isHubRaulAttributed } from "../../src/lib/hub-raul-dashboard.js";
 
 describe("hub de Raúl Olmedo Evans", () => {
@@ -86,5 +87,55 @@ describe("SEO de los módulos del hub", () => {
   it("expone noindex como booleano y no como lo que venga", () => {
     expect(seoDeModulo({ noindex: true }).noindex).toBe(true);
     expect(seoDeModulo({ noindex: "false" }).noindex).toBe(false);
+  });
+});
+
+describe("JSON-LD de un tema del hub", () => {
+  // Lo que validator.schema.org marcaba en producción el 29-sep-2026 sobre
+  // /raul-olmedo-evans/terapia-para-la-ansiedad: `isPartOf` hacia un @id que
+  // nadie declara y `reviewedBy` en un Article, que no lo admite.
+  const doc = {
+    titulo: "Terapia para la ansiedad",
+    meta: "Qué se nombra con esa palabra y cómo se trabaja.",
+    resumen: "Resumen.",
+    fecha: "2026-09-14",
+    actualizado: "2026-09-20",
+  };
+  const esquema = esquemaTemaHub({ hub: getHubData(), doc, slug: "terapia-para-la-ansiedad", imagen: "https://ejemplo.test/og.png" });
+  const nodo = (tipo) => esquema["@graph"].find((item) => item["@type"] === tipo);
+  const idHub = `${siteUrl("raul-olmedo-evans")}#hub`;
+
+  it("la página es parte de la portada del hub, y ese nodo existe en el grafo", () => {
+    expect(nodo("WebPage").isPartOf).toEqual({ "@id": idHub });
+    expect(nodo("CollectionPage")["@id"]).toBe(idHub);
+  });
+
+  it("reviewedBy va en la página, no en el artículo", () => {
+    expect(nodo("Article").reviewedBy).toBeUndefined();
+    expect(nodo("WebPage").reviewedBy).toEqual({ "@id": RAUL_PERSON_ID });
+    expect(nodo("WebPage").lastReviewed).toBe("2026-09-20");
+  });
+
+  it("el artículo trae imagen, fechas, autor y editor", () => {
+    const articulo = nodo("Article");
+    expect(articulo.image).toBe("https://ejemplo.test/og.png");
+    expect(articulo.datePublished).toBe("2026-09-14T00:00:00.000Z");
+    expect(articulo.dateModified).toBe("2026-09-20T00:00:00.000Z");
+    expect(articulo.author).toEqual({ "@id": RAUL_PERSON_ID });
+    expect(articulo.publisher).toEqual({ "@id": ID_ORGANIZACION });
+  });
+
+  it("la persona va completa: cargo y colegiatura, no solo el nombre", () => {
+    const persona = nodo("Person");
+    expect(persona["@id"]).toBe(RAUL_PERSON_ID);
+    expect(persona.jobTitle).toBe("Psicólogo clínico y psicoanalista");
+    expect(persona.hasCredential.identifier.value).toBe("8270");
+  });
+
+  it("una fecha vacía no rompe el render: se omite", () => {
+    const sinFecha = esquemaTemaHub({ hub: getHubData(), doc: { ...doc, fecha: "", actualizado: "" }, slug: "x" });
+    const articulo = sinFecha["@graph"].find((item) => item["@type"] === "Article");
+    expect(articulo.datePublished).toBeUndefined();
+    expect(articulo.image).toBeUndefined();
   });
 });

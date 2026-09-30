@@ -5,6 +5,7 @@ import rehypeHighlight from "rehype-highlight";
 import SafeImage from "@/components/SafeImage";
 import { IMAGE_FALLBACKS } from "@/lib/images";
 import { quitarComentariosHtml } from "@/lib/markdown-comentarios";
+import { encabezadosConAncla } from "@/lib/markdown-encabezados";
 
 const MarkdownImage = ({ src, alt }) => {
   if (!src) return null;
@@ -46,8 +47,11 @@ const MarkdownLink = ({ href, children }) => {
  * guardado los conserva —son estructura para la plantilla, ver
  * `src/lib/markdown-comentarios.js`—; lo que no corresponde es leerlos en la
  * página.
+ *
+ * `idsEnEncabezados` les pone `id` a los `##` y `###`, para las páginas que
+ * arman un índice con anclas (ver `src/lib/markdown-encabezados.js`).
  */
-export default function MarkdownRenderer({ content }) {
+export default function MarkdownRenderer({ content, idsEnEncabezados = false }) {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
@@ -55,6 +59,7 @@ export default function MarkdownRenderer({ content }) {
       components={{
         img: MarkdownImage,
         a: MarkdownLink,
+        ...(idsEnEncabezados ? encabezadosConAncla() : {}),
       }}
     >
       {quitarComentariosHtml(content)}

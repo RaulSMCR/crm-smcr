@@ -4,7 +4,8 @@ import hubData from "../../data/hub-raul.json";
 import crisisData from "../../data/crisis-lines.json";
 import { prisma } from "@/lib/prisma";
 import { SELECT_TARIFA_PUBLICA, TARIFA_VIGENTE, rangoDePrecios } from "@/lib/service-pricing";
-import { idPersona } from "@/lib/jsonld";
+import { ID_ORGANIZACION, grafo, idPersona, nodoMigas, ref } from "@/lib/jsonld";
+import { siteUrl } from "@/lib/site-url";
 
 export const HUB_PATH = "raul-olmedo-evans";
 
@@ -22,6 +23,114 @@ export const HUB_PROFILE_SLUG = "raul-olmedo";
  * la otra. Se deriva de la misma función para que no se vuelvan a separar.
  */
 export const RAUL_PERSON_ID = idPersona(HUB_PROFILE_SLUG);
+
+/** Cargo con que el hub presenta a su persona, en el grafo y en la firma. */
+export const RAUL_JOB_TITLE = "Psicólogo clínico y psicoanalista";
+
+/**
+ * La persona del hub, completa: cargo, foto, organización y colegiatura.
+ *
+ * La usan la portada del hub y cada página de tema. En las de tema iba solo con
+ * nombre y URL, y son justamente las que un buscador evalúa como contenido de
+ * salud: ahí es donde quién escribe tiene que poder verificarse sin depender de
+ * que se rastree otra página.
+ */
+export function raulPerson(hub, profile) {
+  return {
+    "@type": "Person",
+    // Mismo `@id` que la ficha: las dos páginas describen a la misma persona y
+    // sus señales se suman en vez de competir. Ver la nota de RAUL_PERSON_ID.
+    "@id": RAUL_PERSON_ID,
+    name: hub.nombre,
+    jobTitle: RAUL_JOB_TITLE,
+    url: siteUrl(hub.url_perfil),
+    // La foto y el vínculo con la organización se repiten acá a propósito: si el
+    // hub es la única página que un buscador rastrea, la persona igual queda
+    // descrita y atada a la marca, no suelta en internet.
+    ...(profile?.user?.image ? { image: profile.user.image } : {}),
+    worksFor: ref(ID_ORGANIZACION),
+    hasCredential: {
+      "@type": "EducationalOccupationalCredential",
+      credentialCategory: "Colegiatura profesional",
+      identifier: { "@type": "PropertyValue", propertyID: hub.credencial.colegio, value: hub.credencial.numero },
+      recognizedBy: {
+        "@type": "Organization",
+        name: hub.credencial.colegio,
+        ...(hub.credencial.url_verificacion ? { url: hub.credencial.url_verificacion } : {}),
+      },
+    },
+  };
+}
+
+function fechaIso(valor) {
+  const fecha = valor ? new Date(valor) : null;
+  return fecha && !Number.isNaN(fecha.getTime()) ? fecha.toISOString() : "";
+}
+
+/**
+ * Grafo JSON-LD de una página de tema del hub.
+ *
+ * Corrige dos cosas que validator.schema.org marcaba en producción
+ * (29-sep-2026, `/raul-olmedo-evans/terapia-para-la-ansiedad`):
+ *
+ *   - `isPartOf` apuntaba a `…/raul-olmedo-evans`, un `@id` que no declara
+ *     ninguna página —el de la portada es `…/raul-olmedo-evans#hub`—, y el
+ *     validador lo mostraba como un `CreativeWork` vacío suelto en el grafo;
+ *   - `reviewedBy` iba en el `Article`, que no lo admite: es de `WebPage`. Pasó
+ *     al nodo de la página, junto con `lastReviewed`.
+ *
+ * El `Article` suma la imagen social de la página —la misma de `og:image`— y el
+ * editor, que son los campos que Google lista para un artículo.
+ *
+ * @param {object} opciones
+ * @param {object} opciones.hub      el hub, como lo devuelve `getManagedHubData`
+ * @param {object} opciones.doc      el tema, como lo devuelve `readManagedHubDocument`
+ * @param {string} opciones.slug     slug del tema
+ * @param {string} [opciones.imagen] URL absoluta de la imagen social
+ * @param {object} [opciones.profile] la ficha, para la foto de la persona
+ */
+export function esquemaTemaHub({ hub, doc, slug, imagen = "", profile = null }) {
+  const urlHub = siteUrl(HUB_PATH);
+  const url = siteUrl(`${HUB_PATH}/${slug}`);
+  const publicado = fechaIso(doc.fecha);
+  const modificado = fechaIso(doc.actualizado || doc.fecha);
+
+  return grafo(
+    {
+      "@type": "WebPage",
+      "@id": url,
+      url,
+      name: doc.titulo,
+      inLanguage: "es-CR",
+      isPartOf: ref(`${urlHub}#hub`),
+      mainEntity: ref(`${url}#article`),
+      reviewedBy: ref(RAUL_PERSON_ID),
+      ...(modificado ? { lastReviewed: modificado.slice(0, 10) } : {}),
+    },
+    {
+      "@type": "Article",
+      "@id": `${url}#article`,
+      headline: doc.titulo,
+      description: doc.meta || doc.resumen,
+      url,
+      mainEntityOfPage: ref(url),
+      ...(imagen ? { image: imagen } : {}),
+      inLanguage: "es-CR",
+      ...(publicado ? { datePublished: publicado } : {}),
+      ...(modificado ? { dateModified: modificado } : {}),
+      author: ref(RAUL_PERSON_ID),
+      publisher: ref(ID_ORGANIZACION),
+    },
+    // La portada, con lo mínimo para que la referencia de `isPartOf` no quede
+    // colgando en esta página. Se describe entera en /raul-olmedo-evans.
+    { "@type": "CollectionPage", "@id": `${urlHub}#hub`, url: urlHub, name: `${hub.titulo} · ${hub.nombre}` },
+    raulPerson(hub, profile),
+    nodoMigas([
+      { nombre: hub.nombre, url: urlHub },
+      { nombre: doc.titulo, url },
+    ]),
+  );
+}
 
 export function getHubData() {
   return hubData;

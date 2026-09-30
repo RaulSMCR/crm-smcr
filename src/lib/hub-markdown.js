@@ -195,20 +195,54 @@ export function partirDocumento(source) {
 /**
  * Los `##` del cuerpo, que son los que alimentan el índice lateral.
  *
- * Hoy la plantilla imprime un índice fijo de dos entradas
- * (`src/app/raul-olmedo-evans/[tema]/page.js`), así que esto todavía no se ve.
- * Se extrae igual y viaja en `metadata.encabezados`: el día que el índice se
- * genere de verdad, el contenido ya está leído y no hay que reimportar nada.
+ * El índice de `src/app/raul-olmedo-evans/[tema]/page.js` se arma con esto, y
+ * el `id` es el mismo que `MarkdownRenderer` le pone al encabezado cuando se le
+ * piden anclas (`src/lib/markdown-encabezados.js`): las dos puntas salen de
+ * `normalizeTopicSlug`, así que el índice no puede apuntar a un ancla que la
+ * página no tiene.
+ *
+ * Un encabezado precedido por `<!-- bloque: x -->` —en la línea anterior o con
+ * solo líneas en blanco en medio— lleva además `bloque`. Es lo que le deja saber
+ * a la plantilla que la pieza ya trae su propio «Cuándo conviene consultar» y no
+ * tiene que agregar el genérico.
  */
 export function leerEncabezados(body) {
   const salida = [];
+  let bloquePendiente = null;
   for (const linea of String(body || "").split("\n")) {
+    const marcador = linea.match(/^\s*<!--\s*bloque:\s*([a-z-]+)\s*-->\s*$/i);
+    if (marcador) {
+      bloquePendiente = marcador[1].toLowerCase();
+      continue;
+    }
     const match = linea.match(/^(#{2,3})\s+(.+?)\s*$/);
-    if (!match) continue;
-    const texto = match[2].replace(/[*_`]/g, "").trim();
-    salida.push({ nivel: match[1].length, texto, id: normalizeTopicSlug(texto) });
+    if (!match) {
+      if (linea.trim()) bloquePendiente = null;
+      continue;
+    }
+    const texto = textoDeEncabezado(match[2]);
+    salida.push({
+      nivel: match[1].length,
+      texto,
+      id: normalizeTopicSlug(texto),
+      ...(bloquePendiente ? { bloque: bloquePendiente } : {}),
+    });
+    bloquePendiente = null;
   }
   return salida;
+}
+
+/**
+ * Lo que se lee de un encabezado: sin marcas de énfasis, sin la sintaxis de un
+ * enlace y sin el cierre opcional `## Título ##`. Tiene que coincidir con el
+ * texto que queda en el HTML, porque de los dos sale el mismo `id`.
+ */
+function textoDeEncabezado(crudo) {
+  return String(crudo || "")
+    .replace(/\s+#+$/, "")
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/[*_`]/g, "")
+    .trim();
 }
 
 /** Los marcadores `<!-- bloque: x -->` en el orden en que aparecen. */
