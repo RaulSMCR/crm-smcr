@@ -6,10 +6,12 @@ Estado al 29-sep-2026:
   secciones, cinco preguntas, los tres ensayos (aprobados) y los dos servicios.
   Falta publicarlo. Efecto ya visible: `/blog/tema/ansiedad` responde con los
   tres ensayos, y el pie de cada ensayo muestra la etiqueta «Ansiedad».
-- **Página de consulta, serie, metas, textos alternativos y marcador de
-  Migración**: sin aplicar. Respaldo de todas las filas en
-  `docs/backups/pre-hub-ansiedad-2026-09-29.json`.
-- **Código**: commiteado en la rama `fix/hub-ansiedad`, sin desplegar.
+- **Publicar el hub y subir la página de consulta quedan para el panel**: el
+  control de permisos de Claude Code no deja publicar contenido en producción
+  desde un script. Los dos pasos están en la sección 3.
+- **Serie, metas, textos alternativos y marcador de Migración**: sin aplicar.
+  Respaldo de todas las filas en `docs/backups/pre-hub-ansiedad-2026-09-29.json`.
+- **Código**: integrado a `main` (rama `fix/hub-ansiedad`).
 
 ## Qué se encontró
 
@@ -205,8 +207,8 @@ Nada más del texto se tocó.
 El orden importa: si la página de consulta se sube antes de que `/ansiedad`
 esté publicado, el enlace nuevo sigue dando 404.
 
-1. **Desplegar el código** (rama `fix/hub-ansiedad`): la plantilla corregida y
-   la redirección de `/blog/tema/ansiedad` al hub.
+1. ~~Desplegar el código~~ — integrado a `main` el 29-sep: la plantilla
+   corregida y la redirección de `/blog/tema/ansiedad` al hub.
 2. ~~Cargar el hub en borrador~~ — hecho el 29-sep con
    `node scripts/cargar-hubs-de-tema.mjs --solo ansiedad`.
 3. **Revisar la vista previa** en `/panel/admin/temas/<id>/preview` y publicar
