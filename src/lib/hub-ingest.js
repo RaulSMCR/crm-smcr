@@ -206,26 +206,43 @@ async function buscarCanibalizacion(keywords, { hubId }) {
   return mapa;
 }
 
-/** Verifica rutas internas: artículos, servicios, temas, módulos del hub y rutas fijas. */
+/**
+ * Verifica rutas internas: artículos, series, servicios, temas, módulos del hub
+ * y rutas fijas.
+ *
+ * Las series (`/blog/serie/<slug>`) caían en «no verificable», y es justo el
+ * enlace que se rompió en la pieza de ansiedad: el cuerpo nombraba la serie «La
+ * angustia y sus formas» y enlazaba `/angustia`. Una serie cuenta como publicada
+ * con el mismo criterio de su página y de `getFeaturedSeries`: activa y con al
+ * menos una entrega publicada y aprobada.
+ */
 async function verificarRutas(rutas, { hubSlug, slugsDelHub }) {
   const pendientes = [...new Set(rutas.filter(Boolean))];
   if (!pendientes.length) return new Map();
 
   const slugsBlog = [];
+  const slugsSerie = [];
   const slugsServicio = [];
   const slugsRaiz = [];
   for (const ruta of pendientes) {
     const partes = ruta.replace(/[?#].*$/, "").split("/").filter(Boolean);
     if (partes.length === 2 && partes[0] === "blog") slugsBlog.push(partes[1]);
+    else if (partes.length === 3 && partes[0] === "blog" && partes[1] === "serie") slugsSerie.push(partes[2]);
     else if (partes.length === 2 && partes[0] === "servicios") slugsServicio.push(partes[1]);
     else if (partes.length === 1) slugsRaiz.push(partes[0]);
     else if (partes.length === 0) continue;
     else if (partes[0] === hubSlug) continue;
   }
 
-  const [posts, servicios, temas] = await Promise.all([
+  const [posts, series, servicios, temas] = await Promise.all([
     slugsBlog.length
       ? prisma.post.findMany({ where: { slug: { in: slugsBlog }, status: "PUBLISHED" }, select: { slug: true } })
+      : [],
+    slugsSerie.length
+      ? prisma.series.findMany({
+          where: { slug: { in: slugsSerie }, isActive: true, posts: { some: { status: "PUBLISHED", seriesApproved: true } } },
+          select: { slug: true },
+        })
       : [],
     slugsServicio.length
       ? prisma.service.findMany({ where: { slug: { in: slugsServicio }, isActive: true }, select: { slug: true } })
@@ -237,6 +254,7 @@ async function verificarRutas(rutas, { hubSlug, slugsDelHub }) {
 
   const publicados = {
     blog: new Set(posts.map((item) => item.slug)),
+    series: new Set(series.map((item) => item.slug)),
     servicios: new Set(servicios.map((item) => item.slug)),
     raiz: new Set(temas.map((item) => item.slug)),
   };
@@ -250,6 +268,10 @@ async function verificarRutas(rutas, { hubSlug, slugsDelHub }) {
     }
     if (partes.length === 2 && partes[0] === "blog") {
       mapa.set(ruta, publicados.blog.has(partes[1]) ? "ok" : "no existe publicado");
+      continue;
+    }
+    if (partes.length === 3 && partes[0] === "blog" && partes[1] === "serie") {
+      mapa.set(ruta, publicados.series.has(partes[2]) ? "ok" : "no existe publicada");
       continue;
     }
     if (partes.length === 2 && partes[0] === "servicios") {

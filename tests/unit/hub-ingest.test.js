@@ -14,6 +14,7 @@ const base = vi.hoisted(() => ({
   modulos: [],
   hubs: [],
   posts: [],
+  series: [],
   servicios: [],
   temas: [],
   escrituras: [],
@@ -42,6 +43,7 @@ vi.mock("@/lib/prisma", () => ({
       }),
     },
     post: { findMany: vi.fn(async () => base.posts) },
+    series: { findMany: vi.fn(async () => base.series) },
     service: { findMany: vi.fn(async () => base.servicios) },
     topic: { findMany: vi.fn(async () => base.temas) },
     $transaction: vi.fn(async (fn) => {
@@ -147,6 +149,7 @@ beforeEach(() => {
   base.modulos = [];
   base.hubs = [];
   base.posts = [];
+  base.series = [];
   base.servicios = [];
   base.temas = [];
   base.escrituras = [];
@@ -263,6 +266,30 @@ describe("leerLote · no escribe", () => {
       archivos: [documento({ cuerpo: "## Sección\n\nVer [ayuda inmediata](/ayuda-inmediata)." })],
     });
     expect(informe.lote[0].avisos.some((aviso) => aviso.includes("ayuda-inmediata"))).toBe(false);
+  });
+
+  // La pieza de ansiedad nombraba la serie «La angustia y sus formas» y
+  // enlazaba `/angustia`, que no existe. Las series caían en «no verificable»,
+  // así que el enlace bueno tampoco se podía confirmar.
+  it("verifica los enlaces a una serie publicada", async () => {
+    base.series = [{ slug: "la-angustia-y-sus-formas" }];
+    const informe = await leerLote({
+      hubId: HUB_ID,
+      archivos: [documento({ cuerpo: "## Sección\n\nLa serie [La angustia y sus formas](/blog/serie/la-angustia-y-sus-formas)." })],
+    });
+    const enlace = informe.lote[0].enlaces.find((item) => item.ruta === "/blog/serie/la-angustia-y-sus-formas");
+    expect(enlace.estado).toBe("ok");
+    expect(informe.lote[0].avisos.some((aviso) => aviso.includes("/blog/serie/"))).toBe(false);
+  });
+
+  it("avisa cuando la serie enlazada no está publicada", async () => {
+    const informe = await leerLote({
+      hubId: HUB_ID,
+      archivos: [documento({ cuerpo: "## Sección\n\nLa serie [otra](/blog/serie/no-existe)." })],
+    });
+    const enlace = informe.lote[0].enlaces.find((item) => item.ruta === "/blog/serie/no-existe");
+    expect(enlace.estado).toBe("no existe publicada");
+    expect(informe.lote[0].avisos.some((aviso) => aviso.includes("/blog/serie/no-existe"))).toBe(true);
   });
 
   it("un hub sin página propia se marca como ruta inexistente", async () => {

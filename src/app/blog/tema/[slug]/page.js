@@ -9,8 +9,14 @@
 // transversalidad la que hace de esta página algo distinto del listado de serie
 // —si un tema agrupara exactamente los posts de una serie, serían dos URLs con
 // el mismo contenido compitiendo entre sí—.
+//
+// Por la misma razón, cuando el tema tiene su hub publicado en la raíz
+// (`/{slug}`, ver src/app/[slug]/page.js) este archivo redirige ahí: el hub
+// lista los mismos artículos y suma introducción, preguntas y servicios, y dos
+// URLs indexables con el mismo listado se reparten las señales. Los enlaces del
+// pie de cada artículo ya apuntan al hub en ese caso (ArticleTaxonomy).
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { siteUrl } from "@/lib/site-url";
 import SafeImage from "@/components/SafeImage";
@@ -36,6 +42,7 @@ async function getTema(slug) {
       id: true,
       name: true,
       slug: true,
+      status: true,
       posts: {
         where: { status: "APPROVED", post: { status: "PUBLISHED", noindex: false } },
         select: {
@@ -70,6 +77,7 @@ export default async function TemaPage({ params }) {
   const { slug } = await params;
   const tema = await getTema(slug);
   if (!tema) notFound();
+  if (tema.status === "PUBLISHED") permanentRedirect(`/${tema.slug}`);
 
   // Un tema sin artículos aprobados no es una página: es una etiqueta vacía.
   // Se trata como inexistente en vez de servir un archivo en blanco.

@@ -695,7 +695,7 @@ function Panel({ disciplines, topics, phases, series, complements }) {
         titulo="Temas"
         queEs="El asunto del que trata un artículo, más allá de la serie a la que pertenezca. Un artículo puede tener varios."
         ejemplo="«Duelo», «Ansiedad», «Migración»."
-        dondeSeVe="Página de archivo propia en /blog/tema/… y filtro en la biblioteca. Si además se le escribe contenido en «Temas» del panel, el mismo nombre pasa a tener una página propia en la raíz del sitio."
+        dondeSeVe="Página de archivo propia en /blog/tema/… y filtro en la biblioteca. Si además se le escribe contenido en «Temas» del panel y se publica, el mismo nombre pasa a tener una página propia en la raíz del sitio, y el archivo redirige a ella."
         placeholder="Nuevo tema — por ejemplo: Duelo"
         tipo="tema"
         terminos={topics}
@@ -706,7 +706,7 @@ function Panel({ disciplines, topics, phases, series, complements }) {
           <p className="mt-1 pl-2 text-xs text-slate-500">
             Este tema también tiene página propia publicada en{" "}
             <a href={`/${t.slug}`} target="_blank" rel="noopener noreferrer" className="font-mono underline decoration-slate-300 hover:text-brand-700">/{t.slug}</a>, que se edita en{" "}
-            <Link href="/panel/admin/temas" className="font-semibold text-brand-700 underline">Temas</Link>. Es el mismo registro: renombrarlo acá también cambia esa dirección.
+            <Link href="/panel/admin/temas" className="font-semibold text-brand-700 underline">Temas</Link>, y su archivo en /blog/tema/{t.slug} redirige ahí. Es el mismo registro: renombrarlo acá también cambia esa dirección.
           </p>
         ) : null)}
         onCreate={createTopic}

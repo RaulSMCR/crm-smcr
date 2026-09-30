@@ -80,10 +80,12 @@ export default async function sitemap() {
       }),
       // Temas: archivo transversal en /blog/tema/[slug]. Mismo criterio que las
       // series — solo los que tienen al menos un artículo aprobado y publicado,
-      // porque la página devuelve 404 cuando queda vacía.
+      // porque la página devuelve 404 cuando queda vacía. Los que tienen hub
+      // publicado quedan fuera: su archivo redirige al hub, que ya va abajo.
       prisma.topic.findMany({
         where: {
           isActive: true,
+          status: { not: 'PUBLISHED' },
           posts: { some: { status: 'APPROVED', post: { status: 'PUBLISHED', noindex: false } } },
         },
         select: { slug: true, updatedAt: true },
