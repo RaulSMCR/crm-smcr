@@ -324,12 +324,24 @@ describe("los archivos reales de content/hub-raul", () => {
     });
   }
 
-  it("los tres temas en preparación no traen cuerpo, y se avisa", () => {
-    const enPreparacion = ["conflictos-de-pareja.md", "estres-laboral-y-burnout.md", "migracion-y-desarraigo.md"];
+  it("los temas en preparación no traen cuerpo, y se avisa", () => {
+    const enPreparacion = ["conflictos-de-pareja.md", "estres-laboral-y-burnout.md"];
     for (const nombre of enPreparacion) {
       const doc = parseHubDocument(leerArchivo(nombre), nombre);
       expect(doc.body).toBe("");
       expect(doc.avisos.some((aviso) => aviso.includes("no trae cuerpo"))).toBe(true);
+    }
+  });
+
+  // Estas dos se regeneraron desde la fila publicada, así que el archivo ya no
+  // es el borrador vacío de septiembre. Traen sus dos marcadores obligatorios:
+  // sin el de «cuando-consultar», la plantilla agrega encima su caja genérica y
+  // la página muestra dos «Cuándo consultar» seguidos.
+  it("las piezas regeneradas traen cuerpo y sus dos bloques obligatorios", () => {
+    for (const nombre of ["migracion-y-desarraigo.md", "terapia-para-la-ansiedad.md"]) {
+      const doc = parseHubDocument(leerArchivo(nombre), nombre);
+      expect(doc.body.length).toBeGreaterThan(1000);
+      for (const bloque of BLOQUES_ESPERADOS) expect(doc.modulo.metadata.bloques).toContain(bloque);
     }
   });
 
