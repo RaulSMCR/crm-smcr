@@ -219,24 +219,59 @@ esté publicado, el enlace nuevo sigue dando 404.
    después de la tanda de solicitudes del 11-sep, y no estaba en esa lista).
    Después, las tres entregas de la serie.
 
+## 3 bis · Los dos archivos listos para subir
+
+Los dos pasan el validador de la skill y el parser de la ingesta. Se suben en
+`/panel/admin/hubs/profesional/<id>`, en la zona del módulo correspondiente, y
+el panel muestra el diff antes de escribir.
+
+| Archivo | Qué cambia |
+|---|---|
+| `content/hub-raul/terapia-para-la-ansiedad.md` | H1, título SEO, meta y los dos enlaces rotos. **Va después de publicar `/ansiedad`.** |
+| `content/hub-raul/migracion-y-desarraigo.md` | Agrega el marcador `<!-- bloque: cuando-consultar -->` que faltaba, y acorta el título SEO, que ocupaba 88 caracteres en Google |
+
+El título SEO de Migración pasa de `Migración y desarraigo: terapia en línea
+para quien vive fuera` (88 en el buscador) a `Terapia en línea para migrantes`
+(57). Es una propuesta: si preferís otro, se cambia en el `.md` antes de subirlo.
+
 ## 4 · Pendientes editoriales que no bloquean
 
-- **Descripción de la serie**, que es su meta description: hoy «La angustia es
-  un fenómeno central en la clínica, desde su comprensión se entienden otros
-  conceptos» (99, con una coma donde va punto). Propuesta, 144:
-  «Ensayos sobre la angustia: de dónde viene la palabra, qué la separa de la
-  ansiedad y del miedo, y por qué importa en la clínica. Serie en curso.»
-- **Meta de la entrega 1**: tiene 167 y Google la corta. Propuesta, 151:
-  «Angustia viene de angustus, estrecho, y angosto es la misma palabra por otra
-  vía. Qué revela el origen de las palabras del malestar, ansiedad incluida.»
-- **Texto alternativo de las portadas.** Entrega 2: «Joaquin Fenix» y «miendo»
-  (Joaquin Phoenix, miedo). Entrega 3: el alt es el nombre del archivo,
-  `steve-mccurry-sharbat-gula-afghan-girl-pakistan`; tiene que describir lo que
-  se ve.
-- **Derechos de la portada de la entrega 3.** Es «Afghan Girl», de Steve
-  McCurry, una de las fotografías con derechos más vigilados que existen. No es
-  un tema de SEO: es un riesgo legal, y conviene reemplazarla o documentar la
-  licencia.
+Cuatro campos de panel, con el texto exacto para pegar.
+
+**1 · Descripción de la serie** (`/panel/admin/blog/taxonomia`, Series → La
+angustia y sus formas). Es lo que sale como meta description de
+`/blog/serie/la-angustia-y-sus-formas`. Hoy tiene 99 caracteres y una coma
+donde va un punto. Propuesta, 144:
+
+> Ensayos sobre la angustia: de dónde viene la palabra, qué la separa de la ansiedad y del miedo, y por qué importa en la clínica. Serie en curso.
+
+**2 · Meta de la entrega 1** (`/blog/angustia-y-angosto-misma-raiz`, campo
+«Meta description»). Hoy tiene 167 y Google la corta. Propuesta, 151:
+
+> Angustia viene de angustus, estrecho, y angosto es la misma palabra por otra vía. Qué revela el origen de las palabras del malestar, ansiedad incluida.
+
+**3 · Texto alternativo de la portada de la entrega 2**
+(`/blog/familias-del-malestar-terror-horror-pavor`). Hoy dice «Beau Wassermann,
+interpretado por Joaquin Fenix, encara la revelación de sus miedos y su
+ambivalencia ante su miendo a la revelación»: dos errores, Joaquin **Phoenix** y
+**miedo**. El alt describe lo que se ve; el nombre de la obra ya va en el
+crédito (`coverImageTitle`). Propuesta:
+
+> Primer plano de un hombre de mediana edad con gesto de alarma contenida, en penumbra.
+
+**4 · Texto alternativo de la portada de la entrega 3**
+(`/blog/angustia-hebreo-arabe-estrechez-del-pecho`). Hoy el alt es el nombre del
+archivo, `steve-mccurry-sharbat-gula-afghan-girl-pakistan`, que no describe
+nada. Verificado mirando la imagen. Propuesta:
+
+> Retrato de una niña con pañuelo rojo sobre la cabeza, de ojos verdes, mirando de frente a la cámara.
+
+**5 · Derechos de esa misma portada.** Es «Afghan Girl», de Steve McCurry, una
+de las fotografías con derechos más vigilados que existen, y la copia que está
+publicada trae además la marca de agua de otro medio en la esquina inferior
+derecha. No es un tema de SEO: es un riesgo legal. Conviene reemplazarla o
+documentar la licencia. Es la única de las cinco que no se resuelve pegando un
+texto.
 
 ## Lo que ya quedó hecho en código
 
