@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import HubTracker from "@/components/hub/HubTracker";
 import HubTrackedLink from "@/components/hub/HubTrackedLink";
+import HubAgendaLink from "@/components/hub/HubAgendaLink";
 import HubWhatsappLink from "@/components/hub/HubWhatsappLink";
 import HubMobileActions from "@/components/hub/HubMobileActions";
 import JsonLd from "@/components/JsonLd";
@@ -168,7 +169,7 @@ export default async function RaulThemePage({ params }) {
             <h2 className="mt-2 font-display text-3xl text-nv-teal-deep">Hablarlo en consulta</h2>
             <p className="mt-3 text-sm leading-6 text-neutral-700">La primera conversación permite ubicar qué está ocurriendo y qué tipo de trabajo puede tener sentido.</p>
             <p className="mt-3 text-sm font-semibold text-nv-teal-deep">Sesión en línea de {hub.duracion_min} minutos{precio ? ` · ${precio}` : ""}</p>
-            <HubTrackedLink href={agendaUrl} eventName="click_theme_agendar" destination={slug} className="btn btn-accent mt-6 w-full">Agendar sesión</HubTrackedLink>
+            <HubAgendaLink href={agendaUrl} eventName="click_theme_agendar" destination={slug} className="btn btn-accent mt-6 w-full">Agendar sesión</HubAgendaLink>
             {whatsappEnabled ? <HubWhatsappLink href={waUrl} ubicacion="cierre" tema={slug} className="mt-4 block text-center text-sm font-bold text-nv-teal-deep underline decoration-nv-coral underline-offset-4">o escribí para agendar tu sesión paga</HubWhatsappLink> : null}
             <HubTrackedLink href="/raul-olmedo-evans/tratamiento-breve-15-sesiones" eventName="click_theme_15_sesiones" destination="tratamiento-breve-15-sesiones" className="mt-4 block text-center text-sm font-bold text-nv-teal-deep underline underline-offset-4">Ver formato de 15 sesiones</HubTrackedLink>
           </aside> : null}

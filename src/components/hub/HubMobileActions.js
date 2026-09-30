@@ -1,4 +1,4 @@
-import HubTrackedLink from "@/components/hub/HubTrackedLink";
+import HubAgendaLink from "@/components/hub/HubAgendaLink";
 import HubWhatsappLink from "@/components/hub/HubWhatsappLink";
 
 /**
@@ -25,14 +25,14 @@ export default function HubMobileActions({
   return (
     <div className="hub-mobile-actions md:hidden">
       {agendaEnabled ? (
-        <HubTrackedLink
+        <HubAgendaLink
           href={agendaUrl}
           eventName="click_hub_raul_agendar_mobile"
           destination="agenda-mobile"
           className="btn btn-accent w-full"
         >
           Agendar
-        </HubTrackedLink>
+        </HubAgendaLink>
       ) : null}
       {whatsappEnabled ? (
         <HubWhatsappLink

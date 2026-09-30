@@ -2,6 +2,7 @@ import Link from "next/link";
 import JsonLd from "@/components/JsonLd";
 import HubTracker from "@/components/hub/HubTracker";
 import HubTrackedLink from "@/components/hub/HubTrackedLink";
+import HubAgendaLink from "@/components/hub/HubAgendaLink";
 import HubWhatsappLink from "@/components/hub/HubWhatsappLink";
 import HubMobileActions from "@/components/hub/HubMobileActions";
 import MonsteraArt from "@/components/hub/MonsteraArt";
@@ -111,7 +112,7 @@ export default async function RaulHubPage() {
                 consulta es paga acá y no más abajo, porque es lo primero que se
                 lee cuando el visitante llega desde un anuncio. */}
             <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
-              {functionEnabled("agenda") ? <HubTrackedLink href={agendaUrl} eventName="click_hub_raul_agendar" destination="agenda" className="btn btn-accent">Agendar sesión</HubTrackedLink> : null}
+              {functionEnabled("agenda") ? <HubAgendaLink href={agendaUrl} eventName="click_hub_raul_agendar" destination="agenda" className="btn btn-accent">Agendar sesión</HubAgendaLink> : null}
               {functionEnabled("whatsapp") ? <HubWhatsappLink href={waUrl} ubicacion="hero" className="font-bold text-nv-cream-hi underline decoration-nv-coral underline-offset-4 hover:text-white">o escribí para agendar tu sesión paga</HubWhatsappLink> : null}
             </div>
             <p className="mt-5 text-sm text-nv-teal-pale">Sesión en línea de {hub.duracion_min} minutos{precio ? ` · ${precio}` : ""}</p>

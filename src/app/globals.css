@@ -158,7 +158,10 @@
 .hub-mobile-actions {
   position: fixed;
   right: 0;
-  bottom: 0;
+  /* Por encima del banner de cookies mientras esté sin responder: los dos son
+     barras fijas abajo y el banner tapaba esta. `ConsentBanner` publica su
+     altura real en `--consent-banner-h`; sin banner vale 0. */
+  bottom: var(--consent-banner-h, 0px);
   left: 0;
   z-index: 40;
   /* En columna, no en fila: la acción principal (agendar) ocupa el ancho y el

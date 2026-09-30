@@ -23,6 +23,7 @@ function updateConsentMode(granted) {
 export default function ConsentBanner() {
   const [visible, setVisible] = useState(false);
   const acceptRef = useRef(null);
+  const cajaRef = useRef(null);
 
   useEffect(() => {
     if (getConsent() === null) setVisible(true);
@@ -31,6 +32,35 @@ export default function ConsentBanner() {
   // Enfoca el banner al aparecer para que sea usable con teclado.
   useEffect(() => {
     if (visible) acceptRef.current?.focus();
+  }, [visible]);
+
+  // El hub tiene su propia barra fija abajo (agendar / WhatsApp) y este banner
+  // la tapaba —justo en la primera visita, que es la que llega desde un
+  // anuncio—. Acá se publica la altura real del banner para que esa barra se
+  // levante lo necesario. Se mide en vez de fijar una constante porque el texto
+  // envuelve distinto según el ancho y el tamaño de letra del visitante.
+  useEffect(() => {
+    const raiz = document.documentElement;
+    const reset = () => raiz.style.setProperty("--consent-banner-h", "0px");
+
+    if (!visible) {
+      reset();
+      return;
+    }
+
+    const nodo = cajaRef.current;
+    if (!nodo) return;
+
+    const medir = () => raiz.style.setProperty("--consent-banner-h", `${nodo.offsetHeight}px`);
+    medir();
+
+    if (typeof ResizeObserver === "undefined") return reset;
+    const observador = new ResizeObserver(medir);
+    observador.observe(nodo);
+    return () => {
+      observador.disconnect();
+      reset();
+    };
   }, [visible]);
 
   function decide(granted) {
@@ -48,6 +78,7 @@ export default function ConsentBanner() {
 
   return (
     <div
+      ref={cajaRef}
       role="dialog"
       aria-modal="false"
       aria-label="Aviso de cookies"
