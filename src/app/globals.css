@@ -161,7 +161,11 @@
   bottom: 0;
   left: 0;
   z-index: 40;
+  /* En columna, no en fila: la acción principal (agendar) ocupa el ancho y el
+     enlace a WhatsApp va debajo como una línea de texto. En fila, la aclaración
+     de que la consulta es paga no cabía en un botón sin recortarla. */
   display: flex;
+  flex-direction: column;
   gap: 0.5rem;
   border-top: 1px solid rgba(246, 239, 223, 0.25);
   background: rgba(18, 56, 58, 0.96);

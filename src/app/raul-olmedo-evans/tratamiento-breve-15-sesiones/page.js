@@ -2,11 +2,13 @@ import { notFound } from "next/navigation";
 import JsonLd from "@/components/JsonLd";
 import HubTracker from "@/components/hub/HubTracker";
 import HubTrackedLink from "@/components/hub/HubTrackedLink";
+import HubWhatsappLink from "@/components/hub/HubWhatsappLink";
+import HubMobileActions from "@/components/hub/HubMobileActions";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import { buildMetadata, resolveSeo } from "@/lib/seo";
 import { grafo, nodoMigas, ref } from "@/lib/jsonld";
 import { siteUrl } from "@/lib/site-url";
-import { RAUL_PERSON_ID, formatHubPrice, getManagedHubData, getRaulAgenda, readManagedHubDocument } from "@/lib/hub-raul";
+import { RAUL_PERSON_ID, buildWaLink, formatHubPrice, getManagedHubData, getRaulAgenda, readManagedHubDocument } from "@/lib/hub-raul";
 
 export const revalidate = 3600;
 
@@ -42,6 +44,8 @@ export default async function TratamientoBrevePage() {
   const agendaUrl = agenda.url;
   const precio = formatHubPrice(agenda.rango);
   const agendaEnabled = !hub.herramientas_habilitadas.length || hub.herramientas_habilitadas.includes("agenda");
+  const whatsappEnabled = !hub.herramientas_habilitadas.length || hub.herramientas_habilitadas.includes("whatsapp");
+  const waUrl = buildWaLink(doc.titulo, hub);
   const url = siteUrl("raul-olmedo-evans/tratamiento-breve-15-sesiones");
   const schema = grafo(
     {
@@ -81,7 +85,7 @@ export default async function TratamientoBrevePage() {
   );
 
   return (
-    <main className="bg-surface pb-20">
+    <main className="bg-surface pb-32 md:pb-20">
       <JsonLd data={schema} />
       <HubTracker />
       <div className="container max-w-5xl py-12 md:py-20">
@@ -100,10 +104,19 @@ export default async function TratamientoBrevePage() {
             <p className="mt-3 font-display text-3xl text-nv-teal-deep">{precio || "Valor al agendar"}</p>
             <p className="mt-1 text-sm text-neutral-700">{hub.duracion_min} minutos · {hub.modalidad}</p>
             <HubTrackedLink href={agendaUrl} eventName="click_15_sesiones_agendar" destination="agenda" className="btn btn-accent mt-6 w-full">Agendar sesión</HubTrackedLink>
+            {whatsappEnabled ? <HubWhatsappLink href={waUrl} ubicacion="cierre" tema="tratamiento-breve-15-sesiones" className="mt-4 block text-center text-sm font-bold text-nv-teal-deep underline decoration-nv-coral underline-offset-4">o escribí para agendar tu sesión paga</HubWhatsappLink> : null}
             <p className="mt-4 text-xs leading-5 text-neutral-600">La indicación y la continuidad se conversan según tu situación clínica.</p>
           </aside> : null}
         </div>
       </div>
+
+      <HubMobileActions
+        agendaUrl={agendaUrl}
+        waUrl={waUrl}
+        tema="tratamiento-breve-15-sesiones"
+        agendaEnabled={agendaEnabled}
+        whatsappEnabled={whatsappEnabled}
+      />
     </main>
   );
 }

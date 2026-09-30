@@ -337,10 +337,24 @@ export function formatHubPrice(rango) {
   return rango.min === rango.max ? montoHub(rango.min) : `${montoHub(rango.min)} – ${montoHub(rango.max)}`;
 }
 
-export function buildWaLink(origen = HUB_PATH, source = hubData, rango = null) {
-  const precio = formatHubPrice(rango);
-  const detalle = precio ? `${source.duracion_min} min, ${precio}` : `${source.duracion_min} min`;
-  const text = `Hola, quiero agendar una sesión en línea con ${source.nombre} (${detalle}). ${origen}`;
+/**
+ * El enlace de WhatsApp del hub, con el mensaje ya escrito.
+ *
+ * El texto es ESTÁTICO a propósito. Estas páginas se sirven con
+ * `revalidate = 3600`: cualquier dato por visita —un código de referencia, el
+ * gclid, la hora— quedaría sellado en el HTML cacheado y le llegaría idéntico a
+ * todo el que entre durante esa hora. Lo único que varía es el nombre del tema,
+ * que es un dato de la página y no del visitante.
+ *
+ * Ya no lleva precio ni duración. El precio cambia por tramos y el mensaje
+ * quedaba anunciando el del tramo anterior por el mismo cacheo; la medición de
+ * la campaña tampoco lo necesita.
+ *
+ * @param {string} [tema]   nombre del tema de donde sale el clic; vacío = portada
+ * @param {object} [source] el hub, de donde sale el número
+ */
+export function buildWaLink(tema = "", source = hubData) {
+  const text = `Hola, quisiera agendar una sesión paga con Raúl Olmedo. Vengo de la página de ${tema || "Raúl Olmedo"}.`;
   return `https://wa.me/${source.whatsapp}?text=${encodeURIComponent(text)}`;
 }
 

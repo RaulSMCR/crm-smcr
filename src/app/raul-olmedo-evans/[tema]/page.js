@@ -2,12 +2,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import HubTracker from "@/components/hub/HubTracker";
 import HubTrackedLink from "@/components/hub/HubTrackedLink";
+import HubWhatsappLink from "@/components/hub/HubWhatsappLink";
+import HubMobileActions from "@/components/hub/HubMobileActions";
 import JsonLd from "@/components/JsonLd";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import { buildMetadata, resolveSeo } from "@/lib/seo";
 import { leerEncabezados } from "@/lib/hub-markdown";
 import {
   RAUL_JOB_TITLE,
+  buildWaLink,
   esquemaTemaHub,
   formatHubPrice,
   getManagedHubData,
@@ -81,6 +84,10 @@ export default async function RaulThemePage({ params }) {
   // El precio sale de la tarifa aprobada, igual que en la portada del hub y en agendar.
   const precio = formatHubPrice(agenda.rango);
   const agendaEnabled = !hub.herramientas_habilitadas.length || hub.herramientas_habilitadas.includes("agenda");
+  const whatsappEnabled = !hub.herramientas_habilitadas.length || hub.herramientas_habilitadas.includes("whatsapp");
+  // El mensaje nombra el tema de donde sale el clic, así la conversación empieza
+  // sabiendo qué se vino a consultar sin que el visitante tenga que explicarlo.
+  const waUrl = buildWaLink(doc.titulo, hub);
   const schema = esquemaTemaHub({ hub, doc, slug, imagen: seoDelTema(doc).image, profile });
   const actualizado = fechaLarga(doc.actualizado || doc.fecha);
 
@@ -100,7 +107,9 @@ export default async function RaulThemePage({ params }) {
   ];
 
   return (
-    <main className="bg-surface pb-20">
+    // `pb-32` en móvil y no `pb-20`: la barra fija de acciones tapaba el final
+    // del artículo.
+    <main className="bg-surface pb-32 md:pb-20">
       <JsonLd data={schema} />
       <HubTracker />
       <div className="container max-w-6xl py-12 md:py-20">
@@ -160,10 +169,19 @@ export default async function RaulThemePage({ params }) {
             <p className="mt-3 text-sm leading-6 text-neutral-700">La primera conversación permite ubicar qué está ocurriendo y qué tipo de trabajo puede tener sentido.</p>
             <p className="mt-3 text-sm font-semibold text-nv-teal-deep">Sesión en línea de {hub.duracion_min} minutos{precio ? ` · ${precio}` : ""}</p>
             <HubTrackedLink href={agendaUrl} eventName="click_theme_agendar" destination={slug} className="btn btn-accent mt-6 w-full">Agendar sesión</HubTrackedLink>
+            {whatsappEnabled ? <HubWhatsappLink href={waUrl} ubicacion="cierre" tema={slug} className="mt-4 block text-center text-sm font-bold text-nv-teal-deep underline decoration-nv-coral underline-offset-4">o escribí para agendar tu sesión paga</HubWhatsappLink> : null}
             <HubTrackedLink href="/raul-olmedo-evans/tratamiento-breve-15-sesiones" eventName="click_theme_15_sesiones" destination="tratamiento-breve-15-sesiones" className="mt-4 block text-center text-sm font-bold text-nv-teal-deep underline underline-offset-4">Ver formato de 15 sesiones</HubTrackedLink>
           </aside> : null}
         </div>
       </div>
+
+      <HubMobileActions
+        agendaUrl={agendaUrl}
+        waUrl={waUrl}
+        tema={slug}
+        agendaEnabled={agendaEnabled}
+        whatsappEnabled={whatsappEnabled}
+      />
     </main>
   );
 }

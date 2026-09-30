@@ -2,7 +2,8 @@ import Link from "next/link";
 import JsonLd from "@/components/JsonLd";
 import HubTracker from "@/components/hub/HubTracker";
 import HubTrackedLink from "@/components/hub/HubTrackedLink";
-import HubTrackedAnchor from "@/components/hub/HubTrackedAnchor";
+import HubWhatsappLink from "@/components/hub/HubWhatsappLink";
+import HubMobileActions from "@/components/hub/HubMobileActions";
 import MonsteraArt from "@/components/hub/MonsteraArt";
 import { SafeAvatar } from "@/components/SafeImage";
 import {
@@ -67,7 +68,7 @@ export default async function RaulHubPage() {
   // El precio sale de la tarifa aprobada, igual que en la ficha y en agendar.
   const precio = formatHubPrice(agenda.rango);
   const pageUrl = siteUrl("raul-olmedo-evans");
-  const waUrl = buildWaLink("raul-olmedo-evans", hub, agenda.rango);
+  const waUrl = buildWaLink("", hub);
   const functionEnabled = (key) => !hub.herramientas_habilitadas.length || hub.herramientas_habilitadas.includes(key);
 
   const schema = grafo(
@@ -105,9 +106,13 @@ export default async function RaulHubPage() {
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-nv-teal-pale">{hub.nombre}</p>
             <h1 className="mt-3 font-display text-5xl font-light leading-[0.95] text-nv-cream-hi sm:text-6xl md:text-7xl">{hub.titulo}</h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-nv-cream-hi/85">{hub.descripcion || DESCRIPCION_POR_DEFECTO}</p>
-            <div className="mt-8 flex flex-wrap gap-3">
+            {/* Agendar es la acción principal y WhatsApp la secundaria: botón
+                contra enlace, no dos botones compitiendo. El texto dice que la
+                consulta es paga acá y no más abajo, porque es lo primero que se
+                lee cuando el visitante llega desde un anuncio. */}
+            <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
               {functionEnabled("agenda") ? <HubTrackedLink href={agendaUrl} eventName="click_hub_raul_agendar" destination="agenda" className="btn btn-accent">Agendar sesión</HubTrackedLink> : null}
-              {functionEnabled("whatsapp") ? <HubTrackedAnchor href={waUrl} target="_blank" rel="noopener noreferrer" eventName="click_hub_raul_whatsapp" destination="whatsapp" className="btn border border-nv-cream-hi/60 bg-transparent text-nv-cream-hi hover:bg-nv-cream-hi hover:text-nv-teal-deep">Escribir por WhatsApp</HubTrackedAnchor> : null}
+              {functionEnabled("whatsapp") ? <HubWhatsappLink href={waUrl} ubicacion="hero" className="font-bold text-nv-cream-hi underline decoration-nv-coral underline-offset-4 hover:text-white">o escribí para agendar tu sesión paga</HubWhatsappLink> : null}
             </div>
             <p className="mt-5 text-sm text-nv-teal-pale">Sesión en línea de {hub.duracion_min} minutos{precio ? ` · ${precio}` : ""}</p>
           </div>
@@ -196,10 +201,12 @@ export default async function RaulHubPage() {
         {functionEnabled("help") ? <Link href="/ayuda-inmediata" className="text-sm font-bold text-nv-teal-deep underline underline-offset-4">Ayuda inmediata y líneas de apoyo</Link> : null}
       </div>
 
-      <div className="hub-mobile-actions md:hidden">
-        {functionEnabled("agenda") ? <HubTrackedLink href={agendaUrl} eventName="click_hub_raul_agendar_mobile" destination="agenda-mobile" className="btn btn-accent flex-1">Agendar</HubTrackedLink> : null}
-        {functionEnabled("whatsapp") ? <HubTrackedAnchor href={waUrl} target="_blank" rel="noopener noreferrer" eventName="click_hub_raul_whatsapp_mobile" destination="whatsapp-mobile" className="btn flex-1 border border-nv-cream-hi/40 bg-nv-teal-deep text-nv-cream-hi">WhatsApp</HubTrackedAnchor> : null}
-      </div>
+      <HubMobileActions
+        agendaUrl={agendaUrl}
+        waUrl={waUrl}
+        agendaEnabled={functionEnabled("agenda")}
+        whatsappEnabled={functionEnabled("whatsapp")}
+      />
     </main>
   );
 }

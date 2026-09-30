@@ -24,19 +24,26 @@ describe("hub de Raúl Olmedo Evans", () => {
     ]);
   });
 
-  it("construye WhatsApp con el precio de la tarifa aprobada, duración y origen", () => {
-    const url = buildWaLink("duelo", undefined, { min: 30000, max: 30000 });
+  it("nombra el tema de donde sale el clic y dice que la sesión es paga", () => {
+    const url = buildWaLink("Duelo");
     const text = decodeURIComponent(new URL(url).searchParams.get("text"));
     expect(url).toContain("https://wa.me/50671291909");
-    expect(text).toContain("50 min");
-    expect(text).toContain("₡30.000");
-    expect(text).toContain("duelo");
+    expect(text).toContain("sesión paga");
+    expect(text).toContain("Vengo de la página de Duelo.");
   });
 
-  it("no anuncia un precio que no salga de una tarifa vigente", () => {
-    // El JSON del hub tenía un ₡40.000 fijo que ningún cambio de tarifa movía.
-    const text = decodeURIComponent(new URL(buildWaLink("duelo")).searchParams.get("text"));
+  it("sin tema, el mensaje es el de la portada del hub", () => {
+    const text = decodeURIComponent(new URL(buildWaLink()).searchParams.get("text"));
+    expect(text).toBe("Hola, quisiera agendar una sesión paga con Raúl Olmedo. Vengo de la página de Raúl Olmedo.");
+  });
+
+  // El mensaje se sella en HTML que se sirve cacheado una hora (`revalidate`),
+  // así que un precio ahí dentro anuncia el del tramo anterior. La regla es que
+  // el texto no dependa de nada que cambie entre visitas.
+  it("no lleva precio ni duración en el mensaje", () => {
+    const text = decodeURIComponent(new URL(buildWaLink("Duelo")).searchParams.get("text"));
     expect(text).not.toContain("₡");
+    expect(text).not.toContain("min");
     expect(formatHubPrice(null)).toBe("");
     expect(formatHubPrice({ min: 30000, max: 40000 })).toBe("₡30.000 – ₡40.000");
   });
