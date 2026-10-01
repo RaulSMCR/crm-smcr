@@ -11,8 +11,11 @@
 -- el mismo valor de FE_AMBIENTE, para poder rastrearlo sin traducciones.
 --
 -- Aditiva y sin relleno: los comprobantes anteriores quedan en NULL, que
--- significa «emitido antes de que se registrara el ambiente». Rellenarlos con
--- '02' sería suponer; preservar el NULL dice la verdad, que no se observó.
+-- significa «no se registró» y nada más. NULL no equivale a 'pruebas': el corte
+-- a producción ya había ocurrido cuando se creó esta columna, así que entre los
+-- registros en NULL conviven comprobantes de sandbox y comprobantes fiscales
+-- reales. Rellenarlos sería suponer; el NULL dice la verdad, que no se observó.
+-- Separar los anteriores, si hace falta, es trabajo de fecha y revisión manual.
 --
 -- Idempotente (IF NOT EXISTS) para poder reintentarla si una corrida queda a
 -- medias. Aplicar con `prisma migrate deploy`; nunca con migrate dev ni

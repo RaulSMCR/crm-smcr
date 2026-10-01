@@ -653,9 +653,11 @@ model Invoice {
   /// corte a producción las dos cosas conviven en la misma tabla y la única
   /// forma de separarlas es por fecha.
   ///
-  /// NULL significa «se emitió antes de que se registrara el ambiente», es
-  /// decir, antes del corte a producción. No se rellenan los registros
-  /// anteriores: afirmar un ambiente que no se observó sería inventarlo.
+  /// NULL significa «no se registró», y nada más. No equivale a «pruebas»: el
+  /// corte a producción ocurrió ANTES de que existiera esta columna, así que
+  /// entre los registros en NULL hay comprobantes de sandbox y comprobantes
+  /// fiscales reales, y la fecha es el único indicio para separarlos. No se
+  /// rellenan: afirmar un ambiente que no se observó sería inventarlo.
   feAmbiente     String?     @db.VarChar(2)
 
   /// Comprobante firmado tal cual se envió a Hacienda, y la respuesta que devolvió.
