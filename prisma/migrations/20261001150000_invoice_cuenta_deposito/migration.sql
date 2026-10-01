@@ -1,0 +1,29 @@
+-- Cuenta por la que entró el dinero en un cobro que no pasó por ONVO.
+--
+-- Por qué: un cobro de ONVO se concilia solo. El enlace y el evento quedan
+-- guardados en la factura, y con eso se cruza contra la liquidación del
+-- procesador. Un pago que el administrador reporta a mano —efectivo, SINPE
+-- Móvil, una transferencia— no trae nada: el único respaldo posible es la línea
+-- del estado de cuenta del banco, y sin saber cuál cuenta recibió la plata ese
+-- cruce se hace a ojo o no se hace.
+--
+-- Guarda el código del catálogo de `src/lib/cuentas-de-cobro.js` (EFECTIVO,
+-- SINPE_MOVIL, TRANSFERENCIA_BAC, …) y no el nombre del banco en texto libre:
+-- la lista está cerrada en código y el endpoint rechaza lo que no esté en ella,
+-- así que dos facturas de la misma cuenta se agrupan sin normalizar nada.
+--
+-- El medio de pago fiscal NO va acá: ya vive en "paymentMethod", que es lo que
+-- se declara en MedioPago/TipoMedioPago de la 4.4. Cada cuenta del catálogo
+-- determina el suyo, para que no exista la combinación imposible (efectivo
+-- depositado por SINPE).
+--
+-- Aditiva y sin relleno: los comprobantes anteriores quedan en NULL, que
+-- significa «no se registró». Es el valor correcto para todo cobro de ONVO, que
+-- no entra por ninguna de estas cuentas. Rellenarlos sería inventar el respaldo
+-- de un ingreso.
+--
+-- Idempotente (IF NOT EXISTS) para poder reintentarla si una corrida queda a
+-- medias. Aplicar con `prisma migrate deploy`; nunca con migrate dev ni
+-- migrate reset.
+
+ALTER TABLE "Invoice" ADD COLUMN IF NOT EXISTS "cuentaDeposito" VARCHAR(32);

@@ -236,6 +236,7 @@ export default async function AdminAccountingPage({ searchParams }) {
           <div className="flex gap-2">
             <Link href="/panel/admin/contabilidad/cierre-fiscal" className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-100">Cierre fiscal</Link>
             <Link href="/panel/admin/contabilidad/conciliacion" className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-100">Conciliación</Link>
+            <Link href="/panel/admin/contabilidad/pagos-manuales" className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-100">Pagos manuales</Link>
             {["day", "week", "month"].map((quick) => (
               <Link
                 key={quick}

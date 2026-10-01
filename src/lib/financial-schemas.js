@@ -51,6 +51,40 @@ export const professionalInvoiceSchema = z.object({
   settlementId: z.string().trim().min(1).nullish(),
 });
 
+/**
+ * Pago que el administrador reporta a mano, para facturarlo.
+ *
+ * Lo que decide la forma del cobro es `appointmentId`: con cita se registra
+ * además el pago (liquidación y escalera incluidas); sin ella es un ingreso
+ * suelto que solo se factura, y entonces hacen falta cliente, servicio —de donde
+ * salen el CABYS y el impuesto— y el detalle que el cliente va a leer.
+ *
+ * La cuenta NO se valida acá: el catálogo vive en `src/lib/cuentas-de-cobro.js`
+ * y lo comprueba `registrarPagoManual`, que es quien también deriva el medio de
+ * pago fiscal. Duplicar la lista en un enum de zod sería dos listas que se
+ * separan.
+ */
+export const pagoManualSchema = z
+  .object({
+    appointmentId: z.string().trim().min(1).nullish(),
+    contactId: z.string().trim().min(1).nullish(),
+    serviceId: z.string().trim().min(1).nullish(),
+    descripcion: z.string().trim().min(5, "Describa qué se cobró, con al menos 5 caracteres.").nullish(),
+    monto: decimal("monto").positive("El monto debe ser mayor a cero."),
+    cuenta: z.string().trim().min(1, "Indique por cuál cuenta entró el dinero."),
+    referencia: z.string().trim().max(120, "La referencia admite hasta 120 caracteres.").nullish(),
+    tipo: z.enum(["DEPOSIT_50", "BALANCE_50", "FULL_100", "PENALTY_50"], { message: "Tipo de cobro inválido." }).nullish(),
+    fechaPago: isoDate("fechaPago").nullish(),
+  })
+  .refine((value) => Boolean(value.appointmentId) || Boolean(value.contactId && value.serviceId && value.descripcion), {
+    message: "Sin cita hay que indicar cliente, servicio y descripción del cobro.",
+    path: ["appointmentId"],
+  })
+  .refine((value) => !value.tipo || Boolean(value.appointmentId), {
+    message: "El tipo de cobro solo aplica a un pago de una cita.",
+    path: ["tipo"],
+  });
+
 export const supplierAcceptanceSchema = z.object({
   invoiceId: z.string().trim().min(1, "invoiceId es requerido."),
   acceptanceStatus: z.enum(["ACCEPTED", "REJECTED"], { message: "Estado de aceptación inválido." }),

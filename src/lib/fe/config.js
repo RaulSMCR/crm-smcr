@@ -191,6 +191,11 @@ export const MEDIO_PAGO_MAP = {
   transfer:     "04",
   transferencia:"04",
   wire:         "04",
+  // La 4.4 separó el SINPE Movil de la transferencia bancaria y le dio codigo
+  // propio. Declararlo como 04, que es lo que habria pasado sin esta entrada,
+  // esconde justo lo que la version nueva vino a visibilizar.
+  sinpe:        "06",
+  sinpe_movil:  "06",
   other:        "99",
   otros:        "99",
 };

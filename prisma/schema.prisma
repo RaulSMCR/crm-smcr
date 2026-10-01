@@ -687,6 +687,21 @@ model Invoice {
   paymentMethod    String? @default("transfer")
   currency         String  @default("CRC")
 
+  /// Cuenta por la que entró el dinero cuando el cobro NO pasó por ONVO: el
+  /// código del catálogo de `src/lib/cuentas-de-cobro.js` (EFECTIVO,
+  /// SINPE_MOVIL, TRANSFERENCIA_BAC…).
+  ///
+  /// Hace falta porque un pago que el administrador reporta a mano no deja
+  /// rastro propio. El de ONVO sí —enlace y evento quedan en `notes`—, así que
+  /// se concilia contra la liquidación del procesador; el manual solo se puede
+  /// conciliar contra el estado de cuenta del banco, y sin saber cuál cuenta
+  /// recibió la plata eso se hace a ojo.
+  ///
+  /// NULL significa «no se registró», y es lo esperable en todo cobro de ONVO y
+  /// en los comprobantes anteriores a esta columna. No se rellena: suponer una
+  /// cuenta es inventar el respaldo de un ingreso.
+  cuentaDeposito String? @db.VarChar(32)
+
   supplierReference        String?
   supplierEconomicActivity String?
   attachmentUrl            String?

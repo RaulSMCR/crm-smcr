@@ -1,9 +1,23 @@
 import { splitTaxIncluded } from "@/lib/invoice-math";
 import { datosFacturacionDe } from "@/lib/fiscal-identity";
 import { detalleLineaFactura } from "@/lib/detalle-consulta";
+import { siguienteNumeroDeFactura } from "@/lib/invoice-sequence";
 
-/** Se invoca dentro de la misma transacción que acredita el pago y la cita. */
-export async function createPaymentInvoice(tx, transaction) {
+/**
+ * Se invoca dentro de la misma transacción que acredita el pago y la cita.
+ *
+ * `origen` describe de dónde salió la plata, y por defecto describe un cobro de
+ * ONVO porque fue el único que hubo durante mucho tiempo. Un pago reportado a
+ * mano llega con el suyo: otro medio de pago, la cuenta por la que entró y una
+ * nota que lo dice. Lo que NO cambia entre los dos es el resto del comprobante
+ * —consecutivo, receptor, CABYS, desglose del impuesto—, que es justo la razón
+ * de que los dos pasen por acá en vez de armar cada uno su factura.
+ *
+ * @param {object} tx          Cliente Prisma dentro de la transacción.
+ * @param {object} transaction Cobro ya acreditado, con cita, paciente y profesional.
+ * @param {{paymentMethod?: string, cuentaDeposito?: string|null, originDocument?: string, notas?: string}} [origen]
+ */
+export async function createPaymentInvoice(tx, transaction, origen = {}) {
   const amount = Number(transaction.amount);
   if (!Number.isFinite(amount) || amount <= 0) throw new Error("INVALID_PAYMENT_AMOUNT");
   const service = transaction.appointment?.service;
@@ -20,14 +34,11 @@ export async function createPaymentInvoice(tx, transaction) {
     paymentType: transaction.type,
   });
 
-  // El consecutivo también revierte si falla la acreditación. No crear un
-  // número provisional con Date.now(): dos cobros pueden compartir milisegundo.
-  const sequence = await tx.invoiceSequence.upsert({
-    where: { sequenceType: "CUSTOMER_INVOICE" },
-    update: { currentNumber: { increment: 1 }, year: now.getFullYear() },
-    create: { sequenceType: "CUSTOMER_INVOICE", currentNumber: 1, year: now.getFullYear(), prefix: "", padding: 4 },
-  });
-  const invoiceNumber = `${sequence.prefix || ""}${String(sequence.currentNumber).padStart(sequence.padding || 4, "0")}`;
+  // El consecutivo también revierte si falla la acreditación.
+  const invoiceNumber = await siguienteNumeroDeFactura(tx, "CUSTOMER_INVOICE", now);
+  const notasDeOrigen =
+    origen.notas ||
+    `ONVO Pay | Enlace: ${transaction.onvoPaymentLinkId || "-"} | Evento: ${transaction.onvoEventId || "-"}`;
   const invoice = await tx.invoice.create({
     data: {
       invoiceNumber,
@@ -39,7 +50,8 @@ export async function createPaymentInvoice(tx, transaction) {
       contactName: receptor.nombre || null,
       contactIdNumber: receptor.identificacion || null,
       contactIdType: receptor.tipoIdentificacion || null,
-      paymentMethod: "transfer",
+      paymentMethod: origen.paymentMethod || "transfer",
+      cuentaDeposito: origen.cuentaDeposito || null,
       invoiceDate: now,
       dueDate: now,
       paymentDate: transaction.paidAt || now,
@@ -50,8 +62,8 @@ export async function createPaymentInvoice(tx, transaction) {
       amountPaid: amount,
       balance: 0,
       currency: transaction.currency || "CRC",
-      originDocument: `ONVO_TX:${transaction.id}`,
-      notes: `ONVO Pay | Enlace: ${transaction.onvoPaymentLinkId || "-"} | Evento: ${transaction.onvoEventId || "-"}${fiscalWarning ? " | ALERTA: Servicio sin CABYS/IVA configurado" : ""}`,
+      originDocument: origen.originDocument || `ONVO_TX:${transaction.id}`,
+      notes: `${notasDeOrigen}${fiscalWarning ? " | ALERTA: Servicio sin CABYS/IVA configurado" : ""}`,
       lines: { create: {
         productName, description,
         serviceId: service?.id || transaction.appointment?.serviceId || null,
