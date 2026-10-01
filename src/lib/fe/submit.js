@@ -386,7 +386,10 @@ export async function submitInvoiceToFe(invoiceId) {
     const { buildFeNumber, buildFeClave, extractConsecutivo } = await import("@/lib/fe/xml.js");
     const feNumber = buildFeNumber(invoice.invoiceType, extractConsecutivo(invoice.invoiceNumber));
     const result = { feNumber, feClave: buildFeClave(feNumber, invoice.invoiceDate), feStatus: "ACCEPTED", feErrorMessage: "SIMULADO — sin validez tributaria" };
-    await prisma.invoice.update({ where: { id: invoiceId }, data: result });
+    // El simulado también deja constancia de su ambiente, y es el caso que más
+    // importa poder distinguir después: queda ACCEPTED sin valer absolutamente
+    // nada ante Hacienda.
+    await prisma.invoice.update({ where: { id: invoiceId }, data: { ...result, feAmbiente: FE_EMISOR.ambiente || null } });
     return result;
   }
 
@@ -396,7 +399,7 @@ export async function submitInvoiceToFe(invoiceId) {
     const { submitToHacienda } = await import("@/lib/fe/client.js");
     result = await submitToHacienda(invoice, invoice.lines, {
       pollAttempts: 1,
-      persistDocument: (document) => persistFeDocument(prisma, invoiceId, document),
+      persistDocument: (document) => persistFeDocument(prisma, invoiceId, document, { ambiente: FE_EMISOR.ambiente }),
     });
   } catch (error) {
     // El comprobante quedaba en PENDING con un mensaje que no distingue una

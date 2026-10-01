@@ -1,0 +1,21 @@
+-- Ambiente fiscal con que se emitió cada comprobante.
+--
+-- Por qué: la clave de Hacienda no codifica el ambiente. Un comprobante
+-- aceptado en el sandbox —que no tiene ninguna validez tributaria— es
+-- indistinguible por estructura de uno emitido en producción. Al pasar a
+-- producción, las dos cosas quedan en la misma tabla y la única forma de
+-- separarlas sería la fecha, que se ensucia en cuanto hubo ambientes mezclados
+-- (FISCAL_AMBIENTE_MIXTO).
+--
+-- Guarda el código de Hacienda tal cual —'01' producción, '02' pruebas—, que es
+-- el mismo valor de FE_AMBIENTE, para poder rastrearlo sin traducciones.
+--
+-- Aditiva y sin relleno: los comprobantes anteriores quedan en NULL, que
+-- significa «emitido antes de que se registrara el ambiente». Rellenarlos con
+-- '02' sería suponer; preservar el NULL dice la verdad, que no se observó.
+--
+-- Idempotente (IF NOT EXISTS) para poder reintentarla si una corrida queda a
+-- medias. Aplicar con `prisma migrate deploy`; nunca con migrate dev ni
+-- migrate reset.
+
+ALTER TABLE "Invoice" ADD COLUMN IF NOT EXISTS "feAmbiente" VARCHAR(2);

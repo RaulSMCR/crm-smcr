@@ -643,6 +643,21 @@ model Invoice {
   feStatus       FEStatus    @default(PENDING)
   feErrorMessage String?
 
+  /// Ambiente fiscal con que se emitió: '01' producción, '02' pruebas. Es el
+  /// código de Hacienda, el mismo valor de FE_AMBIENTE, para que se pueda
+  /// rastrear sin traducciones.
+  ///
+  /// Hace falta porque la clave de Hacienda NO codifica el ambiente: un
+  /// comprobante aceptado en el sandbox —sin validez tributaria alguna— es
+  /// indistinguible por estructura de uno real. Sin esta columna, después del
+  /// corte a producción las dos cosas conviven en la misma tabla y la única
+  /// forma de separarlas es por fecha.
+  ///
+  /// NULL significa «se emitió antes de que se registrara el ambiente», es
+  /// decir, antes del corte a producción. No se rellenan los registros
+  /// anteriores: afirmar un ambiente que no se observó sería inventarlo.
+  feAmbiente     String?     @db.VarChar(2)
+
   /// Comprobante firmado tal cual se envió a Hacienda, y la respuesta que devolvió.
   /// Antes se descartaban después del envío: Hacienda exige conservarlos cinco
   /// años y entregarle el XML al receptor, así que sin esto no había ni copia.

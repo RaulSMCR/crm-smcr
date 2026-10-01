@@ -17,12 +17,24 @@ export function receptionPayload({ feXml, feClave, feNumber }) {
   return { clave: feClave, fecha, emisor, ...(receptor ? { receptor } : {}), comprobanteXml: Buffer.from(feXml, "utf8").toString("base64") };
 }
 
-/** Guardar antes de contactar al proveedor; dos preparaciones concurrentes adoptan la ganadora. */
-export async function persistFeDocument(db, invoiceId, document) {
+/**
+ * Guardar antes de contactar al proveedor; dos preparaciones concurrentes adoptan la ganadora.
+ *
+ * `ambiente` se sella acá, junto con la identidad fiscal, porque es el mismo
+ * momento: el comprobante adquiere su clave y su consecutivo bajo un ambiente
+ * concreto, y después ya no hay forma de saber cuál era. La clave de Hacienda no
+ * lo codifica.
+ *
+ * @param {string} [ambiente] código de Hacienda: '01' producción, '02' pruebas
+ */
+export async function persistFeDocument(db, invoiceId, document, { ambiente = null } = {}) {
   await db.invoice.updateMany({ where: {
     id: invoiceId, status: { in: ["OPEN", "PAID"] }, feClave: null, feNumber: null, feXml: null,
-  }, data: { feClave: document.feClave, feNumber: document.feNumber, feXml: document.feXml } });
-  const saved = await db.invoice.findUnique({ where: { id: invoiceId }, select: { status: true, feClave: true, feNumber: true, feXml: true } });
+  }, data: {
+    feClave: document.feClave, feNumber: document.feNumber, feXml: document.feXml,
+    ...(ambiente ? { feAmbiente: ambiente } : {}),
+  } });
+  const saved = await db.invoice.findUnique({ where: { id: invoiceId }, select: { status: true, feClave: true, feNumber: true, feXml: true, feAmbiente: true } });
   if (!saved || !["OPEN", "PAID"].includes(saved.status) || !saved.feClave || !saved.feNumber || !saved.feXml) {
     throw new Error("FE_DOCUMENT_REVIEW_REQUIRED");
   }
