@@ -49,6 +49,8 @@ export async function guardarCredencialesGoogle(code) {
   const professionalId = await requireProfessionalProfileId();
   if (!code) return { error: "Falta el parámetro 'code'." };
 
+  // El callback invoca esta función durante el render de su página; el redirect
+  // posterior recarga la pantalla dinámica, así que acá no corresponde revalidar.
   try {
     const oauth2Client = getOAuth2Client();
     const { tokens } = await oauth2Client.getToken(String(code));
@@ -58,7 +60,6 @@ export async function guardarCredencialesGoogle(code) {
     // conexión sigue siendo válida: pisarlo con null sería romperla.
     if (!tokens.refresh_token) {
       if (await yaEstaConectado(professionalId)) {
-        revalidatePath("/panel/profesional");
         return { success: true };
       }
       return {
@@ -72,7 +73,6 @@ export async function guardarCredencialesGoogle(code) {
       data: { googleRefreshToken: tokens.refresh_token },
     });
 
-    revalidatePath("/panel/profesional");
     return { success: true };
   } catch (err) {
     // Los códigos de autorización son de un solo uso. Si la página del callback
@@ -83,7 +83,6 @@ export async function guardarCredencialesGoogle(code) {
     const motivo = err?.response?.data?.error || err?.message || "";
 
     if (motivo === "invalid_grant" && (await yaEstaConectado(professionalId))) {
-      revalidatePath("/panel/profesional");
       return { success: true };
     }
 
