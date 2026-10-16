@@ -4,6 +4,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useToast } from "@/components/ui/ToastProvider";
 import {
+  generarUrlConexionGoogle,
   listarCalendariosGoogle,
   guardarCalendariosGoogle,
 } from "@/actions/google-connect-actions";
@@ -22,6 +23,7 @@ export default function GoogleCalendarPicker() {
   const [avisos, setAvisos] = useState([]);
   const [feedback, setFeedback] = useState(null);
   const [cargando, setCargando] = useState(true);
+  const [reconectando, setReconectando] = useState(false);
   const [isPending, startTransition] = useTransition();
   const { avisar } = useToast();
 
@@ -38,11 +40,29 @@ export default function GoogleCalendarPicker() {
       setDeTrabajo(result.data.calendarioDeTrabajo);
       setExtras(result.data.tambienOcupan);
       setAvisos(result.data.soloAvisan || []);
+    }).catch(() => {
+      if (!vivo) return;
+      setCargando(false);
+      setFeedback({ tone: "error", text: "No se pudo consultar Google Calendar. Volvé a autorizar la cuenta e intentá nuevamente." });
     });
     return () => {
       vivo = false;
     };
   }, []);
+
+  async function reconectar() {
+    setReconectando(true);
+    try {
+      const url = await generarUrlConexionGoogle();
+      if (!url) throw new Error("No se pudo iniciar la autorización de Google.");
+      window.location.assign(url);
+    } catch (error) {
+      const mensaje = String(error?.message || "").trim() || "No se pudo iniciar la autorización de Google.";
+      setFeedback({ tone: "error", text: mensaje });
+      avisar(mensaje, "error");
+      setReconectando(false);
+    }
+  }
 
   /** Cada calendario adicional está en uno de tres modos, excluyentes. */
   function modoDe(id) {
@@ -85,9 +105,19 @@ export default function GoogleCalendarPicker() {
 
   if (!estado) {
     return feedback ? (
-      <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-        {feedback.text}
-      </p>
+      <div className="space-y-3">
+        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          {feedback.text}
+        </p>
+        <button
+          type="button"
+          onClick={reconectar}
+          disabled={reconectando}
+          className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+        >
+          {reconectando ? "Abriendo Google..." : "Volver a autorizar Google"}
+        </button>
+      </div>
     ) : null;
   }
 

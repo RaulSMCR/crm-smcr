@@ -10,6 +10,7 @@ import {
 } from "@/actions/patient-booking-actions";
 import {
   buildSlots,
+  appointmentIntervalMin,
   findWarningForRange,
   formatDayLong,
   formatSelectedLabel,
@@ -65,8 +66,15 @@ export default function ProfessionalCalendarBooking({
   const days = useMemo(
     // Acá reserva el paciente: hoy y las primeras horas de mañana no se
     // ofrecen. El servidor lo vuelve a exigir al confirmar.
-    () => buildSlots({ availability, durationMin, booked, daysAhead: 14, noAntesDe: primerInstanteReservable() }),
-    [availability, durationMin, booked]
+    () => buildSlots({
+      availability,
+      durationMin,
+      intervalMin: appointmentIntervalMin(professionalSlug, durationMin),
+      booked,
+      daysAhead: 14,
+      noAntesDe: primerInstanteReservable(),
+    }),
+    [availability, durationMin, booked, professionalSlug]
   );
 
   // Los cupos son instantes absolutos anclados a Costa Rica; acá se muestran en
@@ -388,4 +396,3 @@ export default function ProfessionalCalendarBooking({
     </div>
   );
 }
-

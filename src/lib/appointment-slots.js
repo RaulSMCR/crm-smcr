@@ -88,6 +88,7 @@ function instanteCR(ymd, minutosDesdeMedianoche) {
 export function buildSlots({
   availability = [],
   durationMin = 60,
+  intervalMin = durationMin,
   booked = [],
   daysAhead = 14,
   now = new Date(),
@@ -117,6 +118,9 @@ export function buildSlots({
   // El cupo que empieza justo en el piso sí se ofrece: «desde las 9:00» incluye
   // las 9:00, y «12 horas de aviso» incluye las 12 horas justas.
   const piso = noAntesDe ? new Date(noAntesDe).getTime() : null;
+  const interval = Number.isFinite(Number(intervalMin)) && Number(intervalMin) > 0
+    ? Number(intervalMin)
+    : durationMin;
 
   for (let offset = 0; offset < daysAhead; offset += 1) {
     const ymd = sumarDias(primerDia, offset);
@@ -127,7 +131,7 @@ export function buildSlots({
       const startMin = parseHHMM(window.startTime);
       const endMin = parseHHMM(window.endTime);
 
-      for (let minutes = startMin; minutes + durationMin <= endMin; minutes += durationMin) {
+      for (let minutes = startMin; minutes + durationMin <= endMin; minutes += interval) {
         const start = instanteCR(ymd, minutes);
         const end = new Date(start.getTime() + durationMin * 60000);
 
@@ -147,6 +151,11 @@ export function buildSlots({
   }
 
   return days;
+}
+
+/** Raúl atiende sesiones de 50 minutos con diez minutos entre inicios. */
+export function appointmentIntervalMin(professionalSlug, durationMin) {
+  return professionalSlug === "raul-olmedo" && durationMin === 50 ? 60 : durationMin;
 }
 
 /**

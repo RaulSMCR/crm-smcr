@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { parse } from "date-fns";
 import { fromZonedTime } from "date-fns-tz";
-import { buildSlotDaysCR, crAddDays, crDay } from "@/lib/appointment-slots";
+import { appointmentIntervalMin, buildSlotDaysCR, crAddDays, crDay } from "@/lib/appointment-slots";
 import { motivoDeAnticipacion, primerInstanteReservable } from "@/lib/anticipacion-de-reserva";
 import { cargarAgendaReservable } from "@/lib/booking-availability";
 import { getSession } from "@/lib/auth";
@@ -114,7 +114,13 @@ export async function getAvailableDays(professionalId, serviceId, { startDay, da
       select: {
         status: true,
         service: { select: { durationMin: true, isActive: true } },
-        professional: { select: { isApproved: true, user: { select: { isActive: true } } } },
+        professional: {
+          select: {
+            slug: true,
+            isApproved: true,
+            user: { select: { isActive: true } },
+          },
+        },
       },
     });
 
@@ -141,6 +147,10 @@ export async function getAvailableDays(professionalId, serviceId, { startDay, da
     const days = buildSlotDaysCR({
       availability,
       durationMin: assignment.service.durationMin || 60,
+      intervalMin: appointmentIntervalMin(
+        assignment.professional.slug,
+        assignment.service.durationMin || 60
+      ),
       booked,
       daysAhead: dias,
       startDay: desde,

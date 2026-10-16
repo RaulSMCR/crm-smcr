@@ -23,12 +23,34 @@ afterEach(() => {
 });
 
 describe("buildSlotDaysCR", () => {
+  it("aplica el intervalo horario solo a las sesiones de 50 minutos de Raúl", async () => {
+    const { appointmentIntervalMin } = await slotsConZona("UTC");
+
+    expect(appointmentIntervalMin("raul-olmedo", 50)).toBe(60);
+    expect(appointmentIntervalMin("otro-profesional", 50)).toBe(50);
+    expect(appointmentIntervalMin("raul-olmedo", 60)).toBe(60);
+  });
+
   it("arma los cupos con la duración del servicio, en hora de Costa Rica", async () => {
     const { buildSlotDaysCR } = await slotsConZona("America/Costa_Rica");
 
     expect(
       buildSlotDaysCR({ availability: SEMANA_TIPO, durationMin: 50, daysAhead: 2, now: DOMINGO_ANTERIOR })
     ).toEqual([{ date: LUNES, slots: ["09:00", "09:50", "10:40"] }]);
+  });
+
+  it("mantiene sesiones de 50 minutos y separa una hora sus inicios", async () => {
+    const { appointmentIntervalMin, buildSlotDaysCR, buildSlots } = await slotsConZona("UTC");
+    const options = {
+      availability: SEMANA_TIPO,
+      durationMin: 50,
+      intervalMin: appointmentIntervalMin("raul-olmedo", 50),
+      daysAhead: 2,
+      now: DOMINGO_ANTERIOR,
+    };
+
+    expect(buildSlotDaysCR(options)).toEqual([{ date: LUNES, slots: ["09:00", "10:00", "11:00"] }]);
+    expect(buildSlots(options)[0].slots.map(({ start, end }) => (end - start) / 60000)).toEqual([50, 50, 50]);
   });
 
   it("da los mismos cupos sin importar la zona horaria del servidor", async () => {

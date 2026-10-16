@@ -170,7 +170,12 @@ export default async function RaulThemePage({ params }) {
             <p className="mt-3 text-sm leading-6 text-neutral-700">La primera conversación permite ubicar qué está ocurriendo y qué tipo de trabajo puede tener sentido.</p>
             <p className="mt-3 text-sm font-semibold text-nv-teal-deep">Sesión en línea de {hub.duracion_min} minutos{precio ? ` · ${precio}` : ""}</p>
             <HubAgendaLink href={agendaUrl} eventName="click_theme_agendar" destination={slug} className="btn btn-accent mt-6 w-full">Agendar sesión</HubAgendaLink>
-            {whatsappEnabled ? <HubWhatsappLink href={waUrl} ubicacion="cierre" tema={slug} className="mt-4 block text-center text-sm font-bold text-nv-teal-deep underline decoration-nv-coral underline-offset-4">o escribí para agendar tu sesión paga</HubWhatsappLink> : null}
+            {whatsappEnabled ? (
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+                <HubWhatsappLink href={waUrl} ubicacion="cierre" tema={slug} className="text-sm font-bold text-nv-teal-deep underline decoration-nv-coral underline-offset-4">o escribí con cualquier consulta</HubWhatsappLink>
+                <HubWhatsappLink href={waUrl} ubicacion="cierre" tema={slug} aria-label="Escribir por WhatsApp" className="inline-flex items-center rounded-full bg-[#25D366] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#1ebe5d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nv-teal-deep">WhatsApp</HubWhatsappLink>
+              </div>
+            ) : null}
             <HubTrackedLink href="/raul-olmedo-evans/tratamiento-breve-15-sesiones" eventName="click_theme_15_sesiones" destination="tratamiento-breve-15-sesiones" className="mt-4 block text-center text-sm font-bold text-nv-teal-deep underline underline-offset-4">Ver formato de 15 sesiones</HubTrackedLink>
           </aside> : null}
         </div>

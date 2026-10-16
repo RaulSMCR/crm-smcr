@@ -102,6 +102,42 @@ export async function guardarCredencialesGoogle(code) {
   }
 }
 
+function diagnosticoListaCalendarios(error) {
+  const payload = error?.response?.data || {};
+  const apiError = typeof payload.error === "object" ? payload.error : {};
+  const code = String(
+    apiError.status ||
+    apiError.reason ||
+    apiError.errors?.[0]?.reason ||
+    (typeof payload.error === "string" ? payload.error : "") ||
+    error?.code ||
+    ""
+  ).toLowerCase();
+  const status = Number(error?.response?.status || apiError.code || 0);
+
+  console.error("Error listando calendarios de Google:", { status, code });
+
+  if (code.includes("invalid_grant") || status === 401) {
+    return "La autorización de Google venció o fue revocada. Volvé a autorizar Google Calendar.";
+  }
+
+  if (code.includes("accessnotconfigured") || code.includes("service_disabled")) {
+    return "La API de Google Calendar no está habilitada en el proyecto de la aplicación. Contactá a administración.";
+  }
+
+  if (
+    status === 403 ||
+    code.includes("insufficientpermissions") ||
+    code.includes("scope")
+  ) {
+    return "Google rechazó el acceso a los calendarios. Volvé a autorizar la cuenta; si persiste, administración debe revisar los permisos y la API de Calendar.";
+  }
+
+  return status
+    ? `No se pudieron leer sus calendarios (respuesta de Google: ${status}).`
+    : "No se pudieron leer sus calendarios. Revisá la conexión e intentá nuevamente.";
+}
+
 /** 4) Los calendarios de la cuenta, para que el profesional elija cuáles cuentan */
 export async function listarCalendariosGoogle() {
   try {
@@ -144,8 +180,7 @@ export async function listarCalendariosGoogle() {
       },
     };
   } catch (error) {
-    console.error("Error listando calendarios de Google:", error);
-    return { success: false, error: "No se pudieron leer sus calendarios.", data: [] };
+    return { success: false, error: diagnosticoListaCalendarios(error), data: [] };
   }
 }
 
