@@ -8,16 +8,20 @@ function padNumber(value, digits) {
   return String(value).padStart(digits, "0");
 }
 
+// El año impreso en las series de proveedor es el de la emisión, no el campo
+// `year` de la fila: ese registra cuándo arrancó la serie y no se actualiza.
+// Antes daban el mismo resultado solo porque `year` se sobrescribía en el mismo
+// upsert; leerlo de `now` lo vuelve explícito y deja de depender de ese efecto.
 function buildInvoiceNumber(invoiceType, sequence, now) {
   const n = sequence.currentNumber;
   const padded = padNumber(n, sequence.padding || 4);
 
   if (invoiceType === "SUPPLIER_INVOICE") {
-    return `${sequence.prefix || "FACT/"}${sequence.year || now.getFullYear()}/${padded}`;
+    return `${sequence.prefix || "FACT/"}${now.getFullYear()}/${padded}`;
   }
 
   if (invoiceType === "SUPPLIER_CREDIT_NOTE") {
-    return `${sequence.prefix || "NC-PROV/"}${sequence.year || now.getFullYear()}/${padded}`;
+    return `${sequence.prefix || "NC-PROV/"}${now.getFullYear()}/${padded}`;
   }
 
   return `${sequence.prefix || ""}${padded}`;
@@ -53,9 +57,11 @@ export async function POST(_request, { params }) {
         CUSTOMER_CREDIT_NOTE: "",
         SUPPLIER_CREDIT_NOTE: "NC-PROV/",
       };
+      // Solo incrementa: la serie no se reinicia nunca, ni al cambiar el año.
+      // Ver el encabezado de src/lib/invoice-sequence.js.
       const sequence = await tx.invoiceSequence.upsert({
         where: { sequenceType: invoice.invoiceType },
-        update: { currentNumber: { increment: 1 }, year: now.getFullYear() },
+        update: { currentNumber: { increment: 1 } },
         create: { sequenceType: invoice.invoiceType, currentNumber: 1, year: now.getFullYear(), prefix: DEFAULT_SEQ_PREFIX[invoice.invoiceType] ?? "", padding: 4 },
       });
 

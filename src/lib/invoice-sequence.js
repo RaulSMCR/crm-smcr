@@ -16,15 +16,33 @@
 /**
  * Reclama el siguiente número de la serie y lo devuelve ya formateado.
  *
+ * LA SERIE NO SE REINICIA NUNCA, y en particular no se reinicia al cambiar el
+ * año. Hacienda exige que el consecutivo sea continuo y sin repeticiones por
+ * sucursal, terminal y tipo de comprobante *a través* de los años: volver a
+ * 0001 cada enero no ordenaría la numeración, la rompería, porque repetiría
+ * números ya emitidos. Por eso acá solo se incrementa.
+ *
+ * `year` se escribe únicamente al crear la fila y de ahí no se vuelve a tocar:
+ * registra el año en que arrancó la serie y NO condiciona ningún reinicio. Antes
+ * se sobrescribía en cada asignación, con lo cual guardaba «el año de la última
+ * factura» —un dato que nadie usaba— y aparentaba ser un control de reinicio que
+ * no existe. El año que llega a llevar impreso un número de serie de proveedor
+ * es el de la emisión, y lo pone quien arma el string.
+ *
+ * Se reclama SIEMPRE dentro de la transacción que crea la factura. Así, si la
+ * creación falla, el número vuelve atrás con ella y no queda un hueco en la
+ * serie. Y nunca se arma con Date.now(): dos cobros pueden caer en el mismo
+ * milisegundo.
+ *
  * @param {object} tx           Cliente Prisma DENTRO de una transacción.
  * @param {string} sequenceType Tipo de la serie (InvoiceType).
- * @param {Date}   now          Momento de emisión, para el año de la serie.
+ * @param {Date}   now          Momento de emisión, solo para el año de creación.
  * @returns {Promise<string>}
  */
 export async function siguienteNumeroDeFactura(tx, sequenceType = "CUSTOMER_INVOICE", now = new Date()) {
   const sequence = await tx.invoiceSequence.upsert({
     where: { sequenceType },
-    update: { currentNumber: { increment: 1 }, year: now.getFullYear() },
+    update: { currentNumber: { increment: 1 } },
     create: { sequenceType, currentNumber: 1, year: now.getFullYear(), prefix: "", padding: 4 },
   });
   return `${sequence.prefix || ""}${String(sequence.currentNumber).padStart(sequence.padding || 4, "0")}`;

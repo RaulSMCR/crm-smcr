@@ -410,11 +410,22 @@ export async function submitInvoiceToFe(invoiceId) {
     // estables y no llevan nada dentro. Cualquier otra cosa se reduce a una
     // marca. Lo fija `tests/unit/fe-submit-deliveries.test.js`.
     const causa = CAUSAS_FE_PUBLICABLES.has(error?.message) ? error.message : "FE_ERROR_NO_CLASIFICADO";
+    // La explicación que Hacienda manda en `X-Error-Cause`, que client.js adjunta
+    // al error. Se publica aunque el código quede en FE_ERROR_NO_CLASIFICADO
+    // porque es de otra procedencia: un mensaje operativo corto del proveedor,
+    // ya saneado y recortado, no el `error.message` de nuestros módulos —que es
+    // el que puede arrastrar datos del comprobante y sigue sin publicarse—.
+    //
+    // Sin esto, el motivo real se perdía: la 0189 estuvo un mes diciendo
+    // FE_STATUS_UNAVAILABLE mientras Hacienda venía contestando, en ese
+    // encabezado, «El comprobante [<clave>] no ha sido recibido.».
+    const detalle = String(error?.causaHacienda || "").replace(/[\r\n\t]+/g, " ").trim().slice(0, 300);
     console.error("[FE] SUBMISSION_PENDING", { invoiceId, causa });
     // Un timeout no es un rechazo. No borrar clave/XML ni degradar una aceptación concurrente.
     const feErrorMessage =
-      `No se pudo confirmar el estado fiscal (${causa}). ` +
-      "Se conserva el comprobante para revisión o reintento.";
+      `No se pudo confirmar el estado fiscal (${causa})` +
+      (detalle ? `: «${detalle}»` : "") +
+      ". Se conserva el comprobante para revisión o reintento.";
     await prisma.invoice.updateMany({ where: { id: invoiceId, feStatus: "PENDING" }, data: { feErrorMessage } });
     const saved = await prisma.invoice.findUnique({ where: { id: invoiceId }, select: { feStatus: true, feNumber: true, feClave: true, feErrorMessage: true } });
     return { ...saved, reviewRequired: Boolean(error.reviewRequired || error.message === "FE_DOCUMENT_REVIEW_REQUIRED" || error.message === "FE_DOCUMENT_INVALID" || error.message === "FE_DOCUMENT_ID_MISMATCH") };

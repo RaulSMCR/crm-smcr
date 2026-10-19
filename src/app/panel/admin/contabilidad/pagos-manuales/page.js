@@ -11,6 +11,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/actions/auth-actions";
 import { prisma } from "@/lib/prisma";
+import { esEmisorResponsable } from "@/lib/api-guards";
 import { SLUG_PROFESIONAL_GESTIONADO } from "@/lib/pagos-manuales";
 import { datosFacturacionDe } from "@/lib/fiscal-identity";
 import { opcionesDeCuenta, cuentaDeCobro } from "@/lib/cuentas-de-cobro";
@@ -53,6 +54,15 @@ function faltaFiscalDe(cliente) {
 export default async function PagosManualesPage() {
   const session = await getSession();
   if (!session || session.role !== "ADMIN") redirect("/ingresar");
+
+  // El endpoint ya lo exige; acá se repite para que un administrador que no es
+  // el responsable de la emisión no vea un formulario que no va a poder enviar.
+  // Se resuelve contra la base y no contra el JWT, igual que el guard.
+  const operador = await prisma.user.findUnique({
+    where: { id: String(session.sub || session.userId || "") },
+    select: { email: true, isActive: true },
+  });
+  if (!operador?.isActive || !esEmisorResponsable(operador.email)) redirect("/panel/admin");
 
   const profesional = await prisma.professionalProfile.findUnique({
     where: { slug: SLUG_PROFESIONAL_GESTIONADO },

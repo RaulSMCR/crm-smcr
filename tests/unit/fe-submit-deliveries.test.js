@@ -38,6 +38,37 @@ it("nombra el motivo cuando es uno de nuestros codigos, para no adivinar la caus
   expect(JSON.stringify(console.error.mock.calls)).toContain("FE_AUTH_UNAVAILABLE");
 });
 
+it("guarda lo que Hacienda explica en X-Error-Cause, no solo el código", async () => {
+  // El motivo real venía en un encabezado que nadie leía: la 0189 estuvo un mes
+  // diciendo FE_STATUS_UNAVAILABLE mientras Hacienda contestaba, en cada
+  // respuesta, que el comprobante no había sido recibido.
+  const error = new Error("FE_STATUS_UNAVAILABLE");
+  error.causaHacienda = "El comprobante [506...356] no ha sido recibido.";
+  mocks.submit.mockRejectedValue(error);
+
+  await run();
+
+  const guardado = JSON.stringify(mocks.update.mock.calls);
+  expect(guardado).toContain("FE_STATUS_UNAVAILABLE");
+  expect(guardado).toContain("no ha sido recibido");
+});
+
+it("publica la causa de Hacienda aunque el código quede sin clasificar", async () => {
+  // Son dos procedencias distintas: el `error.message` de nuestros módulos puede
+  // arrastrar datos del comprobante y sigue sin publicarse; el encabezado de
+  // Hacienda es un mensaje corto ya saneado y sí se publica.
+  const error = new Error("Hacienda dice: <Receptor><Nombre>Ana</Nombre>");
+  error.causaHacienda = "La numeracion consecutiva ya existe.";
+  mocks.submit.mockRejectedValue(error);
+
+  await run();
+
+  const guardado = JSON.stringify(mocks.update.mock.calls);
+  expect(guardado).toContain("FE_ERROR_NO_CLASIFICADO");
+  expect(guardado).toContain("La numeracion consecutiva ya existe.");
+  expect(guardado).not.toContain("Ana");
+});
+
 it("reduce a una marca cualquier motivo que no sea nuestro", async () => {
   mocks.submit.mockRejectedValue(new Error("Hacienda dice: <Receptor><Nombre>Ana</Nombre>"));
   await run();

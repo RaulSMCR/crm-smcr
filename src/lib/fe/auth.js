@@ -35,7 +35,12 @@ export async function getFeToken() {
   });
 
   if (!res.ok) {
-    throw new Error("FE_AUTH_UNAVAILABLE");
+    // El IDP también explica el motivo en `X-Error-Cause` cuando lo hay; se
+    // adjunta para que el orquestador lo guarde en vez de dejar solo el código.
+    const error = new Error("FE_AUTH_UNAVAILABLE");
+    const causa = String(res.headers.get("x-error-cause") || "").replace(/\s+/g, " ").trim().slice(0, 300);
+    if (causa) error.causaHacienda = causa;
+    throw error;
   }
 
   const data = await res.json();

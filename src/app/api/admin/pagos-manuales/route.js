@@ -1,7 +1,7 @@
 // src/app/api/admin/pagos-manuales/route.js
 //
 // POST /api/admin/pagos-manuales
-// Auth: ADMIN
+// Auth: ADMIN responsable de la emisión fiscal (ver requireEmisorResponsable)
 //
 // Cierra el loop de pago y facturación cuando el cobro no pasó por ONVO. El
 // administrador reporta un pago que YA se recibió —cliente, monto y cuenta por la
@@ -15,7 +15,7 @@
 
 import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/api-guards";
+import { requireEmisorResponsable } from "@/lib/api-guards";
 import { pagoManualSchema, validationMessage } from "@/lib/financial-schemas";
 import { registrarPagoManual } from "@/lib/pagos-manuales";
 import { opcionesDeCuenta } from "@/lib/cuentas-de-cobro";
@@ -25,14 +25,14 @@ import { processPaymentDeliveries } from "@/lib/payment-deliveries";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const auth = await requireAdmin();
+  const auth = await requireEmisorResponsable();
   if (auth.error) return auth.error;
   return NextResponse.json({ cuentas: opcionesDeCuenta() });
 }
 
 export async function POST(request) {
   try {
-    const auth = await requireAdmin();
+    const auth = await requireEmisorResponsable();
     if (auth.error) return auth.error;
 
     const body = await request.json().catch(() => ({}));

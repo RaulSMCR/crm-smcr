@@ -1,0 +1,7 @@
+[mcp_servers.crm-carruseles]
+command = "node"
+args = ["mcp/crm-carousels.mjs"]
+env_vars = [
+    "CRM_BASE_URL",
+    "MCP_ADMIN_TOKEN",
+]

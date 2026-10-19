@@ -8,10 +8,12 @@ function padNumber(value, digits) {
   return String(value).padStart(digits, "0");
 }
 
+// El año impreso es el de la emisión, no el campo `year` de la fila: ese
+// registra cuándo arrancó la serie y no se actualiza. Ver src/lib/invoice-sequence.js.
 function buildCreditNoteNumber(invoiceType, sequence, year) {
   const padded = padNumber(sequence.currentNumber, sequence.padding || 4);
   if (invoiceType === "SUPPLIER_CREDIT_NOTE") {
-    return `${sequence.prefix || "NC-PROV/"}${sequence.year || year}/${padded}`;
+    return `${sequence.prefix || "NC-PROV/"}${year}/${padded}`;
   }
   return `${sequence.prefix || ""}${padded}`;
 }
@@ -51,9 +53,10 @@ export async function POST(request, { params }) {
 
       const creditType = toCreditType(origin.invoiceType);
       const DEFAULT_CREDIT_SEQ_PREFIX = { CUSTOMER_CREDIT_NOTE: "", SUPPLIER_CREDIT_NOTE: "NC-PROV/" };
+      // Solo incrementa: la serie no se reinicia nunca, ni al cambiar el año.
       const seq = await tx.invoiceSequence.upsert({
         where: { sequenceType: creditType },
-        update: { currentNumber: { increment: 1 }, year: now.getFullYear() },
+        update: { currentNumber: { increment: 1 } },
         create: { sequenceType: creditType, currentNumber: 1, year: now.getFullYear(), prefix: DEFAULT_CREDIT_SEQ_PREFIX[creditType] ?? "", padding: 4 },
       });
 

@@ -43,7 +43,7 @@ export async function submitToHacienda(invoice, lines, { persistDocument, pollAt
     // Puede ser un envío concurrente o una recepción cuya respuesta se perdió.
     const received = await queryStatus(document.feClave, token);
     if (received) return feResult(received, document);
-    const error = new Error("FE_SUBMISSION_FAILED");
+    const error = errorFe("FE_SUBMISSION_FAILED", response);
     error.reviewRequired = [400, 403, 422].includes(response.status);
     throw error;
   }
@@ -63,12 +63,68 @@ export function feResult(result, document = {}) {
   };
 }
 
+/**
+ * Lo que Hacienda explica en el encabezado `X-Error-Cause`.
+ *
+ * Hace falta porque los errores de la consulta de estado llegan con
+ * `content-length: 0`: el cuerpo está vacío y el único texto que dice algo viaja
+ * en ese encabezado (verificado el 2026-10-19 contra api-sandbox, que responde
+ * «El comprobante [<clave>] no ha sido recibido.» con HTTP 400). Sin leerlo, una
+ * factura trabada solo decía FE_STATUS_UNAVAILABLE.
+ *
+ * Se sanea y se recorta: es un mensaje operativo corto, no el `respuesta-xml`,
+ * que sí puede traer el detalle del documento línea por línea y no se publica.
+ */
+export function causaHacienda(response) {
+  return String(response?.headers?.get?.("x-error-cause") || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 300);
+}
+
+/**
+ * ¿Hacienda está diciendo que no tiene este comprobante?
+ *
+ * La consulta de estado NO responde 404 cuando no lo encuentra: responde 400 con
+ * el cuerpo vacío y el motivo en `X-Error-Cause`. Verificado el 2026-10-19
+ * contra api-sandbox, idéntico para una clave real y para una inexistente:
+ *
+ *   HTTP 400 · x-error-cause: El comprobante [<clave>] no ha sido recibido.
+ *
+ * Esto importaba mucho más de lo que parece. La consulta corre ANTES del POST a
+ * /recepcion, para no enviar dos veces un comprobante cuya respuesta se perdió.
+ * Al tratar ese 400 como un fallo de comunicación, la salvaguarda abortaba la
+ * emisión en vez de habilitarla: ningún comprobante podía enviarse nunca, y la
+ * factura quedaba PENDING reintentando hasta agotar los doce intentos.
+ *
+ * Se exige el texto Y que mencione la clave consultada, no el 400 a secas, por
+ * dos razones: un 400 puede significar otra cosa —y entonces seguir hacia el
+ * POST sería temerario—, y el encabezado `clave` que acompaña a la respuesta
+ * confirma que el mensaje habla de nuestro comprobante. Si Hacienda cambiara la
+ * redacción, la condición deja de cumplirse y se vuelve a lanzar: falla cerrado,
+ * nunca hacia un envío doble.
+ */
+function noRecibido(response, clave) {
+  const causa = causaHacienda(response);
+  return /no ha sido recibido/i.test(causa) && causa.includes(String(clave));
+}
+
+/** Error con la explicación de Hacienda adjunta, para que el orquestador la guarde. */
+function errorFe(code, response) {
+  const error = new Error(code);
+  const causa = causaHacienda(response);
+  if (causa) error.causaHacienda = causa;
+  return error;
+}
+
 async function queryStatus(clave, token) {
   const response = await fetchWithToken(`${FE_API.recepcionUrl}/recepcion/${clave}`, token, { method: "GET" });
   if (response.status === 404) return null;
+  // Hacienda dice «no lo tengo» con un 400, no con un 404. Ver noRecibido().
+  if (response.status === 400 && noRecibido(response, clave)) return null;
   if (!response.ok) {
     if (response.status === 401) invalidateFeToken();
-    throw new Error("FE_STATUS_UNAVAILABLE");
+    throw errorFe("FE_STATUS_UNAVAILABLE", response);
   }
   return response.json();
 }
@@ -140,7 +196,10 @@ export async function pollStatus(clave, existingToken = null, { maxAttempts = PO
     );
 
     if (!res.ok) {
-      if (res.status === 404) {
+      // El 400 con «no ha sido recibido» es el mismo caso que el 404: después
+      // del envío significa que Hacienda todavía no lo registró, así que se
+      // sigue sondeando en vez de darlo por perdido.
+      if (res.status === 404 || (res.status === 400 && noRecibido(res, clave))) {
         // Aún no procesado
         if (attempt < maxAttempts) {
           await sleep(POLL_INTERVAL_MS);
@@ -149,7 +208,7 @@ export async function pollStatus(clave, existingToken = null, { maxAttempts = PO
         return { ind_estado: "procesando", mensaje: "Timeout: comprobante aún en procesamiento" };
       }
       if (res.status === 401) invalidateFeToken();
-      throw new Error("FE_STATUS_UNAVAILABLE");
+      throw errorFe("FE_STATUS_UNAVAILABLE", res);
     }
 
     const data = await res.json();

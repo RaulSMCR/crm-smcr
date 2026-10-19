@@ -32,6 +32,54 @@ describe("recuperación fiscal", () => {
   it("un error de Hacienda requiere revisión y no se presenta como rechazo", () => {
     expect(feResult({ "ind-estado": "error" })).toMatchObject({ feStatus: "PENDING", reviewRequired: true });
   });
+  it("el 400 «no ha sido recibido» habilita el envío en vez de abortarlo", async () => {
+    // La consulta previa existe para no enviar dos veces, y estaba impidiendo
+    // enviar una sola: Hacienda responde que no tiene el comprobante con un 400
+    // y el motivo en X-Error-Cause, no con un 404, así que la salvaguarda lo
+    // leía como fallo de comunicación y abortaba antes del POST.
+    const sinRecibir = new Response(null, {
+      status: 400,
+      headers: { "x-error-cause": `El comprobante [${document.feClave}] no ha sido recibido.` },
+    });
+    fetch
+      .mockResolvedValueOnce(sinRecibir)                                  // consulta previa
+      .mockResolvedValueOnce(response(202))                               // POST a /recepcion
+      .mockResolvedValueOnce(response(200, { "ind-estado": "aceptado" })); // sondeo
+
+    const result = await submitToHacienda({ ...document, lines: [] }, []);
+
+    expect(result.feStatus).toBe("ACCEPTED");
+    const metodos = fetch.mock.calls.map(([, init]) => init.method);
+    expect(metodos).toEqual(["GET", "POST", "GET"]);
+  });
+
+  it("un 400 que no sea «no recibido» sigue abortando antes del POST", async () => {
+    // Si Hacienda objeta otra cosa, seguir hacia el envío sería temerario.
+    fetch.mockResolvedValue(new Response(null, { status: 400, headers: { "x-error-cause": "La clave es invalida." } }));
+
+    await expect(submitToHacienda({ ...document, lines: [] }, [])).rejects.toThrow("FE_STATUS_UNAVAILABLE");
+    expect(fetch.mock.calls.every(([, init]) => init.method === "GET")).toBe(true);
+  });
+
+  it("un 400 cuya causa menciona otra clave no se da por no recibido", async () => {
+    // El encabezado tiene que hablar de NUESTRO comprobante; si no, es otro caso.
+    fetch.mockResolvedValue(new Response(null, {
+      status: 400,
+      headers: { "x-error-cause": "El comprobante [otra-clave-cualquiera] no ha sido recibido." },
+    }));
+
+    await expect(submitToHacienda({ ...document, lines: [] }, [])).rejects.toThrow("FE_STATUS_UNAVAILABLE");
+  });
+
+  it("el error de consulta lleva adjunta la explicación de Hacienda", async () => {
+    fetch.mockResolvedValue(new Response(null, { status: 500, headers: { "x-error-cause": "Servicio no disponible." } }));
+
+    await expect(submitToHacienda({ ...document, lines: [] }, [])).rejects.toMatchObject({
+      message: "FE_STATUS_UNAVAILABLE",
+      causaHacienda: "Servicio no disponible.",
+    });
+  });
+
   it("el JSON conserva fecha y tipo de identificación del XML firmado", () => {
     const payload = receptionPayload(document);
     expect(payload.fecha).toBe("2026-09-11T12:00:00-06:00");
