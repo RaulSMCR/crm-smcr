@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { submitProfessionalInvoice } from "@/actions/professional-billing-actions";
 import { useToast } from "@/components/ui/ToastProvider";
 
@@ -88,15 +88,16 @@ export default function ProfessionalBillingModule({
   const [isPending, startTransition] = useTransition();
   const { avisar } = useToast();
 
-  const [refNumber, setRefNumber] = useState("");
-  const [invoiceAmount, setInvoiceAmount] = useState("");
   const [selectedSettlement, setSelectedSettlement] = useState(null);
   const [pdfFile, setPdfFile] = useState(null);
-  const [xmlFile, setXmlFile] = useState(null);
-  const [supplierFeClave, setSupplierFeClave] = useState("");
+  const [xmlUrl, setXmlUrl] = useState("");
+  const [invoiceData, setInvoiceData] = useState(null);
+  const [readingXml, setReadingXml] = useState(false);
+  const xmlRequest = useRef(0);
   const [uploading, setUploading] = useState(false);
   const [submitMsg, setSubmitMsg] = useState(null);
-  const [submitting, startSubmit] = useTransition();
+  const settlement = settlements.find((item) => item.id === selectedSettlement);
+  const settlementMismatch = Boolean(invoiceData && settlement && Math.abs(invoiceData.amount - Number(settlement.netAmount)) > 0.005);
 
   const filtered = useMemo(
     () => filterByPeriod(transactions, period, customFrom, customTo),
@@ -126,22 +127,53 @@ export default function ProfessionalBillingModule({
     });
   }
 
+  async function handleXmlChange(e) {
+    const file = e.target.files?.[0];
+    const requestId = ++xmlRequest.current;
+    setInvoiceData(null);
+    setXmlUrl("");
+    setSubmitMsg(null);
+    setReadingXml(false);
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setSubmitMsg({ ok: false, text: "El XML no puede pesar más de 5MB." });
+      return;
+    }
+    setReadingXml(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload/professional-invoice", { method: "POST", body: fd });
+      const data = await res.json();
+      if (requestId !== xmlRequest.current) return;
+      if (!res.ok || !data.url || !data.invoiceData) throw new Error(data.error || "No se pudo leer el XML.");
+      setXmlUrl(data.url);
+      setInvoiceData(data.invoiceData);
+    } catch (err) {
+      if (requestId === xmlRequest.current) setSubmitMsg({ ok: false, text: err.message || "No se pudo leer el XML." });
+    } finally {
+      if (requestId === xmlRequest.current) setReadingXml(false);
+    }
+  }
+
   async function handleSubmitInvoice(e) {
     e.preventDefault();
+    const form = e.currentTarget;
+    if (uploading || readingXml) return;
     setSubmitMsg(null);
 
     if (!pdfFile) {
       setSubmitMsg({ ok: false, text: "Seleccione el PDF de la factura." });
       return;
     }
-    if (!xmlFile) {
+    if (!xmlUrl || !invoiceData) {
       setSubmitMsg({ ok: false, text: "Seleccione el XML firmado de la factura." });
       return;
     }
+    if (settlementMismatch) return;
 
     setUploading(true);
     let fileUrl = "";
-    let xmlUrl = "";
     try {
       const fd = new FormData();
       fd.append("file", pdfFile);
@@ -152,59 +184,48 @@ export default function ProfessionalBillingModule({
       const data = await res.json();
       if (!res.ok || !data.url) throw new Error(data.error || "Error al subir el archivo.");
       fileUrl = data.url;
-      const xmlFd = new FormData();
-      xmlFd.append("file", xmlFile);
-      const xmlRes = await fetch("/api/upload/professional-invoice", { method: "POST", body: xmlFd });
-      const xmlData = await xmlRes.json();
-      if (!xmlRes.ok || !xmlData.url) throw new Error(xmlData.error || "Error al subir el XML.");
-      xmlUrl = xmlData.url;
     } catch (err) {
       setSubmitMsg({ ok: false, text: err.message });
       setUploading(false);
       return;
     }
-    setUploading(false);
 
     const periodStart = period === "custom" ? customFrom : null;
     const periodEnd = period === "custom" ? customTo : null;
 
-    startSubmit(async () => {
-      try {
-        const result = await submitProfessionalInvoice({
-          referenceNumber: refNumber,
-          amount: invoiceAmount || totalApproved,
-          fileUrl,
-          xmlUrl,
-          supplierFeClave,
-          periodStart,
-          periodEnd,
-          settlementId: selectedSettlement,
+    try {
+      const result = await submitProfessionalInvoice({
+        fileUrl,
+        xmlUrl,
+        periodStart,
+        periodEnd,
+        settlementId: selectedSettlement,
+      });
+      if (result.success) {
+        setSubmitMsg({
+          ok: true,
+          text: "Factura presentada correctamente. El admin la revisara pronto.",
         });
-        if (result.success) {
-          setSubmitMsg({
-            ok: true,
-            text: "Factura presentada correctamente. El admin la revisara pronto.",
-          });
-          setRefNumber("");
-          setInvoiceAmount("");
-          setSelectedSettlement(null);
-          setPdfFile(null);
-          setXmlFile(null);
-          setSupplierFeClave("");
-          router.refresh();
-        } else {
-          setSubmitMsg({
-            ok: false,
-            text: result.error || "Error al presentar la factura.",
-          });
-        }
-      } catch (fallo) {
-        // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
-        const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
-        setSubmitMsg({ ok: false, text: mensaje });
-        avisar(mensaje, "error");
+        setSelectedSettlement(null);
+        setPdfFile(null);
+        setXmlUrl("");
+        setInvoiceData(null);
+        form.reset();
+        router.refresh();
+      } else {
+        setSubmitMsg({
+          ok: false,
+          text: result.error || "Error al presentar la factura.",
+        });
       }
-    });
+    } catch (fallo) {
+      // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
+      const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
+      setSubmitMsg({ ok: false, text: mensaje });
+      avisar(mensaje, "error");
+    } finally {
+      setUploading(false);
+    }
   }
 
   return (
@@ -286,7 +307,7 @@ export default function ProfessionalBillingModule({
                   ))}
                 </div>
               </details>
-              {settlement.status === "OPEN" ? <button type="button" onClick={() => { setSelectedSettlement(settlement.id); setInvoiceAmount(String(settlement.netAmount)); window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }); }} className="mt-3 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white">Presentar factura por {fmt(settlement.netAmount)}</button> : null}
+              {settlement.status === "OPEN" ? <button type="button" disabled={uploading} onClick={() => { setSelectedSettlement(settlement.id); window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }); }} className="mt-3 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">Presentar factura por {fmt(settlement.netAmount)}</button> : null}
             </div>
           )) : <p className="text-sm text-slate-500">Todavía no hay liquidaciones generadas.</p>}
         </div>
@@ -351,69 +372,85 @@ export default function ProfessionalBillingModule({
         <div className="border-b border-slate-100 px-6 py-4">
           <h2 className="text-lg font-bold text-slate-900">Presentar factura</h2>
           <p className="text-sm text-slate-500">
-            Monto sugerido del periodo:{" "}
-            <span className="font-semibold text-blue-700">{fmt(totalApproved)}</span>
+            Seleccione el XML para completar automáticamente los datos de la factura y revíselos antes de presentarla.
           </p>
         </div>
 
         <form onSubmit={handleSubmitInvoice} className="space-y-4 p-6">
+          <div>
+            <label htmlFor="invoice-xml" className="mb-1 block text-sm font-medium text-slate-700">XML firmado de la factura *</label>
+            <input id="invoice-xml" type="file" accept=".xml,application/xml,text/xml" onChange={handleXmlChange} disabled={uploading} required className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm" />
+            <p role="status" className="mt-1 text-xs text-slate-500">{readingXml ? "Leyendo datos del XML..." : invoiceData ? "Datos extraídos del XML. Para cambiarlos, seleccione otro archivo." : "Máximo 5MB. La factura se presenta al pulsar el botón al final."}</p>
+          </div>
+          {settlement ? <p className="text-sm text-slate-600">Liquidación seleccionada: <strong>{fmt(settlement.netAmount)}</strong>. <button type="button" disabled={uploading} onClick={() => setSelectedSettlement(null)} className="text-blue-700 underline">Quitar selección</button></p> : null}
+          {settlementMismatch ? <p role="alert" className="text-sm text-red-700">El total del XML ({fmt(invoiceData.amount)}) no coincide con el neto de la liquidación ({fmt(settlement.netAmount)}). Seleccione la factura o la liquidación correspondiente.</p> : null}
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
+              <label htmlFor="invoice-reference" className="mb-1 block text-sm font-medium text-slate-700">
                 N° de factura *
               </label>
               <input
+                id="invoice-reference"
                 type="text"
-                value={refNumber}
-                onChange={(e) => setRefNumber(e.target.value)}
-                placeholder="Ej: FAC-0025"
+                value={invoiceData?.referenceNumber || ""}
+                readOnly
+                placeholder="Se extrae del XML"
                 required
                 className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="mb-1 block text-sm font-medium text-slate-700">Clave numérica FE (50 dígitos) *</label>
-              <input type="text" inputMode="numeric" maxLength={50} value={supplierFeClave} onChange={(e) => setSupplierFeClave(e.target.value.replace(/\D/g, ""))} required className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm" />
+              <label htmlFor="invoice-clave" className="mb-1 block text-sm font-medium text-slate-700">Clave numérica FE (50 dígitos) *</label>
+              <input id="invoice-clave" type="text" value={invoiceData?.supplierFeClave || ""} readOnly placeholder="Se extrae del XML" className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm" />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
+              <label htmlFor="invoice-amount" className="mb-1 block text-sm font-medium text-slate-700">
                 Monto a facturar (₡) *
                 <span className="ml-1 text-xs font-normal text-slate-400">
-                  {selectedSettlement ? "neto de liquidación, no editable" : "sugerido, editable"}
+                  total del XML, IVA incluido
                 </span>
               </label>
               <input
+                id="invoice-amount"
                 type="number"
-                value={invoiceAmount || Math.round(totalApproved)}
-                onChange={(e) => setInvoiceAmount(e.target.value)}
-                disabled={Boolean(selectedSettlement)}
-                min="1"
+                value={invoiceData?.amount ?? ""}
+                readOnly
+                step="0.01"
+                min="0.01"
                 required
                 className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
               />
             </div>
           </div>
 
+          {invoiceData ? <dl className="grid gap-3 rounded-xl bg-slate-50 p-4 text-sm sm:grid-cols-2">
+            {[
+              ["Emisor", invoiceData.supplierName], ["Identificación del emisor", invoiceData.supplierIdNumber],
+              ["Fecha de emisión", new Date(invoiceData.invoiceDate).toLocaleDateString("es-CR", { timeZone: "America/Costa_Rica" })], ["Moneda", invoiceData.currency],
+              ["Base después de descuentos", fmt(invoiceData.subtotal)], ["Impuestos", fmt(invoiceData.taxAmount)],
+              ["Descuentos", fmt(invoiceData.discountAmount)],
+            ].map(([label, value]) => <div key={label}><dt className="text-slate-500">{label}</dt><dd className="font-medium text-slate-800">{value}</dd></div>)}
+          </dl> : null}
+
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
+            <label htmlFor="invoice-pdf" className="mb-1 block text-sm font-medium text-slate-700">
               PDF de factura *
             </label>
             <input
+              id="invoice-pdf"
               type="file"
               accept="application/pdf"
               onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
+              disabled={uploading}
               required
               className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-sm file:font-medium hover:file:bg-slate-200"
             />
             <p className="mt-1 text-xs text-slate-400">Solo PDF, maximo 5MB.</p>
           </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">XML firmado de la factura *</label>
-            <input type="file" accept=".xml,application/xml,text/xml" onChange={(e) => setXmlFile(e.target.files?.[0] || null)} required className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm" />
-          </div>
 
           {submitMsg ? (
             <div
+              role="status"
               className={`rounded-xl border px-4 py-3 text-sm ${
                 submitMsg.ok
                   ? "border-emerald-200 bg-emerald-50 text-emerald-800"
@@ -426,10 +463,10 @@ export default function ProfessionalBillingModule({
 
           <button
             type="submit"
-            disabled={uploading || submitting}
+            disabled={uploading || readingXml || !invoiceData || !pdfFile || settlementMismatch}
             className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
           >
-            {uploading ? "Subiendo archivo..." : submitting ? "Enviando..." : "Presentar factura"}
+            {readingXml ? "Leyendo XML..." : uploading ? "Presentando factura..." : "Presentar factura"}
           </button>
         </form>
       </div>

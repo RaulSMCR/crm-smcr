@@ -20,6 +20,7 @@ import {
   MEDIO_PAGO_MAP,
   NS_MAP,
   ROOT_ELEMENT_MAP,
+  tipoComprobanteDe,
 } from "./config.js";
 
 const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
@@ -136,9 +137,22 @@ export function buildFeClave(feNumber, invoiceDate, securityCode) {
   return `${pais}${date}${cedula}${consec20}${situacion}${security}`.padEnd(50, "0").slice(0, 50);
 }
 
-/** Genera el NumeroConsecutivo de 20 dígitos */
-export function buildFeNumber(invoiceType, consecutivo) {
-  const tipoDoc = TIPO_DOC_MAP[invoiceType] || "01";
+/**
+ * Genera el NumeroConsecutivo de 20 dígitos.
+ *
+ * El primer argumento puede ser la factura entera, un `InvoiceType` o el código
+ * de dos dígitos ya resuelto. El tipo de comprobante no siempre se deduce del
+ * `invoiceType` —una venta a un receptor extranjero no domiciliado es un
+ * tiquete (04)—, así que pasarle la factura es la forma correcta: resuelve con
+ * `tipoComprobanteDe`, que es la única regla. Las otras dos formas quedan para
+ * las pruebas y para quien ya tiene el tipo en la mano.
+ */
+export function buildFeNumber(facturaOTipo, consecutivo) {
+  const tipoDoc =
+    facturaOTipo && typeof facturaOTipo === "object"
+      ? tipoComprobanteDe(facturaOTipo)
+      : TIPO_DOC_MAP[String(facturaOTipo || "")] ||
+        (/^\d{2}$/.test(String(facturaOTipo || "")) ? String(facturaOTipo) : "01");
   const consec  = String(Math.abs(consecutivo)).padStart(10, "0");
   return `${FE_EMISOR.sucursal}${FE_EMISOR.terminal}${tipoDoc}${consec}`;
 }
@@ -193,9 +207,11 @@ export function ivaTarifaCodigo(rate) {
  * @returns {{ xml: string, feNumber: string, feClave: string }}
  */
 export function generateFeXml(invoice, lines) {
-  const tipoDoc    = TIPO_DOC_MAP[invoice.invoiceType] || "01";
+  // No es TIPO_DOC_MAP[invoiceType]: una venta a un receptor extranjero no
+  // domiciliado se emite como Tiquete Electrónico. Ver tipoComprobanteDe().
+  const tipoDoc    = tipoComprobanteDe(invoice);
   const consecutivo = extractConsecutivo(invoice.invoiceNumber);
-  const feNumber   = buildFeNumber(invoice.invoiceType, consecutivo);
+  const feNumber   = buildFeNumber(tipoDoc, consecutivo);
   const feClave    = buildFeClave(feNumber, invoice.invoiceDate);
   const ns         = NS_MAP[tipoDoc];
   const rootEl     = ROOT_ELEMENT_MAP[tipoDoc];

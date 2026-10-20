@@ -33,7 +33,7 @@
 // parte.
 
 import { splitTaxIncluded } from "@/lib/invoice-math";
-import { datosFacturacionDe, motivoReceptorNoAdmitidoEnFactura } from "@/lib/fiscal-identity";
+import { datosFacturacionDe, serieDeVentaSegunReceptor } from "@/lib/fiscal-identity";
 import { PRODUCTO_SERVICIOS_PROFESIONALES } from "@/lib/detalle-consulta";
 import { createPaymentInvoice } from "@/lib/onvo/payment-invoice";
 import { siguienteNumeroDeFactura } from "@/lib/invoice-sequence";
@@ -95,8 +95,6 @@ function receptorUtilizable(cliente) {
   if (!receptor.tipoIdentificacion || !receptor.identificacion) {
     return error(409, "El cliente no tiene identificación fiscal utilizable y la 4.4 la exige. Complete el tipo y el número en su perfil antes de facturar.", "RECEPTOR_SIN_IDENTIFICACION");
   }
-  const noAdmitido = motivoReceptorNoAdmitidoEnFactura(receptor.tipoIdentificacion);
-  if (noAdmitido) return error(409, noAdmitido, "RECEPTOR_TIPO_NO_ADMITIDO");
   return { ok: true, receptor };
 }
 
@@ -303,7 +301,13 @@ async function cobroSuelto(prisma, { contactId, serviceId, descripcion, cuenta, 
 
     // La fecha de emisión es hoy, no la del pago: Hacienda rechaza comprobantes
     // fechados fuera de su ventana. Cuándo entró la plata es `paymentDate`.
-    const invoiceNumber = await siguienteNumeroDeFactura(tx, "CUSTOMER_INVOICE", ahora);
+    // Un receptor extranjero no domiciliado se factura como tiquete, y el
+    // tiquete lleva su propia serie. Ver serieDeVentaSegunReceptor().
+    const invoiceNumber = await siguienteNumeroDeFactura(
+      tx,
+      serieDeVentaSegunReceptor(receptor.receptor.tipoIdentificacion),
+      ahora,
+    );
     const invoice = await tx.invoice.create({
       data: {
         invoiceNumber,

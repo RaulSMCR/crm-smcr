@@ -2,6 +2,7 @@
 // Configuración del emisor y URLs de la API de Factura Electrónica de Hacienda CR.
 
 import { assertAmbientesCoherentes, detectarAmbienteFe, detectarAmbienteOnvo } from "@/lib/fiscal-environment";
+import { TIPOS_IDENTIFICACION } from "@/lib/fiscal-identity";
 
 const env = (name) => String(process.env[name] || "").trim();
 
@@ -178,6 +179,27 @@ export const TIPO_DOC_MAP = {
   TIQUETE_ELECTRONICO:    "04",
   NOTA_DEBITO:             "02",
 };
+
+/**
+ * El tipo de comprobante que corresponde ante Hacienda, que no siempre es el
+ * que dice `invoiceType`.
+ *
+ * Una venta a un extranjero no domiciliado (receptor tipo 05) es la misma venta
+ * —mismo IVA, mismos informes— pero Hacienda no la admite como Factura
+ * Electrónica: la rechaza con -409. Le corresponde un Tiquete Electrónico. Ver
+ * `serieDeVentaSegunReceptor` en src/lib/fiscal-identity.js.
+ *
+ * Solo se desvía la factura (01). Una nota de crédito o de débito conserva su
+ * tipo: la resolución admite el 05 en las dos, y además tienen que referenciar
+ * el comprobante original.
+ */
+export function tipoComprobanteDe(invoice) {
+  const base = TIPO_DOC_MAP[invoice?.invoiceType] || "01";
+  if (base !== TIPO_DOC_MAP.CUSTOMER_INVOICE) return base;
+  return String(invoice?.contactIdType || "") === TIPOS_IDENTIFICACION.EXTRANJERO
+    ? TIPO_DOC_MAP.TIQUETE_ELECTRONICO
+    : base;
+}
 
 // Método de pago → código Hacienda
 export const MEDIO_PAGO_MAP = {

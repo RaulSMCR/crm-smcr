@@ -83,27 +83,31 @@ describe("sin tipo reconocible, el receptor va sin identificación", () => {
   });
 });
 
-describe("tipo 05 en factura electrónica: Hacienda no lo admite", () => {
-  // La duda quedó abierta en docs/factura-electronica-receptor.md («si el 05 fuera
-  // rechazado en una factura ordinaria, el mensaje de rechazo lo dirá») y Hacienda
-  // la cerró: la 0204 volvió con -409 «Tipo de Identificación del Receptor no
-  // permitido para este documento».
-  it("el 05 tiene un motivo que se puede mostrar antes de reclamar el número", async () => {
-    const { motivoReceptorNoAdmitidoEnFactura } = await import("@/lib/fiscal-identity");
-    const motivo = motivoReceptorNoAdmitidoEnFactura("05");
-    expect(motivo).toMatch(/tipo 05/);
-    expect(motivo).toMatch(/-409/);
-    expect(motivo).toMatch(/DIMEX o cédula/);
+describe("tipo 05: la venta va por la serie del tiquete electrónico", () => {
+  // Hacienda no admite al extranjero no domiciliado como receptor de una
+  // Factura Electrónica: la 0204 volvió con -409 «Tipo de Identificación del
+  // Receptor no permitido para este documento». Sí lo admite en el Tiquete
+  // Electrónico, que es a donde se desvía.
+  it("el 05 se numera en la serie del tiquete, no en la de facturas", async () => {
+    const { serieDeVentaSegunReceptor, SERIE_TIQUETE } = await import("@/lib/fiscal-identity");
+    expect(serieDeVentaSegunReceptor("05")).toBe(SERIE_TIQUETE);
   });
 
-  it.each(["01", "02", "03", "04", null, undefined, ""])("%s no se bloquea", async (tipo) => {
-    const { motivoReceptorNoAdmitidoEnFactura } = await import("@/lib/fiscal-identity");
-    expect(motivoReceptorNoAdmitidoEnFactura(tipo)).toBeNull();
+  it.each(["01", "02", "03", "04", "06", null, undefined, ""])("%s sigue en la serie de facturas", async (tipo) => {
+    const { serieDeVentaSegunReceptor, SERIE_FACTURA } = await import("@/lib/fiscal-identity");
+    expect(serieDeVentaSegunReceptor(tipo)).toBe(SERIE_FACTURA);
   });
 
-  it("el 06 queda permitido: no hay evidencia de que Hacienda lo rechace", async () => {
-    // Prohibirlo por sospecha bloquearía facturas que quizá son válidas.
-    const { motivoReceptorNoAdmitidoEnFactura } = await import("@/lib/fiscal-identity");
-    expect(motivoReceptorNoAdmitidoEnFactura("06")).toBeNull();
+  it("la serie del tiquete lleva prefijo propio y la de facturas no", async () => {
+    // Las dos comparten la tabla de facturas y su restricción de unicidad: sin
+    // prefijo, el tiquete 0001 chocaría con la factura 0001. Y el prefijo va
+    // separado por "/" porque `extractConsecutivo` se queda con lo que sigue al
+    // último, que es el consecutivo que ve Hacienda.
+    const { PREFIJO_DE_SERIE, SERIE_TIQUETE, SERIE_FACTURA } = await import("@/lib/fiscal-identity");
+    expect(PREFIJO_DE_SERIE[SERIE_TIQUETE]).toBe("TE/");
+    expect(PREFIJO_DE_SERIE[SERIE_FACTURA]).toBe("");
+
+    const { extractConsecutivo } = await import("@/lib/fe/xml.js");
+    expect(extractConsecutivo("TE/0001")).toBe(1);
   });
 });

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/api-guards";
 import { esReemision } from "@/lib/fe/reemision";
-import { motivoReceptorNoAdmitidoEnFactura } from "@/lib/fiscal-identity";
+import { PREFIJO_DE_SERIE, serieDeVentaSegunReceptor } from "@/lib/fiscal-identity";
 
 export const dynamic = "force-dynamic";
 
@@ -52,16 +52,18 @@ export async function POST(_request, { params }) {
       if (!invoice.lines.length) {
         return { error: { message: "La factura no tiene líneas.", status: 400 } };
       }
-      // Antes de reclamar el consecutivo: lo que Hacienda va a rechazar igual se
-      // corta acá, donde todavía no cuesta nada. Validar asigna el número; si
-      // después Hacienda lo rechaza, el número queda quemado.
-      if (invoice.invoiceType === "CUSTOMER_INVOICE") {
-        const noAdmitido = motivoReceptorNoAdmitidoEnFactura(invoice.contactIdType);
-        if (noAdmitido) return { error: { message: noAdmitido, status: 409 } };
-      }
+      // La serie no sale del `invoiceType` sino del receptor: una venta a un
+      // extranjero no domiciliado se emite como Tiquete Electrónico y Hacienda
+      // exige el consecutivo continuo por tipo de comprobante, así que lleva
+      // serie propia. La factura queda igual —mismo invoiceType, mismos
+      // informes—, cambia el número y el comprobante.
+      const serie =
+        invoice.invoiceType === "CUSTOMER_INVOICE"
+          ? serieDeVentaSegunReceptor(invoice.contactIdType)
+          : invoice.invoiceType;
 
       const DEFAULT_SEQ_PREFIX = {
-        CUSTOMER_INVOICE: "",
+        ...PREFIJO_DE_SERIE,
         SUPPLIER_INVOICE: "FACT/",
         CUSTOMER_CREDIT_NOTE: "",
         SUPPLIER_CREDIT_NOTE: "NC-PROV/",
@@ -69,12 +71,12 @@ export async function POST(_request, { params }) {
       // Solo incrementa: la serie no se reinicia nunca, ni al cambiar el año.
       // Ver el encabezado de src/lib/invoice-sequence.js.
       const sequence = await tx.invoiceSequence.upsert({
-        where: { sequenceType: invoice.invoiceType },
+        where: { sequenceType: serie },
         update: { currentNumber: { increment: 1 } },
-        create: { sequenceType: invoice.invoiceType, currentNumber: 1, year: now.getFullYear(), prefix: DEFAULT_SEQ_PREFIX[invoice.invoiceType] ?? "", padding: 4 },
+        create: { sequenceType: serie, currentNumber: 1, year: now.getFullYear(), prefix: DEFAULT_SEQ_PREFIX[serie] ?? "", padding: 4 },
       });
 
-      const nextNumber = buildInvoiceNumber(invoice.invoiceType, sequence, now);
+      const nextNumber = buildInvoiceNumber(serie, sequence, now);
       const balance = Math.max(0, Number(invoice.total) - Number(invoice.amountPaid));
       const nextStatus = balance <= 0 ? "PAID" : "OPEN";
 

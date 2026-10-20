@@ -176,39 +176,50 @@ export function datosFacturacionDe(user) {
 }
 
 /**
- * Tipos de identificación del receptor que Hacienda NO admite en una Factura
- * Electrónica (tipo de documento 01).
+ * La serie de venta que le corresponde a un receptor.
  *
- * No sale del esquema —el XSD no está en el repositorio— sino de un rechazo real.
- * La documentación del receptor (docs/factura-electronica-receptor.md) dejó la
- * duda abierta: «si el 05 fuera rechazado en una factura ordinaria por servicios
- * prestados en el país, el mensaje de rechazo lo dirá». Lo dijo: la 0204
- * (19-oct-2026), con receptor tipo 05, volvió con -409 «Tipo de Identificación
- * del Receptor no permitido para este documento», y el consecutivo se perdió.
+ * Hacienda no admite al extranjero no domiciliado (05) como receptor de una
+ * Factura Electrónica: la 0204 (19-oct-2026) volvió con -409 «Tipo de
+ * Identificación del Receptor no permitido para este documento» y el
+ * consecutivo se perdió. Según la resolución de disposiciones técnicas, en la
+ * factura (01) el 05 solo se admite para la venta de mercancía no
+ * nacionalizada —que no es el caso de una consulta—, y en el Tiquete
+ * Electrónico (04) sin esa restricción. Así que el 05 se emite como tiquete.
  *
- * Solo figura lo confirmado. El 06 (no contribuyente) queda permitido hasta que
- * haya evidencia: prohibirlo por sospecha bloquearía facturas que quizá son
- * válidas.
+ * (No se cita el código de condición de venta a propósito: una versión anterior
+ * de este comentario lo daba como «02», que en este mismo código es «Crédito»
+ * —ver `condVenta` en fe/xml.js—. Confirmarlo contra el anexo antes de usarlo.)
+ *
+ * La serie del tiquete es PROPIA y no una rama de la de facturas: Hacienda
+ * exige el consecutivo continuo y sin saltos por sucursal, terminal y tipo de
+ * comprobante. Si los tiquetes tomaran números de la serie de facturas, las dos
+ * quedarían con huecos en los meses en que se usó la otra.
+ *
+ * Lo que NO cambia es `Invoice.invoiceType`, que sigue siendo CUSTOMER_INVOICE:
+ * un tiquete es la misma venta, con el mismo IVA, y los informes de ingresos,
+ * de IVA y de cuentas por cobrar filtran por ese campo. El tipo de comprobante
+ * ante Hacienda se resuelve aparte, en `tipoComprobanteDe` (src/lib/fe/config).
  */
-const NO_ADMITIDOS_EN_FACTURA = new Set([TIPOS_IDENTIFICACION.EXTRANJERO]);
+export const SERIE_FACTURA = "CUSTOMER_INVOICE";
+export const SERIE_TIQUETE = "TIQUETE_ELECTRONICO";
 
 /**
- * Por qué este receptor no puede recibir una factura electrónica, o null si
- * puede. Se consulta ANTES de reclamar un consecutivo: cada rechazo de Hacienda
- * cuesta uno, y este se puede saber sin enviar nada.
- *
  * @param {string|null|undefined} tipoIdentificacion código de Hacienda
+ * @returns {"CUSTOMER_INVOICE"|"TIQUETE_ELECTRONICO"}
  */
-export function motivoReceptorNoAdmitidoEnFactura(tipoIdentificacion) {
-  if (!NO_ADMITIDOS_EN_FACTURA.has(String(tipoIdentificacion || ""))) return null;
-  return (
-    "El receptor está cargado como extranjero no domiciliado (tipo 05), y Hacienda no " +
-    "admite ese tipo en una factura electrónica: la rechaza con -409 y el consecutivo se " +
-    "pierde. Si la persona tiene DIMEX o cédula costarricense, cargue ese dato en su perfil. " +
-    "Si de verdad no es domiciliada, corresponde otro tipo de comprobante, y esa es una " +
-    "decisión fiscal."
-  );
+export function serieDeVentaSegunReceptor(tipoIdentificacion) {
+  return String(tipoIdentificacion || "") === TIPOS_IDENTIFICACION.EXTRANJERO
+    ? SERIE_TIQUETE
+    : SERIE_FACTURA;
 }
+
+/** El prefijo con que se distingue cada serie en el número interno. */
+export const PREFIJO_DE_SERIE = Object.freeze({
+  [SERIE_FACTURA]: "",
+  // `extractConsecutivo` se queda con lo que sigue al último "/", así que el
+  // prefijo ordena la numeración interna sin tocar el consecutivo de Hacienda.
+  [SERIE_TIQUETE]: "TE/",
+});
 
 /**
  * Los campos del usuario que necesita `datosFacturacionDe`. Para que quien lee un

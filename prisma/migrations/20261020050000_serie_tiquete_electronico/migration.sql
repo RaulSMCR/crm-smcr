@@ -1,0 +1,13 @@
+-- La serie consecutiva de los Tiquetes Electronicos.
+--
+-- Hacienda exige el consecutivo continuo y sin saltos por sucursal, terminal y
+-- TIPO DE COMPROBANTE. Una venta a un receptor extranjero no domiciliado (tipo
+-- de identificacion 05) no se admite en una Factura Electronica -la 0204 volvio
+-- con -409- y se emite como Tiquete Electronico, asi que necesita su propia
+-- serie: si tomara numeros de la serie de facturas, las dos quedarian con
+-- huecos.
+--
+-- El valor se usa UNICAMENTE como `InvoiceSequence.sequenceType`. Ninguna fila
+-- de `Invoice` lo lleva: un tiquete sigue siendo CUSTOMER_INVOICE para que los
+-- informes de ingresos, IVA y cuentas por cobrar lo sigan contando.
+ALTER TYPE "InvoiceType" ADD VALUE IF NOT EXISTS 'TIQUETE_ELECTRONICO';

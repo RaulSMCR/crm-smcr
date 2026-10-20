@@ -117,16 +117,25 @@ validación con un mensaje, no el normalizador en silencio.
   para este documento»**, y el consecutivo se perdió. El 05 no se admite en una
   Factura Electrónica (01).
 
-  Desde entonces el CRM lo corta **antes de reclamar el número**: en el registro
-  de pagos manuales, en la validación de un borrador, en la reemisión y, como
-  última barrera, antes de armar el XML (`motivoReceptorNoAdmitidoEnFactura` en
-  `src/lib/fiscal-identity.js`).
+  **Desde el 20 de octubre de 2026 el CRM lo emite como Tiquete Electrónico
+  (04)**, que es el comprobante que admite al receptor tipo 05 sin la
+  restricción de la factura. La regla está en un solo lugar:
+  `tipoComprobanteDe` en `src/lib/fe/config.js` decide el tipo de comprobante y
+  `serieDeVentaSegunReceptor` en `src/lib/fiscal-identity.js` decide la serie.
 
-  Qué hacer con un receptor así es una **decisión fiscal**, no algo que el CRM
-  resuelva: si la persona tiene DIMEX o cédula, se carga ese dato; si de verdad
-  no es domiciliada, corresponde otro comprobante —tiquete electrónico, que no
-  lleva identificación de receptor, o factura de exportación según el caso—, y
-  el CRM hoy no emite ninguno de los dos.
+  - **Serie propia, `TE/0001`, `TE/0002`…** Hacienda exige el consecutivo
+    continuo por sucursal, terminal y **tipo de comprobante**; si los tiquetes
+    tomaran números de la serie de facturas, las dos quedarían con huecos.
+  - **`Invoice.invoiceType` sigue siendo `CUSTOMER_INVOICE`.** Es la misma
+    venta con el mismo IVA, y los informes de ingresos, IVA y cuentas por cobrar
+    filtran por ese campo. `TIQUETE_ELECTRONICO` existe en el enum solo como
+    `InvoiceSequence.sequenceType`.
+  - **El correo lo nombra como tiquete**, no como factura.
+
+  Pendiente de verificar con el primer envío real: que la estructura que arma
+  `generateFeXml` sea válida contra el XSD del **tiquete** 4.4. Hoy solo se
+  comprueba la raíz, el namespace y el consecutivo; el esquema no está en el
+  repositorio. Un rechazo quemaría `TE/0001`, pero en su propia serie.
 
   El **06** (no contribuyente) sigue permitido: no hay evidencia de que se
   rechace, y prohibirlo por sospecha bloquearía facturas quizá válidas.

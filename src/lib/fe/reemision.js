@@ -28,7 +28,6 @@
 import {
   SELECT_DATOS_FACTURACION,
   datosFacturacionDe,
-  motivoReceptorNoAdmitidoEnFactura,
 } from "@/lib/fiscal-identity";
 
 const ORIGEN_REEMISION = "REEMISION_DE:";
@@ -121,9 +120,6 @@ export async function reemitirFacturaRechazada(db, invoiceId, { actorId = null, 
           "El cliente no tiene nombre completo e identificación fiscal en su perfil. Complételos antes de reemitir.",
         );
       }
-      const noAdmitido = motivoReceptorNoAdmitidoEnFactura(receptor.tipoIdentificacion);
-      if (noAdmitido) return rechazo(409, "RECEPTOR_TIPO_NO_ADMITIDO", noAdmitido);
-
       // Anular solo si sigue como se la leyó. Dos reemisiones simultáneas: la
       // segunda espera el candado de la fila, vuelve a evaluar este `where` con
       // la factura ya CANCELLED, no cambia nada y aborta.

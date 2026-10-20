@@ -4,8 +4,8 @@
 import { prisma } from "@/lib/prisma";
 import { getSession, isPreviewSession, PREVIEW_BLOCKED_MESSAGE } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { splitTaxIncluded } from "@/lib/invoice-math";
-import { validateSupplierFeClave } from "@/lib/supplier-invoice";
+import { professionalInvoiceFile, readProfessionalInvoiceXml } from "@/lib/supplier-invoice-files";
+import { SupplierXmlError } from "@/lib/supplier-invoice-xml";
 import {
   firstIssueMessage,
   professionalInvoiceSchema,
@@ -37,11 +37,8 @@ async function requireApprovedProfessional() {
  * Crea una SUPPLIER_INVOICE en estado DRAFT para que el admin la valide y pague.
  */
 export async function submitProfessionalInvoice({
-  referenceNumber,
-  amount,
   fileUrl,
   xmlUrl,
-  supplierFeClave,
   periodStart,
   periodEnd,
   settlementId,
@@ -51,12 +48,17 @@ export async function submitProfessionalInvoice({
     if (auth.error) return { success: false, error: auth.error };
     const { profile } = auth;
 
+    professionalInvoiceFile(fileUrl, profile.id, "pdf");
+    // Se vuelve a leer el archivo privado: los valores enviados por el navegador
+    // nunca pueden reemplazar los datos del comprobante que quedará adjunto.
+    const invoiceData = await readProfessionalInvoiceXml(xmlUrl, profile);
+
     const parsed = professionalInvoiceSchema.safeParse({
-      referenceNumber,
-      amount,
+      referenceNumber: invoiceData.referenceNumber,
+      amount: invoiceData.amount,
       fileUrl,
       xmlUrl,
-      supplierFeClave,
+      supplierFeClave: invoiceData.supplierFeClave,
       periodStart,
       periodEnd,
       settlementId,
@@ -64,17 +66,6 @@ export async function submitProfessionalInvoice({
     if (!parsed.success) return { success: false, error: firstIssueMessage(parsed.error) };
 
     const { referenceNumber: ref, amount: amt, fileUrl: url, xmlUrl: xml, supplierFeClave: clave } = parsed.data;
-
-    const claveValidation = validateSupplierFeClave(clave, profile.user?.identification);
-    if (!claveValidation.ok) return { success: false, error: claveValidation.error };
-
-    const pStart = parsed.data.periodStart ?? null;
-    const pEnd = parsed.data.periodEnd ?? null;
-
-    const periodLabel =
-      pStart && pEnd
-        ? `${pStart.toLocaleDateString("es-CR")} – ${pEnd.toLocaleDateString("es-CR")}`
-        : "período reciente";
 
     const now = new Date();
     const dueDate = new Date(now);
@@ -92,17 +83,6 @@ export async function submitProfessionalInvoice({
       }
     }
 
-    // La factura se desglosa con LA MISMA tasa con la que se calculó la
-    // liquidación. Antes iba un 4% fijo mientras el cálculo usaba la tasa de
-    // cada transacción: coincidían solo mientras todo fuera 4%, y con cualquier
-    // otra tasa esta misma función habría rechazado una factura correcta por no
-    // cuadrar con el neto. Sin liquidación vinculada no hay de dónde derivarla y
-    // se mantiene el 4% de los servicios de salud.
-    const taxRatePct = Number.isInteger(settlement?.taxRatePct) ? settlement.taxRatePct : 4;
-    const { baseCents, taxCents } = splitTaxIncluded(Math.round(amt * 100), taxRatePct);
-    const baseAmount = baseCents / 100;
-    const taxAmount = taxCents / 100;
-
     const invoice = await prisma.invoice.create({
       data: {
         invoiceNumber: `PROV-DRAFT-${Date.now()}`,
@@ -114,29 +94,20 @@ export async function submitProfessionalInvoice({
         attachmentUrl: url,
         xmlUrl: xml,
         supplierFeClave: clave,
-        supplierIdNumber: String(profile.user?.identification || "").replace(/\D/g, ""),
+        supplierIdNumber: invoiceData.supplierIdNumber,
+        supplierEconomicActivity: invoiceData.supplierEconomicActivity,
         acceptanceStatus: "PENDING",
-        invoiceDate: now,
+        invoiceDate: new Date(invoiceData.invoiceDate),
         dueDate,
-        subtotal: baseAmount,
-        taxAmount,
-        discountAmount: 0,
+        subtotal: invoiceData.subtotal,
+        taxAmount: invoiceData.taxAmount,
+        discountAmount: invoiceData.discountAmount,
         total: amt,
         amountPaid: 0,
         balance: amt,
-        currency: "CRC",
+        currency: invoiceData.currency,
         lines: {
-          create: {
-            productName: `Honorarios profesionales - ${periodLabel}`,
-            quantity: 1,
-            unitPrice: baseAmount,
-            discountPercent: 0,
-            taxRate: taxRatePct,
-            taxAmount,
-            lineSubtotal: baseAmount,
-            lineTotal: amt,
-            sortOrder: 0,
-          },
+          create: invoiceData.lines,
         },
       },
       select: { id: true, invoiceNumber: true },
@@ -153,7 +124,8 @@ export async function submitProfessionalInvoice({
 
     return { success: true, invoiceId: invoice.id };
   } catch (err) {
-    console.error("[submitProfessionalInvoice] error:", err);
+    if (err instanceof SupplierXmlError) return { success: false, error: err.message };
+    console.error("[submitProfessionalInvoice] No se pudo presentar la factura.");
     return { success: false, error: "Error interno al presentar la factura." };
   }
 }

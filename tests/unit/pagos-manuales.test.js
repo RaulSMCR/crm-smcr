@@ -141,17 +141,27 @@ describe("registrarPagoManual() — lo que no se acepta", () => {
     expect(tx.invoiceSequence.upsert).not.toHaveBeenCalled();
   });
 
-  it("no quema un consecutivo con un receptor tipo 05, que Hacienda no admite en factura", async () => {
-    // La 0204 volvió con -409 por esto. Se sabe sin enviar nada.
+  it("un receptor tipo 05 se registra y toma número de la serie del tiquete", async () => {
+    // Hacienda no admite el 05 en una factura (-409, la 0204) y sí en un
+    // Tiquete Electrónico, que lleva su propio consecutivo. Tomar el número de
+    // la serie de facturas dejaría huecos en las dos.
     tx.appointment.findUnique.mockResolvedValue({
       ...CITA,
       patient: { ...CLIENTE, billingName: "Paciente Extranjera", billingIdType: "05", billingIdNumber: "95930281" },
     });
+    tx.invoiceSequence.upsert.mockResolvedValue({ prefix: "TE/", currentNumber: 1, padding: 4 });
+
     const res = await registrarPagoManual(prisma, { ...BASE, appointmentId: "cita1" });
-    expect(res).toMatchObject({ ok: false, code: "RECEPTOR_TIPO_NO_ADMITIDO" });
-    expect(res.message ?? res.mensaje ?? JSON.stringify(res)).toMatch(/tipo 05/);
-    expect(tx.invoiceSequence.upsert).not.toHaveBeenCalled();
-    expect(tx.invoice.create).not.toHaveBeenCalled();
+
+    expect(res.ok).toBe(true);
+    const [reclamo] = tx.invoiceSequence.upsert.mock.calls[0];
+    expect(reclamo.where).toEqual({ sequenceType: "TIQUETE_ELECTRONICO" });
+    expect(reclamo.create.prefix).toBe("TE/");
+    expect(tx.invoice.create.mock.calls[0][0].data).toMatchObject({
+      invoiceNumber: "TE/0001",
+      invoiceType: "CUSTOMER_INVOICE",
+      contactIdType: "05",
+    });
   });
 
   it("exige describir un cobro que no viene de una cita", async () => {

@@ -46,6 +46,37 @@ const baseLines = [
 
 const textOf = (xml, tag) => xml.match(new RegExp(`<${tag}>([^<]*)</${tag}>`))?.[1];
 
+describe("receptor extranjero no domiciliado — tiquete electrónico", () => {
+  // Hacienda rechaza el tipo 05 en una factura (-409, la 0204). El comprobante
+  // que sí lo admite es el Tiquete Electrónico, y acá se comprueba que el XML
+  // cambia entero: raíz, namespace y el 04 dentro del consecutivo.
+  const tiquete = { ...baseInvoice, invoiceNumber: "TE/0001", contactIdType: "05", contactIdNumber: "95930281" };
+
+  it("emite la raíz y el namespace de TiqueteElectronico", () => {
+    const { xml } = generateFeXml(tiquete, baseLines);
+    expect(xml).toContain("<TiqueteElectronico");
+    expect(xml).toContain('xmlns="https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.4/tiqueteElectronico"');
+    expect(xml).not.toContain("<FacturaElectronica");
+  });
+
+  it("el consecutivo lleva el tipo de documento 04 y el número de su propia serie", () => {
+    const { feNumber } = generateFeXml(tiquete, baseLines);
+    expect(feNumber).toBe("00100001040000000001");
+  });
+
+  it("conserva al receptor con su tipo 05 y el documento tal como lo trae", () => {
+    const { xml } = generateFeXml(tiquete, baseLines);
+    expect(xml).toContain("<Tipo>05</Tipo>");
+    expect(xml).toContain("<Numero>95930281</Numero>");
+  });
+
+  it("un receptor costarricense sigue siendo factura electrónica", () => {
+    const { xml, feNumber } = generateFeXml({ ...baseInvoice, contactIdType: "01" }, baseLines);
+    expect(xml).toContain("<FacturaElectronica");
+    expect(feNumber).toBe("00100001010000000012");
+  });
+});
+
 describe("generateFeXml — estructura", () => {
   it("emite la raíz y el namespace de FacturaElectronica", () => {
     const { xml } = generateFeXml(baseInvoice, baseLines);

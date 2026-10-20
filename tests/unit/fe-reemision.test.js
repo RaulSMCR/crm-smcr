@@ -225,17 +225,21 @@ describe("reemitirFacturaRechazada", () => {
     });
   });
 
-  it("si el perfil sigue en tipo 05, no anula ni crea nada", async () => {
-    // El orden correcto es corregir el dato y después reemitir. Rechazar acá
-    // evita dejar un borrador con un receptor que nadie va a poder validar.
+  it("si el perfil sigue en tipo 05, reemite igual: el borrador saldrá como tiquete", async () => {
+    // El 05 dejó de ser un impedimento. Hacienda no lo admite en una factura
+    // (-409), pero sí en un Tiquete Electrónico, y la serie la elige la
+    // validación al reclamar el número. La reemisión solo tiene que dejar el
+    // borrador con el receptor correcto.
     const { db, tx } = baseFalsa({ contacto: { ...CONTACTO_CORREGIDO, billingIdType: "05", billingIdNumber: "95930281" } });
 
     const r = await reemitirFacturaRechazada(db, "inv-0203", { ahora: AHORA });
 
-    expect(r).toMatchObject({ ok: false, status: 409, code: "RECEPTOR_TIPO_NO_ADMITIDO" });
-    expect(r.message).toMatch(/tipo 05.*-409/);
-    expect(tx.invoice.updateMany).not.toHaveBeenCalled();
-    expect(tx.invoice.create).not.toHaveBeenCalled();
+    expect(r.ok).toBe(true);
+    expect(tx.invoice.create).toHaveBeenCalled();
+    expect(tx.invoice.create.mock.calls[0][0].data).toMatchObject({
+      contactIdType: "05",
+      contactIdNumber: "95930281",
+    });
   });
 
   it("si el perfil no tiene identificación fiscal, tampoco", async () => {

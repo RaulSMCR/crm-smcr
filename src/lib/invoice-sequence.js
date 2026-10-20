@@ -13,6 +13,8 @@
 // serie. Y nunca se arma con Date.now(): dos cobros pueden caer en el mismo
 // milisegundo.
 
+import { PREFIJO_DE_SERIE } from "@/lib/fiscal-identity";
+
 /**
  * Reclama el siguiente número de la serie y lo devuelve ya formateado.
  *
@@ -43,7 +45,17 @@ export async function siguienteNumeroDeFactura(tx, sequenceType = "CUSTOMER_INVO
   const sequence = await tx.invoiceSequence.upsert({
     where: { sequenceType },
     update: { currentNumber: { increment: 1 } },
-    create: { sequenceType, currentNumber: 1, year: now.getFullYear(), prefix: "", padding: 4 },
+    // El prefijo solo se escribe al CREAR la serie, igual que `year`: cambiarlo
+    // después renumeraría comprobantes ya emitidos. El de los tiquetes los
+    // separa de las facturas en el número interno, que comparten tabla y
+    // restricción de unicidad.
+    create: {
+      sequenceType,
+      currentNumber: 1,
+      year: now.getFullYear(),
+      prefix: PREFIJO_DE_SERIE[sequenceType] ?? "",
+      padding: 4,
+    },
   });
   return `${sequence.prefix || ""}${String(sequence.currentNumber).padStart(sequence.padding || 4, "0")}`;
 }

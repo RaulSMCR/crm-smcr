@@ -127,9 +127,10 @@ describe("POST /api/invoices/:id/validate — la fecha del pago no se mueve", ()
     expect(data).not.toHaveProperty("invoiceDate");
   });
 
-  it("un receptor tipo 05 se corta antes de reclamar el número", async () => {
-    // Validar asigna el consecutivo. Si después Hacienda rechaza (-409), el
-    // número queda quemado: se corta acá, donde todavía no cuesta nada.
+  it("un receptor tipo 05 reclama el número de la serie del tiquete", async () => {
+    // Hacienda no admite el 05 en una factura (-409, la 0204) y sí en un
+    // Tiquete Electrónico, que lleva su propio consecutivo: tomarlo de la serie
+    // de facturas dejaría huecos en las dos.
     conBorrador({
       id: "inv-nueva", invoiceType: "CUSTOMER_INVOICE", status: "DRAFT", lines: [{}],
       total: 1000, amountPaid: 1000, paymentDate: pagoReal, invoiceDate: borradorViejo,
@@ -138,10 +139,25 @@ describe("POST /api/invoices/:id/validate — la fecha del pago no se mueve", ()
 
     const res = await llamar();
 
-    expect(res.status).toBe(409);
-    expect((await res.json()).message).toMatch(/tipo 05/);
-    expect(mocks.tx.invoiceSequence.upsert).not.toHaveBeenCalled();
-    expect(mocks.tx.invoice.update).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(mocks.tx.invoiceSequence.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { sequenceType: "TIQUETE_ELECTRONICO" } }),
+    );
+    expect(mocks.tx.invoiceSequence.upsert.mock.calls[0][0].create).toMatchObject({ prefix: "TE/" });
+  });
+
+  it("un receptor costarricense sigue reclamando el número de la serie de facturas", async () => {
+    conBorrador({
+      id: "inv-nueva", invoiceType: "CUSTOMER_INVOICE", status: "DRAFT", lines: [{}],
+      total: 1000, amountPaid: 1000, paymentDate: pagoReal, invoiceDate: borradorViejo,
+      contactIdType: "01", originDocument: null,
+    });
+
+    await llamar();
+
+    expect(mocks.tx.invoiceSequence.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { sequenceType: "CUSTOMER_INVOICE" } }),
+    );
   });
 
   it("un borrador pagado sin fecha de pago toma la de la validación", async () => {

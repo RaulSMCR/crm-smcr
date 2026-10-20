@@ -9,12 +9,11 @@
 // Modo mock:  sin FE_API_URL → genera números FE simulados (desarrollo)
 
 import { prisma } from "@/lib/prisma";
-import { FE_EMISOR } from "@/lib/fe/config";
+import { FE_EMISOR, TIPO_DOC_MAP, tipoComprobanteDe } from "@/lib/fe/config";
 import { resend } from "@/lib/resend";
 import { assertFeConfig } from "@/lib/fe/config.js";
 import { persistFeDocument } from "@/lib/fe/document";
 import { enqueueDelivery } from "@/lib/delivery-jobs";
-import { motivoReceptorNoAdmitidoEnFactura } from "@/lib/fiscal-identity";
 
 const FROM_EMAIL = process.env.EMAIL_FROM || "Salud Mental Costa Rica <onboarding@resend.dev>";
 const FE_REAL_API_URL = process.env.FE_API_URL || null;
@@ -57,6 +56,13 @@ export async function sendFeEmail(invoice, { deliver } = {}) {
   // tienen validez tributaria y el correo no puede afirmar lo contrario, menos
   // aún cuando durante las pruebas llega a personas reales.
   const esPrueba = FE_EMISOR.ambiente !== "01";
+  // El comprobante que salió puede ser un tiquete (receptor extranjero no
+  // domiciliado) y el correo tiene que nombrarlo por lo que es: lo que va
+  // adjunto es un TiqueteElectronico, no una factura.
+  const esTiquete = tipoComprobanteDe(invoice) === TIPO_DOC_MAP.TIQUETE_ELECTRONICO;
+  const documento = esTiquete ? "Tiquete electrónico" : "Factura electrónica";
+  const emitido = esTiquete ? "emitido" : "emitida";
+  const rechazado = esTiquete ? "RECHAZADO" : "RECHAZADA";
   // En el sandbox el comprobante se manda aunque Hacienda lo rechace, para poder
   // verificar el recorrido completo; el correo tiene que decirlo sin ambigüedad.
   const fueRechazada = invoice.feStatus === "REJECTED";
@@ -84,8 +90,8 @@ export async function sendFeEmail(invoice, { deliver } = {}) {
 
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#0f172a;">
-      <h2 style="color:${fueRechazada ? "#b91c1c" : "#1e40af"};">Factura Electrónica${fueRechazada ? " RECHAZADA" : " emitida"}${esPrueba ? " (PRUEBA)" : ""}</h2>
-      <p>Estimado/a cliente, adjuntamos los datos de su factura electrónica emitida ante el Ministerio de Hacienda de Costa Rica.</p>
+      <h2 style="color:${fueRechazada ? "#b91c1c" : "#1e40af"};">${documento} ${fueRechazada ? rechazado : emitido}${esPrueba ? " (PRUEBA)" : ""}</h2>
+      <p>Estimado/a cliente, adjuntamos los datos de su ${documento.toLowerCase()} ${emitido} ante el Ministerio de Hacienda de Costa Rica.</p>
 
       <!-- Quién emite. Va en el correo y no solo dentro del XML: quien recibe la
            factura tiene que poder leer de quién es sin abrir el comprobante. Son
@@ -193,7 +199,7 @@ export async function sendFeEmail(invoice, { deliver } = {}) {
   const message = {
     from: FROM_EMAIL,
     to: destinatarios,
-    subject: `${esPrueba ? "[PRUEBA] " : ""}Factura electrónica ${invoice.invoiceNumber} — Salud Mental Costa Rica`,
+    subject: `${esPrueba ? "[PRUEBA] " : ""}${documento} ${invoice.invoiceNumber} — Salud Mental Costa Rica`,
     html,
     ...(adjuntos.length > 0 ? { attachments: adjuntos } : {}),
   };
@@ -389,22 +395,6 @@ export async function submitInvoiceToFe(invoiceId) {
     };
   }
 
-  // Lo que Hacienda va a rechazar igual no se le manda: cada rechazo quema el
-  // consecutivo. Solo antes de armar un documento nuevo; si ya hay clave, el
-  // comprobante existe y lo que queda es consultar su estado.
-  //
-  // Las facturas que nacen de un cobro (ONVO) ya traen el número asignado, así
-  // que en ese caso el número queda reservado sin usar. Es preferible a un
-  // rechazo, que además lo gasta ante Hacienda; lo ideal es frenarlo antes, y
-  // eso se hace en la validación y en el registro de pagos manuales.
-  if (!invoice.feClave && invoice.invoiceType === "CUSTOMER_INVOICE") {
-    const noAdmitido = motivoReceptorNoAdmitidoEnFactura(invoice.contactIdType);
-    if (noAdmitido) {
-      await prisma.invoice.updateMany({ where: { id: invoiceId, feStatus: "PENDING" }, data: { feErrorMessage: noAdmitido } });
-      return { feStatus: invoice.feStatus, feNumber: invoice.feNumber, feClave: null, feErrorMessage: noAdmitido, reviewRequired: true };
-    }
-  }
-
   const isProduction = process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
   if (!FE_REAL_API_URL) {
     if (isProduction) {
@@ -419,7 +409,9 @@ export async function submitInvoiceToFe(invoiceId) {
       return { feStatus: invoice.feStatus, feNumber: invoice.feNumber, feClave: invoice.feClave, feErrorMessage: "FE no configurada.", reviewRequired: true };
     }
     const { buildFeNumber, buildFeClave, extractConsecutivo } = await import("@/lib/fe/xml.js");
-    const feNumber = buildFeNumber(invoice.invoiceType, extractConsecutivo(invoice.invoiceNumber));
+    // La factura entera, no su invoiceType: el tipo de comprobante lo decide
+    // también el receptor. Ver tipoComprobanteDe() en fe/config.js.
+    const feNumber = buildFeNumber(invoice, extractConsecutivo(invoice.invoiceNumber));
     const result = { feNumber, feClave: buildFeClave(feNumber, invoice.invoiceDate), feStatus: "ACCEPTED", feErrorMessage: "SIMULADO — sin validez tributaria" };
     // El simulado también deja constancia de su ambiente, y es el caso que más
     // importa poder distinguir después: queda ACCEPTED sin valer absolutamente

@@ -1,5 +1,5 @@
 import { splitTaxIncluded } from "@/lib/invoice-math";
-import { datosFacturacionDe } from "@/lib/fiscal-identity";
+import { datosFacturacionDe, serieDeVentaSegunReceptor } from "@/lib/fiscal-identity";
 import { detalleLineaFactura } from "@/lib/detalle-consulta";
 import { siguienteNumeroDeFactura } from "@/lib/invoice-sequence";
 
@@ -35,7 +35,13 @@ export async function createPaymentInvoice(tx, transaction, origen = {}) {
   });
 
   // El consecutivo también revierte si falla la acreditación.
-  const invoiceNumber = await siguienteNumeroDeFactura(tx, "CUSTOMER_INVOICE", now);
+  // La serie la decide el receptor: el extranjero no domiciliado va por la del
+  // tiquete electrónico. Ver serieDeVentaSegunReceptor().
+  const invoiceNumber = await siguienteNumeroDeFactura(
+    tx,
+    serieDeVentaSegunReceptor(receptor.tipoIdentificacion),
+    now,
+  );
   const notasDeOrigen =
     origen.notas ||
     `ONVO Pay | Enlace: ${transaction.onvoPaymentLinkId || "-"} | Evento: ${transaction.onvoEventId || "-"}`;

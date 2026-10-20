@@ -4,6 +4,7 @@ import { getSession, isPreviewSession, PREVIEW_BLOCKED_MESSAGE } from "@/lib/aut
 import { prisma } from "@/lib/prisma";
 import { v4 as uuidv4 } from "uuid";
 import { fileApiUrl, uploadPrivate, validateFileSignature } from "@/lib/storage";
+import { parseSupplierInvoiceXml, SupplierXmlError } from "@/lib/supplier-invoice-xml";
 
 export async function POST(request) {
   try {
@@ -23,21 +24,22 @@ export async function POST(request) {
     // Verificar que el profesional esté aprobado
     const profile = await prisma.professionalProfile.findUnique({
       where: { id: professionalId },
-      select: { isApproved: true },
+      select: { isApproved: true, userId: true, user: { select: { identification: true } } },
     });
-    if (!profile?.isApproved) {
+    if (!profile?.isApproved || profile.userId !== String(session.userId || session.sub)) {
       return NextResponse.json({ error: "El perfil profesional no esta aprobado." }, { status: 403 });
     }
 
     const formData = await request.formData();
     const file = formData.get("file");
 
-    if (!file) {
+    if (!file || typeof file.arrayBuffer !== "function" || !file.size) {
       return NextResponse.json({ error: "No se recibió ningún archivo." }, { status: 400 });
     }
 
     const isPdf = file.type === "application/pdf";
-    const isXml = ["application/xml", "text/xml"].includes(file.type) || String(file.name || "").toLowerCase().endsWith(".xml");
+    const isXml = ["application/xml", "text/xml"].includes(file.type) ||
+      (["", "application/octet-stream"].includes(file.type) && String(file.name || "").toLowerCase().endsWith(".xml"));
     if (!isPdf && !isXml) {
       return NextResponse.json({ error: "Solo se permiten archivos PDF o XML." }, { status: 400 });
     }
@@ -49,17 +51,16 @@ export async function POST(request) {
     const extension = isXml ? "xml" : "pdf";
     const path = `${professionalId}/${uuidv4()}.${extension}`;
     const buffer = Buffer.from(await file.arrayBuffer());
-    const validContent = isXml
-      ? buffer.toString("utf8").trimStart().startsWith("<")
-      : validateFileSignature(buffer, ["application/pdf"]);
-    if (!validContent) {
+    const invoiceData = isXml ? parseSupplierInvoiceXml(buffer.toString("utf8"), profile.user?.identification) : null;
+    if (!isXml && !validateFileSignature(buffer, ["application/pdf"])) {
       return NextResponse.json({ error: "El contenido del archivo no es un PDF válido." }, { status: 400 });
     }
     await uploadPrivate("professional-invoices", path, buffer, isXml ? "application/xml" : "application/pdf");
-    return NextResponse.json({ url: fileApiUrl("professional-invoices", path), path: `professional-invoices/${path}` });
+    return NextResponse.json({ url: fileApiUrl("professional-invoices", path), path: `professional-invoices/${path}`, invoiceData });
   } catch (err) {
-    console.error("[upload/professional-invoice] Error:", err);
-    return NextResponse.json({ error: err.message || "Error inesperado." }, { status: 500 });
+    if (err instanceof SupplierXmlError) return NextResponse.json({ error: err.message }, { status: 400 });
+    console.error("[upload/professional-invoice] No se pudo guardar el archivo.");
+    return NextResponse.json({ error: "No se pudo guardar el archivo. Inténtelo de nuevo." }, { status: 500 });
   }
 }
 

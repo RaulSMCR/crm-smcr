@@ -137,6 +137,14 @@ enum InvoiceType {
   SUPPLIER_INVOICE
   CUSTOMER_CREDIT_NOTE
   SUPPLIER_CREDIT_NOTE
+
+  /// Solo como `InvoiceSequence.sequenceType`: la serie consecutiva de los
+  /// Tiquetes Electronicos, que Hacienda exige continua y separada de la de
+  /// facturas. NINGUNA fila de `Invoice` lleva este tipo: un tiquete es una
+  /// venta a cliente como cualquier otra y sigue siendo CUSTOMER_INVOICE, para
+  /// que los informes de ingresos, IVA y cuentas por cobrar lo cuenten. El tipo
+  /// de comprobante ante Hacienda se resuelve en src/lib/fe/config.js.
+  TIQUETE_ELECTRONICO
 }
 
 enum InvoiceStatus {
