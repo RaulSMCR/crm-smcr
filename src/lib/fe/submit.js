@@ -444,6 +444,24 @@ export async function submitInvoiceToFe(invoiceId) {
     if (current.feXml && (current.feStatus === "ACCEPTED" || sandboxRejected)) {
       await enqueueDelivery(tx, { kind: "FE_RECEIPT", invoiceId });
     }
+    // La aceptación de Hacienda es asincrónica: lo normal es que el envío
+    // termine en PENDING y el veredicto llegue después. Si nadie vuelve a
+    // preguntar, la factura se queda en PENDING para siempre y el motivo del
+    // rechazo —que Hacienda sí manda— no aparece nunca.
+    //
+    // Encolar acá deja la reconsulta a cargo de la cola, que ya sabe reintentar
+    // con espera creciente. Hace falta porque los dos caminos que ya creaban
+    // esta tarea son los que nacen de un cobro (ONVO y el pago reportado a
+    // mano); un envío disparado desde el panel con `POST /api/invoices/:id/
+    // submit-fe` no dejaba ninguna, así que esa factura quedaba sin nadie que
+    // la siguiera. Le pasó a la 0203.
+    //
+    // El `upsert` de enqueueDelivery no toca una tarea que ya exista, así que
+    // cuando es la propia tarea FE_SUBMISSION la que está ejecutando esto, no
+    // se altera ni se duplica.
+    if (current.feStatus === "PENDING" && current.feClave) {
+      await enqueueDelivery(tx, { kind: "FE_SUBMISSION", invoiceId });
+    }
     return current;
   });
   if (saved.feStatus === "REJECTED" && FE_EMISOR.ambiente === "01") {

@@ -78,6 +78,33 @@ it("reduce a una marca cualquier motivo que no sea nuestro", async () => {
   expect(JSON.stringify(console.error.mock.calls)).not.toContain("Ana");
 });
 
+it("un envío que queda PENDING deja tarea para que alguien reconsulte", async () => {
+  // La aceptación de Hacienda es asincrónica, así que PENDING es el resultado
+  // normal de un envío. Sin tarea, nadie vuelve a preguntar: la 0203 quedó así
+  // tras enviarse desde el panel, y el motivo del rechazo —que Hacienda sí
+  // había mandado— solo apareció al consultar el estado a mano.
+  mocks.submit.mockResolvedValue({ feStatus: "PENDING", feNumber: "00100001010000000203", feClave: "clave-203", feErrorMessage: "Pendiente de confirmación." });
+  mocks.find.mockResolvedValue({ ...snapshot, feStatus: "PENDING", feClave: "clave-203", feXml: "XML" });
+
+  await run();
+
+  expect(mocks.enqueue).toHaveBeenCalledWith(expect.objectContaining({
+    where: { dedupeKey: "FE_SUBMISSION:invoice-local" },
+  }));
+  // Y no el correo: todavía no hay comprobante aceptado que entregar.
+  const encolados = mocks.enqueue.mock.calls.map(([arg]) => arg.where.dedupeKey);
+  expect(encolados).not.toContain("FE_RECEIPT:invoice-local");
+});
+
+it("sin clave no se encola reconsulta: no habría nada que preguntar", async () => {
+  mocks.submit.mockResolvedValue({ feStatus: "PENDING", feNumber: null, feClave: null, feErrorMessage: null });
+  mocks.find.mockResolvedValue({ ...snapshot, feStatus: "PENDING", feClave: null, feXml: null });
+
+  await run();
+
+  expect(mocks.enqueue).not.toHaveBeenCalled();
+});
+
 it("una factura ya aceptada recupera únicamente su tarea de correo", async () => {
   mocks.find.mockResolvedValue({ ...snapshot, feStatus: "ACCEPTED" });
   expect((await run()).feStatus).toBe("ACCEPTED");
