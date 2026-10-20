@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { submitProfessionalInvoice } from "@/actions/professional-billing-actions";
+import { useToast } from "@/components/ui/ToastProvider";
 
 const TYPE_LABELS = {
   DEPOSIT_50: "Deposito 50%",

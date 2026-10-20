@@ -174,6 +174,46 @@ async function verificar(tx) {
   return { problemas, avisos, factura, secuencia, job, yaReemitida };
 }
 
+/**
+ * Re-verificación mínima, para correr DENTRO de la transacción que escribe.
+ *
+ * No repite `verificar()`: esa hace cinco consultas y escribe en pantalla, y
+ * contra la base remota por el pooler eso solo ya consumía el límite de 5 s de
+ * las transacciones interactivas de Prisma —la primera corrida murió justo ahí,
+ * con 5219 ms—. Acá quedan únicamente los tres chequeos que una escritura
+ * concurrente podría invalidar entre la simulación y el `--aplicar`: que la
+ * secuencia no se haya movido, que Hacienda no haya aceptado la 0189 mientras
+ * tanto, y que la reemisión no exista ya.
+ *
+ * Lo demás —el tramo ocupado, el estado del job— no cambia por una carrera y
+ * está cubierto por la verificación previa.
+ */
+async function revalidar(tx) {
+  const problemas = [];
+
+  const factura = await tx.invoice.findUnique({
+    where: { id: INVOICE_ID },
+    include: { lines: { orderBy: { sortOrder: "asc" } } },
+  });
+  if (!factura) problemas.push(`Desapareció la factura ${INVOICE_ID}.`);
+  else if (factura.feStatus === "ACCEPTED" || factura.feRespuestaXml) {
+    problemas.push("La 0189 recibió respuesta de Hacienda mientras se preparaba el cambio. No corresponde anularla.");
+  }
+
+  const secuencia = await tx.invoiceSequence.findUnique({ where: { sequenceType: TIPO } });
+  if (!secuencia) problemas.push(`No existe InvoiceSequence para ${TIPO}.`);
+  else if (secuencia.currentNumber > ULTIMO_CONSECUTIVO_SISTEMA_ANTERIOR) {
+    problemas.push(`La secuencia se movió a ${secuencia.currentNumber} mientras se preparaba el cambio. Revisar a mano.`);
+  }
+
+  const yaReemitida = await tx.invoice.findFirst({
+    where: { invoiceType: TIPO, originDocument: `REEMISION_DE:${INVOICE_ID}` },
+    select: { id: true, invoiceNumber: true, status: true },
+  });
+
+  return { problemas, factura, secuencia, yaReemitida };
+}
+
 async function main() {
   log(`\nREPARACIÓN DEL CONSECUTIVO — ${APLICAR ? "APLICANDO CAMBIOS" : "SIMULACIÓN (no escribe nada)"}`);
   log("No contacta a Hacienda, no firma, no emite, no encola envíos.");
@@ -213,7 +253,7 @@ async function main() {
   const resultado = await prisma.$transaction(async (tx) => {
     // Se vuelve a verificar DENTRO de la transacción que escribe: entre la
     // simulación y el --aplicar pudo entrar un cobro y mover la secuencia.
-    const control = await verificar(tx);
+    const control = await revalidar(tx);
     if (control.problemas.length) throw new Error(`VERIFICACION_FALLIDA: ${control.problemas.join(" | ")}`);
 
     // (a) La secuencia queda en el último número que usó el sistema anterior,
@@ -325,6 +365,15 @@ async function main() {
     }
 
     return { seq, anulada, jobs: job.count, reemision };
+  }, {
+    // El valor por defecto de Prisma son 5 s y no alcanzan: son tres consultas
+    // de control y cuatro escrituras contra una base remota a través del pooler,
+    // y cada ida y vuelta cuesta. Se amplía en vez de partir el cambio en
+    // transacciones separadas, porque lo que importa es que las cuatro
+    // escrituras ocurran juntas o ninguna: una secuencia movida sin la 0189
+    // anulada dejaría la base en un estado peor que el actual.
+    timeout: 30_000,
+    maxWait: 15_000,
   });
 
   log(`   ✅ a) secuencia en ${resultado.seq.currentNumber}; la próxima será ${etiquetaProximo}`);
@@ -340,9 +389,14 @@ async function main() {
 
 main()
   .catch((error) => {
-    // El mensaje propio sí se muestra: lo escribimos nosotros y no lleva datos
-    // del comprobante. Nada de trazas de Prisma, que incluyen la consulta.
-    console.error(`\n❌ ${error?.message || "Error no previsto"}`);
+    // Se muestra el mensaje —el propio y el de Prisma, que nombra la operación
+    // pero no volcó filas— porque sin él la primera falla habría sido muda. Se
+    // recorta y se aplana: nunca la traza, que sí puede traer argumentos.
+    const detalle = String(error?.message || "Error no previsto").replace(/\s+/g, " ").slice(0, 400);
+    console.error(`\n❌ ${detalle}`);
+    if (/Transaction (API error|already closed)|timeout/i.test(detalle)) {
+      console.error("   Es el límite de tiempo de la transacción, no un problema del dato. Se puede reintentar tal cual.");
+    }
     console.error("No se aplicó ningún cambio: todo iba en una sola transacción.");
     process.exitCode = 1;
   })
