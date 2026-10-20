@@ -43,6 +43,23 @@ const fmt2 = (n) => round2(n).toFixed(2);
  * Costa Rica no aplica horario de verano, asi que el offset es siempre -06:00.
  */
 function feCrDate(date) {
+  const p = partesCr(date);
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}-06:00`;
+}
+
+/**
+ * Fecha y hora de Costa Rica, en partes. Es la ÚNICA fuente de la fecha de un
+ * comprobante: de acá salen tanto `FechaEmision` como el DDMMAA de la clave.
+ *
+ * Que sea una sola importa. Hasta el 2026-10-20 la clave tomaba el día con
+ * `getDate()`, que es la hora local del servidor —UTC en Vercel—, mientras
+ * `FechaEmision` ya se calculaba en hora de Costa Rica. Entre las 18:00 y la
+ * medianoche de acá en UTC ya es el día siguiente, así que la clave nacía con un
+ * día de más. La 0204 se emitió a las 21:48 del 19 y su clave decía 20; Hacienda
+ * la rechazó con -405 («La fecha de la clave numérica no concuerda con el campo
+ * Fecha Emisión») y -16 (extemporáneo), y el consecutivo quedó quemado.
+ */
+function partesCr(date) {
   const d = date instanceof Date ? date : new Date(date || Date.now());
   const partes = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Costa_Rica",
@@ -56,9 +73,16 @@ function feCrDate(date) {
   }).formatToParts(d);
 
   const parte = (tipo) => partes.find((p) => p.type === tipo).value;
+  return {
+    year: parte("year"), month: parte("month"), day: parte("day"),
+    hour: parte("hour"), minute: parte("minute"), second: parte("second"),
+  };
+}
 
-  return `${parte("year")}-${parte("month")}-${parte("day")}` +
-    `T${parte("hour")}:${parte("minute")}:${parte("second")}-06:00`;
+/** El DDMMAA de la clave: el mismo día de calendario que declara `FechaEmision`. */
+export function fechaDeClave(date) {
+  const p = partesCr(date);
+  return `${p.day}${p.month}${p.year.slice(2)}`;
 }
 
 /**
@@ -100,9 +124,8 @@ function inferIdType(idNumber) {
  * El tipo de documento no se recibe aparte: ya viene embebido en `feNumber`.
  */
 export function buildFeClave(feNumber, invoiceDate, securityCode) {
-  const d    = invoiceDate instanceof Date ? invoiceDate : new Date(invoiceDate);
-  const pad  = (n, l) => String(n).padStart(l, "0");
-  const date = `${pad(d.getDate(), 2)}${pad(d.getMonth() + 1, 2)}${String(d.getFullYear()).slice(2)}`;
+  // En hora de Costa Rica, desde la misma fuente que FechaEmision. Ver partesCr().
+  const date = fechaDeClave(invoiceDate);
 
   const pais     = "506";
   const cedula   = FE_EMISOR.identificacion.padStart(12, "0");
@@ -206,7 +229,17 @@ export function generateFeXml(invoice, lines) {
     formatCodigoActividad(invoice.economicActivity || FE_EMISOR.actividadEconomica)
   );
   root.ele("NumeroConsecutivo").txt(feNumber);
-  root.ele("FechaEmision").txt(feCrDate(invoiceDate));
+  const fechaEmision = feCrDate(invoiceDate);
+  // Comprobación sobre lo que de verdad va al comprobante: el DDMMAA de la clave
+  // contra el día que declara FechaEmision. Hoy salen de la misma fuente, así
+  // que no debería fallar nunca; está para que un cambio futuro en una sola de
+  // las dos no vuelva a llegar a Hacienda. Cada -405 cuesta un consecutivo y
+  // acá se detecta antes de firmar, sin gastar nada.
+  const [anio, mes, dia] = fechaEmision.slice(0, 10).split("-");
+  if (feClave.slice(3, 9) !== `${dia}${mes}${anio.slice(2)}`) {
+    throw new Error("FE_CLAVE_FECHA_INCOHERENTE");
+  }
+  root.ele("FechaEmision").txt(fechaEmision);
 
   // ─── Emisor ──────────────────────────────────────────────────────────────
   const emisorEl = root.ele("Emisor");

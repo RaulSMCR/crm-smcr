@@ -95,7 +95,8 @@ número.
 - Residente con **DIMEX** → **03**.
 - Tiene **NITE** asignado por Hacienda → **04**.
 - Sin domicilio fiscal en Costa Rica, sin DIMEX ni NITE → **05**, con el
-  documento de su país.
+  documento de su país. **Pero el 05 no se admite en una Factura Electrónica**
+  (ver Salvedades): a esa persona no se le puede emitir una factura de tipo 01.
 - No lo da o no se sabe → **no se puede facturar**: hay que pedirlo.
 
 El número del 05 conserva letras. `limpiarIdentificacion` las borraba, así que un
@@ -106,11 +107,29 @@ validación con un mensaje, no el normalizador en silencio.
 
 ## Salvedades
 
-- El propio esquema documenta `Numero` como «el contribuyente debe estar inscrito
-  ante la Administración Tributaria». Un extranjero no domiciliado, por
-  definición, no lo está. La tensión es del texto de Hacienda, no de esta
-  implementación; si el 05 fuera rechazado en una factura ordinaria por
-  servicios prestados en el país, el mensaje de rechazo lo dirá.
+- ~~El propio esquema documenta `Numero` como «el contribuyente debe estar
+  inscrito ante la Administración Tributaria». Un extranjero no domiciliado, por
+  definición, no lo está. […] si el 05 fuera rechazado en una factura ordinaria
+  por servicios prestados en el país, el mensaje de rechazo lo dirá.~~
+
+  **Lo dijo.** El 19 de octubre de 2026 la factura 0204, con receptor tipo 05,
+  volvió rechazada con **-409 «Tipo de Identificación del Receptor no permitido
+  para este documento»**, y el consecutivo se perdió. El 05 no se admite en una
+  Factura Electrónica (01).
+
+  Desde entonces el CRM lo corta **antes de reclamar el número**: en el registro
+  de pagos manuales, en la validación de un borrador, en la reemisión y, como
+  última barrera, antes de armar el XML (`motivoReceptorNoAdmitidoEnFactura` en
+  `src/lib/fiscal-identity.js`).
+
+  Qué hacer con un receptor así es una **decisión fiscal**, no algo que el CRM
+  resuelva: si la persona tiene DIMEX o cédula, se carga ese dato; si de verdad
+  no es domiciliada, corresponde otro comprobante —tiquete electrónico, que no
+  lleva identificación de receptor, o factura de exportación según el caso—, y
+  el CRM hoy no emite ninguno de los dos.
+
+  El **06** (no contribuyente) sigue permitido: no hay evidencia de que se
+  rechace, y prohibirlo por sospecha bloquearía facturas quizá válidas.
 - `CodigoActividadReceptor` existe como campo opcional de 6 caracteres, «en caso
   de ser requerido para un crédito o un gasto deducible». No se emite.
 

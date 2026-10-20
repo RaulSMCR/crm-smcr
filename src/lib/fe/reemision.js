@@ -25,6 +25,12 @@
 // de la transacción que lo usa. Apartarlo acá lo dejaría colgando si después
 // algo resulta estar mal.
 
+import {
+  SELECT_DATOS_FACTURACION,
+  datosFacturacionDe,
+  motivoReceptorNoAdmitidoEnFactura,
+} from "@/lib/fiscal-identity";
+
 const ORIGEN_REEMISION = "REEMISION_DE:";
 
 /** La marca que vincula una reemisión con la factura que reemplaza. */
@@ -93,6 +99,31 @@ export async function reemitirFacturaRechazada(db, invoiceId, { actorId = null, 
         return rechazo(409, "TIENE_NOTA_CREDITO", "La factura tiene notas de crédito asociadas. Revísela a mano antes de reemitir.");
       }
 
+      // El receptor se toma del perfil ACTUAL del contacto, no de la factura
+      // rechazada. Una reemisión es una emisión nueva, y muchas veces el rechazo
+      // es justamente por el receptor: la 0204 volvió con -409 por un tipo de
+      // identificación que Hacienda no admite. Copiar el dato de la rechazada
+      // reproduciría el mismo rechazo aunque alguien ya hubiera corregido el
+      // perfil.
+      //
+      // Y si el dato actual tampoco sirve, se rechaza ACÁ, antes de anular nada:
+      // así el orden es corregir el perfil y después reemitir, y no queda un
+      // borrador con un receptor viejo que después nadie puede validar.
+      const contacto = await tx.user.findUnique({
+        where: { id: original.contactId },
+        select: SELECT_DATOS_FACTURACION,
+      });
+      const receptor = datosFacturacionDe(contacto);
+      if (!receptor.nombre || receptor.nombre.length < 3 || !receptor.tipoIdentificacion || !receptor.identificacion) {
+        return rechazo(
+          409,
+          "RECEPTOR_SIN_IDENTIFICACION",
+          "El cliente no tiene nombre completo e identificación fiscal en su perfil. Complételos antes de reemitir.",
+        );
+      }
+      const noAdmitido = motivoReceptorNoAdmitidoEnFactura(receptor.tipoIdentificacion);
+      if (noAdmitido) return rechazo(409, "RECEPTOR_TIPO_NO_ADMITIDO", noAdmitido);
+
       // Anular solo si sigue como se la leyó. Dos reemisiones simultáneas: la
       // segunda espera el candado de la fila, vuelve a evaluar este `where` con
       // la factura ya CANCELLED, no cambia nada y aborta.
@@ -119,9 +150,9 @@ export async function reemitirFacturaRechazada(db, invoiceId, { actorId = null, 
           contactId: original.contactId,
           appointmentId: original.appointmentId,
           professionalId: original.professionalId,
-          contactName: original.contactName,
-          contactIdNumber: original.contactIdNumber,
-          contactIdType: original.contactIdType,
+          contactName: receptor.nombre,
+          contactIdNumber: receptor.identificacion,
+          contactIdType: receptor.tipoIdentificacion,
           economicActivity: original.economicActivity,
           paymentMethod: original.paymentMethod,
           cuentaDeposito: original.cuentaDeposito,

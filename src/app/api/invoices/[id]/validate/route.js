@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/api-guards";
 import { esReemision } from "@/lib/fe/reemision";
+import { motivoReceptorNoAdmitidoEnFactura } from "@/lib/fiscal-identity";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,13 @@ export async function POST(_request, { params }) {
       }
       if (!invoice.lines.length) {
         return { error: { message: "La factura no tiene líneas.", status: 400 } };
+      }
+      // Antes de reclamar el consecutivo: lo que Hacienda va a rechazar igual se
+      // corta acá, donde todavía no cuesta nada. Validar asigna el número; si
+      // después Hacienda lo rechaza, el número queda quemado.
+      if (invoice.invoiceType === "CUSTOMER_INVOICE") {
+        const noAdmitido = motivoReceptorNoAdmitidoEnFactura(invoice.contactIdType);
+        if (noAdmitido) return { error: { message: noAdmitido, status: 409 } };
       }
 
       const DEFAULT_SEQ_PREFIX = {

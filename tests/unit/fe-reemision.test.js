@@ -45,9 +45,23 @@ const ORIGINAL = {
 
 const AHORA = new Date("2026-10-20T15:00:00Z");
 
+// El perfil del contacto, ya corregido: la factura rechazada dice tipo 05, pero
+// la persona cargó su DIMEX. La reemisión tiene que tomar ESTE dato.
+const CONTACTO_CORREGIDO = {
+  id: "contact-1",
+  name: "Carolina Courtis",
+  email: "paciente@example.invalid",
+  identification: null,
+  billingName: "Carolina Courtis",
+  billingIdType: "03",
+  billingIdNumber: "186200123456",
+  billingEmail: null,
+};
+
 /** Un Prisma de mentira que registra cada escritura. */
-function baseFalsa({ original = ORIGINAL, existente = null, anuladas = 1 } = {}) {
+function baseFalsa({ original = ORIGINAL, existente = null, anuladas = 1, contacto = CONTACTO_CORREGIDO } = {}) {
   const tx = {
+    user: { findUnique: vi.fn(async () => contacto) },
     invoice: {
       findUnique: vi.fn(async () => original),
       findFirst: vi.fn(async () => existente),
@@ -194,6 +208,43 @@ describe("reemitirFacturaRechazada", () => {
     const { db, tx } = baseFalsa({ original: { ...ORIGINAL, ...cambio } });
     expect(await reemitirFacturaRechazada(db, "inv-0203", { ahora: AHORA })).toMatchObject({ ok: false, status: 409, code });
     expect(tx.invoice.create).not.toHaveBeenCalled();
+  });
+
+  it("toma el receptor del perfil actual, no de la factura rechazada", async () => {
+    // La 0204 se rechazó con -409 por el tipo 05. Si la reemisión copiara el
+    // receptor de la rechazada, repetiría el mismo rechazo aunque el perfil ya
+    // estuviera corregido.
+    const { db, tx } = baseFalsa();
+    await reemitirFacturaRechazada(db, "inv-0203", { ahora: AHORA });
+
+    expect(tx.user.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "contact-1" } }));
+    expect(tx.invoice.create.mock.calls[0][0].data).toMatchObject({
+      contactName: "Carolina Courtis",
+      contactIdType: "03",
+      contactIdNumber: "186200123456",
+    });
+  });
+
+  it("si el perfil sigue en tipo 05, no anula ni crea nada", async () => {
+    // El orden correcto es corregir el dato y después reemitir. Rechazar acá
+    // evita dejar un borrador con un receptor que nadie va a poder validar.
+    const { db, tx } = baseFalsa({ contacto: { ...CONTACTO_CORREGIDO, billingIdType: "05", billingIdNumber: "95930281" } });
+
+    const r = await reemitirFacturaRechazada(db, "inv-0203", { ahora: AHORA });
+
+    expect(r).toMatchObject({ ok: false, status: 409, code: "RECEPTOR_TIPO_NO_ADMITIDO" });
+    expect(r.message).toMatch(/tipo 05.*-409/);
+    expect(tx.invoice.updateMany).not.toHaveBeenCalled();
+    expect(tx.invoice.create).not.toHaveBeenCalled();
+  });
+
+  it("si el perfil no tiene identificación fiscal, tampoco", async () => {
+    const { db, tx } = baseFalsa({
+      contacto: { ...CONTACTO_CORREGIDO, billingName: null, billingIdType: null, billingIdNumber: null, identification: null },
+    });
+
+    expect(await reemitirFacturaRechazada(db, "inv-0203", { ahora: AHORA })).toMatchObject({ ok: false, status: 409, code: "RECEPTOR_SIN_IDENTIFICACION" });
+    expect(tx.invoice.updateMany).not.toHaveBeenCalled();
   });
 
   it("una factura inexistente responde 404", async () => {

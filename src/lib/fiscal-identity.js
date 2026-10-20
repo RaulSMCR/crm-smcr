@@ -174,3 +174,53 @@ export function datosFacturacionDe(user) {
     esDeTercero: false,
   };
 }
+
+/**
+ * Tipos de identificación del receptor que Hacienda NO admite en una Factura
+ * Electrónica (tipo de documento 01).
+ *
+ * No sale del esquema —el XSD no está en el repositorio— sino de un rechazo real.
+ * La documentación del receptor (docs/factura-electronica-receptor.md) dejó la
+ * duda abierta: «si el 05 fuera rechazado en una factura ordinaria por servicios
+ * prestados en el país, el mensaje de rechazo lo dirá». Lo dijo: la 0204
+ * (19-oct-2026), con receptor tipo 05, volvió con -409 «Tipo de Identificación
+ * del Receptor no permitido para este documento», y el consecutivo se perdió.
+ *
+ * Solo figura lo confirmado. El 06 (no contribuyente) queda permitido hasta que
+ * haya evidencia: prohibirlo por sospecha bloquearía facturas que quizá son
+ * válidas.
+ */
+const NO_ADMITIDOS_EN_FACTURA = new Set([TIPOS_IDENTIFICACION.EXTRANJERO]);
+
+/**
+ * Por qué este receptor no puede recibir una factura electrónica, o null si
+ * puede. Se consulta ANTES de reclamar un consecutivo: cada rechazo de Hacienda
+ * cuesta uno, y este se puede saber sin enviar nada.
+ *
+ * @param {string|null|undefined} tipoIdentificacion código de Hacienda
+ */
+export function motivoReceptorNoAdmitidoEnFactura(tipoIdentificacion) {
+  if (!NO_ADMITIDOS_EN_FACTURA.has(String(tipoIdentificacion || ""))) return null;
+  return (
+    "El receptor está cargado como extranjero no domiciliado (tipo 05), y Hacienda no " +
+    "admite ese tipo en una factura electrónica: la rechaza con -409 y el consecutivo se " +
+    "pierde. Si la persona tiene DIMEX o cédula costarricense, cargue ese dato en su perfil. " +
+    "Si de verdad no es domiciliada, corresponde otro tipo de comprobante, y esa es una " +
+    "decisión fiscal."
+  );
+}
+
+/**
+ * Los campos del usuario que necesita `datosFacturacionDe`. Para que quien lee un
+ * contacto y lo convierte en receptor no tenga que adivinar cuáles son.
+ */
+export const SELECT_DATOS_FACTURACION = Object.freeze({
+  id: true,
+  name: true,
+  email: true,
+  identification: true,
+  billingName: true,
+  billingIdType: true,
+  billingIdNumber: true,
+  billingEmail: true,
+});

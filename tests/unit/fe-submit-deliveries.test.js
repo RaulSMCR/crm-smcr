@@ -123,6 +123,31 @@ it("una clave rechazada no vuelve a contactar a Hacienda por ningún camino", as
   expect(res.feErrorMessage).toContain("revocado");
 });
 
+it("un receptor tipo 05 no se le envía a Hacienda: se sabe que lo rechaza", async () => {
+  // Cubre las facturas que nacen con número asignado, como las de ONVO. El
+  // número queda reservado, pero no se gasta además en un rechazo.
+  mocks.find.mockResolvedValue({ ...snapshot, invoiceType: "CUSTOMER_INVOICE", feClave: null, feNumber: null, feXml: null, contactIdType: "05" });
+
+  const res = await run();
+
+  expect(mocks.submit).not.toHaveBeenCalled();
+  expect(res).toMatchObject({ reviewRequired: true, feClave: null });
+  expect(res.feErrorMessage).toMatch(/tipo 05/);
+  expect(mocks.update).toHaveBeenCalledWith({
+    where: { id: "invoice-local", feStatus: "PENDING" },
+    data: { feErrorMessage: expect.stringMatching(/tipo 05/) },
+  });
+});
+
+it("con clave ya emitida el receptor no se revisa: el comprobante existe", async () => {
+  mocks.find.mockResolvedValue({ ...snapshot, invoiceType: "CUSTOMER_INVOICE", contactIdType: "05" });
+  mocks.submit.mockResolvedValue({ feStatus: "PENDING", feNumber: "123", feClave: "key", feErrorMessage: null });
+
+  await run();
+
+  expect(mocks.submit).toHaveBeenCalled();
+});
+
 it("una factura ya aceptada recupera únicamente su tarea de correo", async () => {
   mocks.find.mockResolvedValue({ ...snapshot, feStatus: "ACCEPTED" });
   expect((await run()).feStatus).toBe("ACCEPTED");

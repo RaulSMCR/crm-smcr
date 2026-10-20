@@ -127,6 +127,23 @@ describe("POST /api/invoices/:id/validate — la fecha del pago no se mueve", ()
     expect(data).not.toHaveProperty("invoiceDate");
   });
 
+  it("un receptor tipo 05 se corta antes de reclamar el número", async () => {
+    // Validar asigna el consecutivo. Si después Hacienda rechaza (-409), el
+    // número queda quemado: se corta acá, donde todavía no cuesta nada.
+    conBorrador({
+      id: "inv-nueva", invoiceType: "CUSTOMER_INVOICE", status: "DRAFT", lines: [{}],
+      total: 1000, amountPaid: 1000, paymentDate: pagoReal, invoiceDate: borradorViejo,
+      contactIdType: "05", originDocument: "REEMISION_DE:inv-0204",
+    });
+
+    const res = await llamar();
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).message).toMatch(/tipo 05/);
+    expect(mocks.tx.invoiceSequence.upsert).not.toHaveBeenCalled();
+    expect(mocks.tx.invoice.update).not.toHaveBeenCalled();
+  });
+
   it("un borrador pagado sin fecha de pago toma la de la validación", async () => {
     conBorrador({
       id: "inv-nueva", invoiceType: "CUSTOMER_INVOICE", status: "DRAFT", lines: [{}],

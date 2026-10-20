@@ -141,6 +141,19 @@ describe("registrarPagoManual() — lo que no se acepta", () => {
     expect(tx.invoiceSequence.upsert).not.toHaveBeenCalled();
   });
 
+  it("no quema un consecutivo con un receptor tipo 05, que Hacienda no admite en factura", async () => {
+    // La 0204 volvió con -409 por esto. Se sabe sin enviar nada.
+    tx.appointment.findUnique.mockResolvedValue({
+      ...CITA,
+      patient: { ...CLIENTE, billingName: "Paciente Extranjera", billingIdType: "05", billingIdNumber: "95930281" },
+    });
+    const res = await registrarPagoManual(prisma, { ...BASE, appointmentId: "cita1" });
+    expect(res).toMatchObject({ ok: false, code: "RECEPTOR_TIPO_NO_ADMITIDO" });
+    expect(res.message ?? res.mensaje ?? JSON.stringify(res)).toMatch(/tipo 05/);
+    expect(tx.invoiceSequence.upsert).not.toHaveBeenCalled();
+    expect(tx.invoice.create).not.toHaveBeenCalled();
+  });
+
   it("exige describir un cobro que no viene de una cita", async () => {
     const res = await registrarPagoManual(prisma, { ...BASE, contactId: "cli1", serviceId: "svc1", descripcion: "x" });
     expect(res.code).toBe("DESCRIPCION_REQUERIDA");

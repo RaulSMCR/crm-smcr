@@ -14,6 +14,7 @@ import { resend } from "@/lib/resend";
 import { assertFeConfig } from "@/lib/fe/config.js";
 import { persistFeDocument } from "@/lib/fe/document";
 import { enqueueDelivery } from "@/lib/delivery-jobs";
+import { motivoReceptorNoAdmitidoEnFactura } from "@/lib/fiscal-identity";
 
 const FROM_EMAIL = process.env.EMAIL_FROM || "Salud Mental Costa Rica <onboarding@resend.dev>";
 const FE_REAL_API_URL = process.env.FE_API_URL || null;
@@ -36,6 +37,8 @@ const CAUSAS_FE_PUBLICABLES = new Set([
   "FE_DOCUMENT_REVIEW_REQUIRED",
   "FE_DOCUMENT_INVALID",
   "FE_DOCUMENT_ID_MISMATCH",
+  // Lo lanza generateFeXml si la fecha de la clave y FechaEmision no coinciden.
+  "FE_CLAVE_FECHA_INCOHERENTE",
 ]);
 
 // ─── Email al paciente ───────────────────────────────────────────────────────
@@ -384,6 +387,22 @@ export async function submitInvoiceToFe(invoiceId) {
       feErrorMessage: invoice.feErrorMessage,
       reviewRequired: true,
     };
+  }
+
+  // Lo que Hacienda va a rechazar igual no se le manda: cada rechazo quema el
+  // consecutivo. Solo antes de armar un documento nuevo; si ya hay clave, el
+  // comprobante existe y lo que queda es consultar su estado.
+  //
+  // Las facturas que nacen de un cobro (ONVO) ya traen el número asignado, así
+  // que en ese caso el número queda reservado sin usar. Es preferible a un
+  // rechazo, que además lo gasta ante Hacienda; lo ideal es frenarlo antes, y
+  // eso se hace en la validación y en el registro de pagos manuales.
+  if (!invoice.feClave && invoice.invoiceType === "CUSTOMER_INVOICE") {
+    const noAdmitido = motivoReceptorNoAdmitidoEnFactura(invoice.contactIdType);
+    if (noAdmitido) {
+      await prisma.invoice.updateMany({ where: { id: invoiceId, feStatus: "PENDING" }, data: { feErrorMessage: noAdmitido } });
+      return { feStatus: invoice.feStatus, feNumber: invoice.feNumber, feClave: null, feErrorMessage: noAdmitido, reviewRequired: true };
+    }
   }
 
   const isProduction = process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";

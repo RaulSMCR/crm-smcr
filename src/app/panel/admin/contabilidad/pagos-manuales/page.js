@@ -13,7 +13,7 @@ import { getSession } from "@/actions/auth-actions";
 import { prisma } from "@/lib/prisma";
 import { esEmisorResponsable } from "@/lib/api-guards";
 import { SLUG_PROFESIONAL_GESTIONADO } from "@/lib/pagos-manuales";
-import { datosFacturacionDe } from "@/lib/fiscal-identity";
+import { datosFacturacionDe, motivoReceptorNoAdmitidoEnFactura } from "@/lib/fiscal-identity";
 import { opcionesDeCuenta, cuentaDeCobro } from "@/lib/cuentas-de-cobro";
 import PagoManualForm from "@/components/admin/PagoManualForm";
 
@@ -48,6 +48,11 @@ function faltaFiscalDe(cliente) {
   const receptor = datosFacturacionDe(cliente);
   if (!receptor.nombre || receptor.nombre.trim().length < 3) return "sin nombre completo";
   if (!receptor.tipoIdentificacion || !receptor.identificacion) return "sin identificación fiscal";
+  // Hacienda rechaza el tipo 05 en una factura (-409). Se marca acá para que la
+  // opción no se pueda elegir, en vez de descubrirlo al enviar el formulario.
+  if (motivoReceptorNoAdmitidoEnFactura(receptor.tipoIdentificacion)) {
+    return "extranjero no domiciliado (tipo 05): Hacienda no lo admite en factura";
+  }
   return null;
 }
 

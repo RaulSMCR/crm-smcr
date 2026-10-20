@@ -277,3 +277,20 @@ describe("generateFeXml — resumen y notas de crédito", () => {
     expect(xml).not.toContain("<InformacionReferencia>");
   });
 });
+
+describe("generateFeXml — la clave y FechaEmision declaran el mismo día", () => {
+  // La 0204 se emitió a las 21:48 del 19 de octubre en Costa Rica (03:48 UTC del
+  // 20). Su clave decía 20 y su FechaEmision 19: Hacienda la rechazó con -405 y
+  // -16. Se prueba sobre el XML que de verdad se arma, no sobre la función suelta.
+  it.each([
+    ["la hora exacta de la 0204", "2026-10-20T03:48:32.956Z", "2026-10-19", "191026"],
+    ["18:00 en punto en CR", "2026-10-20T00:00:00Z", "2026-10-19", "191026"],
+    ["mediodía en CR", "2026-10-19T18:00:00Z", "2026-10-19", "191026"],
+  ])("%s", (_caso, instante, dia, ddmmaa) => {
+    const { xml, feClave } = generateFeXml({ ...baseInvoice, invoiceDate: new Date(instante) }, baseLines);
+
+    expect(textOf(xml, "FechaEmision").slice(0, 10)).toBe(dia);
+    expect(feClave.slice(3, 9)).toBe(ddmmaa);
+    expect(textOf(xml, "Clave")).toBe(feClave);
+  });
+});

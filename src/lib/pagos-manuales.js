@@ -33,7 +33,7 @@
 // parte.
 
 import { splitTaxIncluded } from "@/lib/invoice-math";
-import { datosFacturacionDe } from "@/lib/fiscal-identity";
+import { datosFacturacionDe, motivoReceptorNoAdmitidoEnFactura } from "@/lib/fiscal-identity";
 import { PRODUCTO_SERVICIOS_PROFESIONALES } from "@/lib/detalle-consulta";
 import { createPaymentInvoice } from "@/lib/onvo/payment-invoice";
 import { siguienteNumeroDeFactura } from "@/lib/invoice-sequence";
@@ -95,6 +95,8 @@ function receptorUtilizable(cliente) {
   if (!receptor.tipoIdentificacion || !receptor.identificacion) {
     return error(409, "El cliente no tiene identificación fiscal utilizable y la 4.4 la exige. Complete el tipo y el número en su perfil antes de facturar.", "RECEPTOR_SIN_IDENTIFICACION");
   }
+  const noAdmitido = motivoReceptorNoAdmitidoEnFactura(receptor.tipoIdentificacion);
+  if (noAdmitido) return error(409, noAdmitido, "RECEPTOR_TIPO_NO_ADMITIDO");
   return { ok: true, receptor };
 }
 
