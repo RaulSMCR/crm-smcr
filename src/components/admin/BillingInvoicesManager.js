@@ -4,6 +4,7 @@ import { useCallback, useState, useTransition } from "react";
 import Toast from "@/components/ui/Toast";
 import { splitTaxIncluded } from "@/lib/invoice-math";
 import { updateSupplierInvoiceAcceptance } from "@/actions/professional-billing-actions";
+import { accionesFe, estadoFeVisible } from "@/lib/fe/estado-visible";
 
 function toMoney(value) {
   return new Intl.NumberFormat("es-CR", {
@@ -181,6 +182,38 @@ export default function BillingInvoicesManager({
         const payload = await callApi(`/api/invoices/${id}/cancel`, "POST");
         updateRowInvoice(id, { status: payload.status });
         setToast({ message: "Factura cancelada.", type: "success" });
+      } catch (error) {
+        setToast({ message: error.message, type: "error" });
+      }
+    });
+  }
+
+  function handleReissue(row) {
+    const confirmado = window.confirm(
+      `Hacienda rechazó la factura ${row.invoiceNumber}. Su clave es definitiva: reenviarla ` +
+        "devuelve siempre el mismo rechazo.\n\n" +
+        "Reemitir la anula internamente y crea una factura nueva en borrador, con el mismo " +
+        "pago y la misma cita. No lleva nota de crédito, porque nunca fue aceptada.\n\n" +
+        "Después hay que validar la nueva (toma el próximo consecutivo) y enviarla.\n\n¿Reemitir?",
+    );
+    if (!confirmado) return;
+
+    setToast(null);
+    startTransition(async () => {
+      try {
+        const payload = await callApi(`/api/invoices/${row.id}/reissue`, "POST");
+        updateRowInvoice(row.id, { status: payload.original.status });
+        setRows((current) =>
+          current.some((item) => item.id === payload.reemision.id)
+            ? current
+            : [{ ...payload.reemision, professionalName: row.professionalName }, ...current],
+        );
+        setToast({
+          message: payload.yaExistia
+            ? `Esta factura ya se había reemitido (${payload.reemision.invoiceNumber}).`
+            : "Reemisión creada en borrador. Validala para asignarle el consecutivo y después enviala.",
+          type: "success",
+        });
       } catch (error) {
         setToast({ message: error.message, type: "error" });
       }
@@ -396,17 +429,27 @@ export default function BillingInvoicesManager({
                   <div className="space-y-1">
                     <span
                       className={`inline-flex rounded px-2 py-0.5 text-xs font-semibold ${getFeTone(
-                        row.feStatus
+                        estadoFeVisible(row)
                       )}`}
                     >
-                      {row.feStatus || "SIN_ENVIAR"}
+                      {estadoFeVisible(row)}
                     </span>
                     {row.feNumber && <p className="text-xs text-slate-500">N: {row.feNumber}</p>}
                     {row.feClave && (
-                      <p className="max-w-[240px] truncate text-xs text-slate-500">Clave: {row.feClave}</p>
+                      <p className="max-w-[240px] truncate text-xs text-slate-500" title={row.feClave}>
+                        Clave: {row.feClave}
+                      </p>
                     )}
+                    {/* El detalle completo, sin recortar: es lo que dice qué
+                        corregir. Antes el rechazo solo se veía en la sesión en
+                        que se apretó «Consultar FE». */}
                     {row.feErrorMessage && (
-                      <p className="max-w-[260px] text-xs text-red-600">{row.feErrorMessage}</p>
+                      <p className="max-w-[260px] whitespace-pre-line break-words text-xs text-red-600">
+                        {estadoFeVisible(row) === "REJECTED" && (
+                          <span className="font-semibold">Motivo de Hacienda: </span>
+                        )}
+                        {row.feErrorMessage}
+                      </p>
                     )}
                   </div>
                 </td>
@@ -439,7 +482,7 @@ export default function BillingInvoicesManager({
                         Cancelar
                       </button>
                     )}
-                    {row.status === "PAID" && (
+                    {accionesFe(row).notaCredito && (
                       <button
                         onClick={() => handleCreditNote(row.id)}
                         disabled={isPending}
@@ -448,7 +491,16 @@ export default function BillingInvoicesManager({
                         Nota crédito
                       </button>
                     )}
-                    {(row.status === "OPEN" || row.status === "PAID") && row.feStatus !== "ACCEPTED" && (
+                    {accionesFe(row).reemitir && (
+                      <button
+                        onClick={() => handleReissue(row)}
+                        disabled={isPending}
+                        className="rounded bg-red-600 px-2 py-1 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+                      >
+                        Reemitir
+                      </button>
+                    )}
+                    {accionesFe(row).enviar && (
                       <button
                         onClick={() => handleSubmitFE(row.id)}
                         disabled={isPending}
@@ -457,7 +509,7 @@ export default function BillingInvoicesManager({
                         Enviar FE
                       </button>
                     )}
-                    {row.feClave && row.feStatus !== "ACCEPTED" && (
+                    {accionesFe(row).consultar && (
                       <button
                         onClick={() => handleRefreshFEStatus(row.id)}
                         disabled={isPending}

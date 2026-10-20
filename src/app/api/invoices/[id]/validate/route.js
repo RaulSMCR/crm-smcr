@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/api-guards";
+import { esReemision } from "@/lib/fe/reemision";
 
 export const dynamic = "force-dynamic";
 
@@ -69,13 +70,20 @@ export async function POST(_request, { params }) {
       const balance = Math.max(0, Number(invoice.total) - Number(invoice.amountPaid));
       const nextStatus = balance <= 0 ? "PAID" : "OPEN";
 
+      // Una reemisión ya viene con el pago de la factura que reemplaza: el dinero
+      // entró cuando entró, y validarla no puede moverle la fecha. Lo que sí
+      // cambia es la fecha del comprobante, que tiene que ser la de la emisión
+      // real porque la clave de Hacienda la codifica; el borrador pudo quedar
+      // esperando días antes de que alguien lo validara.
+      const reemision = esReemision(invoice);
       const updated = await tx.invoice.update({
         where: { id: invoice.id },
         data: {
           invoiceNumber: nextNumber,
           status: nextStatus,
           balance,
-          paymentDate: nextStatus === "PAID" ? now : null,
+          paymentDate: nextStatus === "PAID" ? (invoice.paymentDate || now) : null,
+          ...(reemision ? { invoiceDate: now, dueDate: now } : {}),
           feStatus: "PENDING",
         },
       });

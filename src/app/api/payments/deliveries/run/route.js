@@ -1,4 +1,4 @@
-import { processPaymentDeliveries } from "@/lib/payment-deliveries";
+import { processPaymentDeliveries, programarProximaRevision } from "@/lib/payment-deliveries";
 import { withQstashSignature } from "@/lib/qstash-webhook";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +19,9 @@ async function vaciarCola() {
   const total = { processed: 0, pending: 0, review: 0, rondas: 0 };
 
   for (let ronda = 0; ronda < MAX_RONDAS; ronda += 1) {
-    const resultado = await processPaymentDeliveries();
+    // Sin programar en cada ronda: se programa una sola vez, al final, cuando ya
+    // se sabe qué quedó pendiente.
+    const resultado = await processPaymentDeliveries({ programar: false });
     total.processed += resultado.processed;
     total.pending += resultado.pending;
     total.review += resultado.review;
@@ -32,6 +34,11 @@ async function vaciarCola() {
   // Solo el recuento y nada más: la cola es administrativa y por acá no pasan
   // correos, XML ni datos del paciente.
   if (total.review) console.error("[deliveries] REVIEW_REQUIRED", { count: total.review });
+
+  // Cada corrida deja programada la siguiente para cuando venza la tarea más
+  // próxima. Así la cola se resuelve sola sin un cron fijo, y cuando ya no
+  // queda nada pendiente no se programa nada.
+  total.siguiente = await programarProximaRevision();
 
   return total;
 }

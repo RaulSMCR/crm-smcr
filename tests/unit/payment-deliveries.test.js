@@ -39,6 +39,18 @@ it.each(["PENDING", "REJECTED"])("el estado fiscal %s no cierra la tarea como é
   mocks.submit.mockResolvedValue({ feStatus });
   await expect(executePaymentDelivery({ ...job, kind: "FE_SUBMISSION" }, checkpoint)).rejects.toBeTruthy();
 });
+it("un rechazo de Hacienda pasa a revisión con su propio código", async () => {
+  // Distinto del genérico FE_REQUIRES_REVIEW: es un veredicto final y lo que
+  // corresponde es reemitir, no investigar.
+  mocks.submit.mockResolvedValue({ feStatus: "REJECTED", reviewRequired: true });
+  await expect(executePaymentDelivery({ ...job, kind: "FE_SUBMISSION" }, checkpoint))
+    .rejects.toMatchObject({ code: "FE_RECHAZADA", review: true });
+});
+it("PENDING sin revisión sigue en la cola esperando el veredicto", async () => {
+  mocks.submit.mockResolvedValue({ feStatus: "PENDING", reviewRequired: false });
+  await expect(executePaymentDelivery({ ...job, kind: "FE_SUBMISSION" }, checkpoint))
+    .rejects.toMatchObject({ code: "FE_AWAITING_CONFIRMATION", review: false });
+});
 it("una aceptación fiscal cierra únicamente la tarea fiscal", async () => {
   mocks.submit.mockResolvedValue({ feStatus: "ACCEPTED" });
   await expect(executePaymentDelivery({ ...job, kind: "FE_SUBMISSION" }, checkpoint)).resolves.toEqual({});

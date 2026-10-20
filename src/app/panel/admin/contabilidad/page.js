@@ -168,6 +168,16 @@ export default async function AdminAccountingPage({ searchParams }) {
         supplierIdNumber: true,
         acceptanceStatus: true,
         acceptanceAt: true,
+        // El estado fiscal. Faltaba: la tabla recibía `feStatus` indefinido y
+        // pintaba SIN_ENVIAR en cualquier factura después de recargar, de modo
+        // que un rechazo de Hacienda solo se veía en la sesión de pantalla en
+        // que se apretó «Consultar FE». Sin la clave tampoco aparecía ese botón.
+        feStatus: true,
+        feNumber: true,
+        feClave: true,
+        feErrorMessage: true,
+        appointmentId: true,
+        originDocument: true,
       },
       orderBy: { invoiceDate: "desc" },
       take: 300,

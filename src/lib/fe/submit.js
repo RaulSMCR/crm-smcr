@@ -370,6 +370,22 @@ export async function submitInvoiceToFe(invoiceId) {
     return { feStatus: invoice.feStatus, feNumber: invoice.feNumber, feClave: invoice.feClave, feErrorMessage: invoice.feErrorMessage };
   }
 
+  // Una clave rechazada es definitiva: Hacienda devuelve el mismo veredicto cada
+  // vez que se la consulta o se la reenvía. Contactarla de nuevo no puede
+  // cambiar nada, así que no se la contacta. Se resuelve acá, en el único punto
+  // por el que pasan todos los caminos —el botón «Enviar FE», la tarea de la
+  // cola y su reintento manual desde el panel—, en vez de repetir la regla en
+  // cada uno. Lo que corresponde es reemitir (src/lib/fe/reemision.js).
+  if (invoice.feStatus === "REJECTED" && invoice.feClave) {
+    return {
+      feStatus: "REJECTED",
+      feNumber: invoice.feNumber,
+      feClave: invoice.feClave,
+      feErrorMessage: invoice.feErrorMessage,
+      reviewRequired: true,
+    };
+  }
+
   const isProduction = process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
   if (!FE_REAL_API_URL) {
     if (isProduction) {

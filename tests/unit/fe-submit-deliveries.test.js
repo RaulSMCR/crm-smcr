@@ -105,6 +105,24 @@ it("sin clave no se encola reconsulta: no habría nada que preguntar", async () 
   expect(mocks.enqueue).not.toHaveBeenCalled();
 });
 
+it("una clave rechazada no vuelve a contactar a Hacienda por ningún camino", async () => {
+  // El veredicto es definitivo: reenviar o reconsultar devuelve el mismo
+  // rechazo. Pasa por acá el botón «Enviar FE», la tarea de la cola y su
+  // reintento manual, así que la regla vale para los tres.
+  mocks.find.mockResolvedValue({
+    ...snapshot, feStatus: "REJECTED", feClave: "clave-0203", feNumber: "00100001010000000203",
+    feErrorMessage: "El certificado empleado se encuentra revocado.",
+  });
+
+  const res = await run();
+
+  expect(mocks.submit).not.toHaveBeenCalled();
+  expect(mocks.update).not.toHaveBeenCalled();
+  expect(mocks.enqueue).not.toHaveBeenCalled();
+  expect(res).toMatchObject({ feStatus: "REJECTED", feClave: "clave-0203", reviewRequired: true });
+  expect(res.feErrorMessage).toContain("revocado");
+});
+
 it("una factura ya aceptada recupera únicamente su tarea de correo", async () => {
   mocks.find.mockResolvedValue({ ...snapshot, feStatus: "ACCEPTED" });
   expect((await run()).feStatus).toBe("ACCEPTED");

@@ -47,6 +47,23 @@ export async function POST(request, { params }) {
       if (origin.status !== "PAID") {
         return { error: { message: "Solo se puede emitir rectificativa desde facturas pagadas.", status: 409 } };
       }
+      // Una nota de crédito rectifica un comprobante que Hacienda ACEPTÓ. Sobre
+      // uno rechazado —o que nunca se envió— emitiría un documento fiscal que
+      // anula algo sin validez. El botón ya no se ofrece en esos casos; esto lo
+      // garantiza aunque alguien llame a la ruta directo. Solo para facturas de
+      // cliente: las de proveedor no pasan por nuestro envío y su feStatus
+      // nunca llega a ACCEPTED.
+      if (origin.invoiceType === "CUSTOMER_INVOICE" && origin.feStatus !== "ACCEPTED") {
+        return {
+          error: {
+            message:
+              origin.feStatus === "REJECTED"
+                ? "Hacienda rechazó esta factura: nunca tuvo validez, así que no lleva nota de crédito. Corresponde reemitirla."
+                : "Solo se emite nota de crédito sobre una factura que Hacienda aceptó.",
+            status: 409,
+          },
+        };
+      }
       if (!origin.lines.length) {
         return { error: { message: "La factura origen no tiene líneas.", status: 400 } };
       }
