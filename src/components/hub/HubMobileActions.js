@@ -1,5 +1,6 @@
 import HubAgendaLink from "@/components/hub/HubAgendaLink";
 import HubWhatsappLink from "@/components/hub/HubWhatsappLink";
+import HubWhatsappIcon from "@/components/hub/HubWhatsappIcon";
 
 /**
  * Barra fija de acciones en móvil, para cualquier página del hub.
@@ -41,6 +42,7 @@ export default function HubMobileActions({
           tema={tema}
           className="text-center text-sm font-bold text-nv-cream-hi underline decoration-nv-coral underline-offset-4"
         >
+          <HubWhatsappIcon className="mr-1.5 h-4 w-4" />
           o escribí para agendar tu sesión
         </HubWhatsappLink>
       ) : null}
