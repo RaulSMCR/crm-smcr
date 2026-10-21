@@ -41,7 +41,7 @@ export default function HubMobileActions({
           tema={tema}
           className="text-center text-sm font-bold text-nv-cream-hi underline decoration-nv-coral underline-offset-4"
         >
-          o escribí para agendar tu sesión paga
+          o escribí para agendar tu sesión
         </HubWhatsappLink>
       ) : null}
     </div>

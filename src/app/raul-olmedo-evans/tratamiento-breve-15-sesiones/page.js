@@ -105,7 +105,7 @@ export default async function TratamientoBrevePage() {
             <p className="mt-3 font-display text-3xl text-nv-teal-deep">{precio || "Valor al agendar"}</p>
             <p className="mt-1 text-sm text-neutral-700">{hub.duracion_min} minutos · {hub.modalidad}</p>
             <HubAgendaLink href={agendaUrl} eventName="click_15_sesiones_agendar" destination="agenda" className="btn btn-accent mt-6 w-full">Agendar sesión</HubAgendaLink>
-            {whatsappEnabled ? <HubWhatsappLink href={waUrl} ubicacion="cierre" tema="tratamiento-breve-15-sesiones" className="mt-4 block text-center text-sm font-bold text-nv-teal-deep underline decoration-nv-coral underline-offset-4">o escribí para agendar tu sesión paga</HubWhatsappLink> : null}
+            {whatsappEnabled ? <HubWhatsappLink href={waUrl} ubicacion="cierre" tema="tratamiento-breve-15-sesiones" className="mt-4 block text-center text-sm font-bold text-nv-teal-deep underline decoration-nv-coral underline-offset-4">o escribí para agendar tu sesión</HubWhatsappLink> : null}
             <p className="mt-4 text-xs leading-5 text-neutral-600">La indicación y la continuidad se conversan según tu situación clínica.</p>
           </aside> : null}
         </div>

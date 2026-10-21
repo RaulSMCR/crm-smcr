@@ -113,7 +113,7 @@ export default async function RaulHubPage() {
                 lee cuando el visitante llega desde un anuncio. */}
             <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
               {functionEnabled("agenda") ? <HubAgendaLink href={agendaUrl} eventName="click_hub_raul_agendar" destination="agenda" className="btn btn-accent">Agendar sesión</HubAgendaLink> : null}
-              {functionEnabled("whatsapp") ? <HubWhatsappLink href={waUrl} ubicacion="hero" className="font-bold text-nv-cream-hi underline decoration-nv-coral underline-offset-4 hover:text-white">o escribí para agendar tu sesión paga</HubWhatsappLink> : null}
+              {functionEnabled("whatsapp") ? <HubWhatsappLink href={waUrl} ubicacion="hero" className="font-bold text-nv-cream-hi underline decoration-nv-coral underline-offset-4 hover:text-white">o escribí para agendar tu sesión</HubWhatsappLink> : null}
             </div>
             <p className="mt-5 text-sm text-nv-teal-pale">Sesión en línea de {hub.duracion_min} minutos{precio ? ` · ${precio}` : ""}</p>
           </div>
