@@ -744,6 +744,7 @@ model Invoice {
   lines         InvoiceLine[]
   settlements   Settlement[]
   deliveryJobs  DeliveryJob[]
+  insuranceClaim InsuranceClaim?
 
   @@unique([invoiceType, invoiceNumber])
   @@index([invoiceType, status])
@@ -1363,6 +1364,11 @@ model InsuranceClaim {
   appointmentId        String               @unique
   professionalId       String
   paymentDate          DateTime?
+  /// Piloto PALIG: vínculo y copias privadas de la emisión. No son firmas.
+  invoiceId            String?              @unique
+  templateSnapshotUrl  String?
+  generatedFormUrl     String?
+  paymentProofUrl       String?
   signedFormUrl        String?
   signedFormUploadedAt DateTime?
   emailSentAt          DateTime?
@@ -1373,6 +1379,7 @@ model InsuranceClaim {
   patient      User                @relation("PatientInsuranceClaims", fields: [patientId], references: [id])
   appointment  Appointment         @relation(fields: [appointmentId], references: [id])
   professional ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  invoice      Invoice?            @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
 
   @@index([patientId])
   @@index([professionalId])

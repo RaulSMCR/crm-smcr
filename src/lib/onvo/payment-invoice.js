@@ -15,7 +15,7 @@ import { siguienteNumeroDeFactura } from "@/lib/invoice-sequence";
  *
  * @param {object} tx          Cliente Prisma dentro de la transacción.
  * @param {object} transaction Cobro ya acreditado, con cita, paciente y profesional.
- * @param {{paymentMethod?: string, cuentaDeposito?: string|null, originDocument?: string, notas?: string}} [origen]
+ * @param {{paymentMethod?: string, cuentaDeposito?: string|null, originDocument?: string, notas?: string, invoiceDate?: Date, createdBy?: string}} [origen] invoiceDate solo después de validar el día de pago y atención.
  */
 export async function createPaymentInvoice(tx, transaction, origen = {}) {
   const amount = Number(transaction.amount);
@@ -26,7 +26,7 @@ export async function createPaymentInvoice(tx, transaction, origen = {}) {
   const baseAmount = baseCents / 100;
   const taxAmount = taxCents / 100;
   const fiscalWarning = !service?.cabysCode || !service?.taxId;
-  const now = new Date();
+  const now = origen.invoiceDate ? new Date(origen.invoiceDate) : new Date();
   const receptor = datosFacturacionDe(transaction.patient);
   const { productName, description } = detalleLineaFactura({
     fecha: transaction.appointment?.date,
@@ -70,6 +70,7 @@ export async function createPaymentInvoice(tx, transaction, origen = {}) {
       currency: transaction.currency || "CRC",
       originDocument: origen.originDocument || `ONVO_TX:${transaction.id}`,
       notes: `${notasDeOrigen}${fiscalWarning ? " | ALERTA: Servicio sin CABYS/IVA configurado" : ""}`,
+      ...(origen.createdBy ? { createdBy: origen.createdBy } : {}),
       lines: { create: {
         productName, description,
         serviceId: service?.id || transaction.appointment?.serviceId || null,

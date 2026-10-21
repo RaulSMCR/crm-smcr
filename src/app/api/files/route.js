@@ -15,6 +15,9 @@ const PRIVATE_BUCKETS = new Set([
 function userId(session) { return String(session?.userId || session?.sub || ""); }
 
 async function canRead(session, ref) {
+  // Los documentos del piloto requieren su guardia actualizada y el estado de
+  // la factura. Se descargan exclusivamente por /api/palig/claims/:id.
+  if (ref.bucket === "insurance-signed-forms" && ref.path.includes("/palig/")) return false;
   if (session.role === "ADMIN") return true;
   if (!PRIVATE_BUCKETS.has(ref.bucket)) return false;
   const uid = userId(session);

@@ -88,6 +88,7 @@ function SignedFormUploader({ claim, onDone }) {
         day: "2-digit",
         month: "long",
         year: "numeric",
+        timeZone: "America/Costa_Rica",
       })
     : "—";
 
@@ -132,7 +133,9 @@ function SignedFormUploader({ claim, onDone }) {
         </div>
       </div>
       <p className="text-xs text-blue-700">
-        Descargue la plantilla, añada la fecha <strong>{dateStr}</strong>, imprima, selle, firme y suba.
+        {claim.generatedForm
+          ? <>El formulario ya contiene la fecha <strong>{dateStr}</strong>. Revíselo, imprima, selle, firme y suba.</>
+          : <>Descargue la plantilla, añada la fecha <strong>{dateStr}</strong>, imprima, selle, firme y suba.</>}
       </p>
       {claim.templateUrl && (
         <a
@@ -141,7 +144,7 @@ function SignedFormUploader({ claim, onDone }) {
           rel="noopener noreferrer"
           className="inline-flex text-xs font-semibold text-blue-800 underline"
         >
-          Descargar plantilla ↗
+          {claim.generatedForm ? "Descargar formulario completado ↗" : "Descargar plantilla ↗"}
         </a>
       )}
       <form onSubmit={handleUpload} className="flex flex-wrap items-center gap-2">

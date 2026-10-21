@@ -154,6 +154,8 @@ export default async function ProfesionalDashboardPage() {
         </div>
       ) : null}
 
+      {profile.slug === "raul-olmedo" && <Link href="/panel/palig" className="block rounded-2xl border border-blue-200 bg-blue-50 p-5 font-semibold text-blue-800">Registrar SINPE y generar factura + PALIG</Link>}
+
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
           <div>

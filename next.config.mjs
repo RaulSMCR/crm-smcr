@@ -37,6 +37,7 @@ const nextConfig = {
     // vive en public/ lo sirve el CDN, no el sistema de archivos de la funcion:
     // sin esta linea el logo no esta ahi y la tarjeta sale sin marca.
     "/og": ["./public/logo.svg"],
+    "/api/palig/templates/*": ["./public/forms/palig-cr-reclamo-2023.pdf"],
   },
 };
 

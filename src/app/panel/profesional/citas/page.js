@@ -129,7 +129,8 @@ export default async function ProfesionalCitasPage() {
     id: c.id,
     patientName: c.patient.name,
     insuranceName: c.patient.insuranceName,
-    templateUrl: c.patient.insuranceTemplateUrl,
+    templateUrl: c.generatedFormUrl ? `/api/palig/claims/${c.id}?file=form` : c.patient.insuranceTemplateUrl,
+    generatedForm: Boolean(c.generatedFormUrl),
     paymentDate: c.paymentDate,
   }));
 

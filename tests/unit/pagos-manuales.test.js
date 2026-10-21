@@ -11,6 +11,7 @@ const { prisma, tx, enqueueDelivery, ocuparCupo, revalidar } = vi.hoisted(() => 
     paymentTransaction: { findFirst: vi.fn(), create: vi.fn() },
     invoiceSequence: { upsert: vi.fn() },
     invoice: { create: vi.fn() },
+    insuranceClaim: { create: vi.fn() },
     user: { findUnique: vi.fn() },
     service: { findUnique: vi.fn() },
     professionalProfile: { findUnique: vi.fn() },
@@ -84,6 +85,32 @@ beforeEach(() => {
 function facturaCreada() {
   return tx.invoice.create.mock.calls[0][0].data;
 }
+
+describe("pago del piloto PALIG en la transacción de facturación", () => {
+  const palig = { claimId: "claim1", sourceTemplateUrl: "insurance-templates/cli1/t.pdf", templateSnapshotUrl: "private/template.pdf", generatedFormUrl: "private/form.pdf", paymentProofUrl: "private/proof.png", patientName: CLIENTE.name, professionalName: CITA.professional.user.name, atencionConfirmada: true, pagoConfirmado: true };
+  function prepare(overrides = {}) {
+    const fechaPago = new Date();
+    tx.appointment.findUnique.mockResolvedValue({ ...CITA, date: fechaPago, patient: { ...CLIENTE, insuranceName: "PALIG", insuranceTemplateUrl: palig.sourceTemplateUrl, insuranceTemplateProId: "pro1", ...overrides } });
+    return { ...BASE, appointmentId: CITA.id, fechaPago, registradoPor: "operator", palig };
+  }
+  it("registra pago, cita completada, factura fechada y vínculo del formulario juntos", async () => {
+    const input = prepare();
+    expect((await registrarPagoManual(prisma, input)).ok).toBe(true);
+    expect(tx.appointment.update).toHaveBeenCalledWith({ where: { id: CITA.id }, data: { paymentStatus: "PAID", status: "COMPLETED" } });
+    expect(facturaCreada()).toMatchObject({ invoiceDate: input.fechaPago, paymentDate: input.fechaPago, createdBy: "operator", total: 30000, cuentaDeposito: "SINPE_MOVIL" });
+    expect(tx.insuranceClaim.create).toHaveBeenCalledWith({ data: { id: "claim1", appointmentId: CITA.id, patientId: "cli1", professionalId: "pro1", invoiceId: "inv1", paymentDate: input.fechaPago, status: "PENDING_SIGNED_FORM", templateSnapshotUrl: palig.templateSnapshotUrl, generatedFormUrl: palig.generatedFormUrl, paymentProofUrl: palig.paymentProofUrl } });
+    expect(prisma.$transaction.mock.calls[0][1]).toMatchObject({ isolationLevel: "Serializable" });
+  });
+  it.each([{ insuranceTemplateUrl: "insurance-templates/cli1/new.pdf" }, { name: "Nombre cambiado" }])("si los datos cambian durante la preparación, no cobra ni emite: %j", async (change) => {
+    expect((await registrarPagoManual(prisma, prepare(change))).code).toBe("PALIG_DATOS_CAMBIARON");
+    expect(tx.paymentTransaction.create).not.toHaveBeenCalled();
+    expect(tx.invoice.create).not.toHaveBeenCalled();
+  });
+  it("no acepta abonos en el piloto", async () => {
+    expect((await registrarPagoManual(prisma, { ...prepare(), tipo: "DEPOSIT_50" })).ok).toBe(false);
+    expect(tx.paymentTransaction.create).not.toHaveBeenCalled();
+  });
+});
 
 describe("registrarPagoManual() — lo que no se acepta", () => {
   it("rechaza una cuenta que no está en el catálogo", async () => {

@@ -41,6 +41,7 @@ import { enqueueDelivery } from "@/lib/delivery-jobs";
 import { ocuparCupoEnTransaccion } from "@/lib/price-ladder-server";
 import { cuentaDeCobro } from "@/lib/cuentas-de-cobro";
 import { revalidarPreciosPublicos } from "@/lib/revalidar-precios";
+import { validarAtencionPalig } from "@/lib/palig-policy";
 
 /**
  * Slug de la ficha del profesional gestionado.
@@ -107,8 +108,8 @@ function servicioFacturable(servicio) {
   return { ok: true, servicio };
 }
 
-function notasDeOrigen(cuenta, referencia) {
-  const partes = [`Pago manual registrado por ADMIN`, `Cuenta: ${cuenta.etiqueta}`];
+function notasDeOrigen(cuenta, referencia, piloto = false) {
+  const partes = [piloto ? "Pago manual registrado desde el piloto PALIG" : "Pago manual registrado por ADMIN", `Cuenta: ${cuenta.etiqueta}`];
   if (referencia) partes.push(`Referencia: ${referencia}`);
   return partes.join(" | ");
 }
@@ -166,7 +167,7 @@ export async function registrarPagoManual(prisma, datos = {}) {
 }
 
 /** Cobro de una cita agendada: pago, cita, factura, liquidación y escalera. */
-async function cobroDeCita(prisma, { appointmentId, cuenta, monto, fechaPago, tipo, referencia, registradoPor }) {
+async function cobroDeCita(prisma, { appointmentId, cuenta, monto, fechaPago, tipo, referencia, registradoPor, palig }) {
   const tipoCobro = tipo || "FULL_100";
   return prisma.$transaction(async (tx) => {
     const cita = await tx.appointment.findUnique({
@@ -175,11 +176,20 @@ async function cobroDeCita(prisma, { appointmentId, cuenta, monto, fechaPago, ti
         id: true, status: true, paymentStatus: true, date: true, pricePaid: true, priceTierId: true,
         patientId: true, professionalId: true, serviceId: true,
         service: { select: SELECT_SERVICIO },
-        patient: { select: SELECT_CLIENTE },
+        patient: { select: { ...SELECT_CLIENTE, ...(palig ? { insuranceName: true, insuranceTemplateUrl: true, insuranceTemplateProId: true } : {}) } },
         professional: { select: { id: true, slug: true, academicDegree: true, user: { select: { name: true, email: true } } } },
       },
     });
     if (!cita) return error(404, "La cita indicada no existe.", "CITA_INEXISTENTE");
+    // `palig` solo llega desde el servicio interno del piloto; nunca del schema
+    // de pagos manuales. Validar otra vez dentro de la transacción serializable.
+    if (palig) {
+      const valid = validarAtencionPalig(cita, { monto, fechaPago, atencionConfirmada: palig.atencionConfirmada, pagoConfirmado: palig.pagoConfirmado });
+      if (!valid.ok) return valid;
+      if (tipoCobro !== "FULL_100" || cuenta.codigo !== "SINPE_MOVIL" || cita.patient.insuranceTemplateUrl !== palig.sourceTemplateUrl || cita.patient.name !== palig.patientName || cita.professional.user.name !== palig.professionalName) {
+        return error(409, "Revise la plantilla y el pago antes de generar los documentos PALIG.", "PALIG_DATOS_CAMBIARON");
+      }
+    }
     if (cita.professional?.slug !== SLUG_PROFESIONAL_GESTIONADO) {
       return error(409, "Solo se pueden reportar a mano los cobros del profesional gestionado. Los demás se cobran por ONVO.", "PROFESIONAL_NO_PERMITIDO");
     }
@@ -222,12 +232,12 @@ async function cobroDeCita(prisma, { appointmentId, cuenta, monto, fechaPago, ti
         // hubiera pasado por ONVO y le descontara al profesional una comisión
         // que nadie cobró.
         processingFee: 0,
-        statusMessage: notasDeOrigen(cuenta, referencia),
+        statusMessage: notasDeOrigen(cuenta, referencia, Boolean(palig)),
       },
     });
 
     const paymentStatus = tipoCobro === "DEPOSIT_50" ? "PARTIALLY_PAID" : "PAID";
-    await tx.appointment.update({ where: { id: cita.id }, data: { paymentStatus } });
+    await tx.appointment.update({ where: { id: cita.id }, data: { paymentStatus, ...(palig ? { status: "COMPLETED" } : {}) } });
 
     const invoice = await createPaymentInvoice(
       tx,
@@ -236,9 +246,18 @@ async function cobroDeCita(prisma, { appointmentId, cuenta, monto, fechaPago, ti
         paymentMethod: cuenta.medioPago,
         cuentaDeposito: cuenta.codigo,
         originDocument: `PAGO_MANUAL:${transaccion.id}`,
-        notas: notasDeOrigen(cuenta, referencia),
+        notas: notasDeOrigen(cuenta, referencia, Boolean(palig)),
+        ...(palig ? { invoiceDate: fechaPago, createdBy: registradoPor } : {}),
       }
     );
+
+    if (palig) {
+      await tx.insuranceClaim.create({ data: {
+        id: palig.claimId, appointmentId: cita.id, patientId: cita.patientId, professionalId: cita.professionalId,
+        invoiceId: invoice.invoiceId, paymentDate: fechaPago, status: "PENDING_SIGNED_FORM",
+        templateSnapshotUrl: palig.templateSnapshotUrl, generatedFormUrl: palig.generatedFormUrl, paymentProofUrl: palig.paymentProofUrl,
+      } });
+    }
 
     await enqueueDelivery(tx, { kind: "PAYMENT_CONFIRMATION", invoiceId: invoice.invoiceId, paymentTransactionId: transaccion.id });
     await enqueueDelivery(tx, { kind: "FE_SUBMISSION", invoiceId: invoice.invoiceId });
