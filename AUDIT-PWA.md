@@ -72,7 +72,7 @@ El OAuth de Google existe pero es solo para conectar Google Calendar de los **pr
 - [`src/actions/auth-actions.js`](src/actions/auth-actions.js) — Server actions `registerUser` (L398), `registerProfessional` (L232), `login` (L139), `logout` (L522), `verifyEmail` (L497). El registro exige verificación de correo por token (`verifyTokenHash`/`verifyTokenExp` en `User`); sin verificar, el login devuelve `EMAIL_NOT_VERIFIED`. Contraseña con `bcryptjs`; rate-limit de 5 intentos/15 min + Turnstile.
 - [`prisma/schema.prisma`](prisma/schema.prisma) — **Un solo modelo `User` para todos los roles** (L105). El paciente es `User` con `role = USER` (enum `Role { USER, PROFESSIONAL, ADMIN }`, L13). El profesional es `User role=PROFESSIONAL` + un `ProfessionalProfile` 1:1 (L176). **No hay tablas separadas ni RLS**; la distinción es el campo `role`.
 - [`src/lib/auth.js`](src/lib/auth.js) — La sesión es un **JWT propio firmado con `jose` (HS256)** en cookie `httpOnly` llamada `session` (`setSessionCookie`, L143), expiración 7 días, `sameSite: lax`. `getSession()` (L97) está envuelto en `cache()` de React y **revalida `sessionVersion` + `isActive` contra la BD en cada request** (revocación efectiva). Soporta modo admin «ver como» vía cookie `admin_view`.
-- **Supabase NO se usa para auth.** Solo Storage: [`src/lib/supabase-admin.js`](src/lib/supabase-admin.js), [`src/lib/supabase-client.js`](src/lib/supabase-client.js) y subidas de archivos.
+- **Supabase NO se usa para auth.** Solo Storage: [`src/lib/supabase-admin.js`](src/lib/supabase-admin.js) (service role, solo servidor) y subidas de archivos.
 
 ---
 
