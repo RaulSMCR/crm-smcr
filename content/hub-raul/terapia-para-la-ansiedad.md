@@ -1,7 +1,7 @@
 ---
-titulo: "Terapia para la ansiedad"
+titulo: "Terapia para la ansiedad y la angustia"
 titulo_seo: "Terapia para la ansiedad en línea"
-meta: "Terapia para la ansiedad en línea con psicólogo clínico colegiado (CPPCR): qué nombra esa palabra y cómo se trabaja en un tratamiento psicoanalítico."
+meta: "Terapia para la ansiedad, el estres y la angustia en línea con psicólogo clínico colegiado (CPPCR): qué nombra esa palabra y cómo se trabaja en un tratamiento psicoanalítico."
 resumen: "La palabra ansiedad cubre hoy un abanico enorme de experiencias distintas. Acá separo lo que tiene estatuto clínico de lo que no, y explico cómo se trabaja en tratamiento."
 tarjeta: "Todo se llama ansiedad. Qué se nombra con esa palabra y cómo se trabaja."
 orden: 11

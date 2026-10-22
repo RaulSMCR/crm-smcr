@@ -35,7 +35,7 @@ export const revalidate = 3600;
  * de búsqueda y lo que decide el clic.
  */
 const DESCRIPCION_POR_DEFECTO =
-  "Ansiedad, duelo, estrés, pareja y migración: un espacio clínico para comprender lo que te pasa hoy.";
+  "Ansiedad, angustia, estrés, duelo, depresión, problemas de pareja, dificultades laboraes y migración: un espacio clínico para comprender lo que te pasa hoy.";
 
 export async function generateMetadata() {
   const hub = await getManagedHubData();
