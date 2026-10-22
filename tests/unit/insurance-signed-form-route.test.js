@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const m = vi.hoisted(() => ({
-  session: vi.fn(), profile: vi.fn(), claim: vi.fn(), update: vi.fn(), upload: vi.fn(), mail: vi.fn(), factura: vi.fn(),
+  session: vi.fn(), profile: vi.fn(), claim: vi.fn(), update: vi.fn(), upload: vi.fn(), mail: vi.fn(), factura: vi.fn(), operador: vi.fn(),
 }));
 vi.mock("@/lib/auth", () => ({ getSession: m.session, isPreviewSession: () => false, PREVIEW_BLOCKED_MESSAGE: "bloqueado" }));
 vi.mock("@/lib/prisma", () => ({ prisma: {
@@ -12,6 +12,7 @@ vi.mock("@/lib/storage", async (original) => ({ ...await original(), uploadPriva
 vi.mock("@/lib/insurance-mail", () => ({ sendSignedClaimToPatient: m.mail }));
 vi.mock("@/lib/palig-pdf", () => ({ facturaPaligPdf: m.factura }));
 vi.mock("@/lib/fe/config", () => ({ FE_EMISOR: { nombre: "SMCR" } }));
+vi.mock("@/lib/palig-auth", () => ({ requirePaligOperator: m.operador }));
 import { POST } from "@/app/api/upload/insurance-signed-form/route";
 
 const PDF = Buffer.from("%PDF-1.7 firmado");
@@ -71,6 +72,21 @@ describe("subir el formulario firmado", () => {
     const res = await subir(Buffer.from("no es un pdf"), "application/pdf");
     expect(res.status).toBe(400);
     expect(m.upload).not.toHaveBeenCalled(); expect(m.mail).not.toHaveBeenCalled();
+  });
+
+  it("el operador del piloto (admin) puede subir los de Raúl", async () => {
+    m.session.mockResolvedValue({ role: "ADMIN" });
+    m.operador.mockResolvedValue({ isAdmin: true });
+    m.profile.mockResolvedValue({ id: "pro1" });
+    expect((await subir(PDF, "application/pdf")).status).toBe(200);
+    expect(m.mail).toHaveBeenCalledOnce();
+  });
+
+  it("un admin que no es el operador del piloto no puede", async () => {
+    m.session.mockResolvedValue({ role: "ADMIN" });
+    m.operador.mockResolvedValue({ error: new Response(null, { status: 403 }) });
+    expect((await subir(PDF, "application/pdf")).status).toBe(403);
+    expect(m.upload).not.toHaveBeenCalled();
   });
 
   it("no deja subir el formulario de un trámite ajeno", async () => {

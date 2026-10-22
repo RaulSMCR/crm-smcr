@@ -13,6 +13,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/ToastProvider";
+import { crParts, instanteDeHoraCR } from "@/lib/appointment-slots";
 
 const TIPOS_DE_COBRO = [
   { valor: "FULL_100", etiqueta: "Pago completo" },
@@ -21,11 +22,23 @@ const TIPOS_DE_COBRO = [
   { valor: "PENALTY_50", etiqueta: "Cargo por cancelación tardía" },
 ];
 
-/** "2026-10-01T13:05", que es lo que espera un input datetime-local. */
+/**
+ * "2026-10-01T13:05" en hora de COSTA RICA, que es lo que muestra el input.
+ *
+ * Antes usaba la zona del navegador. Raúl trabaja desde Argentina (UTC-3): el
+ * 21-oct a las 22:48 CR el campo mostraba 22/10 01:48, él corrigió el día al 21
+ * —el de Costa Rica— y el pago de la factura 0205 quedó registrado el 20/10
+ * 22:48 CR, un día antes. Ahora se muestra y se interpreta siempre en hora tica.
+ */
 function ahoraParaInput() {
-  const ahora = new Date();
-  const desfase = ahora.getTimezoneOffset() * 60_000;
-  return new Date(ahora.getTime() - desfase).toISOString().slice(0, 16);
+  const { ymd, minutes } = crParts(new Date());
+  return `${ymd}T${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+}
+
+/** El valor del input (hora de Costa Rica) como instante. */
+function instanteDelInput(valor) {
+  const [ymd, hhmm] = String(valor || "").split("T");
+  return instanteDeHoraCR(ymd, hhmm);
 }
 
 function colones(valor) {
@@ -100,9 +113,8 @@ export default function PagoManualForm({ citas = [], clientes = [], servicios = 
         monto: Number(monto),
         cuenta,
         referencia: referencia.trim() || undefined,
-        // El input entrega hora local; el servidor corre en UTC. Sin convertir,
-        // un pago de la tarde se guardaría con otra hora.
-        fechaPago: new Date(fechaPago).toISOString(),
+        // El input está en hora de Costa Rica, sea cual sea la zona del navegador.
+        fechaPago: instanteDelInput(fechaPago).toISOString(),
         ...(modo === "cita"
           ? { appointmentId: citaId, tipo }
           : { contactId, serviceId, descripcion: descripcion.trim() }),
@@ -321,7 +333,7 @@ export default function PagoManualForm({ citas = [], clientes = [], servicios = 
         </label>
 
         <label className="block">
-          <span className={etiqueta}>Cuándo se recibió</span>
+          <span className={etiqueta}>Cuándo se recibió (hora de Costa Rica)</span>
           <input
             value={fechaPago}
             onChange={(e) => setFechaPago(e.target.value)}

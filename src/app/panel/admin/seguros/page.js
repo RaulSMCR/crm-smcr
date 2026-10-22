@@ -11,6 +11,7 @@ const privateFileUrl = (value) => {
 import { getSession } from "@/actions/auth-actions";
 import InsurancePatientsManager from "@/components/admin/InsurancePatientsManager";
 import { MarcarPacientePalig, QuitarSeguro } from "@/components/admin/SeguroPaligControls";
+import { esPalig } from "@/lib/palig-policy";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -57,6 +58,11 @@ export default async function AdminSegurosPage() {
   ]);
 
   function getSetupStatus(p) {
+    if (esPalig(p.insuranceName)) {
+      return p.insuranceTemplateUrl
+        ? { label: "Plantilla PALIG guardada", color: "bg-green-100 text-green-700" }
+        : { label: "Falta la plantilla PALIG", color: "bg-yellow-100 text-yellow-700" };
+    }
     if (!p.insuranceBlankFormUrl) return { label: "Sin formulario en blanco", color: "bg-red-100 text-red-700" };
     if (!p.insurancePatientFormUrl) return { label: "Esperando datos del paciente", color: "bg-amber-100 text-amber-700" };
     if (!p.insuranceTemplateUrl) return { label: "Esperando plantilla del profesional", color: "bg-yellow-100 text-yellow-700" };
@@ -147,7 +153,18 @@ export default async function AdminSegurosPage() {
                       )}
                     </div>
 
-                    <InsurancePatientsManager patientId={p.id} patientName={p.name} />
+                    {/* PALIG no usa el formulario en blanco que completa el
+                        paciente: Raúl arma la plantilla en el piloto. Subirla
+                        acá la guardaba en el flujo equivocado (pasó con Javier,
+                        el 2026-10-21 hora CR). */}
+                    {esPalig(p.insuranceName) ? (
+                      <p className="text-xs text-slate-600">
+                        Seguro PALIG: la plantilla y los formularios se manejan en{" "}
+                        <Link href="/panel/palig" className="font-semibold text-blue-700 hover:underline">Pagos y seguros →</Link>
+                      </p>
+                    ) : (
+                      <InsurancePatientsManager patientId={p.id} patientName={p.name} />
+                    )}
                   </div>
                 );
               })}

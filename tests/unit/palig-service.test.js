@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({ register: vi.fn(), read: vi.fn(), download: vi
 vi.mock("@/lib/pagos-manuales", () => ({ registrarPagoManual: mocks.register }));
 vi.mock("@/lib/palig-storage", () => ({ leerArchivoPalig: mocks.read, descargarPlantillaPalig: mocks.download, guardarPalig: mocks.save }));
 vi.mock("@/lib/palig-pdf", async (original) => ({ ...await original(), validarPlantillaPalig: mocks.validate, completarPalig: mocks.fill }));
-import { generarPagoPalig, resumenPalig } from "@/lib/palig-service";
+import { generarFormularioDeFacturaPalig, generarPagoPalig, resumenPalig } from "@/lib/palig-service";
 
 // 21-oct-2026 a las 17:00 CR.
 const AHORA = new Date("2026-10-21T23:00:00Z");
@@ -109,9 +109,63 @@ describe("pago PALIG por comprobante", () => {
     expect(mocks.register).toHaveBeenCalledTimes(1);
   });
 
+  it("informa si el formulario ya se firmó y se envió", () => {
+    expect(resumenPalig({ ...claim, signedFormUploadedAt: new Date(), emailSentAt: null })).toMatchObject({ signed: true, emailSent: false });
+  });
+
   it("la respuesta no expone XML, respaldos ni datos clínicos", () => {
     expect(resumenPalig(claim).invoiceReady).toBe(true);
     expect(JSON.stringify(resumenPalig(claim))).not.toContain("PRIVATE_XML");
     expect(resumenPalig({ ...claim, invoice: { ...claim.invoice, feXml: null } }).invoiceReady).toBe(false);
+  });
+});
+
+describe("formulario para una factura ya emitida", () => {
+  // La 0205: pagos manuales, con la sesión del 21-oct, pago registrado a las 22:48 CR.
+  const factura = {
+    id: "inv205", contactId: "u1", professionalId: "p1", invoiceType: "CUSTOMER_INVOICE", status: "PAID",
+    paymentDate: new Date("2026-10-22T04:48:00Z"), total: 40000, appointmentId: "a1", insuranceClaim: null,
+  };
+  beforeEach(() => {
+    db.invoice = { findUnique: vi.fn().mockResolvedValue(factura) };
+    db.insuranceClaim.create = vi.fn().mockResolvedValue({});
+  });
+
+  it("no emite otra factura: crea el trámite sobre la existente con su fecha de pago", async () => {
+    expect(await generarFormularioDeFacturaPalig(db, { patientId: "u1", invoiceId: "inv205", proof: {} })).toEqual(claim);
+    expect(mocks.register).not.toHaveBeenCalled();
+    expect(mocks.fill.mock.calls[0][1]).toEqual({ date: factura.paymentDate, final: true });
+    expect(db.insuranceClaim.create.mock.calls[0][0].data).toMatchObject({
+      invoiceId: "inv205", patientId: "u1", professionalId: "p1", appointmentId: "a1", paymentDate: factura.paymentDate, status: "PENDING_SIGNED_FORM",
+    });
+  });
+
+  it("no vincula la sesión si otro trámite ya la tiene", async () => {
+    db.insuranceClaim.findUnique.mockImplementation(async ({ where }) => (where.appointmentId ? { id: "otro" } : claim));
+    await generarFormularioDeFacturaPalig(db, { patientId: "u1", invoiceId: "inv205", proof: {} });
+    expect(db.insuranceClaim.create.mock.calls[0][0].data.appointmentId).toBeNull();
+  });
+
+  it.each([
+    [{ contactId: "otro" }, "no es de este paciente"],
+    [{ professionalId: "otro" }, "no es de este paciente"],
+    [{ status: "CANCELLED" }, "pago registrado"],
+    [{ insuranceClaim: { id: "ya" } }, "ya tiene su formulario"],
+  ])("rechaza %j sin guardar archivos", async (cambio, texto) => {
+    db.invoice.findUnique.mockResolvedValue({ ...factura, ...cambio });
+    await expect(generarFormularioDeFacturaPalig(db, { patientId: "u1", invoiceId: "inv205", proof: {} })).rejects.toThrow(texto);
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
+
+  it("exige la plantilla del paciente", async () => {
+    db.user.findUnique.mockResolvedValue({ ...paciente, insuranceTemplateUrl: null });
+    await expect(generarFormularioDeFacturaPalig(db, { patientId: "u1", invoiceId: "inv205", proof: {} })).rejects.toThrow("plantilla");
+  });
+
+  it("un doble envío devuelve el trámite que ganó", async () => {
+    db.insuranceClaim.create.mockRejectedValue({ code: "P2002" });
+    // El que ganó ya existe sobre la misma factura.
+    db.insuranceClaim.findUnique.mockImplementation(async ({ where }) => (where.invoiceId || where.id ? claim : null));
+    expect(await generarFormularioDeFacturaPalig(db, { patientId: "u1", invoiceId: "inv205", proof: {} })).toEqual(claim);
   });
 });

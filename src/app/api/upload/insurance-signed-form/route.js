@@ -7,30 +7,41 @@ import { sendSignedClaimToPatient } from "@/lib/insurance-mail";
 import { uploadPrivate, validateFileSignature } from "@/lib/storage";
 import { facturaPaligPdf } from "@/lib/palig-pdf";
 import { FE_EMISOR } from "@/lib/fe/config";
+import { requirePaligOperator } from "@/lib/palig-auth";
+import { PALIG_PROFESSIONAL_SLUG } from "@/lib/palig-policy";
 
 const TIPOS_ADMITIDOS = { "application/pdf": "pdf", "image/jpeg": "jpg", "image/png": "png" };
 
 export async function POST(request) {
   try {
     const session = await getSession();
-    if (!session || session.role !== "PROFESSIONAL") {
+    if (!session || !["PROFESSIONAL", "ADMIN"].includes(session.role)) {
       return NextResponse.json({ error: "No autorizado." }, { status: 401 });
     }
     if (isPreviewSession(session)) {
       return NextResponse.json({ error: PREVIEW_BLOCKED_MESSAGE }, { status: 403 });
     }
 
-    const professionalId = String(session.professionalProfileId || "");
+    // El profesional sube los de sus trámites. El administrador responsable de
+    // la emisión fiscal —el operador del piloto PALIG— puede subir los de Raúl
+    // desde /panel/palig, para no tener que cambiar de cuenta.
+    let professionalId = "";
+    if (session.role === "ADMIN") {
+      const operador = await requirePaligOperator();
+      if (operador.error) return NextResponse.json({ error: "No autorizado." }, { status: 403 });
+      const raul = await prisma.professionalProfile.findUnique({ where: { slug: PALIG_PROFESSIONAL_SLUG }, select: { id: true } });
+      professionalId = raul?.id || "";
+    } else {
+      professionalId = String(session.professionalProfileId || "");
+      const profile = professionalId
+        ? await prisma.professionalProfile.findUnique({ where: { id: professionalId }, select: { isApproved: true } })
+        : null;
+      if (!profile?.isApproved) {
+        return NextResponse.json({ error: "El perfil profesional no está aprobado." }, { status: 403 });
+      }
+    }
     if (!professionalId) {
       return NextResponse.json({ error: "Perfil profesional no encontrado." }, { status: 403 });
-    }
-
-    const profile = await prisma.professionalProfile.findUnique({
-      where: { id: professionalId },
-      select: { isApproved: true },
-    });
-    if (!profile?.isApproved) {
-      return NextResponse.json({ error: "El perfil profesional no está aprobado." }, { status: 403 });
     }
 
     const formData = await request.formData();

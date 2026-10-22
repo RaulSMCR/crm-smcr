@@ -10,6 +10,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { FE_EMISOR, TIPO_DOC_MAP, tipoComprobanteDe } from "@/lib/fe/config";
+import { facturaImprimible, facturaPdf } from "@/lib/fe/factura-pdf";
 import { resend } from "@/lib/resend";
 import { assertFeConfig } from "@/lib/fe/config.js";
 import { persistFeDocument } from "@/lib/fe/document";
@@ -70,8 +71,10 @@ export async function sendFeEmail(invoice, { deliver } = {}) {
   const currency = invoice.currency || "CRC";
   const fmt  = new Intl.NumberFormat("es-CR", { style: "currency", currency, maximumFractionDigits: 0 });
   const total = fmt.format(Number(invoice.total));
+  // En hora de Costa Rica: Vercel corre en UTC, y una factura emitida de noche
+  // salía en el correo con el día siguiente (la 0205, del 21-oct a las 22:50).
   const date  = new Date(invoice.invoiceDate).toLocaleDateString("es-CR", {
-    year: "numeric", month: "long", day: "numeric",
+    year: "numeric", month: "long", day: "numeric", timeZone: "America/Costa_Rica",
   });
 
   const lineRows = (invoice.lines || []).map((l) => {
@@ -169,7 +172,21 @@ export async function sendFeEmail(invoice, { deliver } = {}) {
 
   // El XML firmado ES el comprobante: un resumen en HTML no sustituye la entrega.
   // Se adjunta junto al acuse de Hacienda, que es lo que prueba la aceptación.
+  // Y el PDF, que es lo que la persona imprime o presenta a su aseguradora:
+  // antes solo recibía los XML. Solo para un comprobante aceptado —un PDF de
+  // uno rechazado parecería válido—, y si no se pudiera dibujar, el correo sale
+  // igual con los XML, que son lo que tiene validez.
   const adjuntos = [];
+  if (facturaImprimible(invoice)) {
+    try {
+      adjuntos.push({
+        filename: `${documento.replace(/\s+/g, "-")}-${invoice.invoiceNumber}.pdf`,
+        content: (await facturaPdf(invoice, FE_EMISOR)).toString("base64"),
+      });
+    } catch {
+      console.error(`[FE] No se pudo generar el PDF de ${invoice.invoiceNumber}; se envían solo los XML.`);
+    }
+  }
   if (invoice.feXml) {
     adjuntos.push({
       filename: `${invoice.feNumber || invoice.invoiceNumber}.xml`,

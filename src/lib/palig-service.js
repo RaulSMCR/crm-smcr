@@ -7,6 +7,7 @@ import { descargarPlantillaPalig, guardarPalig, leerArchivoPalig } from "@/lib/p
 export const PALIG_CLAIM_SELECT = {
   id: true, appointmentId: true, invoiceId: true, professionalId: true, patientId: true,
   generatedFormUrl: true, paymentProofUrl: true, templateSnapshotUrl: true, status: true,
+  signedFormUploadedAt: true, emailSentAt: true,
   invoice: { select: { id: true, invoiceNumber: true, invoiceDate: true, feStatus: true, feNumber: true, feXml: true, status: true, total: true } },
 };
 
@@ -15,6 +16,7 @@ export function resumenPalig(claim) {
     id: claim.id, invoiceId: claim.invoiceId, invoiceNumber: claim.invoice?.invoiceNumber,
     date: claim.invoice?.invoiceDate, amount: Number(claim.invoice?.total || 0), status: claim.status,
     feStatus: claim.invoice?.feStatus,
+    signed: Boolean(claim.signedFormUploadedAt), emailSent: Boolean(claim.emailSentAt),
     invoiceReady: claim.invoice?.feStatus === "ACCEPTED" && Boolean(claim.invoice?.feNumber && claim.invoice?.feXml) && ["PAID", "OPEN"].includes(claim.invoice?.status),
   };
 }
@@ -43,6 +45,71 @@ async function servicioParaFacturar(db, patientId, professionalId) {
     select: { serviceId: true },
   });
   return asignacion?.serviceId || null;
+}
+
+/** Prepara y guarda las tres copias privadas del trámite. Nada se sobrescribe. */
+async function prepararDocumentos(patient, proof, fechaDeAtencion) {
+  const comprobante = await leerArchivoPalig(proof, { proof: true });
+  const original = await descargarPlantillaPalig(patient.insuranceTemplateUrl, patient.id);
+  const template = await validarPlantillaPalig(original);
+  const generated = await completarPalig(template, { date: fechaDeAtencion, final: true });
+  const claimId = randomUUID();
+  const base = `${claimId}/palig`;
+  return {
+    claimId,
+    templateSnapshotUrl: await guardarPalig("insurance-signed-forms", `${base}/template.pdf`, original),
+    generatedFormUrl: await guardarPalig("insurance-signed-forms", `${base}/form.pdf`, generated),
+    paymentProofUrl: await guardarPalig("insurance-signed-forms", `${base}/proof.${comprobante.extension}`, comprobante.bytes, comprobante.mime),
+  };
+}
+
+/**
+ * Formulario PALIG para un pago que YA se facturó (por ejemplo, desde pagos
+ * manuales antes de tener la plantilla). No emite otra factura: crea el trámite
+ * sobre la existente y la «fecha de atención» es la fecha de pago de esa factura.
+ */
+export async function generarFormularioDeFacturaPalig(db, { patientId, invoiceId, proof }) {
+  if (typeof invoiceId !== "string" || !invoiceId.trim() || invoiceId.length > 100) throw new PaligError("Seleccione la factura.");
+  const professional = await db.professionalProfile.findUnique({ where: { slug: PALIG_PROFESSIONAL_SLUG }, select: { id: true } });
+  const patient = await db.user.findUnique({
+    where: { id: String(patientId || "") },
+    select: { id: true, name: true, isActive: true, insuranceName: true, insuranceTemplateUrl: true, insuranceTemplateProId: true },
+  });
+  if (!professional || !patient?.isActive) throw new PaligError("Paciente no disponible para el piloto.", 404);
+
+  const invoice = await db.invoice.findUnique({ where: { id: invoiceId }, select: {
+    id: true, contactId: true, professionalId: true, invoiceType: true, status: true, paymentDate: true, total: true, appointmentId: true,
+    insuranceClaim: { select: { id: true } },
+  } });
+  if (!invoice || invoice.contactId !== patient.id || invoice.professionalId !== professional.id || invoice.invoiceType !== "CUSTOMER_INVOICE") {
+    throw new PaligError("Esa factura no es de este paciente.", 409);
+  }
+  if (invoice.status !== "PAID" || !invoice.paymentDate) throw new PaligError("La factura no tiene un pago registrado.", 409);
+  if (invoice.insuranceClaim) throw new PaligError("Esa factura ya tiene su formulario. Búsquelo en «Documentos recientes».", 409);
+
+  const valid = validarPagoPalig({ patient, professionalId: professional.id, monto: Number(invoice.total), confirmado: true });
+  if (!valid.ok) throw new PaligError(valid.message, valid.status);
+
+  // La sesión de la factura se vincula solo si ningún otro trámite la tiene.
+  const sesionLibre = invoice.appointmentId
+    && !(await db.insuranceClaim.findUnique({ where: { appointmentId: invoice.appointmentId }, select: { id: true } }));
+
+  const docs = await prepararDocumentos(patient, proof, invoice.paymentDate);
+  try {
+    await db.insuranceClaim.create({ data: {
+      id: docs.claimId, patientId: patient.id, professionalId: professional.id, invoiceId: invoice.id,
+      appointmentId: sesionLibre ? invoice.appointmentId : null, paymentDate: invoice.paymentDate, status: "PENDING_SIGNED_FORM",
+      templateSnapshotUrl: docs.templateSnapshotUrl, generatedFormUrl: docs.generatedFormUrl, paymentProofUrl: docs.paymentProofUrl,
+    } });
+  } catch (error) {
+    // invoiceId es único: un doble envío choca acá y se devuelve el que ganó.
+    if (error?.code === "P2002") {
+      const existente = await db.insuranceClaim.findUnique({ where: { invoiceId: invoice.id }, select: PALIG_CLAIM_SELECT });
+      if (existente) return existente;
+    }
+    throw error;
+  }
+  return db.insuranceClaim.findUnique({ where: { id: docs.claimId }, select: PALIG_CLAIM_SELECT });
 }
 
 /**
@@ -99,16 +166,7 @@ export async function generarPagoPalig(db, { patientId, appointmentId = null, mo
   const serviceId = cita ? null : await servicioParaFacturar(db, patientId, professional.id);
   if (!cita && !serviceId) throw new PaligError("Raúl no tiene un servicio con CABYS para facturar este pago.", 409);
 
-  const comprobante = await leerArchivoPalig(proof, { proof: true });
-  const original = await descargarPlantillaPalig(patient.insuranceTemplateUrl, patient.id);
-  const template = await validarPlantillaPalig(original);
-  const generated = await completarPalig(template, { date: fechaPago, final: true });
-
-  const claimId = randomUUID();
-  const base = `${claimId}/palig`;
-  const templateSnapshotUrl = await guardarPalig("insurance-signed-forms", `${base}/template.pdf`, original);
-  const generatedFormUrl = await guardarPalig("insurance-signed-forms", `${base}/form.pdf`, generated);
-  const paymentProofUrl = await guardarPalig("insurance-signed-forms", `${base}/proof.${comprobante.extension}`, comprobante.bytes, comprobante.mime);
+  const { claimId, templateSnapshotUrl, generatedFormUrl, paymentProofUrl } = await prepararDocumentos(patient, proof, fechaPago);
   const palig = {
     claimId, templateSnapshotUrl, generatedFormUrl, paymentProofUrl,
     sourceTemplateUrl: patient.insuranceTemplateUrl, patientName: patient.name, professionalName: professional.user.name,

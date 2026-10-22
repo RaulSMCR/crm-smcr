@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePaligOperator } from "@/lib/palig-auth";
 import { PALIG_PROFESSIONAL_SLUG, esPalig } from "@/lib/palig-policy";
 import { completarPalig, validarPlantillaPalig, PaligError } from "@/lib/palig-pdf";
-import { leerArchivoPalig, guardarPalig } from "@/lib/palig-storage";
+import { descargarPlantillaPalig, leerArchivoPalig, guardarPalig } from "@/lib/palig-storage";
 
 async function context(patientId) {
   const auth = await requirePaligOperator();
@@ -21,10 +21,18 @@ async function context(patientId) {
   return { auth, patient, professional };
 }
 
-export async function GET(_request, { params }) {
+export async function GET(request, { params }) {
   const ctx = await context((await params).patientId);
   if (ctx.error) return ctx.error;
   try {
+    // ?guardada=1: la plantilla que Raúl ya guardó, tal cual. Sin el parámetro:
+    // el formulario en blanco precargado con el perfil, para armarla.
+    if (new URL(request.url).searchParams.get("guardada") === "1") {
+      const user = await prisma.user.findUnique({ where: { id: ctx.patient.id }, select: { insuranceTemplateUrl: true } });
+      if (!user?.insuranceTemplateUrl) return NextResponse.json({ message: "Este paciente todavía no tiene plantilla guardada." }, { status: 404 });
+      const bytes = await descargarPlantillaPalig(user.insuranceTemplateUrl, ctx.patient.id);
+      return new Response(bytes, { headers: { "Content-Type": "application/pdf", "Content-Disposition": 'attachment; filename="PALIG-plantilla-guardada.pdf"', "Cache-Control": "no-store" } });
+    }
     const source = await readFile(path.join(process.cwd(), "public/forms/palig-cr-reclamo-2023.pdf"));
     const bytes = await completarPalig(source, ctx);
     return new Response(bytes, { headers: { "Content-Type": "application/pdf", "Content-Disposition": 'attachment; filename="PALIG-plantilla-editable.pdf"', "Cache-Control": "no-store" } });

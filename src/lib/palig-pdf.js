@@ -1,4 +1,5 @@
-import { PDFDocument, PDFName, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument, PDFName, StandardFonts } from "pdf-lib";
+import { facturaImprimible, facturaPdf } from "@/lib/fe/factura-pdf";
 import { PALIG_FIELDS as F } from "@/lib/palig-fields";
 import { fechaCostaRica } from "@/lib/palig-policy";
 
@@ -107,51 +108,14 @@ export async function completarPalig(bytes, { patient, professional, date = null
   return Buffer.from(await doc.save());
 }
 
-/** Representación imprimible de una factura ya aceptada; nunca un borrador fiscal. */
+/**
+ * Representación imprimible de una factura ya aceptada; nunca un borrador
+ * fiscal. Es la misma que va adjunta al correo de la factura (fe/factura-pdf):
+ * acá solo se traduce el rechazo a un mensaje para el operador del piloto.
+ */
 export async function facturaPaligPdf(invoice, issuer) {
-  if (invoice.feStatus !== "ACCEPTED" || !invoice.feXml || !invoice.feNumber || !["PAID", "OPEN"].includes(invoice.status)) {
+  if (!facturaImprimible(invoice)) {
     throw new PaligError("La factura todavía no ha sido aceptada por Hacienda. Use «Actualizar estado»; no registre otro pago.", 409);
   }
-  const doc = await PDFDocument.create();
-  const font = await doc.embedFont(StandardFonts.Helvetica);
-  let page, y;
-  const newPage = () => { page = doc.addPage([612, 792]); y = 740; };
-  newPage();
-  const write = (text, size = 11) => {
-    const words = String(text || "").replace(/\s+/g, " ").split(" ");
-    let line = "";
-    for (const word of words) {
-      const next = line ? `${line} ${word}` : word;
-      if (font.widthOfTextAtSize(next, size) > 510 && line) { lineOut(line, size); line = word; } else line = next;
-    }
-    lineOut(line, size);
-  };
-  const lineOut = (line, size) => {
-    if (y < 50) newPage();
-    page.drawText(line, { x: 48, y, size, font, color: rgb(0.1, 0.16, 0.2) }); y -= size + 9;
-  };
-  const money = (value) => `CRC ${Number(value).toLocaleString("es-CR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  if (invoice.feAmbiente !== "01") write("COMPROBANTE DE PRUEBAS - SIN VALIDEZ TRIBUTARIA", 13);
-  write("Factura electrónica", 22);
-  write(issuer.nombre, 14);
-  write(`Identificación: ${issuer.identificacion}`);
-  write(issuer.correo);
-  write(`Consecutivo: ${invoice.feNumber}`);
-  write(`Clave: ${invoice.feClave}`, 8);
-  write(`Fecha de emisión y pago: ${fechaPalig(invoice.invoiceDate)}`);
-  write(`Cliente: ${invoice.contactName}`);
-  write(`Identificación: ${invoice.contactIdNumber}`);
-  write("Medio de pago: SINPE Móvil");
-  y -= 12;
-  for (const line of invoice.lines) {
-    write(line.productName, 12);
-    if (line.description) write(line.description);
-    write(`Cantidad: ${line.quantity} | Base: ${money(line.lineSubtotal)} | Impuesto: ${money(line.taxAmount)} | Total: ${money(line.lineTotal)}`);
-  }
-  y -= 12;
-  write(`Subtotal: ${money(invoice.subtotal)}`);
-  write(`Impuestos: ${money(invoice.taxAmount)}`);
-  write(`Total pagado: ${money(invoice.total)}`, 15);
-  write("Representación del comprobante electrónico. Conserve también el XML aceptado.", 9);
-  return Buffer.from(await doc.save());
+  return facturaPdf(invoice, issuer);
 }
