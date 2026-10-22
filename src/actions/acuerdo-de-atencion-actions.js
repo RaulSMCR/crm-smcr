@@ -11,6 +11,7 @@ import { getSession, isPreviewSession, PREVIEW_BLOCKED_MESSAGE } from "@/lib/aut
 import { requireProfessionalProfileId } from "@/lib/auth-guards";
 import { crearAcuerdo, terminarAcuerdo } from "@/lib/acuerdos-de-atencion-server";
 import { instanteDeHoraCR } from "@/lib/appointment-slots";
+import { marcarSeguroPalig } from "@/lib/seguro-palig";
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 const HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -60,9 +61,20 @@ export async function crearAcuerdoAction(datos = {}) {
     });
     if (!resultado.ok) return { success: false, error: resultado.message };
 
+    // Después de crear el acuerdo y no antes: si el alta falla, el paciente no
+    // queda marcado con un seguro por un formulario que no se guardó.
+    let seguroMarcado = null;
+    if (datos.seguroPalig) {
+      const marca = await marcarSeguroPalig(prisma, datos.patientId).catch(() => ({ ok: false }));
+      seguroMarcado = marca.ok;
+      revalidatePath("/panel/palig");
+      revalidatePath("/panel/admin/seguros");
+    }
+
     revalidarAgenda();
     return {
       success: true,
+      seguroMarcado,
       creadas: resultado.creadas,
       omitidas: resultado.omitidas.map((d) => d.toISOString()),
       googlePublicado: Boolean(resultado.google?.publicado),

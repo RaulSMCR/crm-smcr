@@ -34,6 +34,7 @@ function NuevoAcuerdoModal({ patients, services, locations, onClose, onCreado })
     periodicidad: PERIODICIDADES.WEEKLY,
     precioAcordado: "40000",
     notas: "",
+    seguroPalig: false,
   });
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -114,9 +115,22 @@ function NuevoAcuerdoModal({ patients, services, locations, onClose, onCreado })
           </label>
           <label className="block">
             <span className={etiqueta}>Notas (opcional)</span>
-            <input type="text" value={form.notas} onChange={cambiar("notas")} className={campo} placeholder="Ej.: paciente con seguro PALIG" />
+            <input type="text" value={form.notas} onChange={cambiar("notas")} className={campo} placeholder="Ej.: viene derivado de…" />
           </label>
         </div>
+
+        <label className="flex items-start gap-2 text-sm text-slate-800">
+          <input
+            type="checkbox"
+            checked={form.seguroPalig}
+            onChange={(e) => setForm((s) => ({ ...s, seguroPalig: e.target.checked }))}
+            className="mt-1"
+          />
+          <span>
+            <strong>Paciente con seguro PALIG.</strong> Queda registrado con ese seguro en su perfil, y sus sesiones
+            aparecen en el piloto PALIG para generar la factura y el formulario.
+          </span>
+        </label>
 
         {primera && (
           <div className="rounded-xl border-l-4 border-blue-600 bg-slate-50 px-4 py-2 text-sm text-slate-800">
@@ -249,7 +263,10 @@ export default function AcuerdosDeAtencionSection({ acuerdos = [], patients = []
       partes.push(`${r.omitidas.length} se omitieron por chocar con otra cita: revíselas en la agenda.`);
     }
     if (!r.googlePublicado) partes.push("Google no respondió; la serie se publica en la próxima pasada diaria.");
-    avisar(partes.join(" "), r.omitidas?.length || !r.googlePublicado ? "info" : "success");
+    if (r.seguroMarcado === true) partes.push("El paciente quedó registrado con seguro PALIG.");
+    if (r.seguroMarcado === false) partes.push("No se pudo registrar el seguro PALIG: márquelo en Admin → Seguros.");
+    const conSalvedad = r.omitidas?.length || !r.googlePublicado || r.seguroMarcado === false;
+    avisar(partes.join(" "), conSalvedad ? "info" : "success");
     router.refresh();
   }
 

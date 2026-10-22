@@ -10,6 +10,7 @@ const privateFileUrl = (value) => {
 };
 import { getSession } from "@/actions/auth-actions";
 import InsurancePatientsManager from "@/components/admin/InsurancePatientsManager";
+import { MarcarPacientePalig, QuitarSeguro } from "@/components/admin/SeguroPaligControls";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -19,7 +20,7 @@ export default async function AdminSegurosPage() {
   if (!session) redirect("/ingresar");
   if (session.role !== "ADMIN") redirect("/panel");
 
-  const [insuredPatients, activeClaims] = await Promise.all([
+  const [insuredPatients, activeClaims, sinSeguro] = await Promise.all([
     prisma.user.findMany({
       where: { hasInsurance: true, useInsuranceForPayment: true },
       orderBy: { name: "asc" },
@@ -44,6 +45,14 @@ export default async function AdminSegurosPage() {
         professional: { select: { user: { select: { name: true } } } },
         appointment: { select: { date: true } },
       },
+    }),
+    // Candidatos para marcar con seguro PALIG: pacientes activos que todavía
+    // no figuran como asegurados.
+    prisma.user.findMany({
+      where: { role: "USER", isActive: true, NOT: { hasInsurance: true, useInsuranceForPayment: true } },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, email: true },
+      take: 500,
     }),
   ]);
 
@@ -70,6 +79,10 @@ export default async function AdminSegurosPage() {
             Pacientes con seguro médico ({insuredPatients.length})
           </h2>
 
+          <div className="mb-4">
+            <MarcarPacientePalig pacientes={sinSeguro} />
+          </div>
+
           {insuredPatients.length === 0 ? (
             <p className="text-sm text-slate-500 bg-white rounded-2xl border border-slate-200 p-6">
               Ningún paciente ha registrado seguro médico todavía.
@@ -93,9 +106,12 @@ export default async function AdminSegurosPage() {
                           </p>
                         )}
                       </div>
-                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${status.color}`}>
-                        {status.label}
-                      </span>
+                      <div className="flex flex-col items-end gap-2">
+                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${status.color}`}>
+                          {status.label}
+                        </span>
+                        <QuitarSeguro patientId={p.id} patientName={p.name} />
+                      </div>
                     </div>
 
                     <div className="flex flex-wrap gap-3 text-xs text-slate-500">

@@ -99,7 +99,7 @@ export default function PaligPilot({ appointments, patients, recent, today, isAd
             {appointments.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
           </select>
         </label>
-        {!appointments.length && <p className="text-sm text-slate-600">No hay citas de hoy pendientes de pago con pacientes PALIG. Registre la cita en la agenda de Raúl si todavía no está en el sistema.</p>}
+        {!appointments.length && <p className="text-sm text-slate-600">No hay atenciones de hoy para elegir. Aparecen aquí las citas de Raúl de hoy que ya empezaron, sin pago registrado, de pacientes cuyo perfil dice que su seguro es PALIG. Si falta alguna, revise que la cita esté en la agenda de Raúl y que el paciente haya indicado su seguro en su perfil.</p>}
         {appointment && !appointment.templateReady && <p className="text-sm text-amber-800">Primero guarde la plantilla preparada por Raúl en la sección de abajo.</p>}
         <label className="block text-sm font-medium">Monto recibido, IVA incluido (CRC)
           <input type="number" required min="0.01" max="99999999.99" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className={inputClass} />
@@ -127,6 +127,8 @@ export default function PaligPilot({ appointments, patients, recent, today, isAd
               {patients.map((p) => <option key={p.id} value={p.id}>{p.name}{p.templateReady ? " · plantilla guardada" : " · sin plantilla"}</option>)}
             </select>
           </label>
+          {/* Sin esto la lista vacía parecía un menú roto. */}
+          {!patients.length && <p className="text-sm text-slate-600">Todavía no hay pacientes para elegir. Aparecen aquí quienes tienen al menos una cita con Raúl y, en su perfil, marcaron que tienen seguro e indicaron PALIG (o Pan American Life) como aseguradora.</p>}
           {patient && <div className="flex flex-wrap gap-4 text-sm text-blue-700">
             <a className="underline" href={`/api/palig/templates/${patient.id}`} target="_blank" rel="noopener noreferrer">Descargar formulario con datos del perfil</a>
             {patient.templateReady && <a className="underline" href={patient.templateUrl} target="_blank" rel="noopener noreferrer">Ver plantilla guardada</a>}
