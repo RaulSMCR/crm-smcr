@@ -82,7 +82,7 @@ function crearDeps() {
   };
 }
 
-// Miércoles 22-oct-2026, 10:00 CR. La primera sesión, el miércoles 28 a las 16:00 CR.
+// Jueves 22-oct-2026, 10:00 CR. La primera sesión, el miércoles 28 a las 16:00 CR.
 const AHORA = new Date("2026-10-22T16:00:00Z");
 const DATOS = {
   professionalId: "pro-raul", patientId: "pac-1", serviceId: "svc-1", locationId: "loc-1",
@@ -123,6 +123,22 @@ describe("crearAcuerdo", () => {
     await crearAcuerdo(db, { ...DATOS, inicio: "2026-10-23T22:00:00Z" }, { ahora: AHORA, deps });
     expect(deps.scheduleReminder).toHaveBeenCalledTimes(2);
     expect(deps.scheduleReminder.mock.calls.map((c) => c[0].type)).toEqual(["24h", "1h"]);
+  });
+
+  it("con la primera sesión hoy ya pasada, la registra efectuada y sigue confirmando las próximas", async () => {
+    // Miércoles 21-oct a las 21:48 CR; la sesión fue a las 16:00 CR.
+    const noche = new Date("2026-10-22T03:48:00Z");
+    const r = await crearAcuerdo(db, { ...DATOS, inicio: "2026-10-21T22:00:00Z" }, { ahora: noche, deps });
+
+    expect(r.ok).toBe(true);
+    const [hoy, proxima] = db.tablas.citas;
+    expect(hoy).toMatchObject({ status: "COMPLETED", paymentStatus: "UNPAID", pricePaid: 40000 });
+    expect(hoy.date.toISOString()).toBe("2026-10-21T22:00:00.000Z");
+    expect(proxima).toMatchObject({ status: "CONFIRMED" });
+    expect(proxima.date.toISOString()).toBe("2026-10-28T22:00:00.000Z");
+    // A la sesión pasada no se le programa ningún recordatorio.
+    const recordadas = deps.scheduleReminder.mock.calls.map((c) => c[0].appointmentId);
+    expect(recordadas).not.toContain(hoy.id);
   });
 
   it("solo lo puede usar el profesional gestionado", async () => {

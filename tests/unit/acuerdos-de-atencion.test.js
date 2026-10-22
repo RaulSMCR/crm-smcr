@@ -6,6 +6,7 @@ import {
   SLUG_QUE_GESTIONA_ACUERDOS,
   diaQueProgramaLaTarea,
   diasQueProgramaLaCreacion,
+  estadoInicialDeSesion,
   idDeSesionEnGoogle,
   problemaDeAcuerdo,
   puedeGestionarAcuerdos,
@@ -43,9 +44,15 @@ describe("problemaDeAcuerdo", () => {
     expect(problemaDeAcuerdo(valido, ahora)).toBeNull();
   });
 
+  it("acepta una primera sesión que ya ocurrió, hasta 7 días atrás", () => {
+    // Javier: la primera sesión fue a las 16:00 del mismo día en que se cargó.
+    expect(problemaDeAcuerdo({ ...valido, inicio: "2026-10-21T22:00:00Z" }, new Date("2026-10-22T03:48:00Z"))).toBeNull();
+    expect(problemaDeAcuerdo({ ...valido, inicio: "2026-10-15T12:00:00Z" }, ahora)).toBeNull();
+  });
+
   it("rechaza lo incompleto o incoherente", () => {
     expect(problemaDeAcuerdo({ ...valido, periodicidad: "DAILY" }, ahora)).toMatch(/periodicidad/);
-    expect(problemaDeAcuerdo({ ...valido, inicio: "2026-10-01T22:00:00Z" }, ahora)).toMatch(/futuro/);
+    expect(problemaDeAcuerdo({ ...valido, inicio: "2026-10-01T22:00:00Z" }, ahora)).toMatch(/7 días/);
     expect(problemaDeAcuerdo({ ...valido, duracionMin: 0 }, ahora)).toMatch(/duración/);
     expect(problemaDeAcuerdo({ ...valido, precioAcordado: 0 }, ahora)).toMatch(/precio/);
     expect(problemaDeAcuerdo({ ...valido, fin: "2026-10-01T00:00:00Z" }, ahora)).toMatch(/fin/);
@@ -138,6 +145,14 @@ describe("ventanaPendiente", () => {
 
   it("un acuerdo terminado no genera", () => {
     expect(ventanaPendiente({ ...activo, estado: ESTADOS_ACUERDO.TERMINADO }, ahora)).toBeNull();
+  });
+});
+
+describe("estadoInicialDeSesion", () => {
+  const ahora = new Date("2026-10-22T03:48:00Z");
+  it("lo que ya empezó queda efectuado; lo que viene, confirmado", () => {
+    expect(estadoInicialDeSesion(new Date("2026-10-21T22:00:00Z"), ahora)).toBe("COMPLETED");
+    expect(estadoInicialDeSesion(new Date("2026-10-28T22:00:00Z"), ahora)).toBe("CONFIRMED");
   });
 });
 

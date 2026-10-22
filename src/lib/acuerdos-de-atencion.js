@@ -52,6 +52,21 @@ export function puedeGestionarAcuerdos(professionalSlug) {
 
 const DIA_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * Cuánto hacia atrás puede empezar un acuerdo.
+ *
+ * Raúl pidió (2026-10-21, hora CR) poder registrar una primera sesión que ya ocurrió: la
+ * de Javier fue ese mismo día a las 16:00. Las sesiones pasadas se crean como
+ * efectuadas (COMPLETED), así que un tope evita que una fecha de inicio vieja
+ * fabrique semanas de historia que nadie revisó.
+ */
+export const DIAS_HACIA_ATRAS_PERMITIDOS = 7;
+
+/** Una sesión que ya empezó se registra como efectuada; las demás, confirmadas. */
+export function estadoInicialDeSesion(start, ahora = new Date()) {
+  return new Date(start).getTime() <= ahora.getTime() ? "COMPLETED" : "CONFIRMED";
+}
+
 function hhmm(minutos) {
   return `${String(Math.floor(minutos / 60)).padStart(2, "0")}:${String(minutos % 60).padStart(2, "0")}`;
 }
@@ -72,7 +87,9 @@ export function problemaDeAcuerdo(datos = {}, ahora = new Date()) {
   }
   const inicio = new Date(datos.inicio);
   if (Number.isNaN(inicio.getTime())) return "La fecha y hora de la primera sesión no es válida.";
-  if (inicio.getTime() <= ahora.getTime()) return "La primera sesión tiene que ser en el futuro.";
+  if (inicio.getTime() < ahora.getTime() - DIAS_HACIA_ATRAS_PERMITIDOS * DIA_MS) {
+    return `La primera sesión no puede ser de hace más de ${DIAS_HACIA_ATRAS_PERMITIDOS} días.`;
+  }
 
   const duracion = Number(datos.duracionMin);
   if (!Number.isInteger(duracion) || duracion < 15 || duracion > 240) {
@@ -205,13 +222,17 @@ export function diasQueProgramaLaCreacion(ahora = new Date()) {
 }
 
 /**
- * Qué tramo hay que generar ahora: desde lo último generado (o el inicio, o
- * ahora) hasta SEMANAS_GENERADAS hacia adelante. Null si no hay nada que hacer.
+ * Qué tramo hay que generar ahora: desde lo último generado (o el inicio)
+ * hasta SEMANAS_GENERADAS hacia adelante. Null si no hay nada que hacer.
+ *
+ * La primera vez arranca en el inicio aunque ya haya pasado, para registrar la
+ * sesión que dio origen al acuerdo (ver DIAS_HACIA_ATRAS_PERMITIDOS). Después
+ * `generadoHasta` queda siempre semanas adelante, así que nunca vuelve atrás.
  */
 export function ventanaPendiente(acuerdo, ahora = new Date()) {
   if (acuerdo.estado !== ESTADOS_ACUERDO.ACTIVO) return null;
   const hasta = new Date(ahora.getTime() + SEMANAS_GENERADAS * 7 * DIA_MS);
-  const candidatos = [new Date(acuerdo.inicio).getTime(), ahora.getTime()];
+  const candidatos = [new Date(acuerdo.inicio).getTime()];
   if (acuerdo.generadoHasta) candidatos.push(new Date(acuerdo.generadoHasta).getTime() + 1);
   const desde = new Date(Math.max(...candidatos));
   if (desde.getTime() >= hasta.getTime()) return null;

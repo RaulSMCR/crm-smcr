@@ -8,7 +8,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/ToastProvider";
 import { crearAcuerdoAction, terminarAcuerdoAction } from "@/actions/acuerdo-de-atencion-actions";
-import { ETIQUETA_PERIODICIDAD, PERIODICIDADES } from "@/lib/acuerdos-de-atencion";
+import { DIAS_HACIA_ATRAS_PERMITIDOS, ETIQUETA_PERIODICIDAD, PERIODICIDADES } from "@/lib/acuerdos-de-atencion";
 import { formatSelectedLabel, instanteDeHoraCR } from "@/lib/appointment-slots";
 import { DEFAULT_TZ } from "@/lib/timezone";
 
@@ -136,8 +136,15 @@ function NuevoAcuerdoModal({ patients, services, locations, onClose, onCreado })
           <div className="rounded-xl border-l-4 border-blue-600 bg-slate-50 px-4 py-2 text-sm text-slate-800">
             Primera sesión: <strong>{formatSelectedLabel(primera)}</strong> (hora de Costa Rica).{" "}
             {ETIQUETA_PERIODICIDAD[form.periodicidad]}, sin fecha de fin.
+            {primera.getTime() <= Date.now() && (
+              <> Esa sesión ya ocurrió: queda registrada como <strong>efectuada</strong> y pendiente de cobro.</>
+            )}
           </div>
         )}
+        <p className="text-xs text-slate-500">
+          La primera sesión puede ser una que ya ocurrió, de hasta {DIAS_HACIA_ATRAS_PERMITIDOS} días atrás: las sesiones
+          pasadas se registran como efectuadas.
+        </p>
 
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           Al crearlo, el paciente recibe <strong>una sola invitación</strong> de Google con el enlace de Meet. Si ya tenía
@@ -258,7 +265,7 @@ export default function AcuerdosDeAtencionSection({ acuerdos = [], patients = []
 
   function alCrear(r) {
     setAbierto(false);
-    const partes = [`Acuerdo creado: ${r.creadas} sesión(es) agendada(s).`];
+    const partes = [`Acuerdo creado: ${r.creadas} sesión(es) registrada(s).`];
     if (r.omitidas?.length) {
       partes.push(`${r.omitidas.length} se omitieron por chocar con otra cita: revíselas en la agenda.`);
     }
