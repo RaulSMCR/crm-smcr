@@ -21,7 +21,16 @@ const nextConfig = {
   // /nosotros pasó a ser /profesionales (S9). La URL vieja estaba en el sitemap
   // y probablemente indexada, así que redirige en vez de desaparecer.
   async redirects() {
-    return [{ source: "/nosotros", destination: "/profesionales", permanent: true }];
+    return [
+      { source: "/nosotros", destination: "/profesionales", permanent: true },
+      // Rutas cortas que circulan como si fueran páginas (rutas visibles de los
+      // anuncios) y nunca existieron. Llevan al tema del hub de Raúl.
+      { source: "/pareja/psicologo", destination: "/raul-olmedo-evans/conflictos-de-pareja", permanent: true },
+      { source: "/psicologo/en-linea", destination: "/raul-olmedo-evans", permanent: true },
+      { source: "/duelo/psicologo", destination: "/raul-olmedo-evans/duelo", permanent: true },
+      { source: "/panico/psicologo", destination: "/raul-olmedo-evans/ataque-de-panico", permanent: true },
+      { source: "/estres/psicologo", destination: "/raul-olmedo-evans/estres-laboral-y-burnout", permanent: true },
+    ];
   },
 
   outputFileTracingIncludes: {
