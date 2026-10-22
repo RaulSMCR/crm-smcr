@@ -38,9 +38,11 @@ function Documents({ initial }) {
   </article>;
 }
 
-export default function PaligPilot({ appointments, patients, recent, today, isAdmin }) {
+export default function PaligPilot({ sessions, patients, recent, today, isAdmin }) {
   const router = useRouter();
-  const [appointmentId, setAppointmentId] = useState("");
+  // El eje es el comprobante: se elige el paciente; la sesión es opcional.
+  const [payerId, setPayerId] = useState("");
+  const [sessionId, setSessionId] = useState("");
   const [amount, setAmount] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [proof, setProof] = useState(null);
@@ -52,20 +54,22 @@ export default function PaligPilot({ appointments, patients, recent, today, isAd
   const [templateMessage, setTemplateMessage] = useState("");
   const templateInput = useRef(null);
   const proofInput = useRef(null);
-  const appointment = appointments.find((a) => a.id === appointmentId);
+  const payer = patients.find((p) => p.id === payerId);
+  const payerSessions = sessions.filter((s) => s.patientId === payerId);
   const patient = patients.find((p) => p.id === patientId);
 
   async function generate(e) {
     e.preventDefault();
-    if (busy || !proof || !confirmed) return;
+    if (busy || !proof || !confirmed || !payer?.templateReady) return;
     setBusy(true); setMessage(""); setResult(null);
     const fd = new FormData();
-    fd.set("appointmentId", appointmentId); fd.set("monto", amount); fd.set("confirmado", "true"); fd.set("proof", proof);
+    fd.set("patientId", payerId); fd.set("monto", amount); fd.set("confirmado", "true"); fd.set("proof", proof);
+    if (sessionId) fd.set("appointmentId", sessionId);
     try {
       const response = await fetch("/api/palig", { method: "POST", body: fd });
       const json = await response.json();
       if (!response.ok) throw new Error(json.message || "No se pudo completar la operación.");
-      setResult(json); setConfirmed(false); setProof(null); setAppointmentId(""); setAmount("");
+      setResult(json); setConfirmed(false); setProof(null); setPayerId(""); setSessionId(""); setAmount("");
       if (proofInput.current) proofInput.current.value = "";
       router.refresh();
     } catch (error) { setMessage(error.message || "Se perdió la conexión. Actualice para comprobar si los documentos ya se generaron."); }
@@ -93,14 +97,23 @@ export default function PaligPilot({ appointments, patients, recent, today, isAd
       <h2 className="text-xl font-bold">Factura y formulario PALIG</h2>
       <p className="text-sm text-slate-600">Profesional: <strong>Raúl Olmedo</strong> · Pago: <strong>SINPE Móvil</strong> · Fecha: <strong>{date(`${today}T12:00:00-06:00`)}</strong></p>
       <fieldset disabled={busy} className="space-y-4">
-        <label className="block text-sm font-medium">Paciente y atención de hoy
-          <select required value={appointmentId} onChange={(e) => { const a = appointments.find((item) => item.id === e.target.value); setAppointmentId(e.target.value); setAmount(a ? String(a.amount) : ""); setConfirmed(false); }} className={inputClass}>
-            <option value="">Seleccione la atención</option>
-            {appointments.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
+        <label className="block text-sm font-medium">Paciente que pagó
+          <select required value={payerId} onChange={(e) => { setPayerId(e.target.value); setSessionId(""); setConfirmed(false); }} className={inputClass}>
+            <option value="">Seleccione el paciente</option>
+            {patients.map((p) => <option key={p.id} value={p.id}>{p.name}{p.templateReady ? "" : " · falta plantilla"}</option>)}
           </select>
         </label>
-        {!appointments.length && <p className="text-sm text-slate-600">No hay atenciones de hoy para elegir. Aparecen aquí las citas de Raúl de hoy que ya empezaron, sin pago registrado, de pacientes cuyo perfil dice que su seguro es PALIG. Si falta alguna, revise que la cita esté en la agenda de Raúl y que el paciente haya indicado su seguro en su perfil.</p>}
-        {appointment && !appointment.templateReady && <p className="text-sm text-amber-800">Primero guarde la plantilla preparada por Raúl en la sección de abajo.</p>}
+        {!patients.length && <p className="text-sm text-slate-600">Todavía no hay pacientes para elegir. Aparecen aquí quienes tienen al menos una cita con Raúl y figuran con seguro PALIG (márquelo en Admin → Seguros o al crear su acuerdo de atención).</p>}
+        {payer && !payer.templateReady && <p className="text-sm text-amber-800">Primero guarde la plantilla preparada por Raúl en la sección de abajo.</p>}
+        {payer && (
+          <label className="block text-sm font-medium">Sesión que queda pagada (opcional)
+            <select value={sessionId} onChange={(e) => { const s = payerSessions.find((item) => item.id === e.target.value); setSessionId(e.target.value); if (s) setAmount(String(s.amount)); }} className={inputClass}>
+              <option value="">Ninguna: solo registrar el pago</option>
+              {payerSessions.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+            </select>
+            <span className="mt-1 block text-xs text-slate-500">La factura y el formulario salen igual con la fecha de hoy. Elegir una sesión solo la marca como pagada en la agenda.</span>
+          </label>
+        )}
         <label className="block text-sm font-medium">Monto recibido, IVA incluido (CRC)
           <input type="number" required min="0.01" max="99999999.99" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className={inputClass} />
         </label>
@@ -108,17 +121,17 @@ export default function PaligPilot({ appointments, patients, recent, today, isAd
           <input ref={proofInput} type="file" required accept="application/pdf,image/jpeg,image/png" onChange={(e) => setProof(e.target.files?.[0] || null)} className={inputClass} />
           <span className="mt-1 block text-xs text-slate-500">PDF, JPG o PNG, hasta 4 MB. Compruebe que el monto y la fecha coincidan con el pago.</span>
         </label>
-        <label className="flex items-start gap-2 text-sm"><input type="checkbox" required checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="mt-1" />Confirmo que la atención se realizó hoy y que recibí hoy este monto por SINPE Móvil. El sistema marcará la cita como efectuada y pagada.</label>
-        <button type="submit" className={buttonClass} disabled={!appointment?.templateReady || !proof || !confirmed || busy}>{busy ? "Procesando…" : "Subir comprobante y generar ambos documentos"}</button>
+        <label className="flex items-start gap-2 text-sm"><input type="checkbox" required checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="mt-1" />Confirmo que recibí hoy este monto por SINPE Móvil. La factura y la fecha de atención del formulario quedan con la fecha de hoy.</label>
+        <button type="submit" className={buttonClass} disabled={!payer?.templateReady || !proof || !confirmed || busy}>{busy ? "Procesando…" : "Subir comprobante y generar ambos documentos"}</button>
       </fieldset>
-      <p className="text-xs text-slate-500">La factura se envía a Hacienda y se entrega por el correo habitual cuando es aceptada. PALIG queda listo para revisar y firmar. No se modifica la fecha de la cita.</p>
+      <p className="text-xs text-slate-500">La factura se envía a Hacienda y se entrega por el correo habitual cuando es aceptada. El formulario conserva todo lo que Raúl escribió en la plantilla; el sistema solo completa la fecha de atención.</p>
       {message && <p role="alert" className="text-sm text-red-700">{message}</p>}
     </form>
     {result && <div role="status"><Documents initial={result} key={result.id} /></div>}
 
     <details className="rounded-2xl border border-slate-200 bg-white p-6">
       <summary className="cursor-pointer text-lg font-semibold">Preparar o actualizar una plantilla por paciente</summary>
-      <p className="mt-3 text-sm text-slate-600">Descargue el PDF editable, complete los datos del seguro y las secciones clínicas con Raúl, y guárdelo conservando los campos editables. Deje vacías las firmas y la fecha de atención. No lo imprima ni lo escanee como plantilla.</p>
+      <p className="mt-3 text-sm text-slate-600">Descargue el PDF editable, complételo con los datos que deben figurar en cada formulario y guárdelo conservando los campos editables (no lo imprima ni lo escanee). Se guarda tal como lo sube; la fecha de atención la completa el sistema con la fecha de cada pago.</p>
       <form onSubmit={saveTemplate} className="mt-4 space-y-4">
         <fieldset disabled={busy} className="space-y-4">
           <label className="block text-sm font-medium">Paciente
@@ -134,7 +147,7 @@ export default function PaligPilot({ appointments, patients, recent, today, isAd
             {patient.templateReady && <a className="underline" href={patient.templateUrl} target="_blank" rel="noopener noreferrer">Ver plantilla guardada</a>}
           </div>}
           <label className="block text-sm font-medium">Plantilla completada por Raúl<input ref={templateInput} type="file" required accept="application/pdf" className={inputClass} /></label>
-          <label className="flex items-start gap-2 text-sm"><input className="mt-1" required type="checkbox" checked={templateConfirmed} onChange={(e) => setTemplateConfirmed(e.target.checked)} />Confirmo que Raúl completó y revisó los datos, y que la plantilla no contiene firmas ni fechas de atención.</label>
+          <label className="flex items-start gap-2 text-sm"><input className="mt-1" required type="checkbox" checked={templateConfirmed} onChange={(e) => setTemplateConfirmed(e.target.checked)} />Confirmo que Raúl completó y revisó los datos de la plantilla.</label>
           <button type="submit" disabled={busy || !patientId || !templateConfirmed} className={buttonClass}>Guardar plantilla</button>
         </fieldset>
         {templateMessage && <p role="status" className="text-sm">{templateMessage}</p>}

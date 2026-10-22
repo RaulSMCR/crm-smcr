@@ -2,7 +2,7 @@ import { beforeEach, describe, it, expect, vi } from "vitest";
 const m = vi.hoisted(() => ({ auth: vi.fn(), generate: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), submit: vi.fn(), deliveries: vi.fn(), signed: vi.fn() }));
 vi.mock("@/lib/palig-auth", () => ({ requirePaligOperator: m.auth }));
 vi.mock("@/lib/prisma", () => ({ prisma: { insuranceClaim: { findUnique: m.findUnique, findFirst: m.findFirst } } }));
-vi.mock("@/lib/palig-service", async (original) => ({ ...await original(), generarAtencionPalig: m.generate }));
+vi.mock("@/lib/palig-service", async (original) => ({ ...await original(), generarPagoPalig: m.generate }));
 vi.mock("@/lib/fe/submit", () => ({ submitInvoiceToFe: m.submit }));
 vi.mock("@/lib/payment-deliveries", () => ({ processPaymentDeliveries: m.deliveries }));
 vi.mock("@/lib/storage", async (original) => ({ ...await original(), getSignedUrl: m.signed }));
@@ -26,7 +26,7 @@ describe("rutas del piloto PALIG", () => {
   });
   it("si Hacienda falla devuelve el trámite creado y permite reintentar solo la emisión", async () => {
     m.submit.mockRejectedValue(new Error("private credential error"));
-    const fd = new FormData(); fd.set("appointmentId", "a1"); fd.set("monto", "30000"); fd.set("confirmado", "true");
+    const fd = new FormData(); fd.set("patientId", "u1"); fd.set("appointmentId", "a1"); fd.set("monto", "30000"); fd.set("confirmado", "true");
     const response = await POST(new Request("http://localhost/api/palig", { method: "POST", body: fd }));
     expect(response.status).toBe(201);
     expect(await response.json()).toMatchObject({ invoiceId: "i1", invoiceReady: false });

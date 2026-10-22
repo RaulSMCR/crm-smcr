@@ -1,7 +1,7 @@
 import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePaligOperator } from "@/lib/palig-auth";
-import { generarAtencionPalig, PALIG_CLAIM_SELECT, resumenPalig } from "@/lib/palig-service";
+import { generarPagoPalig, PALIG_CLAIM_SELECT, resumenPalig } from "@/lib/palig-service";
 import { PaligError } from "@/lib/palig-pdf";
 import { submitInvoiceToFe } from "@/lib/fe/submit";
 import { processPaymentDeliveries } from "@/lib/payment-deliveries";
@@ -14,8 +14,10 @@ export async function POST(request) {
   if (auth.error) return auth.error;
   try {
     const fd = await request.formData();
-    const claim = await generarAtencionPalig(prisma, {
-      appointmentId: fd.get("appointmentId"), monto: Number(fd.get("monto")), confirmado: fd.get("confirmado") === "true",
+    // La sesión es opcional: el eje es el comprobante (ver generarPagoPalig).
+    const claim = await generarPagoPalig(prisma, {
+      patientId: fd.get("patientId"), appointmentId: fd.get("appointmentId") || null,
+      monto: Number(fd.get("monto")), confirmado: fd.get("confirmado") === "true",
       proof: fd.get("proof"), userId: auth.userId,
     });
     // La factura ya existe. Un fallo de Hacienda no se convierte en error del

@@ -18,10 +18,12 @@ export default async function PaligPage() {
   let appointments, patients, claims;
   try {
     [appointments, patients, claims] = await Promise.all([
+      // Sesiones que el pago puede dejar pagadas (opcional): ya ocurridas, sin
+      // pago ni trámite, de los últimos 90 días.
       prisma.appointment.findMany({
-        where: { professional, date: { gte: new Date(`${today}T00:00:00-06:00`), lte: now }, paymentStatus: "UNPAID", status: { in: ["PENDING", "CONFIRMED", "COMPLETED"] }, insuranceClaim: null },
-        select: { id: true, date: true, professionalId: true, pricePaid: true, service: { select: { title: true, price: true } }, patient: { select: { name: true, insuranceName: true, insuranceTemplateUrl: true, insuranceTemplateProId: true } } },
-        orderBy: { date: "asc" },
+        where: { professional, date: { gte: new Date(now.getTime() - 90 * 24 * 3600_000), lte: now }, paymentStatus: "UNPAID", status: { in: ["PENDING", "CONFIRMED", "COMPLETED"] }, insuranceClaim: null },
+        select: { id: true, date: true, patientId: true, pricePaid: true, service: { select: { title: true, price: true } }, patient: { select: { insuranceName: true } } },
+        orderBy: { date: "desc" },
       }),
       prisma.user.findMany({
         where: { isActive: true, appointments: { some: { professional } } },
@@ -39,12 +41,11 @@ export default async function PaligPage() {
     return <div className="mx-auto max-w-3xl p-8"><h1 className="text-2xl font-bold">Piloto PALIG</h1><p className="mt-4">El piloto está pendiente de activación. La configuración debe completarse antes de registrar pagos aquí.</p></div>;
   }
   return <div className="mx-auto max-w-4xl space-y-6 p-6 md:p-8">
-    <header><Link className="text-sm text-blue-700 underline" href={auth.isAdmin ? "/panel/admin/contabilidad" : "/panel/profesional"}>Volver al panel</Link><h1 className="mt-3 text-3xl font-bold">Pagos y seguros · Raúl Olmedo</h1><p className="mt-2 text-slate-600">Piloto PALIG. Seleccione la atención, revise el monto y adjunte el comprobante de hoy.</p></header>
+    <header><Link className="text-sm text-blue-700 underline" href={auth.isAdmin ? "/panel/admin/contabilidad" : "/panel/profesional"}>Volver al panel</Link><h1 className="mt-3 text-3xl font-bold">Pagos y seguros · Raúl Olmedo</h1><p className="mt-2 text-slate-600">Piloto PALIG. Elija el paciente, adjunte el comprobante SINPE de hoy y el sistema emite la factura y el formulario con la fecha de hoy.</p></header>
     <PaligPilot today={today} isAdmin={auth.isAdmin}
-      appointments={appointments.filter((a) => esPalig(a.patient.insuranceName)).map((a) => ({
-        id: a.id, amount: Number(a.pricePaid ?? a.service?.price ?? 0),
-        label: `${a.patient.name} · ${a.date.toLocaleTimeString("es-CR", { timeZone: "America/Costa_Rica", hour: "2-digit", minute: "2-digit" })} · ${a.service?.title || "Consulta"}`,
-        templateReady: Boolean(a.patient.insuranceTemplateUrl && a.patient.insuranceTemplateProId === a.professionalId),
+      sessions={appointments.filter((a) => esPalig(a.patient.insuranceName)).map((a) => ({
+        id: a.id, patientId: a.patientId, amount: Number(a.pricePaid ?? a.service?.price ?? 0),
+        label: `${a.date.toLocaleDateString("es-CR", { timeZone: "America/Costa_Rica", weekday: "short", day: "numeric", month: "short" })} ${a.date.toLocaleTimeString("es-CR", { timeZone: "America/Costa_Rica", hour: "2-digit", minute: "2-digit" })} · ${a.service?.title || "Consulta"}`,
       }))}
       patients={patients.filter((p) => esPalig(p.insuranceName)).map((p) => ({
         id: p.id, name: p.name,

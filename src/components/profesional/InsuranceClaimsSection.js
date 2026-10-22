@@ -108,8 +108,17 @@ function SignedFormUploader({ claim, onDone }) {
         const json = await res.json();
         if (!res.ok) {
           setMessage({ type: "error", text: json.error || "Error al subir la planilla." });
+        } else if (json.emailSent) {
+          setMessage({
+            type: "success",
+            text: json.facturaAdjunta
+              ? "Formulario firmado y factura enviados al correo del paciente."
+              : "Formulario firmado enviado al correo del paciente. La factura le llega aparte cuando Hacienda la acepte.",
+          });
+          onDone?.();
         } else {
-          setMessage({ type: "success", text: "Planilla enviada al paciente." });
+          // El archivo quedó guardado; lo que falló es el correo.
+          setMessage({ type: "error", text: "El formulario quedó guardado, pero el correo al paciente no se pudo enviar. Vuelva a subirlo para reintentar." });
           onDone?.();
         }
       } catch {
@@ -151,7 +160,7 @@ function SignedFormUploader({ claim, onDone }) {
         <input
           ref={fileRef}
           type="file"
-          accept="application/pdf"
+          accept="application/pdf,image/jpeg,image/png"
           className="text-xs text-blue-800 file:mr-2 file:rounded-lg file:border-0 file:bg-blue-100 file:px-3 file:py-1 file:text-xs file:font-medium hover:file:bg-blue-200"
         />
         <button

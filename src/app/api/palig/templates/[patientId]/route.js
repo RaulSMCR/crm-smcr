@@ -38,11 +38,12 @@ export async function POST(request, { params }) {
   if (ctx.error) return ctx.error;
   try {
     const fd = await request.formData();
-    if (fd.get("preparadaPorRaul") !== "true") throw new PaligError("Confirme que Raúl completó y revisó la plantilla sin firmas ni fechas de atención.");
+    if (fd.get("preparadaPorRaul") !== "true") throw new PaligError("Confirme que Raúl completó y revisó la plantilla.");
     const { bytes } = await leerArchivoPalig(fd.get("file"));
+    // Se guarda tal como Raúl la subió: antes se la volvía a rellenar con los
+    // datos del perfil y se pisaba lo que él había escrito.
     const checked = await validarPlantillaPalig(bytes);
-    const prepared = await completarPalig(checked, ctx);
-    const reference = await guardarPalig("insurance-templates", `${ctx.patient.id}/palig-${randomUUID()}.pdf`, prepared);
+    const reference = await guardarPalig("insurance-templates", `${ctx.patient.id}/palig-${randomUUID()}.pdf`, checked);
     await prisma.user.update({ where: { id: ctx.patient.id }, data: {
       insuranceTemplateUrl: reference, insuranceTemplateUploadedAt: new Date(), insuranceTemplateProId: ctx.professional.id,
     } });

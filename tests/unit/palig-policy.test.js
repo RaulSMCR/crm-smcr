@@ -1,44 +1,51 @@
 import { describe, expect, it } from "vitest";
-import { esPalig, fechaCostaRica, validarAtencionPalig } from "@/lib/palig-policy";
+import { esPalig, fechaCostaRica, validarPagoPalig } from "@/lib/palig-policy";
 
+const patient = { id: "u1", insuranceName: "PALIG", insuranceTemplateUrl: "insurance-templates/u1/palig.pdf", insuranceTemplateProId: "pro1" };
 const cita = {
-  professionalId: "pro1", professional: { slug: "raul-olmedo" },
-  patient: { insuranceName: "PALIG", insuranceTemplateUrl: "insurance-templates/p1/palig.pdf", insuranceTemplateProId: "pro1" },
-  status: "CONFIRMED", paymentStatus: "UNPAID", date: new Date("2026-10-20T16:00:00Z"),
+  patientId: "u1", professionalId: "pro1", professional: { slug: "raul-olmedo" },
+  status: "CONFIRMED", paymentStatus: "UNPAID", date: new Date("2026-10-14T22:00:00Z"),
 };
-const options = { monto: 30000, atencionConfirmada: true, pagoConfirmado: true, ahora: new Date("2026-10-20T18:00:00Z") };
+const base = { patient, professionalId: "pro1", monto: 40000, confirmado: true, ahora: new Date("2026-10-21T23:00:00Z") };
 
-describe("piloto PALIG", () => {
+describe("piloto PALIG por comprobante", () => {
   it("identifica PALIG sin incluir otras aseguradoras", () => {
     expect(esPalig("Pan-American Life")).toBe(true);
     expect(esPalig("palig")).toBe(true);
     expect(esPalig("INS")).toBe(false);
   });
-  it("permite que el operador confirme una cita aún no marcada por el paciente", () => {
-    expect(validarAtencionPalig(cita, options)).toEqual({ ok: true });
+
+  it("acepta un pago sin sesión asociada: el eje es el comprobante", () => {
+    expect(validarPagoPalig(base)).toEqual({ ok: true });
   });
+
+  it("acepta asociar una sesión de otro día: no se ata la fecha del pago a la de la cita", () => {
+    expect(validarPagoPalig({ ...base, cita })).toEqual({ ok: true });
+  });
+
+  it.each([
+    [{ patient: null }, "PALIG_PACIENTE"],
+    [{ patient: { ...patient, insuranceName: "INS" } }, "PALIG_ASEGURADORA"],
+    [{ patient: { ...patient, insuranceTemplateProId: "otro" } }, "PALIG_PLANTILLA"],
+    [{ patient: { ...patient, insuranceTemplateUrl: null } }, "PALIG_PLANTILLA"],
+    [{ confirmado: false }, "PALIG_CONFIRMACION"],
+    [{ monto: 0 }, "PALIG_MONTO"],
+  ])("bloquea un pago incompatible con el piloto: %j", (overrides, code) => {
+    expect(validarPagoPalig({ ...base, ...overrides })).toMatchObject({ ok: false, code });
+  });
+
   it.each([
     [{ professional: { slug: "otro" } }, "PALIG_PROFESIONAL"],
+    [{ patientId: "otro" }, "PALIG_CITA_AJENA"],
     [{ status: "NO_SHOW" }, "PALIG_ESTADO_CITA"],
     [{ status: "CANCELLED_BY_USER" }, "PALIG_ESTADO_CITA"],
     [{ paymentStatus: "PAID" }, "PALIG_PAGO_EXISTENTE"],
-    [{ paymentStatus: "PARTIALLY_PAID" }, "PALIG_PAGO_EXISTENTE"],
-    [{ date: new Date("2026-10-21T16:00:00Z") }, "PALIG_FECHA_FUTURA"],
-    [{ date: new Date("2026-10-19T16:00:00Z") }, "PALIG_FECHAS_DISTINTAS"],
-    [{ patient: { ...cita.patient, insuranceTemplateProId: "otro" } }, "PALIG_PLANTILLA"],
-    [{ patient: { ...cita.patient, insuranceName: "INS" } }, "PALIG_ASEGURADORA"],
-  ])("bloquea datos incompatibles con el piloto: %j", (overrides, code) => {
-    expect(validarAtencionPalig({ ...cita, ...overrides }, options)).toMatchObject({ ok: false, code });
+    [{ date: new Date("2026-10-28T22:00:00Z") }, "PALIG_FECHA_FUTURA"],
+  ])("si se elige una sesión, tiene que poder quedar pagada: %j", (overrides, code) => {
+    expect(validarPagoPalig({ ...base, cita: { ...cita, ...overrides } })).toMatchObject({ ok: false, code });
   });
-  it("exige confirmar pago y atención separadamente", () => {
-    expect(validarAtencionPalig(cita, { ...options, pagoConfirmado: false }).code).toBe("PALIG_CONFIRMACION");
-    expect(validarAtencionPalig(cita, { ...options, atencionConfirmada: false }).code).toBe("PALIG_CONFIRMACION");
-  });
-  it("compara fechas en Costa Rica, incluso al cambiar el día en UTC", () => {
-    expect(fechaCostaRica("2026-10-21T02:00:00Z")).toBe("2026-10-20");
-    expect(validarAtencionPalig(cita, { ...options, ahora: new Date("2026-10-21T02:00:00Z") }).ok).toBe(true);
-  });
-  it.each(["2026-10-19T18:00:00Z", "2026-10-20T19:00:00Z", "invalid"])("rechaza fechas de pago incompatibles: %s", (fechaPago) => {
-    expect(validarAtencionPalig(cita, { ...options, fechaPago }).code).toBe("PALIG_FECHAS_DISTINTAS");
+
+  it("lee el día en Costa Rica aunque en UTC ya sea el siguiente", () => {
+    expect(fechaCostaRica("2026-10-22T03:00:00Z")).toBe("2026-10-21");
   });
 });

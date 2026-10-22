@@ -193,34 +193,55 @@ export async function sendInsuranceProSignAlert({
 }
 
 // ── 5. Paciente: formulario firmado enviado ──────────────────────────────────
-export async function sendSignedClaimToPatient({ patientEmail, patientName, signedFormUrl }) {
-  if (!patientEmail || !process.env.RESEND_API_KEY) return;
+/**
+ * Le manda al paciente el formulario firmado como ADJUNTO —antes era un enlace
+ * que solo abría con sesión iniciada en el sitio— y, si Hacienda ya la aceptó,
+ * la factura en PDF: son los dos papeles que presenta ante la aseguradora.
+ *
+ * Devuelve true solo si Resend aceptó el envío, para no anotar como enviado un
+ * correo que no salió.
+ *
+ * @param {{filename: string, content: Buffer}} datos.formulario
+ * @param {{filename: string, content: Buffer}|null} [datos.factura]
+ */
+export async function sendSignedClaimToPatient({ patientEmail, patientName, formulario, factura = null }) {
+  if (!patientEmail || !process.env.RESEND_API_KEY || !formulario?.content) return false;
 
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#0f172a;">
-      <h2 style="color:#1e40af;">Su planilla de reclamo de seguro médico</h2>
+      <h2 style="color:#1e40af;">Su formulario de reclamo de seguro médico</h2>
       <p>Estimado/a <strong>${patientName}</strong>,</p>
-      <p>Adjunto encontrará su planilla de reclamo de seguro médico debidamente completada,
-         sellada y firmada por el profesional tratante.</p>
-      <p>Podés descargarla y presentarla ante tu aseguradora para solicitar el reembolso.</p>
-      <p style="margin-top:24px;">
-        <a href="${signedFormUrl}"
-           style="background:#1d4ed8;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:16px;">
-          Descargar planilla de reclamo
-        </a>
-      </p>
+      <p>Adjunto encontrará su formulario de reclamo debidamente completado y firmado por el profesional tratante.</p>
+      ${factura
+        ? "<p>También adjuntamos la factura electrónica correspondiente, aceptada por el Ministerio de Hacienda.</p>"
+        : "<p>La factura electrónica le llega en un correo aparte en cuanto el Ministerio de Hacienda la acepta.</p>"}
+      <p>Presente estos documentos ante su aseguradora para solicitar el reembolso.</p>
       <p style="font-size:12px;color:#64748b;margin-top:24px;">
         Si tiene alguna consulta, no dude en contactarnos.<br>
         Mensaje automático — Salud Mental Costa Rica
       </p>
     </div>`;
 
-  const { error } = await resend.emails.send({
-    from: FROM,
-    to: patientEmail,
-    subject: "Su planilla de reclamo de seguro médico — Salud Mental Costa Rica",
-    html,
-  });
+  const attachments = [formulario, factura].filter(Boolean).map((a) => ({
+    filename: a.filename,
+    content: Buffer.from(a.content).toString("base64"),
+  }));
 
-  if (error) console.error("[insurance-mail] sendSignedClaimToPatient error:", error);
+  try {
+    const { data, error } = await resend.emails.send({
+      from: FROM,
+      to: patientEmail,
+      subject: "Su formulario de reclamo de seguro médico — Salud Mental Costa Rica",
+      html,
+      attachments,
+    });
+    if (error || !data?.id) {
+      console.error("[insurance-mail] sendSignedClaimToPatient no aceptado");
+      return false;
+    }
+    return true;
+  } catch {
+    console.error("[insurance-mail] sendSignedClaimToPatient falló");
+    return false;
+  }
 }

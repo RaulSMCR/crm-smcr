@@ -45,14 +45,17 @@ async function loadTemplate(bytes) {
   return { doc, form };
 }
 
+/**
+ * Comprueba que la plantilla sea el formulario PALIG editable y la devuelve tal
+ * como Raúl la subió, solo sin acciones embebidas.
+ *
+ * No exige ni borra ningún contenido: lo que Raúl escribió —datos del paciente,
+ * clínicos, fecha de firma— es lo que se entrega (decisión de Raúl, 2026-10-21
+ * hora CR). La única casilla que el sistema escribe es la fecha de atención, al
+ * generar cada formulario (ver completarPalig con `final`).
+ */
 export async function validarPlantillaPalig(bytes) {
-  const { doc, form } = await loadTemplate(bytes);
-  for (const [name, label] of [[F.reason, "motivo de consulta"], [F.diagnosis, "diagnóstico"], [F.treatment, "tratamiento"]]) {
-    if (!form.getTextField(name).getText()?.trim()) throw new PaligError(`Raúl debe completar el campo «${label}» en la plantilla antes de guardarla.`);
-  }
-  // Las fechas variables se completan al generar cada documento.
-  form.getTextField(F.serviceDate).setText("");
-  form.getTextField(F.signatureDate).setText("");
+  const { doc } = await loadTemplate(bytes);
   return Buffer.from(await doc.save());
 }
 
@@ -74,23 +77,33 @@ async function setText(doc, form, name, value) {
   } catch { throw new PaligError("Un nombre no cabe en el formulario PALIG o contiene caracteres no compatibles. Revise los datos del perfil."); }
 }
 
+/**
+ * Dos usos:
+ *  - Sin `final`: el formulario en blanco precargado con los datos del perfil,
+ *    para que Raúl arme la plantilla.
+ *  - Con `final`: el documento que se entrega. Sobre la plantilla de Raúl solo
+ *    se escribe la fecha de atención —la del pago— y se congela; todo lo demás
+ *    queda como él lo dejó.
+ */
 export async function completarPalig(bytes, { patient, professional, date = null, final = false }) {
   const { doc, form } = await loadTemplate(bytes);
+  if (final) {
+    await setText(doc, form, F.serviceDate, date ? fechaPalig(date) : "");
+    form.flatten();
+    return Buffer.from(await doc.save());
+  }
   await setText(doc, form, F.patientName, patient.name);
   await setText(doc, form, F.professionalName, professional.user.name);
   await setText(doc, form, F.serviceDate, date ? fechaPalig(date) : "");
-  if (!final) {
-    // La fecha de nacimiento es un día de calendario, almacenado a medianoche UTC.
-    if (patient.birthDate) {
-      const [year, month, day] = new Date(patient.birthDate).toISOString().slice(0, 10).split("-");
-      await setText(doc, form, F.birthDate, `${day}/${month}/${year.slice(-2)}`);
-    }
-    await setText(doc, form, F.specialty, professional.specialty);
-    await setText(doc, form, F.professionalLicense, professional.licenseNumber);
-    await setText(doc, form, F.professionalPhone, professional.user.phone);
+  // La fecha de nacimiento es un día de calendario, almacenado a medianoche UTC.
+  if (patient.birthDate) {
+    const [year, month, day] = new Date(patient.birthDate).toISOString().slice(0, 10).split("-");
+    await setText(doc, form, F.birthDate, `${day}/${month}/${year.slice(-2)}`);
   }
+  await setText(doc, form, F.specialty, professional.specialty);
+  await setText(doc, form, F.professionalLicense, professional.licenseNumber);
+  await setText(doc, form, F.professionalPhone, professional.user.phone);
   form.getTextField(F.signatureDate).setText("");
-  if (final) form.flatten();
   return Buffer.from(await doc.save());
 }
 

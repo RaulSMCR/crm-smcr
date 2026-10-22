@@ -41,7 +41,7 @@ import { enqueueDelivery } from "@/lib/delivery-jobs";
 import { ocuparCupoEnTransaccion } from "@/lib/price-ladder-server";
 import { cuentaDeCobro } from "@/lib/cuentas-de-cobro";
 import { revalidarPreciosPublicos } from "@/lib/revalidar-precios";
-import { validarAtencionPalig } from "@/lib/palig-policy";
+import { fechaCostaRica, validarPagoPalig } from "@/lib/palig-policy";
 
 /**
  * Slug de la ficha del profesional gestionado.
@@ -184,7 +184,7 @@ async function cobroDeCita(prisma, { appointmentId, cuenta, monto, fechaPago, ti
     // `palig` solo llega desde el servicio interno del piloto; nunca del schema
     // de pagos manuales. Validar otra vez dentro de la transacción serializable.
     if (palig) {
-      const valid = validarAtencionPalig(cita, { monto, fechaPago, atencionConfirmada: palig.atencionConfirmada, pagoConfirmado: palig.pagoConfirmado });
+      const valid = validarPagoPalig({ patient: { id: cita.patientId, ...cita.patient }, professionalId: cita.professionalId, cita, monto, confirmado: palig.pagoConfirmado, ahora: fechaPago });
       if (!valid.ok) return valid;
       if (tipoCobro !== "FULL_100" || cuenta.codigo !== "SINPE_MOVIL" || cita.patient.insuranceTemplateUrl !== palig.sourceTemplateUrl || cita.patient.name !== palig.patientName || cita.professional.user.name !== palig.professionalName) {
         return error(409, "Revise la plantilla y el pago antes de generar los documentos PALIG.", "PALIG_DATOS_CAMBIARON");
@@ -293,7 +293,7 @@ async function cobroDeCita(prisma, { appointmentId, cuenta, monto, fechaPago, ti
  * cobro no aparece en ninguna liquidación ni mueve la escalera de precios. Es
  * ingreso directo de la sociedad, y así queda registrado.
  */
-async function cobroSuelto(prisma, { contactId, serviceId, descripcion, cuenta, monto, fechaPago, ahora, referencia, registradoPor }) {
+async function cobroSuelto(prisma, { contactId, serviceId, descripcion, cuenta, monto, fechaPago, ahora, referencia, registradoPor, palig }) {
   if (!contactId) return error(400, "Indique el cliente al que se le factura.", "CLIENTE_REQUERIDO");
   if (!serviceId) return error(400, "Indique el servicio: de ahí salen el CABYS y el impuesto de la línea.", "SERVICIO_REQUERIDO");
   const detalle = String(descripcion || "").trim();
@@ -301,12 +301,34 @@ async function cobroSuelto(prisma, { contactId, serviceId, descripcion, cuenta, 
 
   return prisma.$transaction(async (tx) => {
     const [cliente, servicioCrudo, profesional] = await Promise.all([
-      tx.user.findUnique({ where: { id: contactId }, select: SELECT_CLIENTE }),
+      tx.user.findUnique({
+        where: { id: contactId },
+        select: { ...SELECT_CLIENTE, ...(palig ? { insuranceName: true, insuranceTemplateUrl: true, insuranceTemplateProId: true } : {}) },
+      }),
       tx.service.findUnique({ where: { id: serviceId }, select: SELECT_SERVICIO }),
       tx.professionalProfile.findUnique({ where: { slug: SLUG_PROFESIONAL_GESTIONADO }, select: { id: true } }),
     ]);
     if (!cliente) return error(404, "El cliente indicado no existe.", "CLIENTE_INEXISTENTE");
     if (!profesional) return error(409, "No se encontró la ficha del profesional gestionado.", "PROFESIONAL_INEXISTENTE");
+    // Pago PALIG sin sesión asociada: se vuelve a validar dentro de la
+    // transacción, y si la plantilla o el nombre cambiaron mientras se
+    // preparaba el formulario, no se emite nada.
+    if (palig) {
+      const valid = validarPagoPalig({ patient: cliente, professionalId: profesional.id, monto, confirmado: palig.pagoConfirmado, ahora: fechaPago });
+      if (!valid.ok) return valid;
+      if (cuenta.codigo !== "SINPE_MOVIL" || cliente.insuranceTemplateUrl !== palig.sourceTemplateUrl || cliente.name !== palig.patientName) {
+        return error(409, "Revise la plantilla y el pago antes de generar los documentos PALIG.", "PALIG_DATOS_CAMBIARON");
+      }
+      // Sin cita no hay clave única que frene un segundo envío: se busca dentro
+      // de la transacción serializable, así dos envíos simultáneos no emiten
+      // dos facturas (uno de los dos aborta).
+      const inicioDia = new Date(`${fechaCostaRica(fechaPago)}T00:00:00-06:00`);
+      const yaHay = await tx.insuranceClaim.findFirst({
+        where: { patientId: cliente.id, professionalId: profesional.id, paymentDate: { gte: inicioDia, lt: new Date(inicioDia.getTime() + 24 * 3600_000) } },
+        select: { id: true },
+      });
+      if (yaHay) return error(409, "Ya hay un pago PALIG registrado hoy para este paciente.", "PALIG_PAGO_DEL_DIA");
+    }
 
     const servicio = servicioFacturable(servicioCrudo);
     if (!servicio.ok) return servicio;
@@ -350,7 +372,7 @@ async function cobroSuelto(prisma, { contactId, serviceId, descripcion, cuenta, 
         balance: 0,
         currency: MONEDA,
         originDocument: "PAGO_MANUAL_SIN_CITA",
-        notes: notasDeOrigen(cuenta, referencia),
+        notes: notasDeOrigen(cuenta, referencia, Boolean(palig)),
         createdBy: registradoPor || null,
         lines: { create: {
           productName: PRODUCTO_SERVICIOS_PROFESIONALES,
@@ -370,6 +392,16 @@ async function cobroSuelto(prisma, { contactId, serviceId, descripcion, cuenta, 
       },
       select: { id: true, invoiceNumber: true },
     });
+
+    // El trámite PALIG nace en la misma transacción que la factura: sin cita,
+    // porque el eje es el comprobante (ver validarPagoPalig).
+    if (palig) {
+      await tx.insuranceClaim.create({ data: {
+        id: palig.claimId, appointmentId: null, patientId: cliente.id, professionalId: profesional.id,
+        invoiceId: invoice.id, paymentDate: fechaPago, status: "PENDING_SIGNED_FORM",
+        templateSnapshotUrl: palig.templateSnapshotUrl, generatedFormUrl: palig.generatedFormUrl, paymentProofUrl: palig.paymentProofUrl,
+      } });
+    }
 
     await enqueueDelivery(tx, { kind: "FE_SUBMISSION", invoiceId: invoice.id });
 

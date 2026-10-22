@@ -1,6 +1,6 @@
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { describe, it, expect } from "vitest";
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, PDFRawStream, decodePDFRawStream } from "pdf-lib";
 import { completarPalig, validarPlantillaPalig, facturaPaligPdf, fechaPalig } from "@/lib/palig-pdf";
 import { PALIG_FIELDS as F } from "@/lib/palig-fields";
 
@@ -12,6 +12,18 @@ async function prepared() {
   for (const field of [F.reason, F.diagnosis, F.treatment]) doc.getForm().getTextField(field).setText("DATOS FICTICIOS - prueba de formulario");
   doc.getForm().getTextField(F.policyNumber).setText("POLIZA-PRUEBA");
   return doc.save();
+}
+
+/** ¿Quedó este texto dibujado en el PDF? pdf-lib lo escribe en hexadecimal. */
+async function textoDibujado(bytes) {
+  const doc = await PDFDocument.load(bytes);
+  const flujos = [];
+  for (const [, obj] of doc.context.enumerateIndirectObjects()) {
+    if (obj instanceof PDFRawStream) {
+      try { flujos.push(Buffer.from(decodePDFRawStream(obj).decode()).toString("latin1").toUpperCase()); } catch { /* no es texto */ }
+    }
+  }
+  return (texto) => flujos.some((f) => f.includes(Buffer.from(texto, "latin1").toString("hex").toUpperCase()));
 }
 
 describe("PDF PALIG real y factura imprimible", () => {
@@ -26,8 +38,8 @@ describe("PDF PALIG real y factura imprimible", () => {
     expect(form.getTextField(F.signatureDate).getText() || "").toBe("");
     expect(fechaPalig("2026-10-21T02:00:00Z")).toBe("20/10/26");
   });
-  it("exige plantilla editable y información clínica preparada", async () => {
-    await expect(validarPlantillaPalig(await source())).rejects.toThrow("motivo");
+  it("exige el formulario PALIG editable, sin exigir contenido: eso queda a cargo de Raúl", async () => {
+    await expect(validarPlantillaPalig(await source())).resolves.toBeInstanceOf(Buffer);
     await expect(validarPlantillaPalig(Buffer.from("invalid"))).rejects.toThrow("PDF");
     const other = await PDFDocument.create(); other.addPage();
     await expect(validarPlantillaPalig(await other.save())).rejects.toThrow("formulario PALIG");
@@ -35,10 +47,28 @@ describe("PDF PALIG real y factura imprimible", () => {
     moved.getForm().getTextField(F.serviceDate).acroField.getWidgets()[0].setRectangle({ x: 1, y: 1, width: 100, height: 20 });
     await expect(validarPlantillaPalig(await moved.save())).rejects.toThrow("campos editables");
   });
-  it("normaliza fechas variables y congela el formulario emitido sin campos editables", async () => {
-    const dated = await completarPalig(await prepared(), { patient, professional, date: "2026-10-20T18:00:00Z" });
-    const checked = await validarPlantillaPalig(dated);
-    expect((await PDFDocument.load(checked)).getForm().getTextField(F.serviceDate).getText() || "").toBe("");
+  it("conserva todo lo que Raúl escribió y solo pone la fecha de atención del pago", async () => {
+    // Plantilla de Raúl: nombre escrito a su manera (distinto del perfil) y
+    // fecha de firma ya puesta. Nada de eso se pisa.
+    const doc = await PDFDocument.load(await prepared());
+    doc.getForm().getTextField(F.patientName).setText("Nombre como lo escribió Raúl");
+    doc.getForm().getTextField(F.signatureDate).setText("21/10/26");
+    const checked = await validarPlantillaPalig(await doc.save());
+    const guardada = (await PDFDocument.load(checked)).getForm();
+    expect(guardada.getTextField(F.patientName).getText()).toBe("Nombre como lo escribió Raúl");
+    expect(guardada.getTextField(F.signatureDate).getText()).toBe("21/10/26");
+
+    // 21-oct a las 21:00 CR (ya 22 en UTC): la fecha es la de Costa Rica.
+    const final = await completarPalig(checked, { date: "2026-10-22T03:00:00Z", final: true });
+    expect((await PDFDocument.load(final)).getForm().getFields()).toHaveLength(0);
+    // Congelado ya no tiene campos: se lee lo que quedó dibujado en la página.
+    const dibujado = await textoDibujado(final);
+    expect(dibujado("21/10/26")).toBe(true);
+    expect(dibujado("Nombre como lo escribi")).toBe(true);
+  });
+
+  it("congela el formulario emitido sin campos editables", async () => {
+    const checked = await validarPlantillaPalig(await prepared());
     const output = await completarPalig(checked, { patient, professional, date: "2026-10-20T18:00:00Z", final: true });
     expect((await PDFDocument.load(output)).getForm().getFields()).toHaveLength(0);
     await expect(validarPlantillaPalig(output)).rejects.toThrow("editables");

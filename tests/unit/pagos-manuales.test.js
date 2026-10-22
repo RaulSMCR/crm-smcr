@@ -11,7 +11,7 @@ const { prisma, tx, enqueueDelivery, ocuparCupo, revalidar } = vi.hoisted(() => 
     paymentTransaction: { findFirst: vi.fn(), create: vi.fn() },
     invoiceSequence: { upsert: vi.fn() },
     invoice: { create: vi.fn() },
-    insuranceClaim: { create: vi.fn() },
+    insuranceClaim: { create: vi.fn(), findFirst: vi.fn() },
     user: { findUnique: vi.fn() },
     service: { findUnique: vi.fn() },
     professionalProfile: { findUnique: vi.fn() },
@@ -109,6 +109,48 @@ describe("pago del piloto PALIG en la transacción de facturación", () => {
   it("no acepta abonos en el piloto", async () => {
     expect((await registrarPagoManual(prisma, { ...prepare(), tipo: "DEPOSIT_50" })).ok).toBe(false);
     expect(tx.paymentTransaction.create).not.toHaveBeenCalled();
+  });
+
+  it("acepta pagar una sesión de otro día: el eje es el comprobante", async () => {
+    const input = prepare();
+    tx.appointment.findUnique.mockResolvedValue({ ...(await tx.appointment.findUnique()), date: new Date(input.fechaPago.getTime() - 7 * 24 * 3600_000) });
+    expect((await registrarPagoManual(prisma, input)).ok).toBe(true);
+  });
+});
+
+describe("pago PALIG sin sesión asociada", () => {
+  const palig = { claimId: "claim2", sourceTemplateUrl: "insurance-templates/cli1/t.pdf", templateSnapshotUrl: "private/template.pdf", generatedFormUrl: "private/form.pdf", paymentProofUrl: "private/proof.png", patientName: CLIENTE.name, professionalName: "Raúl Olmedo", pagoConfirmado: true };
+  function prepare(overrides = {}) {
+    tx.user.findUnique.mockResolvedValue({ ...CLIENTE, insuranceName: "PALIG", insuranceTemplateUrl: palig.sourceTemplateUrl, insuranceTemplateProId: "pro1", ...overrides });
+    tx.insuranceClaim.findFirst.mockResolvedValue(null);
+    return { ...BASE, contactId: "cli1", serviceId: "svc1", descripcion: "Atención del 21/10/2026", fechaPago: new Date(), registradoPor: "operator", palig };
+  }
+
+  it("emite la factura y crea el trámite sin cita, en la misma transacción", async () => {
+    const input = prepare();
+    expect(await registrarPagoManual(prisma, input)).toMatchObject({ ok: true, modo: "suelto" });
+    expect(tx.insuranceClaim.create).toHaveBeenCalledWith({ data: expect.objectContaining({
+      id: "claim2", appointmentId: null, patientId: "cli1", professionalId: "pro1", invoiceId: "inv1", paymentDate: input.fechaPago, status: "PENDING_SIGNED_FORM",
+    }) });
+    expect(facturaCreada()).toMatchObject({ cuentaDeposito: "SINPE_MOVIL", total: 30000, notes: expect.stringContaining("PALIG") });
+    expect(tx.paymentTransaction.create).not.toHaveBeenCalled();
+  });
+
+  it("no emite una segunda factura PALIG el mismo día para el mismo paciente", async () => {
+    const input = prepare();
+    tx.insuranceClaim.findFirst.mockResolvedValue({ id: "ya" });
+    expect((await registrarPagoManual(prisma, input)).code).toBe("PALIG_PAGO_DEL_DIA");
+    expect(tx.invoice.create).not.toHaveBeenCalled();
+  });
+
+  it.each([{ insuranceTemplateUrl: "insurance-templates/cli1/otra.pdf" }, { name: "Nombre cambiado" }])("si los datos cambian durante la preparación, no emite: %j", async (cambio) => {
+    expect((await registrarPagoManual(prisma, prepare(cambio))).code).toBe("PALIG_DATOS_CAMBIARON");
+    expect(tx.invoice.create).not.toHaveBeenCalled();
+  });
+
+  it("sin PALIG en el perfil no emite", async () => {
+    expect((await registrarPagoManual(prisma, prepare({ insuranceName: "INS" }))).code).toBe("PALIG_ASEGURADORA");
+    expect(tx.invoice.create).not.toHaveBeenCalled();
   });
 });
 

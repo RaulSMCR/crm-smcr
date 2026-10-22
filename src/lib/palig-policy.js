@@ -13,30 +13,44 @@ export function fechaCostaRica(value) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Costa_Rica", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
 }
 
-export function validarAtencionPalig(cita, { monto, atencionConfirmada, pagoConfirmado, ahora = new Date(), fechaPago = ahora } = {}) {
+/**
+ * ¿Se puede registrar este pago PALIG?
+ *
+ * El eje es el comprobante, no la cita (decisión de Raúl, 2026-10-21 hora CR):
+ * el día en que se registra el pago es el día de la factura y el de la «fecha
+ * de atención» del formulario. Por eso no se compara la fecha de ninguna cita
+ * con la del pago. La cita es opcional: si se elige una, solo se comprueba que
+ * sea de este paciente, que ya haya ocurrido y que esté sin pagar, porque el
+ * pago la deja pagada.
+ *
+ * @param {object} datos
+ * @param {object} datos.patient        { id, insuranceName, insuranceTemplateUrl, insuranceTemplateProId }
+ * @param {string} datos.professionalId Perfil de Raúl.
+ * @param {object} [datos.cita]         Sesión que este pago deja pagada, si se eligió.
+ */
+export function validarPagoPalig({ patient, professionalId, cita = null, monto, confirmado, ahora = new Date() } = {}) {
   const fail = (message, code) => ({ ok: false, status: 409, message, code });
-  if (!cita || cita.professional?.slug !== PALIG_PROFESSIONAL_SLUG) {
-    return fail("El piloto PALIG está disponible únicamente para atenciones de Raúl Olmedo.", "PALIG_PROFESIONAL");
-  }
-  if (!esPalig(cita.patient?.insuranceName)) return fail("El paciente no tiene PALIG registrado en su perfil.", "PALIG_ASEGURADORA");
-  if (!cita.patient?.insuranceTemplateUrl || cita.patient.insuranceTemplateProId !== cita.professionalId) {
+  if (!patient) return fail("Seleccione el paciente.", "PALIG_PACIENTE");
+  if (!esPalig(patient.insuranceName)) return fail("El paciente no tiene PALIG registrado en su perfil.", "PALIG_ASEGURADORA");
+  if (!patient.insuranceTemplateUrl || patient.insuranceTemplateProId !== professionalId) {
     return fail("Primero debe guardarse la plantilla PALIG que Raúl preparó para este paciente.", "PALIG_PLANTILLA");
   }
-  if (!atencionConfirmada || !pagoConfirmado) {
-    return fail("Confirme que la atención se realizó y que el pago fue recibido.", "PALIG_CONFIRMACION");
-  }
-  if (!["PENDING", "CONFIRMED", "COMPLETED"].includes(cita.status)) {
-    return fail("No se puede generar un reclamo por una cita cancelada o una inasistencia.", "PALIG_ESTADO_CITA");
-  }
-  if (!fechaCostaRica(cita.date) || new Date(cita.date) > ahora) {
-    return fail("La atención debe haber ocurrido antes de generar los documentos.", "PALIG_FECHA_FUTURA");
-  }
-  if (!fechaCostaRica(fechaPago) || new Date(fechaPago) > ahora || fechaCostaRica(fechaPago) !== fechaCostaRica(ahora) || fechaCostaRica(cita.date) !== fechaCostaRica(fechaPago)) {
-    return fail("El pago, la atención y la emisión deben ser del mismo día en Costa Rica. No se cambian fechas de citas anteriores.", "PALIG_FECHAS_DISTINTAS");
-  }
-  if (cita.paymentStatus !== "UNPAID") {
-    return fail("Esta atención ya tiene un pago registrado. Revíselo antes de generar otra factura.", "PALIG_PAGO_EXISTENTE");
-  }
+  if (!confirmado) return fail("Confirme que recibió hoy este pago por SINPE Móvil.", "PALIG_CONFIRMACION");
   if (!Number.isFinite(Number(monto)) || Number(monto) <= 0) return fail("Indique un monto recibido mayor a cero.", "PALIG_MONTO");
+  if (cita) {
+    if (cita.professional?.slug !== PALIG_PROFESSIONAL_SLUG || cita.professionalId !== professionalId) {
+      return fail("El piloto PALIG está disponible únicamente para atenciones de Raúl Olmedo.", "PALIG_PROFESIONAL");
+    }
+    if (cita.patientId !== patient.id) return fail("La sesión elegida es de otro paciente.", "PALIG_CITA_AJENA");
+    if (!["PENDING", "CONFIRMED", "COMPLETED"].includes(cita.status)) {
+      return fail("No se puede pagar una sesión cancelada o una inasistencia.", "PALIG_ESTADO_CITA");
+    }
+    if (!fechaCostaRica(cita.date) || new Date(cita.date) > ahora) {
+      return fail("La sesión elegida todavía no ocurrió.", "PALIG_FECHA_FUTURA");
+    }
+    if (cita.paymentStatus !== "UNPAID") {
+      return fail("Esa sesión ya tiene un pago registrado. Revísela antes de generar otra factura.", "PALIG_PAGO_EXISTENTE");
+    }
+  }
   return { ok: true };
 }
