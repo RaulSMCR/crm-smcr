@@ -216,6 +216,18 @@ describe("generateFeXml — líneas e IVA", () => {
     expect(textOf(xml, "MontoDescuento")).toBe("5000.00000");
     expect(textOf(xml, "SubTotal")).toBe("45000.00000");
     expect(textOf(xml, "MontoTotalLinea")).toBe("46800.00000");
+    // Sin motivo escrito (líneas anteriores al campo) queda el texto genérico.
+    expect(textOf(xml, "NaturalezaDescuento")).toBe("Descuento Comercial");
+  });
+
+  it("declara el motivo escrito como naturaleza del descuento", () => {
+    const lines = [{ quantity: 1, unitPrice: 40000, discountPercent: 3.85, discountType: "  Tarifa   social acordada ", taxRate: 4, taxAmount: 1538.4, product: { name: "Consulta", cabysCode: "8690900000100" } }];
+    const { xml } = generateFeXml({ ...baseInvoice, discountAmount: 1540, subtotal: 38460, taxAmount: 1538.4, total: 39998.4 }, lines);
+    expect(textOf(xml, "MontoDescuento")).toBe("1540.00000");
+    expect(textOf(xml, "CodigoDescuento")).toBe("07");
+    expect(textOf(xml, "NaturalezaDescuento")).toBe("Tarifa social acordada");
+    expect(textOf(xml, "SubTotal")).toBe("38460.00000");
+    expect(textOf(xml, "MontoTotalLinea")).toBe("39998.40000");
   });
 
   it("numera las líneas y usa CABYS y unidad de medida por defecto", () => {

@@ -117,7 +117,7 @@ export default async function AdminAccountingPage({ searchParams }) {
 
   const range = getPeriodRange(period, anchorDate, fromInput, toInput);
 
-  const [professionals, patients, appointments, invoices, settlements] = await Promise.all([
+  const [professionals, patients, appointments, invoices, settlements, services] = await Promise.all([
     prisma.professionalProfile.findMany({
       where: { isApproved: true },
       select: { id: true, user: { select: { name: true } } },
@@ -183,6 +183,12 @@ export default async function AdminAccountingPage({ searchParams }) {
       take: 300,
     }),
     prisma.settlement.findMany({ where: { status: "INVOICED" }, include: { professional: { select: { user: { select: { name: true } } } }, invoice: { select: { invoiceNumber: true } } }, orderBy: { periodStart: "desc" }, take: 100 }),
+    // Solo los que se pueden facturar: sin CABYS o sin impuesto Hacienda rechaza la línea.
+    prisma.service.findMany({
+      where: { isActive: true, cabysCode: { not: null }, taxId: { not: null } },
+      select: { id: true, title: true, cabysCode: true, tax: { select: { rate: true } } },
+      orderBy: { title: "asc" },
+    }),
   ]);
 
   const appointmentRevenue = appointments.reduce((acc, appt) => acc + Number(appt.pricePaid ?? 0), 0);
@@ -433,6 +439,7 @@ export default async function AdminAccountingPage({ searchParams }) {
               }))}
               patients={patients}
               professionals={professionals}
+              services={services.map((s) => ({ id: s.id, title: s.title, cabysCode: s.cabysCode, taxRate: Number(s.tax?.rate ?? 0) }))}
             />
           </div>
         </div>

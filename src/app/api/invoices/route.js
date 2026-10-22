@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/api-guards";
 import { invoiceBodySchema, validationMessage } from "@/lib/financial-schemas";
-import { computeInvoiceLine, round2, toNumber } from "@/lib/invoice-math";
+import { round2 } from "@/lib/invoice-math";
+import { resolverLineas } from "@/lib/invoice-draft-lines";
+import { datosFacturacionDe } from "@/lib/fiscal-identity";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -183,7 +185,12 @@ export async function POST(request) {
       select: {
         id: true,
         name: true,
+        email: true,
         identification: true,
+        billingName: true,
+        billingIdType: true,
+        billingIdNumber: true,
+        billingEmail: true,
       },
     });
     if (!contact) {
@@ -210,28 +217,25 @@ export async function POST(request) {
       }
     }
 
-    const computedLines = lines.map((line, index) => {
-      const calc = computeInvoiceLine(line);
-      return {
-        productId: line.productId ? String(line.productId) : null,
-        serviceId: line.serviceId ? String(line.serviceId) : null,
-        productName: String(line.productName || "").trim() || "Ítem",
-        description: line.description ? String(line.description) : null,
-        cabysCode: line.cabysCode ? String(line.cabysCode) : null,
-        accountCode: line.accountCode ? String(line.accountCode) : null,
-        quantity: calc.quantity,
-        unitOfMeasure: line.unitOfMeasure ? String(line.unitOfMeasure) : "Unidad(es)",
-        unitPrice: calc.unitPrice,
-        discountPercent: calc.discountPercent,
-        discountType: line.discountType ? String(line.discountType) : null,
-        taxId: line.taxId ? String(line.taxId) : null,
-        taxRate: calc.taxRate,
-        taxAmount: calc.taxAmount,
-        lineSubtotal: calc.lineSubtotal,
-        lineTotal: calc.lineTotal,
-        sortOrder: Number.isInteger(line.sortOrder) ? line.sortOrder : index,
-      };
-    });
+    // El receptor de una venta sale de los datos de facturación del paciente —los
+    // mismos que usan ONVO y los pagos manuales—, con su tipo de identificación.
+    // Se exige acá y no al emitir: un borrador sin receptor no se puede validar.
+    let receptor = null;
+    if (invoiceType === "CUSTOMER_INVOICE") {
+      receptor = datosFacturacionDe(contact);
+      if (!receptor.nombre || receptor.nombre.length < 3 || !receptor.identificacion) {
+        return NextResponse.json(
+          { message: "El cliente no tiene nombre e identificación fiscal completos. Complete sus datos de facturación antes de facturarle." },
+          { status: 409 }
+        );
+      }
+    }
+
+    const resueltas = await resolverLineas(prisma, lines);
+    if (!resueltas.ok) {
+      return NextResponse.json({ message: resueltas.message }, { status: resueltas.status });
+    }
+    const computedLines = resueltas.lines;
 
     const subtotal = round2(computedLines.reduce((acc, line) => acc + line.lineSubtotal, 0));
     const taxAmount = round2(computedLines.reduce((acc, line) => acc + line.taxAmount, 0));
@@ -252,8 +256,16 @@ export async function POST(request) {
         contactId: contact.id,
         appointmentId: appointmentId || null,
         professionalId: professionalId || null,
-        contactName: String(body.contactName || contact.name || ""),
-        contactIdNumber: String(body.contactIdNumber || contact.identification || ""),
+        ...(receptor
+          ? {
+              contactName: receptor.nombre,
+              contactIdNumber: receptor.identificacion,
+              contactIdType: receptor.tipoIdentificacion,
+            }
+          : {
+              contactName: String(body.contactName || contact.name || ""),
+              contactIdNumber: String(body.contactIdNumber || contact.identification || ""),
+            }),
         invoiceDate,
         dueDate,
         paymentDate: body.paymentDate ? new Date(body.paymentDate) : null,
@@ -274,7 +286,9 @@ export async function POST(request) {
         originInvoiceId: body.originInvoiceId ? String(body.originInvoiceId) : null,
         originDocument: body.originDocument ? String(body.originDocument) : null,
         notes: body.notes ? String(body.notes) : null,
-        createdBy: String(session.userId || session.sub || ""),
+        // Era `session`, que en este handler no existe: cada borrador terminaba en
+        // un 500 desde que se escribió esta ruta.
+        createdBy: String(auth.session.userId || auth.session.sub || ""),
         lines: computedLines.length ? { create: computedLines } : undefined,
       },
       include: {

@@ -6,7 +6,59 @@ import { getSession } from "@/lib/auth";
 import Link from "next/link";
 import ProfessionalAppointmentsPanel from "@/components/ProfessionalAppointmentsPanel";
 import InsuranceClaimsSection from "@/components/profesional/InsuranceClaimsSection";
+import AcuerdosDeAtencionSection from "@/components/appointments/AcuerdosDeAtencionSection";
 import { TARIFA_VIGENTE } from "@/lib/service-pricing";
+import { ESTADOS_ACUERDO, puedeGestionarAcuerdos } from "@/lib/acuerdos-de-atencion";
+
+/** Huella corta de qué citas hay y en qué estado (FNV-1a de 32 bits). */
+function huellaDeCitas(citas) {
+  let h = 0x811c9dc5;
+  for (const c of citas) {
+    for (const ch of `${c.id}:${c.status}|`) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193);
+  }
+  return (h >>> 0).toString(36);
+}
+
+/** Lo que necesita la sección de acuerdos, o null si este profesional no los maneja. */
+async function datosDeAcuerdos(professionalId) {
+  const perfil = await prisma.professionalProfile.findUnique({ where: { id: professionalId }, select: { slug: true } });
+  if (!puedeGestionarAcuerdos(perfil?.slug)) return null;
+
+  // Los servicios no exigen tarifa vigente, a diferencia de la reserva: el
+  // acuerdo lleva su propio precio.
+  const [acuerdos, asignaciones, locations] = await Promise.all([
+    prisma.acuerdoDeAtencion.findMany({
+      where: { professionalId, estado: ESTADOS_ACUERDO.ACTIVO },
+      orderBy: { inicio: "asc" },
+      select: {
+        id: true, periodicidad: true, inicio: true, precioAcordado: true, locationName: true,
+        notas: true, gcalEventId: true, meetLink: true,
+        patient: { select: { name: true } },
+        service: { select: { title: true } },
+      },
+    }),
+    prisma.serviceAssignment.findMany({
+      where: { professionalId, status: "APPROVED", service: { isActive: true } },
+      select: { service: { select: { id: true, title: true, durationMin: true } } },
+    }),
+    prisma.practiceLocation.findMany({
+      where: { professionalId, isActive: true },
+      orderBy: { displayOrder: "asc" },
+      select: { id: true, name: true },
+    }),
+  ]);
+
+  return {
+    acuerdos: acuerdos.map(({ patient, service, precioAcordado, ...a }) => ({
+      ...a,
+      precioAcordado: Number(precioAcordado),
+      patientName: patient?.name || "Paciente",
+      serviceTitle: service?.title || "Servicio",
+    })),
+    services: asignaciones.map((a) => a.service),
+    locations,
+  };
+}
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -93,6 +145,8 @@ export default async function ProfesionalCitasPage() {
     listBlocksInWindow({ professionalId, from: blockWindowFrom, to: blockWindowTo }),
   ]);
 
+  const acuerdos = await datosDeAcuerdos(professionalId);
+
   const googleBusy = await fetchBusyForProfessional({
     prisma,
     professionalId,
@@ -167,7 +221,12 @@ export default async function ProfesionalCitasPage() {
         pendingSignedClaims={pendingSignedClaims}
       />
 
+      {acuerdos && <AcuerdosDeAtencionSection patients={patients} {...acuerdos} />}
+
+      {/* El panel guarda las citas en su propio estado: la clave lo rearma
+          cuando cambian por fuera (un acuerdo creado o terminado). */}
       <ProfessionalAppointmentsPanel
+        key={huellaDeCitas(appointments)}
         initialAppointments={initialAppointments}
         bookingContext={bookingContext}
       />

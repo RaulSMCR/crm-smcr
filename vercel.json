@@ -8,6 +8,10 @@
     {
       "path": "/api/cron/frase-diaria",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/acuerdos-de-atencion",
+      "schedule": "0 11 * * *"
     }
   ],
   "functions": {

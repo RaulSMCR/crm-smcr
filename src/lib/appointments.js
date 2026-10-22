@@ -343,12 +343,19 @@ function buildGoogleEvent(appointment) {
     // `requestId` es estable a propósito. Google ignora una createRequest cuyo
     // id ya vio, así que reenviarla en cada patch no duplica la sala; de paso
     // le agrega Meet a las citas creadas antes de este cambio.
-    conferenceData: {
-      createRequest: {
-        requestId: `smcr-${appointment.id}`,
-        conferenceSolutionKey: { type: "hangoutsMeet" },
-      },
-    },
+    // Una sesión de un acuerdo es una instancia del evento recurrente y hereda
+    // su sala: pedirle una propia le daría a esa semana un enlace distinto del
+    // que el paciente tiene en la invitación.
+    ...(appointment.acuerdoId
+      ? {}
+      : {
+          conferenceData: {
+            createRequest: {
+              requestId: `smcr-${appointment.id}`,
+              conferenceSolutionKey: { type: "hangoutsMeet" },
+            },
+          },
+        }),
   };
 }
 

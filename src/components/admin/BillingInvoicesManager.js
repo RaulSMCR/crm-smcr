@@ -2,7 +2,8 @@
 
 import { useCallback, useState, useTransition } from "react";
 import Toast from "@/components/ui/Toast";
-import { splitTaxIncluded } from "@/lib/invoice-math";
+import { computeInvoiceLine, splitTaxIncluded } from "@/lib/invoice-math";
+import { MOTIVO_DESCUENTO_MAX, problemaDeDescuento } from "@/lib/invoice-draft-lines";
 import { updateSupplierInvoiceAcceptance } from "@/actions/professional-billing-actions";
 import { accionesFe, estadoFeVisible } from "@/lib/fe/estado-visible";
 
@@ -38,19 +39,55 @@ function getFeTone(feStatus) {
 const colones = (valor) =>
   new Intl.NumberFormat("es-CR", { style: "currency", currency: "CRC", maximumFractionDigits: 2 }).format(valor);
 
-/** Cómo queda repartido el monto que se escribió: base, impuesto y total. */
-function DesgloseFactura({ amount, taxRate }) {
-  const total = Number(amount || 0);
+/**
+ * La línea que se va a emitir a partir de lo que se escribió.
+ *
+ * El monto es el precio con el IVA dentro —lo que se le cobra al paciente—,
+ * pero una línea de factura se expresa ANTES de impuesto. Se separa con la misma
+ * aritmética que usa el webhook de pagos, para que facturar a mano una consulta
+ * dé exactamente lo mismo que cobrarla, y el descuento se aplica sobre esa base,
+ * que es como lo calcula el servidor (computeInvoiceLine).
+ */
+function lineaDesdeBorrador({ amount, taxRate, discountPercent }) {
+  const precio = Number(amount || 0);
   const tasa = Number(taxRate || 0);
-  if (!Number.isFinite(total) || total <= 0 || !Number.isFinite(tasa) || tasa < 0) return null;
+  if (!Number.isFinite(precio) || precio <= 0 || !Number.isFinite(tasa) || tasa < 0) return null;
+  const { baseCents } = splitTaxIncluded(Math.round(precio * 100), tasa);
+  const pct = Number(discountPercent || 0);
+  const linea = computeInvoiceLine({
+    quantity: 1,
+    unitPrice: baseCents / 100,
+    discountPercent: Number.isFinite(pct) ? pct : 0,
+    taxRate: tasa,
+  });
+  return { ...linea, precio, descuento: Math.round((linea.unitPrice - linea.lineSubtotal) * 100) / 100 };
+}
 
-  const { baseCents, taxCents } = splitTaxIncluded(Math.round(total * 100), tasa);
-
+/** Lo que se va a emitir, antes de emitirlo. */
+function DesgloseFactura({ linea, motivo }) {
+  if (!linea) return null;
   return (
-    <p className="mt-2 text-sm text-slate-600">
-      Se emitirá por <b>{colones(total)}</b>: base {colones(baseCents / 100)} + IVA {tasa}%{" "}
-      {colones(taxCents / 100)}.
-    </p>
+    <div className="mt-3 max-w-md rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+      <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1">
+        <dt>Precio unitario (sin IVA)</dt>
+        <dd className="text-right">{colones(linea.unitPrice)}</dd>
+        {linea.descuento > 0 && (
+          <>
+            <dt>
+              Descuento {linea.discountPercent}%
+              {motivo ? <span className="block text-xs text-slate-500">{motivo}</span> : null}
+            </dt>
+            <dd className="text-right">−{colones(linea.descuento)}</dd>
+          </>
+        )}
+        <dt>Subtotal</dt>
+        <dd className="text-right">{colones(linea.lineSubtotal)}</dd>
+        <dt>IVA {linea.taxRate}%</dt>
+        <dd className="text-right">{colones(linea.taxAmount)}</dd>
+        <dt className="font-semibold">Total</dt>
+        <dd className="text-right font-semibold">{colones(linea.lineTotal)}</dd>
+      </dl>
+    </div>
   );
 }
 
@@ -58,6 +95,7 @@ export default function BillingInvoicesManager({
   invoices = [],
   patients = [],
   professionals = [],
+  services = [],
 }) {
   const [rows, setRows] = useState(invoices);
   const [showCreate, setShowCreate] = useState(false);
@@ -70,12 +108,25 @@ export default function BillingInvoicesManager({
     professionalId: "",
     invoiceType: "CUSTOMER_INVOICE",
     dueDate: toDateInput(new Date()),
+    // El servicio aporta el CABYS y el impuesto de la línea. Solo se ofrecen los
+    // que tienen los dos: sin CABYS, Hacienda rechaza la factura.
+    serviceId: services[0]?.id || "",
     productName: "Servicios Profesionales",
+    description: "",
     amount: "40000",
-    // 4% es la tarifa de los servicios de salud, que es lo que factura este CRM.
-    // Estaba en 13% (tarifa general): abrir la pantalla y crear sin tocar nada
-    // emitía por ₡45.200 una consulta que se cobra ₡40.000.
-    taxRate: "4",
+    discountPercent: "",
+    discountReason: "",
+  });
+
+  const servicio = services.find((s) => s.id === draft.serviceId) || null;
+  const lineaBorrador = lineaDesdeBorrador({
+    amount: draft.amount,
+    taxRate: servicio?.taxRate ?? 0,
+    discountPercent: draft.discountPercent,
+  });
+  const problemaDescuento = problemaDeDescuento({
+    discountPercent: draft.discountPercent,
+    discountType: draft.discountReason,
   });
 
   function updateRowInvoice(id, patch) {
@@ -99,16 +150,12 @@ export default function BillingInvoicesManager({
     setToast(null);
     startTransition(async () => {
       try {
-        // El campo "Monto" es el total que paga el cliente, con el IVA dentro
-        // —igual que el precio publicado de un servicio—, pero una línea de
-        // factura se expresa con el precio ANTES de impuesto. Se separa acá, con
-        // la misma aritmética que usa el webhook de pagos, para que facturar a
-        // mano una consulta dé exactamente lo mismo que cobrarla.
-        const amount = Number(draft.amount || 0);
-        const taxRate = Number(draft.taxRate || 0);
-        const { baseCents } = splitTaxIncluded(Math.round(amount * 100), taxRate);
-        const unitPrice = baseCents / 100;
+        if (!servicio) throw new Error("Elija el servicio: de ahí salen el CABYS y el impuesto.");
+        if (!lineaBorrador) throw new Error("Indique el monto cobrado, con el IVA incluido.");
+        if (problemaDescuento) throw new Error(problemaDescuento);
 
+        // El impuesto y el CABYS los pone el servidor a partir del servicio; la
+        // tasa viaja solo para que el cálculo de la línea sea el mismo.
         const payload = await callApi("/api/invoices", "POST", {
           invoiceType: draft.invoiceType,
           contactId: draft.contactId,
@@ -116,11 +163,14 @@ export default function BillingInvoicesManager({
           dueDate: draft.dueDate,
           lines: [
             {
+              serviceId: servicio.id,
               productName: draft.productName || "Ítem",
+              description: draft.description.trim() || null,
               quantity: 1,
-              unitPrice,
-              discountPercent: 0,
-              taxRate,
+              unitPrice: lineaBorrador.unitPrice,
+              discountPercent: lineaBorrador.discountPercent,
+              discountType: lineaBorrador.discountPercent > 0 ? draft.discountReason : null,
+              taxRate: lineaBorrador.taxRate,
             },
           ],
         });
@@ -351,40 +401,102 @@ export default function BillingInvoicesManager({
           </div>
 
           <div className="mt-3 grid gap-3 md:grid-cols-4">
-            <input
-              type="text"
-              value={draft.productName}
-              onChange={(e) => setDraft((s) => ({ ...s, productName: e.target.value }))}
-              className="rounded-lg border border-slate-300 px-3 py-2"
-              placeholder="Descripción"
-            />
-            <input
-              type="number"
-              value={draft.amount}
-              onChange={(e) => setDraft((s) => ({ ...s, amount: e.target.value }))}
-              className="rounded-lg border border-slate-300 px-3 py-2"
-              placeholder="Monto total (IVA incluido)"
-            />
-            <input
-              type="number"
-              value={draft.taxRate}
-              onChange={(e) => setDraft((s) => ({ ...s, taxRate: e.target.value }))}
-              className="rounded-lg border border-slate-300 px-3 py-2"
-              placeholder="IVA %"
-            />
-            <button
-              onClick={handleCreateDraft}
-              disabled={isPending || !draft.contactId}
-              className="rounded-lg bg-accent-700 px-4 py-2 font-semibold text-white hover:bg-accent-800 disabled:opacity-60"
-            >
-              Crear borrador
-            </button>
+            <label className="text-xs text-slate-600">
+              Servicio (CABYS e IVA)
+              <select
+                value={draft.serviceId}
+                onChange={(e) => setDraft((s) => ({ ...s, serviceId: e.target.value }))}
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
+              >
+                {services.length === 0 && <option value="">Ningún servicio tiene CABYS e impuesto</option>}
+                {services.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.title} · CABYS {s.cabysCode} · IVA {s.taxRate}%
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs text-slate-600">
+              Nombre de la línea
+              <input
+                type="text"
+                value={draft.productName}
+                onChange={(e) => setDraft((s) => ({ ...s, productName: e.target.value }))}
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
+              />
+            </label>
+            <label className="text-xs text-slate-600">
+              Detalle (opcional)
+              <input
+                type="text"
+                value={draft.description}
+                onChange={(e) => setDraft((s) => ({ ...s, description: e.target.value }))}
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
+                placeholder="Ej.: sesión del 15/10/2026"
+              />
+            </label>
+            <label className="text-xs text-slate-600">
+              Monto cobrado (IVA incluido)
+              <input
+                type="number"
+                min="0"
+                value={draft.amount}
+                onChange={(e) => setDraft((s) => ({ ...s, amount: e.target.value }))}
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
+              />
+            </label>
           </div>
 
-          {/* Lo que se va a emitir, antes de emitirlo. El monto que se escribe
-              lleva el IVA dentro y la línea de factura va sin él, así que sin
-              este desglose no hay forma de notar un error de tasa a tiempo. */}
-          <DesgloseFactura amount={draft.amount} taxRate={draft.taxRate} />
+          {/* El descuento es posible pero no mudo: sin motivo no se crea, y el
+              motivo es lo que Hacienda recibe como NaturalezaDescuento. */}
+          <div className="mt-3 grid gap-3 md:grid-cols-4">
+            <label className="text-xs text-slate-600">
+              Descuento % (opcional)
+              <input
+                type="number"
+                min="0"
+                max="99.99"
+                step="0.01"
+                value={draft.discountPercent}
+                onChange={(e) => setDraft((s) => ({ ...s, discountPercent: e.target.value }))}
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
+                placeholder="0"
+              />
+            </label>
+            <label className="text-xs text-slate-600 md:col-span-2">
+              Motivo del descuento {Number(draft.discountPercent) > 0 ? "(obligatorio)" : ""}
+              <input
+                type="text"
+                maxLength={MOTIVO_DESCUENTO_MAX}
+                value={draft.discountReason}
+                onChange={(e) => setDraft((s) => ({ ...s, discountReason: e.target.value }))}
+                disabled={!(Number(draft.discountPercent) > 0)}
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 disabled:bg-slate-100"
+                placeholder="Ej.: tarifa social acordada con el paciente"
+              />
+              <span className="mt-1 block text-[11px] text-slate-500">
+                Va en el comprobante como naturaleza del descuento. Se aplica sobre el precio sin IVA.
+              </span>
+            </label>
+            <div className="flex items-end">
+              <button
+                onClick={handleCreateDraft}
+                disabled={isPending || !draft.contactId || !servicio || !lineaBorrador || Boolean(problemaDescuento)}
+                className="w-full rounded-lg bg-accent-700 px-4 py-2 font-semibold text-white hover:bg-accent-800 disabled:opacity-60"
+              >
+                Crear borrador
+              </button>
+            </div>
+          </div>
+
+          {problemaDescuento && <p className="mt-2 text-sm text-red-700">{problemaDescuento}</p>}
+
+          {/* Lo que se va a emitir, antes de emitirlo, con la misma cuenta que
+              hace el servidor. */}
+          <DesgloseFactura
+            linea={lineaBorrador}
+            motivo={Number(draft.discountPercent) > 0 ? draft.discountReason.trim() : ""}
+          />
         </div>
       )}
 

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { prisma, send, createPaymentLink } = vi.hoisted(() => ({
   prisma: {
+    appointment: { findUnique: vi.fn() },
     paymentTransaction: { findFirst: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
   },
   send: vi.fn(),
@@ -40,6 +41,7 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
   send.mockResolvedValue({ data: { id: "email1" }, error: null });
   createPaymentLink.mockResolvedValue({ id: "live_example", url: paymentUrl });
+  prisma.appointment.findUnique.mockResolvedValue({ acuerdoId: null });
   prisma.paymentTransaction.findFirst.mockResolvedValue(null);
   prisma.paymentTransaction.create.mockImplementation(async ({ data }) => ({ id: "tx1", ...data }));
   prisma.paymentTransaction.updateMany.mockResolvedValue({ count: 1 });
@@ -139,5 +141,16 @@ describe("adelanto: persistencia y recuperación del correo", () => {
       .resolves.toMatchObject({ success: false, code: "ONVO_LINK_FAILED" });
     expect(send).not.toHaveBeenCalled();
     expect(prisma.paymentTransaction.create).not.toHaveBeenCalled();
+  });
+
+  it("una cita de acuerdo de atención no recibe ningún cobro de ONVO", async () => {
+    // Se paga por SINPE Móvil: ni adelanto, ni saldo al completar, ni multa.
+    prisma.appointment.findUnique.mockResolvedValue({ acuerdoId: "acuerdo1" });
+    for (const tipo of ["DEPOSIT_50", "BALANCE_50", "PENALTY_50"]) {
+      await expect(createPaymentRequestForAppointment(appointment, tipo))
+        .resolves.toMatchObject({ success: false, code: "COBRO_FUERA_DE_ONVO" });
+    }
+    expect(createPaymentLink).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
   });
 });

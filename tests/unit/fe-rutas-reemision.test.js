@@ -77,7 +77,17 @@ describe("POST /api/invoices/:id/credit-note — no rectifica lo que nunca vali�
 });
 
 describe("POST /api/invoices/:id/validate — la fecha del pago no se mueve", () => {
-  function conBorrador(borrador) {
+  // Un borrador emitible: con receptor identificado y CABYS en cada línea. Sin
+  // eso la validación se detiene antes de tomar el consecutivo (ver el último caso).
+  function conBorrador(datos, { completo = true } = {}) {
+    const borrador = completo
+      ? {
+          contactName: "Paciente de Prueba",
+          contactIdNumber: "116610982",
+          ...datos,
+          lines: datos.lines.map((l) => ({ cabysCode: "9310100002600", ...l })),
+        }
+      : datos;
     mocks.tx = {
       invoice: {
         findUnique: vi.fn(async () => borrador),
@@ -168,6 +178,25 @@ describe("POST /api/invoices/:id/validate — la fecha del pago no se mueve", ()
 
     await llamar();
     expect(mocks.tx.invoice.update.mock.calls[0][0].data.paymentDate).toBeInstanceOf(Date);
+  });
+
+  it("un borrador sin CABYS o sin receptor no toma número de la serie", async () => {
+    // Si el problema se descubriera al armar el XML, el número ya estaría
+    // gastado en un comprobante que no va a salir.
+    conBorrador(
+      { id: "inv-nueva", invoiceType: "CUSTOMER_INVOICE", status: "DRAFT", lines: [{}], contactName: "Paciente de Prueba", contactIdNumber: "116610982", total: 500, amountPaid: 500 },
+      { completo: false },
+    );
+    const sinCabys = await llamar();
+    expect(sinCabys.status).toBe(409);
+    expect((await sinCabys.json()).message).toMatch(/CABYS/);
+
+    conBorrador(
+      { id: "inv-nueva", invoiceType: "CUSTOMER_INVOICE", status: "DRAFT", lines: [{ cabysCode: "9310100002600" }], contactName: "Paciente de Prueba", total: 500, amountPaid: 500 },
+      { completo: false },
+    );
+    expect((await llamar()).status).toBe(409);
+    expect(mocks.tx.invoiceSequence.upsert).not.toHaveBeenCalled();
   });
 });
 

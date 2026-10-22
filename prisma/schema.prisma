@@ -314,6 +314,7 @@ model User {
   colegiaturasVerificadas ProfessionalProfile[] @relation("VerificacionesDeColegiatura")
 
   appointments    Appointment[] @relation("PatientAppointments")
+  acuerdosDeAtencion AcuerdoDeAtencion[] @relation("AcuerdosDelPaciente")
   invoiceContacts Invoice[]     @relation("InvoiceContact")
   invoicesCreated Invoice[]     @relation("InvoiceCreator")
 
@@ -443,6 +444,7 @@ model ProfessionalProfile {
   timeBands         ProfessionalTimeBand[]
 
   appointments      Appointment[]      @relation("ProAppointments")
+  acuerdosDeAtencion AcuerdoDeAtencion[] @relation("AcuerdosDelProfesional")
   invoices          Invoice[]          @relation("InvoiceProfessional")
   homeCarouselItems HomeCarouselItem[]
   insuranceClaims   InsuranceClaim[]
@@ -494,6 +496,7 @@ model Service {
 
   appointments Appointment[]
   invoiceLines InvoiceLine[]
+  acuerdosDeAtencion AcuerdoDeAtencion[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -905,6 +908,7 @@ model PracticeLocation {
   rates             ProfessionalRate[]
   availabilityLinks AvailabilityLocation[]
   appointments      Appointment[]
+  acuerdosDeAtencion AcuerdoDeAtencion[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1120,6 +1124,12 @@ model Appointment {
   /// Hub temático de primera entrada al flujo de agendamiento, cuando existe.
   topicSlug  String? @db.VarChar(80)
 
+  /// Acuerdo de atención del que salió esta cita, si la generó uno. Una cita
+  /// así ya nace confirmada, con el precio acordado y sin avisos propios: el
+  /// paciente recibió una sola invitación, la del acuerdo.
+  acuerdoId String?
+  acuerdo   AcuerdoDeAtencion? @relation(fields: [acuerdoId], references: [id], onDelete: SetNull)
+
   paymentTransactions PaymentTransaction[]
   invoices            Invoice[]            @relation("AppointmentInvoices")
   insuranceClaim      InsuranceClaim?
@@ -1134,6 +1144,67 @@ model Appointment {
   @@index([status])
   @@index([parentAppointmentId])
   @@index([priceTierId])
+  @@index([acuerdoId])
+}
+
+/// Un paciente que se atiende con una periodicidad fija y sin fecha de fin.
+///
+/// Es la forma de registrar a quien ya estaba en tratamiento —y a quien el
+/// profesional decide atender así—: precio acordado, sin adelanto, fuera de la
+/// escalera de precios, citas ya confirmadas y un único evento recurrente en
+/// Google con su enlace de Meet. Las citas se generan unas semanas hacia
+/// adelante (ver src/lib/acuerdos-de-atencion.js) sin correo de «cita
+/// agendada»; los recordatorios de 24 h y 1 h sí salen.
+///
+/// Por decisión de Raúl (2026-10-21) solo lo maneja el profesional gestionado.
+model AcuerdoDeAtencion {
+  id String @id @default(cuid())
+
+  patientId String
+  patient   User   @relation("AcuerdosDelPaciente", fields: [patientId], references: [id], onDelete: Restrict)
+
+  professionalId String
+  professional   ProfessionalProfile @relation("AcuerdosDelProfesional", fields: [professionalId], references: [id], onDelete: Restrict)
+
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  /// Lugar de atención, con su copia congelada como en Appointment.
+  locationId   String?
+  location     PracticeLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  modality     LocationModality?
+  locationName String?
+
+  /// WEEKLY | BIWEEKLY | MONTHLY. La hora y el día salen de `inicio`.
+  periodicidad String    @db.VarChar(16)
+  /// Primera sesión del acuerdo. Ancla la hora de pared tica de toda la serie.
+  inicio       DateTime  @db.Timestamptz(6)
+  duracionMin  Int
+  /// Sin fecha de fin el acuerdo sigue hasta que se lo termine.
+  fin          DateTime? @db.Timestamptz(6)
+
+  precioAcordado Decimal @db.Decimal(10, 2)
+
+  /// ACTIVO | TERMINADO
+  estado String @default("ACTIVO") @db.VarChar(16)
+
+  /// Evento recurrente de Google (el maestro, no una instancia) y su sala.
+  gcalEventId String?
+  meetLink    String?
+
+  /// Hasta dónde ya se generaron citas. La tarea diaria sigue desde acá.
+  generadoHasta DateTime? @db.Timestamptz(6)
+
+  notas     String? @db.Text
+  createdBy String?
+
+  appointments Appointment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([professionalId, estado])
+  @@index([patientId])
 }
 
 model PaymentTransaction {

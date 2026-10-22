@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/api-guards";
 import { invoiceBodySchema, validationMessage } from "@/lib/financial-schemas";
-import { computeInvoiceLine, round2, toNumber } from "@/lib/invoice-math";
+import { round2 } from "@/lib/invoice-math";
+import { resolverLineas } from "@/lib/invoice-draft-lines";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -126,28 +127,11 @@ export async function PUT(request, { params }) {
       }
     }
 
-    const computedLines = lines.map((line, index) => {
-      const calc = computeInvoiceLine(line);
-      return {
-        productId: line.productId ? String(line.productId) : null,
-        serviceId: line.serviceId ? String(line.serviceId) : null,
-        productName: String(line.productName || "").trim() || "Ítem",
-        description: line.description ? String(line.description) : null,
-        cabysCode: line.cabysCode ? String(line.cabysCode) : null,
-        accountCode: line.accountCode ? String(line.accountCode) : null,
-        quantity: calc.quantity,
-        unitOfMeasure: line.unitOfMeasure ? String(line.unitOfMeasure) : "Unidad(es)",
-        unitPrice: calc.unitPrice,
-        discountPercent: calc.discountPercent,
-        discountType: line.discountType ? String(line.discountType) : null,
-        taxId: line.taxId ? String(line.taxId) : null,
-        taxRate: calc.taxRate,
-        taxAmount: calc.taxAmount,
-        lineSubtotal: calc.lineSubtotal,
-        lineTotal: calc.lineTotal,
-        sortOrder: Number.isInteger(line.sortOrder) ? line.sortOrder : index,
-      };
-    });
+    const resueltas = await resolverLineas(prisma, lines);
+    if (!resueltas.ok) {
+      return NextResponse.json({ message: resueltas.message }, { status: resueltas.status });
+    }
+    const computedLines = resueltas.lines;
 
     const subtotal = round2(computedLines.reduce((acc, line) => acc + line.lineSubtotal, 0));
     const taxAmount = round2(computedLines.reduce((acc, line) => acc + line.taxAmount, 0));

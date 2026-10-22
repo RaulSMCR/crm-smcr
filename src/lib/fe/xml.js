@@ -407,7 +407,10 @@ export function generateFeXml(invoice, lines) {
       const descEl = lineEl.ele("Descuento");
       descEl.ele("MontoDescuento").txt(fmt5(descMonto));
       descEl.ele("CodigoDescuento").txt("07");
-      descEl.ele("NaturalezaDescuento").txt("Descuento Comercial");
+      // El motivo que se escribió al facturar (ver lib/invoice-draft-lines). Las
+      // líneas anteriores a ese campo no lo tienen y conservan el texto genérico.
+      const motivo = String(line.discountType || "").replace(/\s+/g, " ").trim();
+      descEl.ele("NaturalezaDescuento").txt((motivo || "Descuento Comercial").substring(0, 80));
       totalDescuentos = round2(totalDescuentos + descMonto);
     }
 

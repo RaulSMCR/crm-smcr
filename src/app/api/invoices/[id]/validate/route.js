@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/api-guards";
 import { esReemision } from "@/lib/fe/reemision";
 import { PREFIJO_DE_SERIE, serieDeVentaSegunReceptor } from "@/lib/fiscal-identity";
+import { faltaParaEmitir } from "@/lib/invoice-draft-lines";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +44,14 @@ export async function POST(_request, { params }) {
     const result = await prisma.$transaction(async (tx) => {
       const invoice = await tx.invoice.findUnique({
         where: { id },
-        include: { lines: true },
+        include: {
+          lines: {
+            include: {
+              service: { select: { cabysCode: true } },
+              product: { select: { cabysCode: true } },
+            },
+          },
+        },
       });
       if (!invoice) return { error: { message: "Factura no encontrada.", status: 404 } };
       if (invoice.status !== "DRAFT") {
@@ -51,6 +59,12 @@ export async function POST(_request, { params }) {
       }
       if (!invoice.lines.length) {
         return { error: { message: "La factura no tiene líneas.", status: 400 } };
+      }
+      // Antes de tomar el consecutivo: un borrador que Hacienda no va a aceptar
+      // no puede quemar un número de la serie.
+      if (invoice.invoiceType === "CUSTOMER_INVOICE") {
+        const falta = faltaParaEmitir(invoice);
+        if (falta) return { error: { message: falta, status: 409 } };
       }
       // La serie no sale del `invoiceType` sino del receptor: una venta a un
       // extranjero no domiciliado se emite como Tiquete Electrónico y Hacienda
