@@ -1,7 +1,7 @@
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { describe, it, expect } from "vitest";
 import { PDFDocument, PDFRawStream, decodePDFRawStream } from "pdf-lib";
-import { completarPalig, validarPlantillaPalig, facturaPaligPdf, fechaPalig } from "@/lib/palig-pdf";
+import { completarPalig, validarPlantillaPalig, facturaPaligPdf, fechaPalig, moverFechaPalig, muestraFechaPalig, prepararPlantillaPalig, tipoDePlantillaPalig } from "@/lib/palig-pdf";
 import { PALIG_FIELDS as F } from "@/lib/palig-fields";
 
 const source = () => readFile("public/forms/palig-cr-reclamo-2023.pdf");
@@ -38,14 +38,50 @@ describe("PDF PALIG real y factura imprimible", () => {
     expect(form.getTextField(F.signatureDate).getText() || "").toBe("");
     expect(fechaPalig("2026-10-21T02:00:00Z")).toBe("20/10/26");
   });
-  it("exige el formulario PALIG editable, sin exigir contenido: eso queda a cargo de Raúl", async () => {
+  it("acepta el editable sin exigir contenido, y rechaza lo que no puede ser el formulario", async () => {
+    expect(await tipoDePlantillaPalig(await source())).toBe("editable");
     await expect(validarPlantillaPalig(await source())).resolves.toBeInstanceOf(Buffer);
     await expect(validarPlantillaPalig(Buffer.from("invalid"))).rejects.toThrow("PDF");
-    const other = await PDFDocument.create(); other.addPage();
-    await expect(validarPlantillaPalig(await other.save())).rejects.toThrow("formulario PALIG");
+    // Una carta apaisada o de varias páginas no es el formulario.
+    const carta = await PDFDocument.create(); carta.addPage([792, 612]);
+    await expect(validarPlantillaPalig(await carta.save())).rejects.toThrow("una sola página");
+    const varias = await PDFDocument.create(); varias.addPage([439, 713]); varias.addPage([439, 713]);
+    await expect(validarPlantillaPalig(await varias.save())).rejects.toThrow("una sola página");
+    // Si los campos no están en su lugar se trata como escaneo: la fecha va
+    // encima de la página, no en un campo que quizás esté en otro lado.
     const moved = await PDFDocument.load(await prepared());
     moved.getForm().getTextField(F.serviceDate).acroField.getWidgets()[0].setRectangle({ x: 1, y: 1, width: 100, height: 20 });
-    await expect(validarPlantillaPalig(await moved.save())).rejects.toThrow("campos editables");
+    expect(await tipoDePlantillaPalig(await moved.save())).toBe("escaneada");
+  });
+
+  it("al guardar el editable completa solo lo vacío del profesional: nombre, colegiado y teléfono", async () => {
+    const vacio = await prepararPlantillaPalig(await prepared(), { nombre: "Raúl Olmedo Evans", colegiado: "8270", telefono: "71291909" });
+    const f1 = (await PDFDocument.load(vacio.bytes)).getForm();
+    expect(vacio.tipo).toBe("editable");
+    expect([F.professionalName, F.professionalLicense, F.professionalPhone].map((c) => f1.getTextField(c).getText())).toEqual(["Raúl Olmedo Evans", "8270", "71291909"]);
+
+    const doc = await PDFDocument.load(await prepared());
+    doc.getForm().getTextField(F.professionalPhone).setText("88888888");
+    const escrito = await prepararPlantillaPalig(await doc.save(), { nombre: "Raúl Olmedo Evans", colegiado: "8270", telefono: "71291909" });
+    expect((await PDFDocument.load(escrito.bytes)).getForm().getTextField(F.professionalPhone).getText()).toBe("88888888");
+  });
+
+  it("un escaneo se guarda tal cual y la fecha va encima, en su recuadro, movible", async () => {
+    // Como el papel de Javier: una página de 439×713 sin campos.
+    const papel = await PDFDocument.create(); papel.addPage([439, 713]);
+    const { bytes, tipo } = await prepararPlantillaPalig(await papel.save(), { nombre: "Raúl" });
+    expect(tipo).toBe("escaneada");
+    const final = await completarPalig(bytes, { date: "2026-10-22T04:48:00Z", final: true });
+    expect((await textoDibujado(final))("21/10/26")).toBe(true);
+
+    const leerPos = async (b) => (await PDFDocument.load(b)).getKeywords();
+    const antes = await leerPos(bytes);
+    const movida = await moverFechaPalig(bytes, { dx: 3, dy: -3 });
+    expect(await leerPos(movida)).not.toBe(antes);
+    expect(await leerPos(movida)).toMatch(/^smcr-fecha-atencion:/);
+    // La vista previa marca el recuadro; el editable no se puede mover.
+    await expect(muestraFechaPalig(movida, new Date("2026-10-22T04:48:00Z"))).resolves.toBeInstanceOf(Buffer);
+    await expect(moverFechaPalig(await prepared(), { dx: 3 })).rejects.toThrow("escaneada");
   });
   it("conserva todo lo que Raúl escribió y solo pone la fecha de atención del pago", async () => {
     // Plantilla de Raúl: nombre escrito a su manera (distinto del perfil) y
@@ -71,7 +107,8 @@ describe("PDF PALIG real y factura imprimible", () => {
     const checked = await validarPlantillaPalig(await prepared());
     const output = await completarPalig(checked, { patient, professional, date: "2026-10-20T18:00:00Z", final: true });
     expect((await PDFDocument.load(output)).getForm().getFields()).toHaveLength(0);
-    await expect(validarPlantillaPalig(output)).rejects.toThrow("editables");
+    // Aplanado ya no tiene campos: si se volviera a subir, se trata como escaneo.
+    expect(await tipoDePlantillaPalig(output)).toBe("escaneada");
     if (process.env.PALIG_VISUAL_QA === "1") {
       await mkdir("tmp/palig", { recursive: true });
       await writeFile("tmp/palig/palig-final-qa.pdf", output);

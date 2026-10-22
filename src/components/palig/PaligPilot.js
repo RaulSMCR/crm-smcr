@@ -16,6 +16,54 @@ const money = (n) => `₡${Number(n).toLocaleString("es-CR", { minimumFractionDi
 const date = (value) => new Date(value).toLocaleDateString("es-CR", { timeZone: "America/Costa_Rica" });
 const PASO = "flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-700 text-sm font-bold text-white";
 
+/**
+ * Vista previa de dónde cae la fecha. En una plantilla escaneada, flechas para
+ * moverla: cada encuadre es distinto y se ajusta una sola vez por paciente.
+ */
+function VistaPreviaFecha({ patient }) {
+  const [version, setVersion] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const PASO_PT = 3;
+
+  async function mover(dx, dy) {
+    setBusy(true); setError("");
+    try {
+      const res = await fetch(`/api/palig/templates/${patient.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dx, dy }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "No se pudo mover la fecha.");
+      setVersion((v) => v + 1);
+    } catch (e) { setError(e.message); }
+    finally { setBusy(false); }
+  }
+
+  const flecha = "h-9 w-9 rounded-lg border border-slate-300 bg-white text-lg font-bold text-slate-800 hover:bg-slate-100 disabled:opacity-50";
+  return <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+    <p className="text-sm font-medium text-slate-800">
+      Vista previa con una fecha de ejemplo{patient.templateEscaneada ? " (recuadro rojo: solo se ve acá, no en el formulario)" : ""}
+    </p>
+    {patient.templateEscaneada && <div className="flex flex-wrap items-center gap-3">
+      <span className="text-sm text-slate-600">Si la fecha no cae en «Fecha de servicio (atención)», muévala:</span>
+      <div className="grid grid-cols-3 gap-1">
+        <span /><button type="button" aria-label="Subir" disabled={busy} onClick={() => mover(0, PASO_PT)} className={flecha}>↑</button><span />
+        <button type="button" aria-label="Izquierda" disabled={busy} onClick={() => mover(-PASO_PT, 0)} className={flecha}>←</button>
+        <button type="button" aria-label="Bajar" disabled={busy} onClick={() => mover(0, -PASO_PT)} className={flecha}>↓</button>
+        <button type="button" aria-label="Derecha" disabled={busy} onClick={() => mover(PASO_PT, 0)} className={flecha}>→</button>
+      </div>
+      {busy && <span className="text-sm text-slate-500">Guardando…</span>}
+    </div>}
+    {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+    <iframe
+      key={version}
+      title="Vista previa del formulario"
+      src={`/api/palig/templates/${patient.id}?muestra=1&v=${version}#view=FitH`}
+      className="h-[640px] w-full rounded-lg border border-slate-200 bg-white"
+    />
+  </div>;
+}
+
 function SubirFirmado({ claimId, onListo }) {
   const input = useRef(null);
   const [busy, setBusy] = useState(false);
@@ -141,7 +189,9 @@ export default function PaligPilot({ sessions, patients, invoices = [], recent, 
       const response = await fetch(`/api/palig/templates/${patientId}`, { method: "POST", body: fd });
       const json = await response.json();
       if (!response.ok) throw new Error(json.message || "No se pudo guardar.");
-      setTemplateMessage({ ok: true, text: "Plantilla guardada. Ya puede registrar los pagos de este paciente en el paso 2." });
+      setTemplateMessage({ ok: true, text: json.tipo === "escaneada"
+        ? "Plantilla escaneada guardada. Revise en la vista previa que la fecha caiga en su recuadro; después registre los pagos en el paso 2."
+        : "Plantilla guardada. Ya puede registrar los pagos de este paciente en el paso 2." });
       setTemplateConfirmed(false); templateInput.current.value = ""; router.refresh();
     } catch (error) { setTemplateMessage({ ok: false, text: error.message }); }
     finally { setBusy(false); }
@@ -152,9 +202,10 @@ export default function PaligPilot({ sessions, patients, invoices = [], recent, 
     <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6">
       <h2 className="flex items-center gap-3 text-xl font-bold"><span className={PASO}>1</span>Plantilla del paciente</h2>
       <p className="text-sm text-slate-600">
-        Se hace una vez por paciente. Baje el formulario PALIG en blanco (viene con los datos del perfil), complételo con
-        todo lo que debe figurar en cada reclamo y súbalo aquí como PDF editable, sin imprimirlo ni escanearlo. Se guarda
-        tal cual: el sistema solo le agrega, en cada pago, la fecha de atención.
+        Se hace una vez por paciente. Sirven dos formas: el formulario PALIG editable (bájelo en blanco abajo, viene con
+        los datos del perfil) o el papel ya firmado por el paciente, escaneado en PDF. Se guarda tal cual; en el editable
+        se completan solos, si los dejó vacíos, su nombre, su colegiado y el teléfono de la empresa. En cada pago el
+        sistema solo agrega la fecha de atención.
       </p>
       <form onSubmit={saveTemplate}>
         <fieldset disabled={busy} className="space-y-4">
@@ -170,12 +221,13 @@ export default function PaligPilot({ sessions, patients, invoices = [], recent, 
             <a className="underline" href={`/api/palig/templates/${patient.id}`} target="_blank" rel="noopener noreferrer">Bajar formulario en blanco para armar la plantilla</a>
             {patient.templateReady && <a className="underline" href={`/api/palig/templates/${patient.id}?guardada=1`} target="_blank" rel="noopener noreferrer">Ver la plantilla guardada</a>}
           </div>}
-          <label className="block text-sm font-medium">Plantilla completada (PDF editable)<input ref={templateInput} type="file" required accept="application/pdf" className={inputClass} /></label>
+          <label className="block text-sm font-medium">Plantilla completada (PDF editable o escaneado)<input ref={templateInput} type="file" required accept="application/pdf" className={inputClass} /></label>
           <label className="flex items-start gap-2 text-sm"><input className="mt-1" required type="checkbox" checked={templateConfirmed} onChange={(e) => setTemplateConfirmed(e.target.checked)} />Confirmo que Raúl completó y revisó los datos de la plantilla.</label>
           <button type="submit" disabled={busy || !patientId || !templateConfirmed} className={buttonClass}>{patient?.templateReady ? "Reemplazar plantilla" : "Guardar plantilla"}</button>
         </fieldset>
         {templateMessage && <p role="status" className={`mt-3 text-sm ${templateMessage.ok ? "text-green-700" : "text-red-700"}`}>{templateMessage.text}</p>}
       </form>
+      {patient?.templateReady && <VistaPreviaFecha key={`${patient.id}-${patient.templateEscaneada}`} patient={patient} />}
     </section>
 
     {/* ── Paso 2 ─────────────────────────────────────────────────────────── */}

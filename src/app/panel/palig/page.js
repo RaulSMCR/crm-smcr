@@ -60,6 +60,8 @@ export default async function PaligPage() {
       patients={patients.filter((p) => esPalig(p.insuranceName)).map((p) => ({
         id: p.id, name: p.name,
         templateReady: Boolean(p.insuranceTemplateUrl && profile && p.insuranceTemplateProId === profile.id),
+        // El nombre del archivo marca la escaneada (ver la ruta de plantillas).
+        templateEscaneada: String(p.insuranceTemplateUrl || "").includes("/palig-escaneada-"),
       }))}
       invoices={invoices.map((i) => ({
         id: i.id, patientId: i.contactId, amount: Number(i.total),
