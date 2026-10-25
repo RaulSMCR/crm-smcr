@@ -114,6 +114,30 @@ describe("crearAcuerdo", () => {
     expect(primera.endDate.toISOString()).toBe("2026-10-28T22:50:00.000Z");
   });
 
+  it("adopta una serie que ya está en Google: no publica otra y las citas apuntan a sus instancias", async () => {
+    deps.verificarSerie = vi.fn(async () => ({ ok: true, gcalEventId: "vieja", meetLink: "https://meet.google.com/old" }));
+
+    const r = await crearAcuerdo(db, { ...DATOS, serieGoogleId: "vieja" }, { ahora: AHORA, deps });
+
+    expect(r).toMatchObject({ ok: true, serieAdoptada: true });
+    expect(deps.verificarSerie.mock.calls[0][1]).toMatchObject({ serieId: "vieja", periodicidad: "WEEKLY" });
+    expect(deps.publicarEnGoogle).not.toHaveBeenCalled();
+    expect(db.tablas.citas[0]).toMatchObject({
+      gcalEventId: "vieja_20261028T220000Z",
+      meetLink: "https://meet.google.com/old",
+    });
+  });
+
+  it("si la serie no se puede adoptar, no crea nada", async () => {
+    deps.verificarSerie = vi.fn(async () => ({ ok: false, message: "La periodicidad no coincide." }));
+
+    const r = await crearAcuerdo(db, { ...DATOS, serieGoogleId: "vieja" }, { ahora: AHORA, deps });
+
+    expect(r).toMatchObject({ ok: false, code: "SERIE_NO_ADOPTABLE", message: "La periodicidad no coincide." });
+    expect(db.tablas.acuerdos).toHaveLength(0);
+    expect(deps.abrirCaso).not.toHaveBeenCalled();
+  });
+
   it("no programa recordatorios de sesiones lejanas: esos los programa la tarea diaria", async () => {
     await crearAcuerdo(db, DATOS, { ahora: AHORA, deps });
     expect(deps.scheduleReminder).not.toHaveBeenCalled();

@@ -7,7 +7,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/ToastProvider";
-import { crearAcuerdoAction, terminarAcuerdoAction } from "@/actions/acuerdo-de-atencion-actions";
+import {
+  crearAcuerdoAction,
+  seriesDeGoogleParaAcuerdosAction,
+  terminarAcuerdoAction,
+} from "@/actions/acuerdo-de-atencion-actions";
 import { DIAS_HACIA_ATRAS_PERMITIDOS, ETIQUETA_PERIODICIDAD, PERIODICIDADES } from "@/lib/acuerdos-de-atencion";
 import { formatSelectedLabel, instanteDeHoraCR } from "@/lib/appointment-slots";
 import { DEFAULT_TZ } from "@/lib/timezone";
@@ -24,17 +28,36 @@ const fechaCorta = (fecha) =>
 const campo = "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900";
 const etiqueta = "mb-1 block text-sm font-medium text-slate-800";
 
-function NuevoAcuerdoModal({ patients, services, locations, onClose, onCreado }) {
+/** Un instante → día y hora de pared en Costa Rica, como los pide el formulario. */
+function fechaYHoraCR(iso) {
+  const partes = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: DEFAULT_TZ,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(new Date(iso))
+      .map((p) => [p.type, p.value])
+  );
+  return { fecha: `${partes.year}-${partes.month}-${partes.day}`, hora: `${partes.hour}:${partes.minute}` };
+}
+
+function NuevoAcuerdoModal({ patients, services, locations, serie, onClose, onCreado }) {
   const [form, setForm] = useState({
-    patientId: patients[0]?.id || "",
+    patientId: serie?.patientId || patients[0]?.id || "",
     serviceId: services[0]?.id || "",
     locationId: locations.length === 1 ? locations[0].id : "",
-    fecha: "",
-    hora: "",
-    periodicidad: PERIODICIDADES.WEEKLY,
+    fecha: serie ? fechaYHoraCR(serie.proxima).fecha : "",
+    hora: serie ? fechaYHoraCR(serie.proxima).hora : "",
+    periodicidad: serie?.periodicidad || PERIODICIDADES.WEEKLY,
     precioAcordado: "40000",
     notas: "",
     seguroPalig: false,
+    serieGoogleId: serie?.serieId || null,
   });
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -70,7 +93,7 @@ function NuevoAcuerdoModal({ patients, services, locations, onClose, onCreado })
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block">
             <span className={etiqueta}>Paciente</span>
-            <select value={form.patientId} onChange={cambiar("patientId")} className={campo}>
+            <select value={form.patientId} onChange={cambiar("patientId")} disabled={Boolean(serie)} className={campo}>
               {patients.map((p) => (
                 <option key={p.id} value={p.id}>{p.name} · {p.email}</option>
               ))}
@@ -95,7 +118,7 @@ function NuevoAcuerdoModal({ patients, services, locations, onClose, onCreado })
           </label>
           <label className="block">
             <span className={etiqueta}>Periodicidad</span>
-            <select value={form.periodicidad} onChange={cambiar("periodicidad")} className={campo}>
+            <select value={form.periodicidad} onChange={cambiar("periodicidad")} disabled={Boolean(serie)} className={campo}>
               {Object.values(PERIODICIDADES).map((p) => (
                 <option key={p} value={p}>{ETIQUETA_PERIODICIDAD[p]}</option>
               ))}
@@ -103,11 +126,11 @@ function NuevoAcuerdoModal({ patients, services, locations, onClose, onCreado })
           </label>
           <label className="block">
             <span className={etiqueta}>Primera sesión: día</span>
-            <input type="date" value={form.fecha} onChange={cambiar("fecha")} className={campo} />
+            <input type="date" value={form.fecha} onChange={cambiar("fecha")} disabled={Boolean(serie)} className={campo} />
           </label>
           <label className="block">
             <span className={etiqueta}>Hora (Costa Rica)</span>
-            <input type="time" step="600" value={form.hora} onChange={cambiar("hora")} className={campo} />
+            <input type="time" step="600" value={form.hora} onChange={cambiar("hora")} disabled={Boolean(serie)} className={campo} />
           </label>
           <label className="block">
             <span className={etiqueta}>Precio por sesión (₡, IVA incluido)</span>
@@ -146,11 +169,18 @@ function NuevoAcuerdoModal({ patients, services, locations, onClose, onCreado })
           pasadas se registran como efectuadas.
         </p>
 
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Al crearlo, el paciente recibe <strong>una sola invitación</strong> de Google con el enlace de Meet. Si ya tenía
-          una serie anterior en su calendario, elimínela desde la primera sesión del acuerdo («Este evento y los
-          siguientes», sin avisar a los invitados) para que no quede duplicada.
-        </div>
+        {serie ? (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+            Se usa la serie que ya está en su Google Calendar («{serie.titulo || "sin título"}»).{" "}
+            <strong>No se envía ninguna invitación nueva</strong>: el paciente sigue con la misma serie y el mismo enlace.
+            Paciente, periodicidad y primera sesión salen de esa serie.
+          </div>
+        ) : (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Al crearlo, el paciente recibe <strong>una sola invitación</strong> de Google con el enlace de Meet. Si ya
+            tenía una serie anterior en su calendario, use «Buscar series en Google» para adoptarla en vez de crear otra.
+          </div>
+        )}
 
         {error && <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">{error}</p>}
 
@@ -258,21 +288,85 @@ function FilaAcuerdo({ acuerdo, onTerminado }) {
   );
 }
 
+function SeriesDeGoogle({ onElegir }) {
+  const [series, setSeries] = useState(null);
+  const [isPending, startTransition] = useTransition();
+  const { avisar } = useToast();
+
+  function buscar() {
+    startTransition(async () => {
+      const r = await seriesDeGoogleParaAcuerdosAction();
+      if (!r?.success) {
+        avisar(r?.error || "No se pudo revisar el calendario.", "error");
+        return;
+      }
+      setSeries(r.series);
+      if (r.series.length === 0) avisar("No hay series de sus pacientes pendientes de acuerdo.", "info");
+    });
+  }
+
+  return (
+    <div className="space-y-2">
+      <button
+        onClick={buscar}
+        disabled={isPending}
+        className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-100 disabled:opacity-60"
+      >
+        {isPending ? "Revisando Google…" : "Buscar series en Google"}
+      </button>
+      {series?.length > 0 && (
+        <ul className="space-y-2">
+          {series.map((s) => (
+            <li key={s.serieId} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 text-sm">
+              <div>
+                <p className="font-semibold text-slate-900">{s.patientName}</p>
+                <p className="text-slate-600">
+                  {ETIQUETA_PERIODICIDAD[s.periodicidad]}, {diaYHora(s.proxima)} · próxima el {fechaCorta(s.proxima)}
+                  {s.titulo ? ` · «${s.titulo}»` : ""}
+                </p>
+              </div>
+              <button
+                onClick={() => onElegir(s)}
+                className="rounded-xl bg-slate-900 px-3 py-1.5 font-semibold text-white hover:bg-slate-800"
+              >
+                Crear acuerdo con esta serie
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {series && (
+        <p className="text-xs text-slate-500">
+          Crear el acuerdo es opcional y se puede hacer en cualquier momento. Mientras tanto la serie sigue en Google y
+          ocupa su agenda igual.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function AcuerdosDeAtencionSection({ acuerdos = [], patients = [], services = [], locations = [] }) {
   const [abierto, setAbierto] = useState(false);
+  const [serie, setSerie] = useState(null);
   const router = useRouter();
   const { avisar } = useToast();
 
-  function alCrear(r) {
+  function cerrar() {
     setAbierto(false);
+    setSerie(null);
+  }
+
+  function alCrear(r) {
+    cerrar();
     const partes = [`Acuerdo creado: ${r.creadas} sesión(es) registrada(s).`];
     if (r.omitidas?.length) {
       partes.push(`${r.omitidas.length} se omitieron por chocar con otra cita: revíselas en la agenda.`);
     }
-    if (!r.googlePublicado) partes.push("Google no respondió; la serie se publica en la próxima pasada diaria.");
+    if (r.serieAdoptada) partes.push("Quedó vinculado a la serie que ya estaba en Google; no se envió invitación nueva.");
+    else if (!r.googlePublicado) partes.push("Google no respondió; la serie se publica en la próxima pasada diaria.");
     if (r.seguroMarcado === true) partes.push("El paciente quedó registrado con seguro PALIG.");
     if (r.seguroMarcado === false) partes.push("No se pudo registrar el seguro PALIG: márquelo en Admin → Seguros.");
-    const conSalvedad = r.omitidas?.length || !r.googlePublicado || r.seguroMarcado === false;
+    const conSalvedad = r.omitidas?.length || (!r.googlePublicado && !r.serieAdoptada) || r.seguroMarcado === false;
     avisar(partes.join(" "), conSalvedad ? "info" : "success");
     router.refresh();
   }
@@ -294,6 +388,13 @@ export default function AcuerdosDeAtencionSection({ acuerdos = [], patients = []
         </button>
       </div>
 
+      <SeriesDeGoogle
+        onElegir={(s) => {
+          setSerie(s);
+          setAbierto(true);
+        }}
+      />
+
       {acuerdos.length === 0 ? (
         <p className="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500">
           No hay acuerdos activos.
@@ -311,7 +412,8 @@ export default function AcuerdosDeAtencionSection({ acuerdos = [], patients = []
           patients={patients}
           services={services}
           locations={locations}
-          onClose={() => setAbierto(false)}
+          serie={serie}
+          onClose={cerrar}
           onCreado={alCrear}
         />
       )}

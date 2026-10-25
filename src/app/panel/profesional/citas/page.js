@@ -9,6 +9,7 @@ import InsuranceClaimsSection from "@/components/profesional/InsuranceClaimsSect
 import AcuerdosDeAtencionSection from "@/components/appointments/AcuerdosDeAtencionSection";
 import { TARIFA_VIGENTE } from "@/lib/service-pricing";
 import { ESTADOS_ACUERDO, puedeGestionarAcuerdos } from "@/lib/acuerdos-de-atencion";
+import { wherePacientesDelProfesional } from "@/lib/casos";
 
 /** Huella corta de qué citas hay y en qué estado (FNV-1a de 32 bits). */
 function huellaDeCitas(citas) {
@@ -116,13 +117,9 @@ export default async function ProfesionalCitasPage() {
       orderBy: { date: "asc" },
     }),
     prisma.user.findMany({
-      where: {
-        role: "USER",
-        isActive: true,
-      },
+      where: wherePacientesDelProfesional(professionalId),
       select: { id: true, name: true, email: true },
       orderBy: { name: "asc" },
-      take: 300,
     }),
     prisma.insuranceClaim.findMany({
       where: { professionalId, status: "PENDING_SIGNED_FORM" },

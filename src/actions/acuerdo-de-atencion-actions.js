@@ -12,6 +12,9 @@ import { requireProfessionalProfileId } from "@/lib/auth-guards";
 import { crearAcuerdo, terminarAcuerdo } from "@/lib/acuerdos-de-atencion-server";
 import { instanteDeHoraCR } from "@/lib/appointment-slots";
 import { marcarSeguroPalig } from "@/lib/seguro-palig";
+import { esPacienteDelProfesional, wherePacientesDelProfesional } from "@/lib/casos";
+import { pacientesEnElCalendario, proximaSesionDeSerie } from "@/lib/calendario-pacientes";
+import { ESTADOS_ACUERDO } from "@/lib/acuerdos-de-atencion";
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 const HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -47,6 +50,9 @@ export async function crearAcuerdoAction(datos = {}) {
     if (!FECHA.test(fecha) || !HORA.test(hora)) {
       return { success: false, error: "Indique el día y la hora de la primera sesión." };
     }
+    if (!(await esPacienteDelProfesional(datos.patientId, ctx.professionalId))) {
+      return { success: false, error: "Este paciente todavía no está emparejado con usted." };
+    }
 
     const resultado = await crearAcuerdo(prisma, {
       professionalId: ctx.professionalId,
@@ -58,6 +64,7 @@ export async function crearAcuerdoAction(datos = {}) {
       precioAcordado: datos.precioAcordado,
       notas: datos.notas,
       createdBy: ctx.userId,
+      serieGoogleId: datos.serieGoogleId || null,
     });
     if (!resultado.ok) return { success: false, error: resultado.message };
 
@@ -78,10 +85,68 @@ export async function crearAcuerdoAction(datos = {}) {
       creadas: resultado.creadas,
       omitidas: resultado.omitidas.map((d) => d.toISOString()),
       googlePublicado: Boolean(resultado.google?.publicado),
+      serieAdoptada: Boolean(resultado.serieAdoptada),
     };
   } catch (error) {
     console.error("crearAcuerdoAction error:", error);
     return { success: false, error: "No se pudo crear el acuerdo. Inténtelo de nuevo." };
+  }
+}
+
+/**
+ * Series de Google de los pacientes de este profesional que todavía no tienen
+ * acuerdo, para crearlo adoptando la serie. Crear el acuerdo es opcional: la
+ * serie puede quedarse como está el tiempo que haga falta.
+ */
+export async function seriesDeGoogleParaAcuerdosAction() {
+  try {
+    const ctx = await contexto();
+    if (ctx.error) return { success: false, error: ctx.error };
+
+    let encontrados;
+    try {
+      encontrados = await pacientesEnElCalendario(prisma, ctx.professionalId);
+    } catch (error) {
+      console.error("seriesDeGoogleParaAcuerdosAction google:", error?.message);
+      return { success: false, error: "Google no respondió. Inténtelo de nuevo en un rato." };
+    }
+    if (encontrados === null) return { success: false, error: "Su calendario de Google no está conectado." };
+
+    const [propios, conAcuerdo] = await Promise.all([
+      prisma.user.findMany({
+        where: { id: { in: encontrados.map((e) => e.patientId) }, ...wherePacientesDelProfesional(ctx.professionalId) },
+        select: { id: true },
+      }),
+      prisma.acuerdoDeAtencion.findMany({
+        where: { professionalId: ctx.professionalId, estado: ESTADOS_ACUERDO.ACTIVO },
+        select: { patientId: true, gcalEventId: true },
+      }),
+    ]);
+    const suyos = new Set(propios.map((p) => p.id));
+    const adoptadas = new Set(conAcuerdo.map((a) => a.gcalEventId).filter(Boolean));
+    const pacientesConAcuerdo = new Set(conAcuerdo.map((a) => a.patientId));
+
+    const series = [];
+    for (const paciente of encontrados) {
+      if (!suyos.has(paciente.patientId) || pacientesConAcuerdo.has(paciente.patientId)) continue;
+      for (const evento of paciente.eventos) {
+        if (!evento.recurrente || !evento.propio || !evento.periodicidad || adoptadas.has(evento.id)) continue;
+        const proxima = await proximaSesionDeSerie(prisma, { professionalId: ctx.professionalId, serieId: evento.id });
+        if (!proxima) continue;
+        series.push({
+          serieId: evento.id,
+          titulo: evento.titulo,
+          periodicidad: evento.periodicidad,
+          proxima,
+          patientId: paciente.patientId,
+          patientName: paciente.name,
+        });
+      }
+    }
+    return { success: true, series };
+  } catch (error) {
+    console.error("seriesDeGoogleParaAcuerdosAction error:", error);
+    return { success: false, error: "No se pudo revisar el calendario." };
   }
 }
 

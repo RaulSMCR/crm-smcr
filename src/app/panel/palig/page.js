@@ -26,7 +26,10 @@ export default async function PaligPage() {
         orderBy: { date: "desc" },
       }),
       prisma.user.findMany({
-        where: { isActive: true, appointments: { some: { professional } } },
+        where: {
+          isActive: true,
+          OR: [{ appointments: { some: { professional } } }, { casosComoPaciente: { some: { professional } } }],
+        },
         select: { id: true, name: true, insuranceName: true, insuranceTemplateUrl: true, insuranceTemplateProId: true },
         orderBy: { name: "asc" },
       }),

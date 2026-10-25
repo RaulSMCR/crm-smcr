@@ -73,6 +73,7 @@ export default async function AdminDashboard() {
     pendingRatesCount,
     pausedSchedulesCount,
     pendingVisadoCount,
+    pacientesSinProfesionalCount,
     pendingUsers,
   ] = await Promise.all([
     prisma.user.count({ where: wherePendingProsUsers }),
@@ -104,6 +105,13 @@ export default async function AdminDashboard() {
     prisma.professionalRate.count({ where: { status: "PENDING" } }),
     prisma.user.count({ where: { schedulingBlockedAt: { not: null } } }),
     prisma.caso.count({ where: { estado: "PENDIENTE_VISADO" } }),
+    prisma.user.count({
+      where: {
+        role: "USER",
+        isActive: true,
+        casosComoPaciente: { none: { estado: { in: ["ABIERTO", "PENDIENTE_VISADO"] } } },
+      },
+    }),
     prisma.user.findMany({
       where: wherePendingProsUsers,
       include: { professionalProfile: true },
@@ -205,6 +213,12 @@ export default async function AdminDashboard() {
             title="Citas"
             description="Seguimiento operativo de la agenda."
             count={activeAppointmentsCount}
+          />
+          <DashboardCard
+            href="/panel/admin/pacientes"
+            title="Pacientes"
+            description="Emparejar con profesionales a quien llegó sin agendar por la web."
+            count={pacientesSinProfesionalCount || undefined}
           />
           <DashboardCard
             href="/panel/admin/agendas-en-pausa"

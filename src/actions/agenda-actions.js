@@ -18,7 +18,7 @@ import { resolveBookingSelection } from "@/lib/booking-rates";
 import { MOTIVOS_BLOQUEO } from "@/lib/rescheduling-policy";
 import { aplicarMultaYPausa } from "@/lib/scheduling-block";
 import { alertarAgendaEnPausa } from "@/lib/payment-alerts";
-import { abrirCasoSiNoExiste } from "@/lib/casos";
+import { abrirCasoSiNoExiste, esPacienteDelProfesional } from "@/lib/casos";
 import { iniciarReenganche } from "@/lib/reenganche";
 import {
   buildRecurringStarts,
@@ -285,6 +285,12 @@ export async function createAppointmentByProfessional({
 
     if (!patient || patient.role !== "USER" || !patient.isActive) {
       return { success: false, error: "Paciente no disponible." };
+    }
+    if (!(await esPacienteDelProfesional(pid, professionalId))) {
+      return {
+        success: false,
+        error: "Este paciente todavía no está emparejado con usted. Pídale a la administración que lo empareje.",
+      };
     }
     if (!service || !service.isActive) {
       return { success: false, error: "Servicio no disponible." };

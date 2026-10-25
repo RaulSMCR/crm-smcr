@@ -44,63 +44,174 @@ export {
  */
 export async function abrirCasoSiNoExiste({ patientId, professionalId }) {
   try {
-    const pid = String(patientId || "");
-    const proId = String(professionalId || "");
-    if (!pid || !proId) return null;
-
-    const enCurso = await prisma.caso.findFirst({
-      where: {
-        patientId: pid,
-        professionalId: proId,
-        estado: { in: [ESTADOS.ABIERTO, ESTADOS.PENDIENTE_VISADO] },
-      },
-      select: { id: true },
-    });
-    if (enCurso) return enCurso;
-
-    const paciente = await prisma.user.findUnique({
-      where: { id: pid },
-      select: { name: true, identification: true },
-    });
-    if (!paciente) return null;
-
-    // El último cerrado que todavía no tenga sucesor: la cadena no se bifurca.
-    const anterior = await prisma.caso.findFirst({
-      where: {
-        patientId: pid,
-        professionalId: proId,
-        estado: ESTADOS.CERRADO,
-        casoSiguiente: { is: null },
-      },
-      orderBy: { cerradoAt: "desc" },
-      select: { id: true },
-    });
-
-    const caso = await prisma.caso.create({
-      data: {
-        patientId: pid,
-        professionalId: proId,
-        pacienteNombre: String(paciente.name || "").slice(0, 120),
-        pacienteCedula: paciente.identification || null,
-        estado: ESTADOS.ABIERTO,
-        casoAnteriorId: anterior?.id || null,
-        eventos: {
-          create: {
-            tipo: anterior ? EVENTOS.REAPERTURA : EVENTOS.APERTURA,
-            detalle: anterior
-              ? "Retoma del proceso: se abrió un caso nuevo encadenado al anterior."
-              : "Caso abierto con la primera cita.",
-          },
-        },
-      },
-      select: { id: true },
-    });
-
-    return caso;
+    const r = await abrirCaso({ patientId, professionalId });
+    return r?.caso || null;
   } catch (error) {
     console.error("abrirCasoSiNoExiste error:", error);
     return null;
   }
+}
+
+/**
+ * Filtro Prisma de los pacientes que un profesional puede ver: los que tienen
+ * cita o caso con él. El resto de los usuarios solo los ve la administración.
+ */
+export function wherePacientesDelProfesional(professionalId) {
+  const proId = String(professionalId || "");
+  return {
+    role: "USER",
+    isActive: true,
+    OR: [
+      { appointments: { some: { professionalId: proId } } },
+      { casosComoPaciente: { some: { professionalId: proId } } },
+    ],
+  };
+}
+
+export async function esPacienteDelProfesional(patientId, professionalId) {
+  const encontrado = await prisma.user.findFirst({
+    where: { id: String(patientId || ""), ...wherePacientesDelProfesional(professionalId) },
+    select: { id: true },
+  });
+  return Boolean(encontrado);
+}
+
+/**
+ * Empareja a mano a un paciente con un profesional, sin cita de por medio.
+ *
+ * Es para quien llegó por fuera del flujo de reserva: un paciente de antes que
+ * se registró solo para recibir su factura, alguien que pidió por WhatsApp que
+ * lo agenden. Un paciente puede estar emparejado con varios profesionales a la
+ * vez; lo que no se duplica es el caso en curso de una misma pareja.
+ *
+ * @returns {Promise<{ok: true, nuevo: boolean} | {ok: false, error: string}>}
+ */
+export async function emparejarPacienteConProfesional({ patientId, professionalId, actorId = null, quien = "" }) {
+  const pid = String(patientId || "");
+  const proId = String(professionalId || "");
+  if (!pid || !proId) return { ok: false, error: "Elegí paciente y profesional." };
+
+  const [paciente, profesional] = await Promise.all([
+    prisma.user.findUnique({ where: { id: pid }, select: { role: true, isActive: true } }),
+    prisma.professionalProfile.findUnique({
+      where: { id: proId },
+      select: { isApproved: true, user: { select: { isActive: true } } },
+    }),
+  ]);
+  if (!paciente || paciente.role !== "USER" || !paciente.isActive) {
+    return { ok: false, error: "Ese paciente no existe o su cuenta no está activa." };
+  }
+  if (!profesional?.isApproved || !profesional.user?.isActive) {
+    return { ok: false, error: "Ese profesional no está activo en el equipo." };
+  }
+
+  const r = await abrirCaso({
+    patientId: pid,
+    professionalId: proId,
+    actorId,
+    detalle: `Emparejamiento manual${quien ? ` (${quien})` : ""}, sin cita previa.`,
+  });
+  if (!r) return { ok: false, error: "No se pudo emparejar." };
+  return { ok: true, nuevo: r.nuevo };
+}
+
+/**
+ * Deshace un emparejamiento que nunca llegó a atención.
+ *
+ * Si la pareja ya tiene citas o un acuerdo, el caso es registro administrativo
+ * que se conserva diez años: no se borra, se cierra con alta o baja.
+ *
+ * @returns {Promise<{ok: true} | {ok: false, error: string}>}
+ */
+export async function retirarEmparejamiento({ patientId, professionalId }) {
+  const pid = String(patientId || "");
+  const proId = String(professionalId || "");
+  if (!pid || !proId) return { ok: false, error: "Emparejamiento inválido." };
+
+  const [citas, acuerdos, casos] = await Promise.all([
+    prisma.appointment.count({ where: { patientId: pid, professionalId: proId } }),
+    prisma.acuerdoDeAtencion.count({ where: { patientId: pid, professionalId: proId } }),
+    prisma.caso.findMany({
+      where: { patientId: pid, professionalId: proId, estado: { in: [ESTADOS.ABIERTO, ESTADOS.PENDIENTE_VISADO] } },
+      select: { id: true, _count: { select: { notas: true } } },
+    }),
+  ]);
+
+  if (casos.length === 0) return { ok: false, error: "No están emparejados." };
+  if (citas > 0 || acuerdos > 0 || casos.some((c) => c._count.notas > 0)) {
+    return {
+      ok: false,
+      error:
+        "Ya hubo atención con este profesional, así que el registro se conserva. " +
+        "Para terminarlo, el profesional propone el cierre (alta o baja) desde Casos.",
+    };
+  }
+
+  const ids = casos.map((c) => c.id);
+  await prisma.$transaction([
+    prisma.casoEvento.deleteMany({ where: { casoId: { in: ids } } }),
+    prisma.caso.deleteMany({ where: { id: { in: ids } } }),
+  ]);
+  return { ok: true };
+}
+
+async function abrirCaso({ patientId, professionalId, actorId = null, detalle = null }) {
+  const pid = String(patientId || "");
+  const proId = String(professionalId || "");
+  if (!pid || !proId) return null;
+
+  const enCurso = await prisma.caso.findFirst({
+    where: {
+      patientId: pid,
+      professionalId: proId,
+      estado: { in: [ESTADOS.ABIERTO, ESTADOS.PENDIENTE_VISADO] },
+    },
+    select: { id: true },
+  });
+  if (enCurso) return { caso: enCurso, nuevo: false };
+
+  const paciente = await prisma.user.findUnique({
+    where: { id: pid },
+    select: { name: true, identification: true },
+  });
+  if (!paciente) return null;
+
+  // El último cerrado que todavía no tenga sucesor: la cadena no se bifurca.
+  const anterior = await prisma.caso.findFirst({
+    where: {
+      patientId: pid,
+      professionalId: proId,
+      estado: ESTADOS.CERRADO,
+      casoSiguiente: { is: null },
+    },
+    orderBy: { cerradoAt: "desc" },
+    select: { id: true },
+  });
+
+  const caso = await prisma.caso.create({
+    data: {
+      patientId: pid,
+      professionalId: proId,
+      pacienteNombre: String(paciente.name || "").slice(0, 120),
+      pacienteCedula: paciente.identification || null,
+      estado: ESTADOS.ABIERTO,
+      casoAnteriorId: anterior?.id || null,
+      eventos: {
+        create: {
+          tipo: anterior ? EVENTOS.REAPERTURA : EVENTOS.APERTURA,
+          actorId,
+          detalle:
+            detalle ||
+            (anterior
+              ? "Retoma del proceso: se abrió un caso nuevo encadenado al anterior."
+              : "Caso abierto con la primera cita."),
+        },
+      },
+    },
+    select: { id: true },
+  });
+
+  return { caso, nuevo: true };
 }
 
 /**

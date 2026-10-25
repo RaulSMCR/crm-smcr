@@ -13,9 +13,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const { prisma } = vi.hoisted(() => ({
   prisma: {
-    caso: { findFirst: vi.fn(), create: vi.fn() },
+    caso: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
     user: { findUnique: vi.fn() },
-    casoEvento: { create: vi.fn() },
+    professionalProfile: { findUnique: vi.fn() },
+    appointment: { count: vi.fn() },
+    acuerdoDeAtencion: { count: vi.fn() },
+    casoEvento: { create: vi.fn(), deleteMany: vi.fn() },
+    $transaction: vi.fn(async (ops) => ops),
   },
 }));
 
@@ -28,6 +32,8 @@ import {
   RESULTADOS,
   abrirCasoSiNoExiste,
   bloqueoPorCierreEnCurso,
+  emparejarPacienteConProfesional,
+  retirarEmparejamiento,
   estadoParaPaciente,
   fechaDeConservacion,
   sePuedeDepurar,
@@ -193,6 +199,77 @@ describe("abrirCasoSiNoExiste()", () => {
   it("si la base falla, devuelve null y no revienta la reserva", async () => {
     prisma.caso.findFirst.mockRejectedValueOnce(new Error("db caída"));
     await expect(abrirCasoSiNoExiste({ patientId: "p1", professionalId: "pro1" })).resolves.toBeNull();
+  });
+});
+
+describe("emparejarPacienteConProfesional()", () => {
+  const PACIENTE = { role: "USER", isActive: true };
+  const PROFESIONAL = { isApproved: true, user: { isActive: true } };
+
+  it("abre el caso sin cita y deja constancia de quién emparejó", async () => {
+    prisma.user.findUnique.mockResolvedValueOnce(PACIENTE);
+    prisma.professionalProfile.findUnique.mockResolvedValueOnce(PROFESIONAL);
+    prisma.caso.findFirst.mockResolvedValueOnce(null);
+    prisma.user.findUnique.mockResolvedValueOnce({ name: "Ciani Vega", identification: null });
+    prisma.caso.findFirst.mockResolvedValueOnce(null);
+    prisma.caso.create.mockResolvedValueOnce({ id: "caso_nuevo" });
+
+    const r = await emparejarPacienteConProfesional({
+      patientId: "p1",
+      professionalId: "pro1",
+      actorId: "admin1",
+      quien: "administración",
+    });
+
+    expect(r).toEqual({ ok: true, nuevo: true });
+    const { data } = prisma.caso.create.mock.calls[0][0];
+    expect(data.eventos.create.actorId).toBe("admin1");
+    expect(data.eventos.create.detalle).toMatch(/manual/);
+  });
+
+  it("si la pareja ya tiene caso en curso no abre otro", async () => {
+    prisma.user.findUnique.mockResolvedValueOnce(PACIENTE);
+    prisma.professionalProfile.findUnique.mockResolvedValueOnce(PROFESIONAL);
+    prisma.caso.findFirst.mockResolvedValueOnce({ id: "caso_abierto" });
+
+    const r = await emparejarPacienteConProfesional({ patientId: "p1", professionalId: "pro1" });
+
+    expect(r).toEqual({ ok: true, nuevo: false });
+    expect(prisma.caso.create).not.toHaveBeenCalled();
+  });
+
+  it("no empareja a un profesional ni a un paciente inactivo", async () => {
+    prisma.user.findUnique.mockResolvedValueOnce(PACIENTE);
+    prisma.professionalProfile.findUnique.mockResolvedValueOnce({ isApproved: false, user: { isActive: true } });
+    expect((await emparejarPacienteConProfesional({ patientId: "p1", professionalId: "pro1" })).ok).toBe(false);
+
+    prisma.user.findUnique.mockResolvedValueOnce({ role: "PROFESSIONAL", isActive: true });
+    prisma.professionalProfile.findUnique.mockResolvedValueOnce(PROFESIONAL);
+    expect((await emparejarPacienteConProfesional({ patientId: "p1", professionalId: "pro1" })).ok).toBe(false);
+
+    expect(prisma.caso.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("retirarEmparejamiento()", () => {
+  it("borra el caso de una pareja que nunca tuvo atención", async () => {
+    prisma.appointment.count.mockResolvedValueOnce(0);
+    prisma.acuerdoDeAtencion.count.mockResolvedValueOnce(0);
+    prisma.caso.findMany.mockResolvedValueOnce([{ id: "c1", _count: { notas: 0 } }]);
+
+    expect(await retirarEmparejamiento({ patientId: "p1", professionalId: "pro1" })).toEqual({ ok: true });
+    expect(prisma.caso.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["c1"] } } });
+  });
+
+  it("no borra nada si ya hubo citas: ese registro se conserva y se cierra con alta o baja", async () => {
+    prisma.appointment.count.mockResolvedValueOnce(3);
+    prisma.acuerdoDeAtencion.count.mockResolvedValueOnce(0);
+    prisma.caso.findMany.mockResolvedValueOnce([{ id: "c1", _count: { notas: 0 } }]);
+
+    const r = await retirarEmparejamiento({ patientId: "p1", professionalId: "pro1" });
+
+    expect(r.ok).toBe(false);
+    expect(prisma.caso.deleteMany).not.toHaveBeenCalled();
   });
 });
 

@@ -27,7 +27,11 @@ async function context(patientId) {
     id: true, specialty: true, licenseNumber: true, user: { select: { name: true, phone: true } },
   } });
   const patient = professional && await prisma.user.findFirst({ where: {
-    id: patientId, appointments: { some: { professionalId: professional.id } },
+    id: patientId,
+    OR: [
+      { appointments: { some: { professionalId: professional.id } } },
+      { casosComoPaciente: { some: { professionalId: professional.id } } },
+    ],
   }, select: { id: true, name: true, birthDate: true, insuranceName: true, insuranceTemplateUrl: true } });
   if (!patient || !esPalig(patient.insuranceName)) return { error: NextResponse.json({ message: "Paciente no disponible para PALIG." }, { status: 404 }) };
   return { auth, patient, professional: { ...professional, telefonoEmpresa: TELEFONO_EMPRESA } };

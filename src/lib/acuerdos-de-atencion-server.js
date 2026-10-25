@@ -18,6 +18,7 @@
 import { getCalendarClient } from "@/lib/google";
 import { scheduleReminder } from "@/lib/qstash";
 import { abrirCasoSiNoExiste } from "@/lib/casos";
+import { verificarSerieParaAcuerdo } from "@/lib/calendario-pacientes";
 import { isAppointmentOverlapError } from "@/lib/appointment-errors";
 import { DEFAULT_TZ, toGoogleDateTime } from "@/lib/timezone";
 import { instanteDeHoraCR, crAddDays } from "@/lib/appointment-slots";
@@ -117,6 +118,7 @@ const DEPS_REALES = {
   cortarEnGoogle,
   scheduleReminder,
   abrirCaso: abrirCasoSiNoExiste,
+  verificarSerie: verificarSerieParaAcuerdo,
 };
 
 // ─── Citas ───────────────────────────────────────────────────────────────────
@@ -205,6 +207,10 @@ export async function programarRecordatoriosDelDia(db, ymd, deps = DEPS_REALES) 
  *
  * Google puede fallar sin deshacer el acuerdo: las citas quedan en el CRM y la
  * serie se publica después con `publicarAcuerdoPendiente`.
+ *
+ * Con `datos.serieGoogleId` el acuerdo adopta una serie que ya está en el
+ * calendario (el paciente se atendía de antes): no se publica nada ni se manda
+ * invitación, y las citas apuntan a las instancias de esa serie.
  */
 export async function crearAcuerdo(db, datos = {}, { ahora = new Date(), deps = DEPS_REALES } = {}) {
   const profesional = await db.professionalProfile.findUnique({
@@ -216,7 +222,10 @@ export async function crearAcuerdo(db, datos = {}, { ahora = new Date(), deps = 
   }
 
   const [paciente, asignacion, lugar] = await Promise.all([
-    db.user.findUnique({ where: { id: String(datos.patientId || "") }, select: { id: true, role: true, isActive: true } }),
+    db.user.findUnique({
+      where: { id: String(datos.patientId || "") },
+      select: { id: true, role: true, isActive: true, email: true },
+    }),
     db.serviceAssignment.findUnique({
       where: { professionalId_serviceId: { professionalId: profesional.id, serviceId: String(datos.serviceId || "") } },
       select: { status: true, service: { select: { id: true, durationMin: true, isActive: true } } },
@@ -240,6 +249,18 @@ export async function crearAcuerdo(db, datos = {}, { ahora = new Date(), deps = 
   const problema = problemaDeAcuerdo({ ...datos, duracionMin }, ahora);
   if (problema) return falla(400, problema, "ACUERDO_INVALIDO");
 
+  let serie = null;
+  if (datos.serieGoogleId) {
+    serie = await deps.verificarSerie(db, {
+      professionalId: profesional.id,
+      serieId: datos.serieGoogleId,
+      periodicidad: datos.periodicidad,
+      inicio: datos.inicio,
+      patientEmail: paciente.email,
+    });
+    if (!serie.ok) return falla(409, serie.message, "SERIE_NO_ADOPTABLE");
+  }
+
   const creado = await db.acuerdoDeAtencion.create({
     data: {
       patientId: paciente.id,
@@ -256,6 +277,9 @@ export async function crearAcuerdo(db, datos = {}, { ahora = new Date(), deps = 
       estado: ESTADOS_ACUERDO.ACTIVO,
       notas: datos.notas ? String(datos.notas).slice(0, 2000) : null,
       createdBy: datos.createdBy || null,
+      // Con serie adoptada, publicarAcuerdoPendiente no hace nada: ya tiene evento.
+      gcalEventId: serie?.gcalEventId || null,
+      meetLink: serie?.meetLink || null,
     },
     select: { id: true },
   });
@@ -267,7 +291,7 @@ export async function crearAcuerdo(db, datos = {}, { ahora = new Date(), deps = 
     await programarRecordatoriosDelDia(db, ymd, deps);
   }
 
-  return { ok: true, acuerdoId: creado.id, google, ...citas };
+  return { ok: true, acuerdoId: creado.id, google, serieAdoptada: Boolean(serie), ...citas };
 }
 
 /**
