@@ -15,6 +15,7 @@ import { resend } from "@/lib/resend";
 import { assertFeConfig } from "@/lib/fe/config.js";
 import { persistFeDocument } from "@/lib/fe/document";
 import { enqueueDelivery } from "@/lib/delivery-jobs";
+import { CONTACT_EMAIL } from "@/lib/contact-info";
 
 const FROM_EMAIL = process.env.EMAIL_FROM || "Salud Mental Costa Rica <onboarding@resend.dev>";
 const FE_REAL_API_URL = process.env.FE_API_URL || null;
@@ -215,6 +216,7 @@ export async function sendFeEmail(invoice, { deliver } = {}) {
 
   const message = {
     from: FROM_EMAIL,
+    replyTo: CONTACT_EMAIL,
     to: destinatarios,
     subject: `${esPrueba ? "[PRUEBA] " : ""}${documento} ${invoice.invoiceNumber} — Salud Mental Costa Rica`,
     html,

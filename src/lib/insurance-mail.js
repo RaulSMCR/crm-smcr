@@ -1,6 +1,7 @@
 // src/lib/insurance-mail.js
 import { resend } from "@/lib/resend";
 import { SITE_URL } from "@/lib/site-url";
+import { CONTACT_EMAIL } from "@/lib/contact-info";
 
 const FROM = process.env.EMAIL_FROM || "Salud Mental Costa Rica <onboarding@resend.dev>";
 const APP_URL = SITE_URL;
@@ -230,6 +231,7 @@ export async function sendSignedClaimToPatient({ patientEmail, patientName, form
   try {
     const { data, error } = await resend.emails.send({
       from: FROM,
+      replyTo: CONTACT_EMAIL,
       to: patientEmail,
       subject: "Su formulario de reclamo de seguro médico — Salud Mental Costa Rica",
       html,
