@@ -18,6 +18,9 @@ async function canRead(session, ref) {
   // Los documentos del piloto requieren su guardia actualizada y el estado de
   // la factura. Se descargan exclusivamente por /api/palig/claims/:id.
   if (ref.bucket === "insurance-signed-forms" && ref.path.includes("/palig/")) return false;
+  // Las firmas de Raúl no se entregan a nadie, tampoco al admin: solo las
+  // estampa el piloto al firmar.
+  if (ref.bucket === "insurance-templates" && ref.path.startsWith("firmas/")) return false;
   if (session.role === "ADMIN") return true;
   if (!PRIVATE_BUCKETS.has(ref.bucket)) return false;
   const uid = userId(session);

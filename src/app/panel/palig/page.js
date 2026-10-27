@@ -54,7 +54,7 @@ export default async function PaligPage() {
     return <div className="mx-auto max-w-3xl p-8"><h1 className="text-2xl font-bold">Piloto PALIG</h1><p className="mt-4">El piloto está pendiente de activación. La configuración debe completarse antes de registrar pagos aquí.</p></div>;
   }
   return <div className="mx-auto max-w-4xl space-y-6 p-6 md:p-8">
-    <header><Link className="text-sm text-blue-700 underline" href={auth.isAdmin ? "/panel/admin/contabilidad" : "/panel/profesional"}>Volver al panel</Link><h1 className="mt-3 text-3xl font-bold">Pagos y seguros · Raúl Olmedo</h1><p className="mt-2 text-slate-600">Piloto PALIG. 1) Guarde la plantilla de cada paciente. 2) Con cada comprobante SINPE, el sistema emite la factura y el formulario con la fecha del pago. 3) Descargue el formulario, fírmelo y súbalo: le llega al paciente por correo con la factura.</p></header>
+    <header><Link className="text-sm text-blue-700 underline" href={auth.isAdmin ? "/panel/admin/contabilidad" : "/panel/profesional"}>Volver al panel</Link><h1 className="mt-3 text-3xl font-bold">Pagos y seguros · Raúl Olmedo</h1><p className="mt-2 text-slate-600">Piloto PALIG. 1) Guarde la plantilla de cada paciente. 2) Con cada comprobante SINPE, el sistema emite la factura y el formulario con la fecha del pago. 3) Fírmelo con el botón «Firmar», revíselo y envíelo (o descárguelo, fírmelo a mano y súbalo): le llega al paciente por correo con la factura.</p></header>
     <PaligPilot today={today}
       sessions={appointments.filter((a) => esPalig(a.patient.insuranceName)).map((a) => ({
         id: a.id, patientId: a.patientId, amount: Number(a.pricePaid ?? a.service?.price ?? 0),

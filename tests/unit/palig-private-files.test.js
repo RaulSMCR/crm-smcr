@@ -19,3 +19,10 @@ it("las copias del piloto exigen su ruta específica, incluso para profesionales
   }
   expect(m.signed).not.toHaveBeenCalled();
 });
+it("las firmas de Raúl no se entregan a nadie, ni al admin", async () => {
+  for (const role of ["USER", "PROFESSIONAL", "ADMIN"]) {
+    m.session.mockResolvedValue({ sub: "firmas", role, professionalProfileId: "p1" });
+    expect((await GET(request("insurance-templates/firmas/raul-olmedo/firma-1.png"))).status).toBe(403);
+  }
+  expect(m.signed).not.toHaveBeenCalled();
+});

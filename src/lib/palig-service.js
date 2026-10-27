@@ -7,7 +7,7 @@ import { descargarPlantillaPalig, guardarPalig, leerArchivoPalig } from "@/lib/p
 export const PALIG_CLAIM_SELECT = {
   id: true, appointmentId: true, invoiceId: true, professionalId: true, patientId: true,
   generatedFormUrl: true, paymentProofUrl: true, templateSnapshotUrl: true, status: true,
-  signedFormUploadedAt: true, emailSentAt: true,
+  signedFormUploadedAt: true, emailSentAt: true, firmaVersion: true, firmadoAt: true,
   invoice: { select: { id: true, invoiceNumber: true, invoiceDate: true, feStatus: true, feNumber: true, feXml: true, status: true, total: true } },
 };
 
@@ -17,6 +17,8 @@ export function resumenPalig(claim) {
     date: claim.invoice?.invoiceDate, amount: Number(claim.invoice?.total || 0), status: claim.status,
     feStatus: claim.invoice?.feStatus,
     signed: Boolean(claim.signedFormUploadedAt), emailSent: Boolean(claim.emailSentAt),
+    // Firmado desde el panel y todavía sin enviar: se puede revisar y reenviar.
+    firmadoEnPanel: Boolean(claim.firmadoAt), firmaVersion: claim.firmaVersion ?? null,
     invoiceReady: claim.invoice?.feStatus === "ACCEPTED" && Boolean(claim.invoice?.feNumber && claim.invoice?.feXml) && ["PAID", "OPEN"].includes(claim.invoice?.status),
   };
 }

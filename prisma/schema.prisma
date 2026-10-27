@@ -1444,6 +1444,11 @@ model InsuranceClaim {
   paymentProofUrl       String?
   signedFormUrl        String?
   signedFormUploadedAt DateTime?
+  /// Firma estampada desde el panel (piloto PALIG): qué versión de la firma de
+  /// Raúl se usó —rotan— y cuándo. El PDF queda en {id}/palig/firmado-{ms}.pdf
+  /// y pasa a signedFormUrl recién cuando se envía al paciente.
+  firmaVersion         Int?
+  firmadoAt            DateTime?
   emailSentAt          DateTime?
   status               InsuranceClaimStatus @default(AWAITING_TEMPLATE)
   createdAt            DateTime             @default(now())

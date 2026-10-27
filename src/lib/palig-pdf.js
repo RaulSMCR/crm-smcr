@@ -198,8 +198,18 @@ export async function moverFechaPalig(bytes, { dx = 0, dy = 0 } = {}) {
 export async function muestraFechaPalig(bytes, date = new Date()) {
   const { doc, form, tipo } = await loadTemplate(bytes);
   if (tipo === "escaneada") await sellarFecha(doc, fechaPalig(date), { marcar: true });
-  else await setText(doc, form, F.serviceDate, fechaPalig(date));
+  else await fecharEditable(doc, form, fechaPalig(date));
   return Buffer.from(await doc.save());
+}
+
+/**
+ * La fecha de atención va en dos lugares del editable: «Fecha de servicio» y la
+ * fecha junto a la firma del profesional, abajo a la derecha. Son la misma
+ * (pedido de Raúl, 27-oct-2026 hora CR).
+ */
+async function fecharEditable(doc, form, texto) {
+  await setText(doc, form, F.serviceDate, texto);
+  await setText(doc, form, F.signatureDate, texto);
 }
 
 /**
@@ -216,7 +226,7 @@ export async function completarPalig(bytes, { patient, professional, date = null
     if (tipo === "escaneada") {
       if (date) await sellarFecha(doc, fechaPalig(date));
     } else {
-      await setText(doc, form, F.serviceDate, date ? fechaPalig(date) : "");
+      await fecharEditable(doc, form, date ? fechaPalig(date) : "");
       form.flatten();
     }
     return Buffer.from(await doc.save());
@@ -234,6 +244,33 @@ export async function completarPalig(bytes, { patient, professional, date = null
   await setText(doc, form, F.professionalLicense, professional.licenseNumber);
   await setText(doc, form, F.professionalPhone, professional.telefonoEmpresa || professional.user.phone);
   form.getTextField(F.signatureDate).setText("");
+  return Buffer.from(await doc.save());
+}
+
+/**
+ * Dónde va la firma en el editable (612 × 1008), en puntos, origen
+ * abajo-izquierda: el recuadro «Firma del Médico» (x 361–580, y 158–186), a la
+ * derecha de su rótulo y sin subir hasta el texto de la especialidad (y 188).
+ */
+export const RECUADRO_FIRMA = Object.freeze({ x: 400, y: 156, w: 178, h: 31 });
+
+/**
+ * Estampa la firma de Raúl (PNG transparente) en el formulario ya emitido. Solo
+ * si salió del editable: en un escaneo el recuadro cae donde caiga el papel, y
+ * ahí se sigue firmando a mano. `plantilla` es la copia que guardó el trámite.
+ */
+export async function firmarPalig(formulario, plantilla, firmaPng) {
+  if ((await loadTemplate(plantilla)).tipo !== "editable") {
+    throw new PaligError("Este formulario salió de una plantilla escaneada: fírmelo a mano y súbalo.", 409);
+  }
+  let doc;
+  try { doc = await PDFDocument.load(formulario); } catch { throw new PaligError("No se pudo leer el formulario emitido.", 409); }
+  const firma = await doc.embedPng(firmaPng);
+  const r = RECUADRO_FIRMA;
+  const escala = Math.min(r.w / firma.width, r.h / firma.height);
+  const w = firma.width * escala;
+  const h = firma.height * escala;
+  doc.getPages()[0].drawImage(firma, { x: r.x + (r.w - w) / 2, y: r.y + (r.h - h) / 2, width: w, height: h });
   return Buffer.from(await doc.save());
 }
 

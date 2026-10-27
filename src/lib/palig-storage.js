@@ -33,6 +33,32 @@ export async function descargarPlantillaPalig(reference, patientId) {
   return Buffer.from(await data.arrayBuffer());
 }
 
+/** Una copia privada del trámite: solo las de su carpeta {claimId}/palig/. */
+export async function descargarDelTramite(reference, claimId) {
+  const ref = parseStorageReference(reference);
+  if (!ref || ref.bucket !== "insurance-signed-forms" || !ref.path.startsWith(`${claimId}/palig/`)) throw new PaligError("Documento no disponible.", 404);
+  const { data, error } = await getSupabaseAdmin().storage.from(ref.bucket).download(ref.path);
+  if (error || !data) throw new PaligError("No se pudo leer el documento del trámite.", 503);
+  return Buffer.from(await data.arrayBuffer());
+}
+
+// Las firmas de Raúl: PNG transparentes, privados, firma-1.png, firma-2.png…
+// /api/files no las entrega a nadie; solo se leen acá, al firmar.
+export const CARPETA_FIRMAS = "firmas/raul-olmedo";
+
+/** Números de las versiones de la firma que hay guardadas, de menor a mayor. */
+export async function versionesDeFirma() {
+  const { data, error } = await getSupabaseAdmin().storage.from("insurance-templates").list(CARPETA_FIRMAS, { limit: 100 });
+  if (error) throw new PaligError("No se pudieron leer las firmas guardadas.", 503);
+  return (data || []).map((f) => /^firma-(\d+)\.png$/.exec(f.name)?.[1]).filter(Boolean).map(Number).sort((a, b) => a - b);
+}
+
+export async function descargarFirma(version) {
+  const { data, error } = await getSupabaseAdmin().storage.from("insurance-templates").download(`${CARPETA_FIRMAS}/firma-${version}.png`);
+  if (error || !data) throw new PaligError("No se pudo leer la firma guardada.", 503);
+  return Buffer.from(await data.arrayBuffer());
+}
+
 export async function guardarPalig(bucket, path, bytes, contentType = "application/pdf") {
   const { error } = await getSupabaseAdmin().storage.from(bucket).upload(path, bytes, { contentType, upsert: false, cacheControl: "0" });
   if (error) throw new PaligError("No se pudo guardar el documento privado. No se registró el pago.", 503);

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePaligOperator } from "@/lib/palig-auth";
 import { PALIG_PROFESSIONAL_SLUG } from "@/lib/palig-policy";
 import { resumenPalig } from "@/lib/palig-service";
+import { enviarFirmadoPalig, firmarTramitePalig, rutaFirmado } from "@/lib/palig-firma";
 import { facturaPaligPdf, PaligError } from "@/lib/palig-pdf";
 import { getSignedUrl, parseStorageReference } from "@/lib/storage";
 import { FE_EMISOR } from "@/lib/fe/config";
@@ -17,6 +18,7 @@ async function context(id) {
   if (auth.error) return auth;
   const claim = await prisma.insuranceClaim.findFirst({ where: { id, invoiceId: { not: null }, professional: { slug: PALIG_PROFESSIONAL_SLUG } }, include: {
     invoice: { include: { lines: { orderBy: { sortOrder: "asc" } } } },
+    patient: { select: { name: true, email: true } },
   } });
   if (!claim?.invoice) return { error: NextResponse.json({ message: "Documentos no disponibles." }, { status: 404 }) };
   return { claim };
@@ -29,7 +31,7 @@ export async function GET(request, { params }) {
   const kind = new URL(request.url).searchParams.get("file");
   try {
     if (!kind) return NextResponse.json(resumenPalig(claim), { headers: { "Cache-Control": "no-store" } });
-    if (["invoice", "xml", "form"].includes(kind) && !["OPEN", "PAID"].includes(claim.invoice.status)) throw new PaligError("La factura fue cancelada. Revise el trámite antes de usar estos documentos.", 409);
+    if (["invoice", "xml", "form", "firmado"].includes(kind) && !["OPEN", "PAID"].includes(claim.invoice.status)) throw new PaligError("La factura fue cancelada. Revise el trámite antes de usar estos documentos.", 409);
     if (kind === "invoice") {
       return new Response(await facturaPaligPdf(claim.invoice, FE_EMISOR), { headers: {
         "Content-Type": "application/pdf", "Content-Disposition": 'attachment; filename="Factura.pdf"', "Cache-Control": "no-store",
@@ -39,7 +41,7 @@ export async function GET(request, { params }) {
       if (!resumenPalig(claim).invoiceReady) throw new PaligError("El XML aceptado todavía no está disponible.", 409);
       return new Response(claim.invoice.feXml, { headers: { "Content-Type": "application/xml", "Content-Disposition": 'attachment; filename="Factura.xml"', "Cache-Control": "no-store" } });
     }
-    const reference = { form: claim.generatedFormUrl, proof: claim.paymentProofUrl, template: claim.templateSnapshotUrl }[kind];
+    const reference = { form: claim.generatedFormUrl, proof: claim.paymentProofUrl, template: claim.templateSnapshotUrl, firmado: rutaFirmado(claim) }[kind];
     const ref = parseStorageReference(reference);
     if (!ref || ref.bucket !== "insurance-signed-forms" || !ref.path.startsWith(`${claim.id}/palig/`)) throw new PaligError("Documento no disponible.", 404);
     const response = NextResponse.redirect(await getSignedUrl(ref.bucket, ref.path, 120));
@@ -50,10 +52,26 @@ export async function GET(request, { params }) {
   }
 }
 
-export async function POST(_request, { params }) {
+/**
+ * POST sin cuerpo: actualiza el estado fiscal.
+ * { accion: "firmar" }: estampa la siguiente versión de la firma de Raúl.
+ * { accion: "enviar" }: manda al paciente el formulario firmado.
+ */
+export async function POST(request, { params }) {
   const ctx = await context((await params).id);
   if (ctx.error) return ctx.error;
   if (!["OPEN", "PAID"].includes(ctx.claim.invoice.status)) return NextResponse.json({ message: "La factura fue cancelada." }, { status: 409 });
+  const { accion } = (await request?.json().catch(() => ({}))) ?? {};
+  if (accion === "firmar" || accion === "enviar") {
+    try {
+      if (accion === "firmar") return NextResponse.json(resumenPalig(await firmarTramitePalig(prisma, ctx.claim)), { headers: { "Cache-Control": "no-store" } });
+      return NextResponse.json(await enviarFirmadoPalig(prisma, ctx.claim, { patient: ctx.claim.patient }), { headers: { "Cache-Control": "no-store" } });
+    } catch (error) {
+      if (error instanceof PaligError) return NextResponse.json({ message: error.message }, { status: error.status });
+      console.error(accion === "firmar" ? "[palig] SIGN_FAILED" : "[palig] SEND_FAILED");
+      return NextResponse.json({ message: accion === "firmar" ? "No se pudo firmar el formulario." : "No se pudo enviar el formulario." }, { status: 500 });
+    }
+  }
   try { await submitInvoiceToFe(ctx.claim.invoiceId); } catch { console.error("[palig] FE_PENDING"); }
   after(() => processPaymentDeliveries({ invoiceId: ctx.claim.invoiceId }).catch(() => console.error("[palig] DELIVERY_PENDING")));
   const latest = await prisma.insuranceClaim.findUnique({ where: { id: ctx.claim.id }, include: { invoice: true } });

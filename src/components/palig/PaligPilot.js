@@ -4,8 +4,8 @@
 //   1. La plantilla de cada paciente: el formulario que Raúl deja listo una vez.
 //   2. Con cada comprobante SINPE: factura (nueva o la ya emitida) y formulario
 //      con la fecha del pago.
-//   3. El formulario firmado: se sube y le llega al paciente por correo, con la
-//      factura si Hacienda ya la aceptó.
+//   3. El formulario firmado: se firma desde acá (o se sube firmado a mano) y le
+//      llega al paciente por correo, con la factura si Hacienda ya la aceptó.
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -61,6 +61,49 @@ function VistaPreviaFecha({ patient }) {
       src={`/api/palig/templates/${patient.id}?muestra=1&v=${version}#view=FitH`}
       className="h-[640px] w-full rounded-lg border border-slate-200 bg-white"
     />
+  </div>;
+}
+
+/**
+ * Firmar desde el panel: estampa la firma de Raúl (rota entre sus versiones),
+ * se revisa el PDF y recién entonces se envía. Solo para plantillas editables;
+ * una escaneada se sigue firmando a mano.
+ */
+function FirmarEnPanel({ claim, onCambio, onEnviado }) {
+  const [busy, setBusy] = useState("");
+  const [message, setMessage] = useState(null);
+  const base = `/api/palig/claims/${claim.id}`;
+
+  async function ejecutar(accion) {
+    setBusy(accion); setMessage(null);
+    try {
+      const res = await fetch(base, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accion }) });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "No se pudo completar la operación.");
+      if (accion === "firmar") {
+        onCambio(json);
+        setMessage({ ok: true, text: `Firmado con la versión ${json.firmaVersion}. Revíselo antes de enviarlo.` });
+      } else {
+        setMessage(json.emailSent
+          ? { ok: true, text: json.facturaAdjunta ? "Enviado al paciente con el formulario firmado y la factura." : "Enviado al paciente. La factura le llega aparte cuando Hacienda la acepte." }
+          : { ok: false, text: "Quedó guardado, pero el correo no salió. Vuelva a enviarlo para reintentar." });
+        onEnviado?.();
+      }
+    } catch (error) { setMessage({ ok: false, text: error.message }); }
+    finally { setBusy(""); }
+  }
+
+  return <div className="flex flex-wrap items-center gap-3 rounded-lg bg-blue-50 p-3">
+    <button type="button" disabled={Boolean(busy)} onClick={() => ejecutar("firmar")} className={buttonClass}>
+      {busy === "firmar" ? "Firmando…" : claim.firmadoEnPanel ? "Firmar con otra versión" : "Firmar"}
+    </button>
+    {claim.firmadoEnPanel && <>
+      <a href={`${base}?file=firmado`} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-blue-700 underline">Ver formulario firmado</a>
+      <button type="button" disabled={Boolean(busy)} onClick={() => ejecutar("enviar")} className={buttonClass}>
+        {busy === "enviar" ? "Enviando…" : "Enviar al paciente"}
+      </button>
+    </>}
+    {message && <p role="status" className={`w-full text-sm ${message.ok ? "text-green-700" : "text-red-700"}`}>{message.text}</p>}
   </div>;
 }
 
@@ -124,6 +167,7 @@ function Documents({ initial }) {
       <a href={`${base}?file=proof`} target="_blank" rel="noopener noreferrer" className="underline">Comprobante SINPE</a>
       {!claim.invoiceReady && <button type="button" disabled={busy} onClick={refresh} className="underline">{busy ? "Consultando…" : "Actualizar estado"}</button>}
     </div>
+    {!claim.emailSent && <FirmarEnPanel claim={claim} onCambio={(json) => setClaim((c) => ({ ...c, ...json }))} onEnviado={() => router.refresh()} />}
     <SubirFirmado claimId={claim.id} onListo={() => router.refresh()} />
     {message && <p role="alert" className="text-sm text-red-700">{message}</p>}
   </article>;

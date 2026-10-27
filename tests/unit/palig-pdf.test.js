@@ -83,16 +83,17 @@ describe("PDF PALIG real y factura imprimible", () => {
     await expect(muestraFechaPalig(movida, new Date("2026-10-22T04:48:00Z"))).resolves.toBeInstanceOf(Buffer);
     await expect(moverFechaPalig(await prepared(), { dx: 3 })).rejects.toThrow("escaneada");
   });
-  it("conserva todo lo que Raúl escribió y solo pone la fecha de atención del pago", async () => {
-    // Plantilla de Raúl: nombre escrito a su manera (distinto del perfil) y
-    // fecha de firma ya puesta. Nada de eso se pisa.
+  it("conserva todo lo que Raúl escribió y solo pone la fecha de atención del pago, también junto a la firma", async () => {
+    // Plantilla de Raúl: nombre escrito a su manera (distinto del perfil). Se
+    // guarda tal cual; al emitir, la fecha junto a la firma pasa a ser la de
+    // atención aunque la plantilla trajera otra.
     const doc = await PDFDocument.load(await prepared());
     doc.getForm().getTextField(F.patientName).setText("Nombre como lo escribió Raúl");
-    doc.getForm().getTextField(F.signatureDate).setText("21/10/26");
+    doc.getForm().getTextField(F.signatureDate).setText("19/10/26");
     const checked = await validarPlantillaPalig(await doc.save());
     const guardada = (await PDFDocument.load(checked)).getForm();
     expect(guardada.getTextField(F.patientName).getText()).toBe("Nombre como lo escribió Raúl");
-    expect(guardada.getTextField(F.signatureDate).getText()).toBe("21/10/26");
+    expect(guardada.getTextField(F.signatureDate).getText()).toBe("19/10/26");
 
     // 21-oct a las 21:00 CR (ya 22 en UTC): la fecha es la de Costa Rica.
     const final = await completarPalig(checked, { date: "2026-10-22T03:00:00Z", final: true });
@@ -101,6 +102,23 @@ describe("PDF PALIG real y factura imprimible", () => {
     const dibujado = await textoDibujado(final);
     expect(dibujado("21/10/26")).toBe(true);
     expect(dibujado("Nombre como lo escribi")).toBe(true);
+    // Dos dibujos de la fecha de atención: servicio y firma. (La apariencia
+    // vieja de la firma puede quedar huérfana en el archivo, sin dibujarse.)
+    const final2 = await PDFDocument.load(final);
+    const hex = Buffer.from("21/10/26", "latin1").toString("hex").toUpperCase();
+    let veces = 0;
+    for (const [, obj] of final2.context.enumerateIndirectObjects()) {
+      if (!(obj instanceof PDFRawStream)) continue;
+      try { if (Buffer.from(decodePDFRawStream(obj).decode()).toString("latin1").toUpperCase().includes(hex)) veces += 1; } catch { /* no es texto */ }
+    }
+    expect(veces).toBeGreaterThanOrEqual(2);
+  });
+
+  it("la vista previa muestra la fecha en el servicio y junto a la firma", async () => {
+    const muestra = await muestraFechaPalig(await validarPlantillaPalig(await prepared()), new Date("2026-10-27T18:00:00Z"));
+    const form = (await PDFDocument.load(muestra)).getForm();
+    expect(form.getTextField(F.serviceDate).getText()).toBe("27/10/26");
+    expect(form.getTextField(F.signatureDate).getText()).toBe("27/10/26");
   });
 
   it("escribe la fecha aunque el programa que guardó la plantilla dejara la fuente ilegible para pdf-lib", async () => {
