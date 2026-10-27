@@ -103,6 +103,16 @@ describe("PDF PALIG real y factura imprimible", () => {
     expect(dibujado("Nombre como lo escribi")).toBe(true);
   });
 
+  it("escribe la fecha aunque el programa que guardó la plantilla dejara la fuente ilegible para pdf-lib", async () => {
+    // Así llegó una plantilla real: la barra de /Helv escrita en octal.
+    const doc = await PDFDocument.load(await prepared());
+    doc.getForm().getTextField(F.serviceDate).acroField.setDefaultAppearance("\\057Helv 12 Tf 0 g");
+    const sinFuente = await doc.save();
+    await expect(muestraFechaPalig(sinFuente, new Date("2026-10-27T18:00:00Z"))).resolves.toBeInstanceOf(Buffer);
+    const final = await completarPalig(sinFuente, { date: "2026-10-27T18:00:00Z", final: true });
+    expect((await textoDibujado(final))("27/10/26")).toBe(true);
+  });
+
   it("congela el formulario emitido sin campos editables", async () => {
     const checked = await validarPlantillaPalig(await prepared());
     const output = await completarPalig(checked, { patient, professional, date: "2026-10-20T18:00:00Z", final: true });

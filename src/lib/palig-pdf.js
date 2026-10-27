@@ -133,16 +133,25 @@ async function setText(doc, form, name, value) {
   const text = String(value || "").trim();
   const rect = field.acroField.getWidgets()[0].getRectangle();
   let size = 10;
+  let cabe;
   try {
     while (size > 6 && font.widthOfTextAtSize(text, size) > rect.width - 6) size -= 0.5;
-    if (font.widthOfTextAtSize(text, size) > rect.width - 6) throw new Error();
+    cabe = font.widthOfTextAtSize(text, size) <= rect.width - 6;
+  } catch { cabe = false; }
+  if (!cabe) throw new PaligError("Un nombre no cabe en el formulario PALIG o contiene caracteres no compatibles. Revise los datos del perfil.");
+  // pdf-lib solo fija el tamaño si la apariencia por defecto trae la fuente
+  // como «/Nombre tamaño Tf». Algunos programas la guardan con la barra en
+  // octal («\057Helv 12 Tf»), que es PDF válido pero pdf-lib no lo lee. Pasó
+  // con una plantilla de Alejandro, 27-oct-2026 hora CR, en la fecha de servicio.
+  if (!/\/\S+\s+[\d.]+\s+Tf/.test(field.acroField.getDefaultAppearance() || "")) field.acroField.setDefaultAppearance("/Helv 0 Tf 0 g");
+  try {
     field.setText(text);
     field.setFontSize(size);
     if (text && [F.serviceDate, F.birthDate].includes(name)) {
       for (const widget of field.acroField.getWidgets()) widget.getOrCreateAppearanceCharacteristics().setBackgroundColor([1, 1, 1]);
     }
     field.updateAppearances(font);
-  } catch { throw new PaligError("Un nombre no cabe en el formulario PALIG o contiene caracteres no compatibles. Revise los datos del perfil."); }
+  } catch { throw new PaligError("La plantilla PALIG tiene un campo que no se puede completar. Baje el formulario en blanco de esta pantalla y vuelva a armarla."); }
 }
 
 /**
