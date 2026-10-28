@@ -147,8 +147,13 @@ async function setText(doc, form, name, value) {
   try {
     field.setText(text);
     field.setFontSize(size);
-    if (text && [F.serviceDate, F.birthDate].includes(name)) {
-      for (const widget of field.acroField.getWidgets()) widget.getOrCreateAppearanceCharacteristics().setBackgroundColor([1, 1, 1]);
+    // Fondo blanco para tapar el «dd/mm/aa» que el formulario trae impreso.
+    if (text && [F.serviceDate, F.birthDate, F.signatureDate].includes(name)) {
+      for (const widget of field.acroField.getWidgets()) {
+        // La casilla de la fecha junto a la firma pisa el marco: sin achicarla, el blanco lo borra.
+        if (name === F.signatureDate) widget.setRectangle({ x: rect.x + 2, y: rect.y + 2, width: rect.width - 4, height: rect.height - 4 });
+        widget.getOrCreateAppearanceCharacteristics().setBackgroundColor([1, 1, 1]);
+      }
     }
     field.updateAppearances(font);
   } catch { throw new PaligError("La plantilla PALIG tiene un campo que no se puede completar. Baje el formulario en blanco de esta pantalla y vuelva a armarla."); }
@@ -249,10 +254,11 @@ export async function completarPalig(bytes, { patient, professional, date = null
 
 /**
  * Dónde va la firma en el editable (612 × 1008), en puntos, origen
- * abajo-izquierda: el recuadro «Firma del Médico» (x 361–580, y 158–186), a la
- * derecha de su rótulo y sin subir hasta el texto de la especialidad (y 188).
+ * abajo-izquierda. El recuadro «Firma del Médico» va de x 361 a 580 y de y 158
+ * a 186, pero Raúl firma grande y se sale de las líneas (pedido suyo,
+ * 27-oct-2026 hora CR): la firma desborda arriba y abajo del recuadro.
  */
-export const RECUADRO_FIRMA = Object.freeze({ x: 400, y: 156, w: 178, h: 31 });
+export const RECUADRO_FIRMA = Object.freeze({ x: 392, y: 138, w: 192, h: 68 });
 
 /**
  * Estampa la firma de Raúl (PNG transparente) en el formulario ya emitido. Solo
