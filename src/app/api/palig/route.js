@@ -22,7 +22,7 @@ export async function POST(request) {
       : await generarPagoPalig(prisma, {
           patientId: fd.get("patientId"), appointmentId: fd.get("appointmentId") || null,
           monto: Number(fd.get("monto")), confirmado: fd.get("confirmado") === "true",
-          proof: fd.get("proof"), userId: auth.userId,
+          proof: fd.get("proof"), userId: auth.userId, referencia: fd.get("referencia"),
         });
     // Una factura que ya estaba aceptada no se vuelve a mandar a Hacienda.
     if (invoiceId) {

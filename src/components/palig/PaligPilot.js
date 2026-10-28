@@ -138,7 +138,8 @@ function SubirFirmado({ claimId, onListo }) {
   </form>;
 }
 
-function Documents({ initial }) {
+// También la usa la app del celular (CobroMovil) para firmar y enviar.
+export function Documents({ initial }) {
   const router = useRouter();
   const [claim, setClaim] = useState(initial);
   const [busy, setBusy] = useState(false);

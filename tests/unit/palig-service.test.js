@@ -50,6 +50,14 @@ describe("pago PALIG por comprobante", () => {
     expect(mocks.fill.mock.calls[0][1].date).toEqual(AHORA);
   });
 
+  it("la referencia del comprobante llega a la factura, saneada", async () => {
+    await generarPagoPalig(db, { ...params, referencia: " 2026-1027 <b>99</b> " });
+    expect(mocks.register.mock.calls[0][1].referencia).toBe("2026-1027b99b");
+    mocks.register.mockClear();
+    await generarPagoPalig(db, { ...params, appointmentId: "a1", referencia: null });
+    expect(mocks.register.mock.calls[0][1].referencia).toBeUndefined();
+  });
+
   it("si el paciente no tiene sesiones, factura con el servicio de Raúl", async () => {
     db.appointment.findFirst.mockResolvedValue(null);
     await generarPagoPalig(db, params);

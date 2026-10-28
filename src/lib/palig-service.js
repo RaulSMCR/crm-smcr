@@ -126,11 +126,14 @@ export async function generarFormularioDeFacturaPalig(db, { patientId, invoiceId
  * registrar el ingreso: una caída de Storage nunca deja un pago emitido sin su
  * formulario. No se sobrescriben archivos.
  */
-export async function generarPagoPalig(db, { patientId, appointmentId = null, monto, confirmado, proof, userId }) {
+export async function generarPagoPalig(db, { patientId, appointmentId = null, monto, confirmado, proof, userId, referencia = null }) {
   if (typeof patientId !== "string" || !patientId.trim() || patientId.length > 100) throw new PaligError("Seleccione el paciente.");
   if (appointmentId !== null && (typeof appointmentId !== "string" || appointmentId.length > 100)) throw new PaligError("La sesión elegida no es válida.");
   if (!Number.isFinite(monto) || monto <= 0 || monto > 99999999.99 || Math.abs(monto * 100 - Math.round(monto * 100)) > 0.0001) throw new PaligError("Indique el monto recibido con un máximo de dos decimales.");
   if (confirmado !== true) throw new PaligError("Confirme que recibió hoy este pago por SINPE Móvil.");
+  // La referencia del comprobante queda en las notas de la factura; solo cifras,
+  // letras y guiones, que es lo que traen los bancos.
+  const ref = String(referencia || "").replace(/[^0-9A-Za-z-]/g, "").slice(0, 40) || undefined;
 
   const professional = await db.professionalProfile.findUnique({
     where: { slug: PALIG_PROFESSIONAL_SLUG },
@@ -178,9 +181,9 @@ export async function generarPagoPalig(db, { patientId, appointmentId = null, mo
   let result;
   try {
     result = await registrarPagoManual(db, cita
-      ? { appointmentId: cita.id, monto, cuenta: "SINPE_MOVIL", tipo: "FULL_100", fechaPago, registradoPor: userId, palig }
+      ? { appointmentId: cita.id, monto, cuenta: "SINPE_MOVIL", tipo: "FULL_100", fechaPago, referencia: ref, registradoPor: userId, palig }
       : {
-          contactId: patient.id, serviceId, monto, cuenta: "SINPE_MOVIL", fechaPago, registradoPor: userId, palig,
+          contactId: patient.id, serviceId, monto, cuenta: "SINPE_MOVIL", fechaPago, referencia: ref, registradoPor: userId, palig,
           descripcion: `Atención del ${fechaCostaRica(fechaPago).split("-").reverse().join("/")}`,
         });
   } catch (error) {
