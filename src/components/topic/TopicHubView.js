@@ -40,7 +40,7 @@ function ArticleCard({ article, topic }) {
       href={`/blog/${article.slug}`}
       eventName="click_topic_article"
       eventParams={{ topic_slug: topic.slug, content_type: "article", source_page: `/${topic.slug}` }}
-      className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-brand-400 hover:shadow-md"
+      className="group rounded-2xl border border-slate-200 bg-neutral-50 p-5 shadow-sm transition hover:border-brand-400 hover:shadow-md"
     >
       <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand-700">
         {article.role === "PRIMARY" ? "Artículo principal" : "Lectura"}
@@ -122,7 +122,7 @@ export default function TopicHubView({ topic, preview = false }) {
               href={ctaHref}
               eventName="start_booking_from_topic"
               eventParams={{ topic_slug: topic.slug, content_type: "topic_hub", source_page: `/${topic.slug}` }}
-              className="mt-7 inline-flex rounded-xl bg-accent-500 px-5 py-3 font-bold text-accent-950 transition hover:bg-accent-400"
+              className="mt-7 inline-flex rounded-nv bg-nv-coral px-5 py-3 font-bold text-nv-coral-ink transition hover:bg-nv-coral/90 hover:text-nv-coral-ink"
             >
               Encontrar apoyo
             </TopicTrackedLink>
@@ -208,7 +208,7 @@ export default function TopicHubView({ topic, preview = false }) {
                     href={`/servicios/${service.slug}`}
                     eventName="click_topic_service"
                     eventParams={{ topic_slug: topic.slug, content_type: "service", service_id: service.id, source_page: `/${topic.slug}` }}
-                    className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:border-brand-400"
+                    className="rounded-2xl border border-slate-200 bg-neutral-50 p-6 shadow-sm hover:border-brand-400"
                   >
                     <h3 className="text-xl font-semibold text-slate-950">{service.title}</h3>
                     {service.description ? <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600">{service.description}</p> : null}
@@ -231,7 +231,7 @@ export default function TopicHubView({ topic, preview = false }) {
                     href={`/profesionales/${professional.slug}`}
                     eventName="click_topic_professional"
                     eventParams={{ topic_slug: topic.slug, content_type: "professional", professional_id: professional.id, source_page: `/${topic.slug}` }}
-                    className="flex gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:border-brand-400"
+                    className="flex gap-4 rounded-2xl border border-slate-200 bg-neutral-50 p-5 shadow-sm hover:border-brand-400"
                   >
                     <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-brand-100">
                       {professional.user.image ? <SafeImage src={professional.user.image} alt={professional.user.name} className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center text-xl font-bold text-brand-800">{professional.user.name?.charAt(0)}</div>}
@@ -252,7 +252,7 @@ export default function TopicHubView({ topic, preview = false }) {
             <section aria-labelledby="relacionados" className="rounded-2xl border border-slate-200 bg-white p-6">
               <h2 id="relacionados" className="text-2xl font-semibold text-slate-950">{sectionHeading(topic, "RELATED_TOPICS", "Temas relacionados")}</h2>
               <div className="mt-4 flex flex-wrap gap-3">
-                {topic.relatedTopics.map((related) => <TopicTrackedLink key={related.id} href={`/${related.slug}`} eventName="click_topic_related" eventParams={{ topic_slug: topic.slug, target_topic_slug: related.slug, content_type: "related_topic", source_page: `/${topic.slug}` }} className="rounded-full border border-brand-300 px-4 py-2 text-sm font-semibold text-brand-800 hover:bg-brand-50">{related.title || related.name}</TopicTrackedLink>)}
+                {topic.relatedTopics.map((related) => <TopicTrackedLink key={related.id} href={`/${related.slug}`} eventName="click_topic_related" eventParams={{ topic_slug: topic.slug, target_topic_slug: related.slug, content_type: "related_topic", source_page: `/${topic.slug}` }} className="rounded-full border border-brand-300 px-4 py-2 text-sm font-semibold text-brand-800 hover:border-brand-700 hover:text-brand-900">{related.title || related.name}</TopicTrackedLink>)}
               </div>
             </section>
           ) : null}
@@ -268,7 +268,7 @@ export default function TopicHubView({ topic, preview = false }) {
             <section className="rounded-2xl bg-brand-900 p-7 text-white md:p-9">
               <h2 className="text-2xl font-semibold text-white">{sectionHeading(topic, "CTA", "Podés empezar por donde te resulte posible")}</h2>
               {section(topic, "CTA")?.body ? <div className="mt-3"><MarkdownBlock body={section(topic, "CTA").body} inverted /></div> : <p className="mt-3 max-w-2xl leading-7 text-white/80">Conocé los servicios y perfiles disponibles para decidir con más información cómo continuar.</p>}
-              <TopicTrackedLink href={ctaHref} eventName="start_booking_from_topic" eventParams={{ topic_slug: topic.slug, content_type: "topic_hub", source_page: `/${topic.slug}` }} className="mt-5 inline-flex rounded-xl bg-accent-500 px-5 py-3 font-bold text-accent-950 hover:bg-accent-400">Ver opciones de atención</TopicTrackedLink>
+              <TopicTrackedLink href={ctaHref} eventName="start_booking_from_topic" eventParams={{ topic_slug: topic.slug, content_type: "topic_hub", source_page: `/${topic.slug}` }} className="mt-5 inline-flex rounded-nv bg-nv-coral px-5 py-3 font-bold text-nv-coral-ink hover:bg-nv-coral/90 hover:text-nv-coral-ink">Ver opciones de atención</TopicTrackedLink>
             </section>
           ) : null}
         </div>
