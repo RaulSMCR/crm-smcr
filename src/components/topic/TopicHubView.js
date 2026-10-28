@@ -24,8 +24,14 @@ function sectionHeading(topic, type, fallback) {
   return section(topic, type)?.title || fallback || topicSectionLabel(type);
 }
 
-function MarkdownBlock({ body }) {
-  return body ? <div className="prose prose-lg max-w-none text-slate-700"><MarkdownRenderer content={body} /></div> : null;
+// `inverted` es para fondos oscuros: `text-slate-700` lo fuerza a gris oscuro un
+// override global de globals.css, y el enlace del renderer es verde oscuro.
+function MarkdownBlock({ body, inverted = false }) {
+  if (!body) return null;
+  const className = inverted
+    ? "prose prose-lg prose-invert max-w-none text-white/90 [&_a]:text-white [&_a]:underline [&_a:hover]:text-nv-teal-pale"
+    : "prose prose-lg max-w-none text-slate-700";
+  return <div className={className}><MarkdownRenderer content={body} /></div>;
 }
 
 function ArticleCard({ article, topic }) {
@@ -261,7 +267,7 @@ export default function TopicHubView({ topic, preview = false }) {
           {shouldRender(topic, "CTA", true) ? (
             <section className="rounded-2xl bg-brand-900 p-7 text-white md:p-9">
               <h2 className="text-2xl font-semibold text-white">{sectionHeading(topic, "CTA", "Podés empezar por donde te resulte posible")}</h2>
-              {section(topic, "CTA")?.body ? <div className="mt-3 text-white/85"><MarkdownBlock body={section(topic, "CTA").body} /></div> : <p className="mt-3 max-w-2xl leading-7 text-white/80">Conocé los servicios y perfiles disponibles para decidir con más información cómo continuar.</p>}
+              {section(topic, "CTA")?.body ? <div className="mt-3"><MarkdownBlock body={section(topic, "CTA").body} inverted /></div> : <p className="mt-3 max-w-2xl leading-7 text-white/80">Conocé los servicios y perfiles disponibles para decidir con más información cómo continuar.</p>}
               <TopicTrackedLink href={ctaHref} eventName="start_booking_from_topic" eventParams={{ topic_slug: topic.slug, content_type: "topic_hub", source_page: `/${topic.slug}` }} className="mt-5 inline-flex rounded-xl bg-accent-500 px-5 py-3 font-bold text-accent-950 hover:bg-accent-400">Ver opciones de atención</TopicTrackedLink>
             </section>
           ) : null}
