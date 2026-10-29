@@ -34,7 +34,9 @@ export default async function PaligPage() {
         orderBy: { name: "asc" },
       }),
       prisma.insuranceClaim.findMany({
-        where: { professional, invoiceId: { not: null } },
+        // Solo lo que falta entregar: un trámite enviado al paciente ya terminó
+        // y no tiene nada que hacer en «Firmar y enviar».
+        where: { professional, invoiceId: { not: null }, emailSentAt: null, invoice: { status: { in: ["OPEN", "PAID"] } } },
         select: { ...PALIG_CLAIM_SELECT, patient: { select: { name: true } } },
         orderBy: { createdAt: "desc" }, take: 30,
       }),

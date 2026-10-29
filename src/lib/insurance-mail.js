@@ -233,6 +233,9 @@ export async function sendSignedClaimToPatient({ patientEmail, patientName, form
       from: FROM,
       replyTo: CONTACT_EMAIL,
       to: patientEmail,
+      // Copia a la casilla de la empresa: queda constancia de qué se entregó
+      // (pedido de Raúl, 28-oct-2026 hora CR).
+      ...(patientEmail !== CONTACT_EMAIL ? { bcc: [CONTACT_EMAIL] } : {}),
       subject: "Su formulario de reclamo de seguro médico — Salud Mental Costa Rica",
       html,
       attachments,

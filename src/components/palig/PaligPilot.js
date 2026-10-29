@@ -205,7 +205,11 @@ export function Documents({ initial }) {
       {!claim.invoiceReady && <button type="button" disabled={busy} onClick={refresh} className="underline">{busy ? "Consultando…" : "Actualizar estado"}</button>}
     </div>
     {!claim.emailSent && <FirmarEnPanel claim={claim} onCambio={(json) => setClaim((c) => ({ ...c, ...json }))} onEnviado={() => router.refresh()} />}
-    <SubirFirmado claimId={claim.id} onListo={() => router.refresh()} />
+    {/* Firmar a mano es la excepción: queda a mano para quien lo elija. */}
+    {!claim.emailSent && <details className="rounded-lg bg-slate-50 p-3 text-sm">
+      <summary className="cursor-pointer font-medium text-slate-700">Prefiero firmarlo a mano y subirlo</summary>
+      <div className="mt-3"><SubirFirmado claimId={claim.id} onListo={() => router.refresh()} /></div>
+    </details>}
     {message && <p role="alert" className="text-sm text-red-700">{message}</p>}
   </article>;
 }
@@ -371,9 +375,9 @@ export default function PaligPilot({ sessions, patients, invoices = [], recent, 
     {/* ── Paso 3 ─────────────────────────────────────────────────────────── */}
     <section className="space-y-3">
       <h2 className="flex items-center gap-3 text-xl font-bold"><span className={PASO}>3</span>Firmar y enviar</h2>
-      <p className="text-sm text-slate-600">Baje el formulario, imprímalo, fírmelo y súbalo escaneado o fotografiado: le llega al paciente por correo, con la factura si Hacienda ya la aceptó.</p>
+      <p className="text-sm text-slate-600">Los formularios que todavía no le llegaron al paciente. Tóquelo en «Firmar», revíselo y envíelo: le llega por correo con la factura si Hacienda ya la aceptó. Una vez enviado sale de esta lista.</p>
       {recent.filter((c) => c.id !== result?.id).map((c) => <Documents key={`${c.id}-${c.feStatus}-${c.emailSent}`} initial={c} />)}
-      {!recent.length && !result && <p className="text-sm text-slate-500">Todavía no hay documentos del piloto.</p>}
+      {!recent.length && !result && <p className="text-sm text-slate-500">No hay formularios pendientes de enviar.</p>}
     </section>
   </div>;
 }
