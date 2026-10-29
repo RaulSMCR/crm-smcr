@@ -14,26 +14,36 @@ const inputClass = "mt-1 w-full rounded-xl border border-slate-300 bg-white px-3
 const buttonClass = "rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50";
 const money = (n) => `₡${Number(n).toLocaleString("es-CR", { minimumFractionDigits: 2 })}`;
 const date = (value) => new Date(value).toLocaleDateString("es-CR", { timeZone: "America/Costa_Rica" });
+// Cuánto corre cada flecha la firma de un escaneo, en puntos del PDF.
+const PASO_FIRMA = 6;
 const PASO = "flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-700 text-sm font-bold text-white";
 
 /**
- * Vista previa de dónde cae la fecha. En una plantilla escaneada, flechas para
- * moverla: cada encuadre es distinto y se ajusta una sola vez por paciente.
+ * Vista previa de dónde caen las fechas y la firma. En una plantilla escaneada,
+ * flechas para mover el recuadro elegido: cada encuadre es distinto y se ajusta
+ * una sola vez por paciente.
  */
+const RECUADROS = [
+  ["fecha", "Fecha de servicio (atención)"],
+  ["fechaFirma", "Fecha junto a la firma"],
+  ["firma", "Firma del médico"],
+];
+
 function VistaPreviaFecha({ patient }) {
   const [version, setVersion] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [cual, setCual] = useState("fecha");
   const PASO_PT = 3;
 
   async function mover(dx, dy) {
     setBusy(true); setError("");
     try {
       const res = await fetch(`/api/palig/templates/${patient.id}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dx, dy }),
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dx, dy, cual }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.message || "No se pudo mover la fecha.");
+      if (!res.ok) throw new Error(json.message || "No se pudo mover el recuadro.");
       setVersion((v) => v + 1);
     } catch (e) { setError(e.message); }
     finally { setBusy(false); }
@@ -42,10 +52,14 @@ function VistaPreviaFecha({ patient }) {
   const flecha = "h-9 w-9 rounded-lg border border-slate-300 bg-white text-lg font-bold text-slate-800 hover:bg-slate-100 disabled:opacity-50";
   return <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
     <p className="text-sm font-medium text-slate-800">
-      Vista previa con una fecha de ejemplo{patient.templateEscaneada ? " (recuadro rojo: solo se ve acá, no en el formulario)" : ""}
+      Vista previa con una fecha de ejemplo{patient.templateEscaneada ? " (en rojo las dos fechas y en azul dónde va su firma: los recuadros solo se ven acá, no en el formulario)" : ""}
     </p>
     {patient.templateEscaneada && <div className="flex flex-wrap items-center gap-3">
-      <span className="text-sm text-slate-600">Si la fecha no cae en «Fecha de servicio (atención)», muévala:</span>
+      <label className="text-sm text-slate-600">Si algo no cae en su casilla, elija cuál y muévalo:
+        <select value={cual} onChange={(e) => setCual(e.target.value)} className="ml-2 rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900">
+          {RECUADROS.map(([valor, etiqueta]) => <option key={valor} value={valor}>{etiqueta}</option>)}
+        </select>
+      </label>
       <div className="grid grid-cols-3 gap-1">
         <span /><button type="button" aria-label="Subir" disabled={busy} onClick={() => mover(0, PASO_PT)} className={flecha}>↑</button><span />
         <button type="button" aria-label="Izquierda" disabled={busy} onClick={() => mover(-PASO_PT, 0)} className={flecha}>←</button>
@@ -66,23 +80,27 @@ function VistaPreviaFecha({ patient }) {
 
 /**
  * Firmar desde el panel: estampa la firma de Raúl (rota entre sus versiones),
- * se revisa el PDF y recién entonces se envía. Solo para plantillas editables;
- * una escaneada se sigue firmando a mano.
+ * se revisa el PDF y recién entonces se envía. En un formulario escaneado la
+ * firma cae en «Firma del Médico» según la plantilla; si quedó corrida, las
+ * flechas la mueven y la posición queda guardada para el próximo pago.
  */
 function FirmarEnPanel({ claim, onCambio, onEnviado }) {
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState(null);
   const base = `/api/palig/claims/${claim.id}`;
 
-  async function ejecutar(accion) {
+  async function ejecutar(accion, extra = {}) {
     setBusy(accion); setMessage(null);
     try {
-      const res = await fetch(base, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accion }) });
+      const res = await fetch(base, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accion, ...extra }) });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "No se pudo completar la operación.");
       if (accion === "firmar") {
         onCambio(json);
         setMessage({ ok: true, text: `Firmado con la versión ${json.firmaVersion}. Revíselo antes de enviarlo.` });
+      } else if (accion === "moverFirma") {
+        onCambio(json);
+        setMessage({ ok: true, text: "Firma corrida. Ábralo de nuevo para revisarla." });
       } else {
         setMessage(json.emailSent
           ? { ok: true, text: json.facturaAdjunta ? "Enviado al paciente con el formulario firmado y la factura." : "Enviado al paciente. La factura le llega aparte cuando Hacienda la acepte." }
@@ -99,6 +117,14 @@ function FirmarEnPanel({ claim, onCambio, onEnviado }) {
     </button>
     {claim.firmadoEnPanel && <>
       <a href={`${base}?file=firmado`} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-blue-700 underline">Ver formulario firmado</a>
+      {claim.escaneada && <div className="flex w-full flex-wrap items-center gap-2">
+        <span className="text-sm text-slate-700">¿La firma quedó corrida? Muévala:</span>
+        {[["↑", "Subir", 0, PASO_FIRMA], ["↓", "Bajar", 0, -PASO_FIRMA], ["←", "Izquierda", -PASO_FIRMA, 0], ["→", "Derecha", PASO_FIRMA, 0]].map(([flecha, label, dx, dy]) => (
+          <button key={label} type="button" aria-label={label} disabled={Boolean(busy)} onClick={() => ejecutar("moverFirma", { dx, dy })}
+            className="h-10 w-10 rounded-lg border border-slate-300 bg-white text-lg font-bold text-slate-800 disabled:opacity-50">{flecha}</button>
+        ))}
+        {busy === "moverFirma" && <span className="text-sm text-slate-500">Moviendo…</span>}
+      </div>}
       <button type="button" disabled={Boolean(busy)} onClick={() => ejecutar("enviar")} className={buttonClass}>
         {busy === "enviar" ? "Enviando…" : "Enviar al paciente"}
       </button>

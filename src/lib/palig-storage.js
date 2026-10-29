@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { PDFDocument } from "pdf-lib";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { parseStorageReference, detectFileMimeType } from "@/lib/storage";
@@ -57,6 +58,14 @@ export async function descargarFirma(version) {
   const { data, error } = await getSupabaseAdmin().storage.from("insurance-templates").download(`${CARPETA_FIRMAS}/firma-${version}.png`);
   if (error || !data) throw new PaligError("No se pudo leer la firma guardada.", 503);
   return Buffer.from(await data.arrayBuffer());
+}
+
+/**
+ * Nombre del archivo de la plantilla. Una escaneada lleva la marca en el
+ * nombre: así la pantalla sabe ofrecer el ajuste de la fecha sin abrir el PDF.
+ */
+export function nombreDePlantilla(patientId, tipo) {
+  return `${patientId}/palig-${tipo === "escaneada" ? "escaneada-" : ""}${randomUUID()}.pdf`;
 }
 
 export async function guardarPalig(bucket, path, bytes, contentType = "application/pdf") {

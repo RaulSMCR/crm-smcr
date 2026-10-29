@@ -82,32 +82,78 @@ async function loadTemplate(bytes) {
   return { doc, form: null, tipo: "escaneada" };
 }
 
-/** La posición de la fecha guardada en la plantilla escaneada (o la de base). */
-function posicionDe(doc) {
-  const guardada = (doc.getKeywords() || "").split(/[;,]?\s+/).find((k) => k.startsWith(CLAVE_POSICION));
+/**
+ * Recuadro de la firma de Raúl en un escaneo, con la misma convención que la
+ * fecha. Valor de base medido sobre el escaneo de Javier: «Firma del Médico»,
+ * con el mismo desborde arriba y abajo que en el editable (Raúl firma grande).
+ * Se ajusta con flechas al firmar y queda guardado en la plantilla.
+ */
+export const POSICION_FIRMA_ESCANEO = Object.freeze({ x: 0.56, y: 0.13, w: 0.24, h: 0.065 });
+const CLAVE_FIRMA = "smcr-firma-medico:";
+
+/**
+ * Casilla «Fecha:» a la derecha de «Número de teléfono», debajo de la firma: la
+ * misma fecha de servicio, como en el editable (pedido de Raúl, 28-oct-2026
+ * hora CR). Medida sobre el escaneo de Javier, debajo del rótulo impreso.
+ */
+export const POSICION_FECHA_FIRMA_ESCANEO = Object.freeze({ x: 0.895, y: 0.108, w: 0.08, h: 0.022 });
+const CLAVE_FECHA_FIRMA = "smcr-fecha-firma:";
+
+function leerPosicion(doc, clave, base) {
+  const guardada = (doc.getKeywords() || "").split(/[;,]?\s+/).find((k) => k.startsWith(clave));
   if (guardada) {
-    const [x, y, w, h] = guardada.slice(CLAVE_POSICION.length).split("|").map(Number);
+    const [x, y, w, h] = guardada.slice(clave.length).split("|").map(Number);
     if ([x, y, w, h].every((n) => Number.isFinite(n) && n >= 0 && n <= 1)) return { x, y, w, h };
   }
-  return { ...POSICION_FECHA_ESCANEO };
+  return { ...base };
 }
 
-function guardarPosicion(doc, pos) {
+/** La posición de la fecha guardada en la plantilla escaneada (o la de base). */
+function posicionDe(doc) {
+  return leerPosicion(doc, CLAVE_POSICION, POSICION_FECHA_ESCANEO);
+}
+
+/** La posición de la firma guardada en la plantilla escaneada (o la de base). */
+function posicionFirmaDe(doc) {
+  return leerPosicion(doc, CLAVE_FIRMA, POSICION_FIRMA_ESCANEO);
+}
+
+/** La posición de la fecha junto a la firma (o la de base). */
+function posicionFechaFirmaDe(doc) {
+  return leerPosicion(doc, CLAVE_FECHA_FIRMA, POSICION_FECHA_FIRMA_ESCANEO);
+}
+
+/** Guarda las tres posiciones; la que no se pasa queda como estaba. */
+function guardarPosiciones(doc, { fecha = posicionDe(doc), firma = posicionFirmaDe(doc), fechaFirma = posicionFechaFirmaDe(doc) } = {}) {
   const r = (n) => Math.round(n * 10000) / 10000;
-  doc.setKeywords([`${CLAVE_POSICION}${r(pos.x)}|${r(pos.y)}|${r(pos.w)}|${r(pos.h)}`]);
+  const texto = (clave, pos) => `${clave}${r(pos.x)}|${r(pos.y)}|${r(pos.w)}|${r(pos.h)}`;
+  doc.setKeywords([texto(CLAVE_POSICION, fecha), texto(CLAVE_FIRMA, firma), texto(CLAVE_FECHA_FIRMA, fechaFirma)]);
 }
 
-/** Escribe la fecha sobre el escaneo; con `marcar`, el recuadro en rojo para la vista previa. */
-async function sellarFecha(doc, texto, { marcar = false } = {}) {
+/** Corre un recuadro `dx`/`dy` puntos (positivo: derecha/arriba) sin sacarlo de la página. */
+function desplazar(pos, page, dx, dy) {
+  const limitar = (n, max) => Math.min(Math.max(n, 0), max);
+  return {
+    ...pos,
+    x: limitar(pos.x + Number(dx || 0) / page.getWidth(), 1 - pos.w),
+    y: limitar(pos.y + Number(dy || 0) / page.getHeight(), 1 - pos.h),
+  };
+}
+
+/**
+ * Escribe la fecha sobre el escaneo; con `marcar`, el recuadro en rojo para la
+ * vista previa. Por defecto en «Fecha de servicio»; `pos` elige otra casilla.
+ */
+async function sellarFecha(doc, texto, { marcar = false, pos = posicionDe(doc) } = {}) {
   const page = doc.getPages()[0];
-  const pos = posicionDe(doc);
   const box = { x: pos.x * page.getWidth(), y: pos.y * page.getHeight(), w: pos.w * page.getWidth(), h: pos.h * page.getHeight() };
   const font = await doc.embedFont(StandardFonts.Helvetica);
   page.drawRectangle({
     x: box.x, y: box.y, width: box.w, height: box.h, color: rgb(1, 1, 1),
     ...(marcar ? { borderColor: rgb(0.85, 0.1, 0.1), borderWidth: 1 } : {}),
   });
-  const size = Math.min(box.h * 0.68, 14);
+  // Que entre también en una casilla angosta como la de junto a la firma.
+  const size = Math.min(box.h * 0.68, 14, (box.w - 2) / font.widthOfTextAtSize(texto, 1));
   page.drawText(texto, { x: box.x + (box.w - font.widthOfTextAtSize(texto, size)) / 2, y: box.y + (box.h - size * 0.72) / 2, size, font, color: rgb(0, 0, 0) });
 }
 
@@ -118,7 +164,7 @@ async function sellarFecha(doc, texto, { marcar = false } = {}) {
  */
 export async function validarPlantillaPalig(bytes) {
   const { doc, tipo } = await loadTemplate(bytes);
-  if (tipo === "escaneada") guardarPosicion(doc, posicionDe(doc));
+  if (tipo === "escaneada") guardarPosiciones(doc);
   return Buffer.from(await doc.save());
 }
 
@@ -172,7 +218,7 @@ async function setText(doc, form, name, value) {
 export async function prepararPlantillaPalig(bytes, profesional = {}) {
   const { doc, form, tipo } = await loadTemplate(bytes);
   if (tipo === "escaneada") {
-    guardarPosicion(doc, posicionDe(doc));
+    guardarPosiciones(doc);
   } else {
     for (const [campo, valor] of [[F.professionalName, profesional.nombre], [F.professionalLicense, profesional.colegiado], [F.professionalPhone, profesional.telefono]]) {
       if (valor && !form.getTextField(campo).getText()?.trim()) await setText(doc, form, campo, valor);
@@ -182,28 +228,43 @@ export async function prepararPlantillaPalig(bytes, profesional = {}) {
 }
 
 /**
- * Mueve el recuadro de la fecha de una plantilla escaneada.
- * `dx`/`dy` en puntos (positivo: derecha/arriba).
+ * Mueve un recuadro de una plantilla escaneada: `cual` es "fecha" (la de
+ * servicio), "fechaFirma" (la de junto a la firma) o "firma". `dx`/`dy` en puntos (positivo: derecha/arriba).
  */
-export async function moverFechaPalig(bytes, { dx = 0, dy = 0 } = {}) {
+export async function moverFechaPalig(bytes, { dx = 0, dy = 0, cual = "fecha" } = {}) {
   const { doc, tipo } = await loadTemplate(bytes);
-  if (tipo !== "escaneada") throw new PaligError("Solo se ajusta la fecha de una plantilla escaneada: en la editable va en su campo.");
+  if (tipo !== "escaneada") throw new PaligError("Solo se ajusta una plantilla escaneada: en la editable la fecha y la firma tienen su lugar fijo.");
   const page = doc.getPages()[0];
-  const pos = posicionDe(doc);
-  const limitar = (n, max) => Math.min(Math.max(n, 0), max);
-  guardarPosicion(doc, {
-    ...pos,
-    x: limitar(pos.x + Number(dx || 0) / page.getWidth(), 1 - pos.w),
-    y: limitar(pos.y + Number(dy || 0) / page.getHeight(), 1 - pos.h),
-  });
+  if (cual === "firma") guardarPosiciones(doc, { firma: desplazar(posicionFirmaDe(doc), page, dx, dy) });
+  else if (cual === "fechaFirma") guardarPosiciones(doc, { fechaFirma: desplazar(posicionFechaFirmaDe(doc), page, dx, dy) });
+  else guardarPosiciones(doc, { fecha: desplazar(posicionDe(doc), page, dx, dy) });
   return Buffer.from(await doc.save());
 }
 
-/** Vista previa: la plantilla con una fecha de ejemplo, marcada en rojo si es escaneada. */
+/** Dónde quedó la firma en un PDF firmado (o en una plantilla) escaneado. */
+export async function posicionFirmaPalig(bytes) {
+  return posicionFirmaDe(await PDFDocument.load(bytes));
+}
+
+/** La posición de la firma corrida `dx`/`dy` puntos dentro de la página de `bytes`. */
+export async function desplazarFirmaPalig(bytes, pos, { dx = 0, dy = 0 } = {}) {
+  return desplazar(pos, (await PDFDocument.load(bytes)).getPages()[0], dx, dy);
+}
+
+/** Vista previa: la plantilla con una fecha de ejemplo; si es escaneada, las fechas en rojo y la firma en azul. */
 export async function muestraFechaPalig(bytes, date = new Date()) {
   const { doc, form, tipo } = await loadTemplate(bytes);
-  if (tipo === "escaneada") await sellarFecha(doc, fechaPalig(date), { marcar: true });
-  else await fecharEditable(doc, form, fechaPalig(date));
+  if (tipo === "escaneada") {
+    await sellarFecha(doc, fechaPalig(date), { marcar: true });
+    await sellarFecha(doc, fechaPalig(date), { marcar: true, pos: posicionFechaFirmaDe(doc) });
+    // Dónde va a caer la firma de Raúl, en azul: solo en la vista previa.
+    const page = doc.getPages()[0];
+    const pos = posicionFirmaDe(doc);
+    page.drawRectangle({
+      x: pos.x * page.getWidth(), y: pos.y * page.getHeight(), width: pos.w * page.getWidth(), height: pos.h * page.getHeight(),
+      borderColor: rgb(0.1, 0.3, 0.85), borderWidth: 1,
+    });
+  } else await fecharEditable(doc, form, fechaPalig(date));
   return Buffer.from(await doc.save());
 }
 
@@ -261,22 +322,33 @@ export async function completarPalig(bytes, { patient, professional, date = null
 export const RECUADRO_FIRMA = Object.freeze({ x: 392, y: 138, w: 192, h: 68 });
 
 /**
- * Estampa la firma de Raúl (PNG transparente) en el formulario ya emitido. Solo
- * si salió del editable: en un escaneo el recuadro cae donde caiga el papel, y
- * ahí se sigue firmando a mano. `plantilla` es la copia que guardó el trámite.
+ * Estampa la firma de Raúl (PNG transparente) en el formulario ya emitido.
+ * `plantilla` es la copia que guardó el trámite: dice si salió del editable o
+ * de un escaneo. En el editable va en RECUADRO_FIRMA. En un escaneo el recuadro
+ * cae donde cae el papel: se usa la posición guardada en la plantilla (o la de
+ * base) o la que se pase en `posicion` al correrla, y queda anotada en el PDF
+ * firmado para poder correrla de nuevo. Con `fecha` (la de servicio), en un
+ * escaneo también la escribe en la casilla «Fecha:» de junto a la firma, como
+ * el editable; se hace al firmar para que valga también en los trámites que ya
+ * estaban emitidos.
  */
-export async function firmarPalig(formulario, plantilla, firmaPng) {
-  if ((await loadTemplate(plantilla)).tipo !== "editable") {
-    throw new PaligError("Este formulario salió de una plantilla escaneada: fírmelo a mano y súbalo.", 409);
-  }
+export async function firmarPalig(formulario, plantilla, firmaPng, { posicion = null, fecha = null } = {}) {
+  const { doc: base, tipo } = await loadTemplate(plantilla);
   let doc;
   try { doc = await PDFDocument.load(formulario); } catch { throw new PaligError("No se pudo leer el formulario emitido.", 409); }
+  const page = doc.getPages()[0];
+  let r = RECUADRO_FIRMA;
+  if (tipo === "escaneada") {
+    const pos = posicion ?? posicionFirmaDe(base);
+    r = { x: pos.x * page.getWidth(), y: pos.y * page.getHeight(), w: pos.w * page.getWidth(), h: pos.h * page.getHeight() };
+    guardarPosiciones(doc, { firma: pos });
+    if (fecha) await sellarFecha(doc, fechaPalig(fecha), { pos: posicionFechaFirmaDe(base) });
+  }
   const firma = await doc.embedPng(firmaPng);
-  const r = RECUADRO_FIRMA;
   const escala = Math.min(r.w / firma.width, r.h / firma.height);
   const w = firma.width * escala;
   const h = firma.height * escala;
-  doc.getPages()[0].drawImage(firma, { x: r.x + (r.w - w) / 2, y: r.y + (r.h - h) / 2, width: w, height: h });
+  page.drawImage(firma, { x: r.x + (r.w - w) / 2, y: r.y + (r.h - h) / 2, width: w, height: h });
   return Buffer.from(await doc.save());
 }
 

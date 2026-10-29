@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePaligOperator } from "@/lib/palig-auth";
 import { PALIG_PROFESSIONAL_SLUG } from "@/lib/palig-policy";
 import { resumenPalig } from "@/lib/palig-service";
-import { enviarFirmadoPalig, firmarTramitePalig, rutaFirmado } from "@/lib/palig-firma";
+import { enviarFirmadoPalig, firmarTramitePalig, moverFirmaTramitePalig, rutaFirmado } from "@/lib/palig-firma";
 import { facturaPaligPdf, PaligError } from "@/lib/palig-pdf";
 import { getSignedUrl, parseStorageReference } from "@/lib/storage";
 import { FE_EMISOR } from "@/lib/fe/config";
@@ -18,7 +18,7 @@ async function context(id) {
   if (auth.error) return auth;
   const claim = await prisma.insuranceClaim.findFirst({ where: { id, invoiceId: { not: null }, professional: { slug: PALIG_PROFESSIONAL_SLUG } }, include: {
     invoice: { include: { lines: { orderBy: { sortOrder: "asc" } } } },
-    patient: { select: { name: true, email: true } },
+    patient: { select: { id: true, name: true, email: true, insuranceTemplateUrl: true } },
   } });
   if (!claim?.invoice) return { error: NextResponse.json({ message: "Documentos no disponibles." }, { status: 404 }) };
   return { claim };
@@ -55,21 +55,30 @@ export async function GET(request, { params }) {
 /**
  * POST sin cuerpo: actualiza el estado fiscal.
  * { accion: "firmar" }: estampa la siguiente versión de la firma de Raúl.
+ * { accion: "moverFirma", dx, dy }: corre la firma de un formulario escaneado.
  * { accion: "enviar" }: manda al paciente el formulario firmado.
  */
 export async function POST(request, { params }) {
   const ctx = await context((await params).id);
   if (ctx.error) return ctx.error;
   if (!["OPEN", "PAID"].includes(ctx.claim.invoice.status)) return NextResponse.json({ message: "La factura fue cancelada." }, { status: 409 });
-  const { accion } = (await request?.json().catch(() => ({}))) ?? {};
-  if (accion === "firmar" || accion === "enviar") {
+  const body = (await request?.json().catch(() => ({}))) ?? {};
+  const { accion } = body;
+  if (["firmar", "moverFirma", "enviar"].includes(accion)) {
     try {
-      if (accion === "firmar") return NextResponse.json(resumenPalig(await firmarTramitePalig(prisma, ctx.claim)), { headers: { "Cache-Control": "no-store" } });
+      const resumen = (claim) => NextResponse.json({ ...resumenPalig(claim), escaneada: Boolean(claim.escaneada) }, { headers: { "Cache-Control": "no-store" } });
+      if (accion === "firmar") return resumen(await firmarTramitePalig(prisma, ctx.claim));
+      if (accion === "moverFirma") {
+        const dx = Number(body.dx || 0);
+        const dy = Number(body.dy || 0);
+        if (!Number.isFinite(dx) || !Number.isFinite(dy) || Math.abs(dx) > 50 || Math.abs(dy) > 50) throw new PaligError("Movimiento no válido.");
+        return resumen(await moverFirmaTramitePalig(prisma, ctx.claim, { dx, dy, patient: ctx.claim.patient }));
+      }
       return NextResponse.json(await enviarFirmadoPalig(prisma, ctx.claim, { patient: ctx.claim.patient }), { headers: { "Cache-Control": "no-store" } });
     } catch (error) {
       if (error instanceof PaligError) return NextResponse.json({ message: error.message }, { status: error.status });
-      console.error(accion === "firmar" ? "[palig] SIGN_FAILED" : "[palig] SEND_FAILED");
-      return NextResponse.json({ message: accion === "firmar" ? "No se pudo firmar el formulario." : "No se pudo enviar el formulario." }, { status: 500 });
+      console.error(accion === "enviar" ? "[palig] SEND_FAILED" : "[palig] SIGN_FAILED");
+      return NextResponse.json({ message: accion === "enviar" ? "No se pudo enviar el formulario." : "No se pudo firmar el formulario." }, { status: 500 });
     }
   }
   try { await submitInvoiceToFe(ctx.claim.invoiceId); } catch { console.error("[palig] FE_PENDING"); }

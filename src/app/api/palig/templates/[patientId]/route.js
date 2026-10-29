@@ -1,24 +1,15 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePaligOperator } from "@/lib/palig-auth";
 import { PALIG_PROFESSIONAL_SLUG, esPalig } from "@/lib/palig-policy";
 import { completarPalig, moverFechaPalig, muestraFechaPalig, prepararPlantillaPalig, PaligError } from "@/lib/palig-pdf";
-import { descargarPlantillaPalig, leerArchivoPalig, guardarPalig } from "@/lib/palig-storage";
+import { descargarPlantillaPalig, leerArchivoPalig, guardarPalig, nombreDePlantilla } from "@/lib/palig-storage";
 import { WHATSAPP_PHONE } from "@/lib/contact-info";
 
 /** El teléfono de la empresa como se escribe en el formulario: 71291909. */
 const TELEFONO_EMPRESA = WHATSAPP_PHONE.replace(/^506/, "");
-
-/**
- * Nombre del archivo de la plantilla. Una escaneada lleva la marca en el
- * nombre: así la pantalla sabe ofrecer el ajuste de la fecha sin abrir el PDF.
- */
-function nombreDePlantilla(patientId, tipo) {
-  return `${patientId}/palig-${tipo === "escaneada" ? "escaneada-" : ""}${randomUUID()}.pdf`;
-}
 
 async function context(patientId) {
   const auth = await requirePaligOperator();
@@ -107,13 +98,13 @@ export async function PATCH(request, { params }) {
     const dy = Number(body.dy || 0);
     if (!Number.isFinite(dx) || !Number.isFinite(dy) || Math.abs(dx) > 50 || Math.abs(dy) > 50) throw new PaligError("Movimiento no válido.");
     const actual = await descargarPlantillaPalig(ctx.patient.insuranceTemplateUrl, ctx.patient.id);
-    const movida = await moverFechaPalig(actual, { dx, dy });
+    const movida = await moverFechaPalig(actual, { dx, dy, cual: ["firma", "fechaFirma"].includes(body.cual) ? body.cual : "fecha" });
     const reference = await guardarPalig("insurance-templates", nombreDePlantilla(ctx.patient.id, "escaneada"), movida);
     await prisma.user.update({ where: { id: ctx.patient.id }, data: { insuranceTemplateUrl: reference } });
     return NextResponse.json({ ok: true });
   } catch (error) {
     if (error instanceof PaligError) return NextResponse.json({ message: error.message }, { status: error.status });
     console.error("[palig] TEMPLATE_MOVE_FAILED");
-    return NextResponse.json({ message: "No se pudo mover la fecha." }, { status: 500 });
+    return NextResponse.json({ message: "No se pudo mover el recuadro." }, { status: 500 });
   }
 }
