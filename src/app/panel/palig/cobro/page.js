@@ -38,9 +38,11 @@ export default async function CobroPage() {
     <style dangerouslySetInnerHTML={{ __html: "body > header,body > footer{display:none!important}" }} />
     <CobroMovil
       today={fechaCostaRica(new Date())}
+      // Todos los de PALIG, también los que no tienen plantilla: si no aparecen,
+      // no se entiende por qué faltan. Esos se marcan y no se pueden facturar acá.
       patients={patients
-        .filter((p) => esPalig(p.insuranceName) && p.insuranceTemplateUrl && profile && p.insuranceTemplateProId === profile.id)
-        .map((p) => ({ id: p.id, name: p.name }))}
+        .filter((p) => esPalig(p.insuranceName))
+        .map((p) => ({ id: p.id, name: p.name, templateReady: Boolean(p.insuranceTemplateUrl && profile && p.insuranceTemplateProId === profile.id) }))}
     />
   </>;
 }

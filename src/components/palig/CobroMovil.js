@@ -151,7 +151,7 @@ export default function CobroMovil({ patients, today }) {
 
   async function emitir(e) {
     e.preventDefault();
-    if (busy || !patientId || !archivo || !confirmado || !(Number(monto) > 0)) return;
+    if (busy || !patientId || !patients.find((p) => p.id === patientId)?.templateReady || !archivo || !confirmado || !(Number(monto) > 0)) return;
     setBusy(true); setError("");
     const fd = new FormData();
     fd.set("patientId", patientId); fd.set("monto", monto); fd.set("confirmado", "true");
@@ -168,6 +168,8 @@ export default function CobroMovil({ patients, today }) {
   }
 
   const otroDia = fechaLeida && fechaLeida !== today;
+  const paciente = patients.find((p) => p.id === patientId);
+  const sinPlantilla = paciente && !paciente.templateReady;
 
   return <main className="mx-auto min-h-screen max-w-md space-y-5 bg-[#F6EFDF] px-4 pb-10 pt-6">
     <header>
@@ -186,10 +188,13 @@ export default function CobroMovil({ patients, today }) {
         <label className="block text-sm font-medium text-slate-800">Paciente
           <select required value={patientId} onChange={(e) => setPatientId(e.target.value)} className={inputClass}>
             <option value="">Seleccione el paciente</option>
-            {patients.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            {patients.map((p) => <option key={p.id} value={p.id}>{p.name}{p.templateReady ? "" : " · falta plantilla"}</option>)}
           </select>
         </label>
-        {!patients.length && <p className="text-sm text-amber-800">Ningún paciente PALIG tiene plantilla guardada. Guárdela primero en el piloto completo.</p>}
+        {!patients.length && <p className="text-sm text-amber-800">Ningún paciente de Raúl figura con PALIG. Márquelo en Admin → Seguros.</p>}
+        {sinPlantilla && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+          {paciente.name} todavía no tiene la plantilla PALIG guardada. Guárdela una vez en el <Link href="/panel/palig" className="underline">piloto completo</Link> (paso 1) y después registre el pago acá.
+        </p>}
 
         <div className="space-y-2">
           <span className="block text-sm font-medium text-slate-800">Comprobante SINPE</span>
@@ -228,7 +233,7 @@ export default function CobroMovil({ patients, today }) {
           Confirmo que recibí hoy este monto por SINPE Móvil. La factura y el formulario quedan con la fecha de hoy.
         </label>
         <button type="submit" className={buttonClass}
-          disabled={busy || Boolean(leyendo) || !patientId || !archivo || !confirmado || !(Number(monto) > 0)}>
+          disabled={busy || Boolean(leyendo) || !patientId || sinPlantilla || !archivo || !confirmado || !(Number(monto) > 0)}>
           {busy ? "Emitiendo…" : "Emitir factura y formulario"}
         </button>
       </fieldset>
