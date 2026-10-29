@@ -87,7 +87,7 @@ export async function generarFormularioDeFacturaPalig(db, { patientId, invoiceId
     throw new PaligError("Esa factura no es de este paciente.", 409);
   }
   if (invoice.status !== "PAID" || !invoice.paymentDate) throw new PaligError("La factura no tiene un pago registrado.", 409);
-  if (invoice.insuranceClaim) throw new PaligError("Esa factura ya tiene su formulario. Búsquelo en «Documentos recientes».", 409);
+  if (invoice.insuranceClaim) throw new PaligError("Esa factura ya tiene su formulario. Búsquelo en «Firmar y enviar».", 409);
 
   const valid = validarPagoPalig({ patient, professionalId: professional.id, monto: Number(invoice.total), confirmado: true });
   if (!valid.ok) throw new PaligError(valid.message, valid.status);
@@ -162,7 +162,7 @@ export async function generarPagoPalig(db, { patientId, appointmentId = null, mo
     if (cita && previo.invoiceId && previo.generatedFormUrl) return previo;
     throw new PaligError(cita
       ? "La sesión ya tiene un trámite de seguro. Revíselo antes de crear otro."
-      : "Ya hay un pago PALIG registrado hoy para este paciente. Revíselo en «Documentos recientes» antes de registrar otro.", 409);
+      : "Ya hay un pago PALIG registrado hoy para este paciente: fírmelo y envíelo desde «Firmar y enviar», más abajo, en vez de registrarlo otra vez.", 409);
   }
 
   const valid = validarPagoPalig({ patient, professionalId: professional.id, cita, monto, confirmado, ahora: fechaPago });

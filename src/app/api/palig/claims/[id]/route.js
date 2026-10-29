@@ -6,6 +6,7 @@ import { resumenPalig } from "@/lib/palig-service";
 import { enviarFirmadoPalig, firmarTramitePalig, moverFirmaTramitePalig, rutaFirmado } from "@/lib/palig-firma";
 import { facturaPaligPdf, PaligError } from "@/lib/palig-pdf";
 import { getSignedUrl, parseStorageReference } from "@/lib/storage";
+import { descargarDelTramite } from "@/lib/palig-storage";
 import { FE_EMISOR } from "@/lib/fe/config";
 import { submitInvoiceToFe } from "@/lib/fe/submit";
 import { processPaymentDeliveries } from "@/lib/payment-deliveries";
@@ -28,7 +29,8 @@ export async function GET(request, { params }) {
   const ctx = await context((await params).id);
   if (ctx.error) return ctx.error;
   const { claim } = ctx;
-  const kind = new URL(request.url).searchParams.get("file");
+  const url = new URL(request.url);
+  const kind = url.searchParams.get("file");
   try {
     if (!kind) return NextResponse.json(resumenPalig(claim), { headers: { "Cache-Control": "no-store" } });
     if (["invoice", "xml", "form", "firmado"].includes(kind) && !["OPEN", "PAID"].includes(claim.invoice.status)) throw new PaligError("La factura fue cancelada. Revise el trámite antes de usar estos documentos.", 409);
@@ -44,6 +46,14 @@ export async function GET(request, { params }) {
     const reference = { form: claim.generatedFormUrl, proof: claim.paymentProofUrl, template: claim.templateSnapshotUrl, firmado: rutaFirmado(claim) }[kind];
     const ref = parseStorageReference(reference);
     if (!ref || ref.bucket !== "insurance-signed-forms" || !ref.path.startsWith(`${claim.id}/palig/`)) throw new PaligError("Documento no disponible.", 404);
+    // `ver=1`: los bytes desde este mismo dominio, para el visor de la página
+    // (pdf.js). En Android el PDF no se puede mostrar dentro de la página y el
+    // enlace lo abría en otra app. Solo los PDF del trámite, no el comprobante.
+    if (url.searchParams.get("ver") === "1" && ["form", "firmado", "template"].includes(kind)) {
+      return new Response(await descargarDelTramite(reference, claim.id), { headers: {
+        "Content-Type": "application/pdf", "Content-Disposition": "inline", "Cache-Control": "no-store",
+      } });
+    }
     const response = NextResponse.redirect(await getSignedUrl(ref.bucket, ref.path, 120));
     response.headers.set("Cache-Control", "no-store");
     return response;

@@ -9,6 +9,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import VisorPdf from "@/components/palig/VisorPdf";
 
 const inputClass = "mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900";
 const buttonClass = "rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50";
@@ -87,6 +88,10 @@ function VistaPreviaFecha({ patient }) {
 function FirmarEnPanel({ claim, onCambio, onEnviado }) {
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState(null);
+  // El firmado se revisa acá mismo (VisorPdf). `vista` cambia con cada firma o
+  // corrimiento para que se vuelva a dibujar.
+  const [verFirmado, setVerFirmado] = useState(false);
+  const [vista, setVista] = useState(0);
   const base = `/api/palig/claims/${claim.id}`;
 
   async function ejecutar(accion, extra = {}) {
@@ -97,10 +102,12 @@ function FirmarEnPanel({ claim, onCambio, onEnviado }) {
       if (!res.ok) throw new Error(json.message || "No se pudo completar la operación.");
       if (accion === "firmar") {
         onCambio(json);
-        setMessage({ ok: true, text: `Firmado con la versión ${json.firmaVersion}. Revíselo antes de enviarlo.` });
+        setVerFirmado(true); setVista((v) => v + 1);
+        setMessage({ ok: true, text: `Firmado con la versión ${json.firmaVersion}. Revíselo abajo antes de enviarlo.` });
       } else if (accion === "moverFirma") {
         onCambio(json);
-        setMessage({ ok: true, text: "Firma corrida. Ábralo de nuevo para revisarla." });
+        setVista((v) => v + 1);
+        setMessage({ ok: true, text: "Firma corrida." });
       } else {
         setMessage(json.emailSent
           ? { ok: true, text: json.facturaAdjunta ? "Enviado al paciente con el formulario firmado y la factura." : "Enviado al paciente. La factura le llega aparte cuando Hacienda la acepte." }
@@ -116,7 +123,10 @@ function FirmarEnPanel({ claim, onCambio, onEnviado }) {
       {busy === "firmar" ? "Firmando…" : claim.firmadoEnPanel ? "Firmar con otra versión" : "Firmar"}
     </button>
     {claim.firmadoEnPanel && <>
-      <a href={`${base}?file=firmado`} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-blue-700 underline">Ver formulario firmado</a>
+      <button type="button" onClick={() => setVerFirmado((v) => !v)} className="text-sm font-medium text-blue-700 underline">
+        {verFirmado ? "Ocultar formulario firmado" : "Ver formulario firmado"}
+      </button>
+      {verFirmado && <VisorPdf url={`${base}?file=firmado&ver=1&v=${vista}`} titulo="Formulario firmado" />}
       {claim.escaneada && <div className="flex w-full flex-wrap items-center gap-2">
         <span className="text-sm text-slate-700">¿La firma quedó corrida? Muévala:</span>
         {[["↑", "Subir", 0, PASO_FIRMA], ["↓", "Bajar", 0, -PASO_FIRMA], ["←", "Izquierda", -PASO_FIRMA, 0], ["→", "Derecha", PASO_FIRMA, 0]].map(([flecha, label, dx, dy]) => (

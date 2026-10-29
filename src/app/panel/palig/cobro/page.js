@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requirePaligOperator } from "@/lib/palig-auth";
 import { esPalig, fechaCostaRica, PALIG_PROFESSIONAL_SLUG } from "@/lib/palig-policy";
+import { PALIG_CLAIM_SELECT, resumenPalig } from "@/lib/palig-service";
 import CobroMovil from "@/components/palig/CobroMovil";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,13 @@ export default async function CobroPage() {
     select: { id: true, name: true, insuranceName: true, insuranceTemplateUrl: true, insuranceTemplateProId: true },
     orderBy: { name: "asc" },
   });
+  // Trámites que todavía no le llegaron al paciente: sin esto, al salir de la
+  // pantalla del resultado no había forma de volver a firmarlos y enviarlos.
+  const pendientes = await prisma.insuranceClaim.findMany({
+    where: { professional, invoiceId: { not: null }, emailSentAt: null, invoice: { status: { in: ["OPEN", "PAID"] } } },
+    select: { ...PALIG_CLAIM_SELECT, patient: { select: { name: true } } },
+    orderBy: { createdAt: "desc" }, take: 20,
+  });
   return <>
     {/* Sin el header y el footer del sitio, como la PWA de /mi. */}
     <style dangerouslySetInnerHTML={{ __html: "body > header,body > footer{display:none!important}" }} />
@@ -43,6 +51,7 @@ export default async function CobroPage() {
       patients={patients
         .filter((p) => esPalig(p.insuranceName))
         .map((p) => ({ id: p.id, name: p.name, templateReady: Boolean(p.insuranceTemplateUrl && profile && p.insuranceTemplateProId === profile.id) }))}
+      pendientes={pendientes.map((c) => ({ ...resumenPalig(c), date: c.invoice.invoiceDate.toISOString(), patientId: c.patientId, patientName: c.patient.name }))}
     />
   </>;
 }

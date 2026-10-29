@@ -11,6 +11,7 @@
 // lee es una ayuda; lo que vale es lo que queda en los campos al confirmar.
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { leerComprobanteSinpe, sugerirPaciente } from "@/lib/comprobante-sinpe";
 import { Documents } from "@/components/palig/PaligPilot";
@@ -63,7 +64,8 @@ async function prepararArchivo(file) {
   return new File([blob], "comprobante.jpg", { type: "image/jpeg" });
 }
 
-export default function CobroMovil({ patients, today }) {
+export default function CobroMovil({ patients, pendientes = [], today }) {
+  const router = useRouter();
   const [patientId, setPatientId] = useState("");
   const [archivo, setArchivo] = useState(null);
   const [vista, setVista] = useState("");
@@ -147,6 +149,8 @@ export default function CobroMovil({ patients, today }) {
     setPatientId(""); setArchivo(null); setVista(""); setMonto(""); setReferencia("");
     setFechaLeida(null); setMontoAlternativo(null); setAviso(null); setConfirmado(false); setError(""); setResult(null);
     if (input.current) input.current.value = "";
+    // Si el trámite recién emitido no se envió, aparece en «Firmar y enviar».
+    router.refresh();
   }
 
   async function emitir(e) {
@@ -170,6 +174,8 @@ export default function CobroMovil({ patients, today }) {
   const otroDia = fechaLeida && fechaLeida !== today;
   const paciente = patients.find((p) => p.id === patientId);
   const sinPlantilla = paciente && !paciente.templateReady;
+  const listaPendientes = pendientes.filter((c) => c.id !== result?.id);
+  const pendienteDelPaciente = paciente && listaPendientes.some((c) => c.patientId === paciente.id);
 
   return <main className="mx-auto min-h-screen max-w-md space-y-5 bg-[#F6EFDF] px-4 pb-10 pt-6">
     <header>
@@ -192,6 +198,9 @@ export default function CobroMovil({ patients, today }) {
           </select>
         </label>
         {!patients.length && <p className="text-sm text-amber-800">Ningún paciente de Raúl figura con PALIG. Márquelo en Admin → Seguros.</p>}
+        {pendienteDelPaciente && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+          {paciente.name} tiene un formulario sin enviar en «Firmar y enviar», más abajo. Si es este mismo pago, termínelo ahí en vez de registrarlo otra vez.
+        </p>}
         {sinPlantilla && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
           {paciente.name} todavía no tiene la plantilla PALIG guardada. Guárdela una vez en el <Link href="/panel/palig" className="underline">piloto completo</Link> (paso 1) y después registre el pago acá.
         </p>}
@@ -239,6 +248,12 @@ export default function CobroMovil({ patients, today }) {
       </fieldset>
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
     </form>}
+
+    {listaPendientes.length > 0 && <section className="space-y-3">
+      <h2 className="text-lg font-bold text-[#1E4F52]">Firmar y enviar</h2>
+      <p className="text-sm text-slate-600">Formularios que todavía no le llegaron al paciente.</p>
+      {listaPendientes.map((c) => <div key={`${c.id}-${c.feStatus}-${c.firmaVersion}`} className="rounded-2xl bg-white"><Documents initial={c} /></div>)}
+    </section>}
 
     <p className="text-center text-xs text-slate-500">
       Plantillas y documentos anteriores: <Link href="/panel/palig" className="underline">piloto completo</Link>
