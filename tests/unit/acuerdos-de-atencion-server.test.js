@@ -146,7 +146,7 @@ describe("crearAcuerdo", () => {
   it("programa los de una sesión que la tarea ya no alcanza", async () => {
     await crearAcuerdo(db, { ...DATOS, inicio: "2026-10-23T22:00:00Z" }, { ahora: AHORA, deps });
     expect(deps.scheduleReminder).toHaveBeenCalledTimes(2);
-    expect(deps.scheduleReminder.mock.calls.map((c) => c[0].type)).toEqual(["24h", "1h"]);
+    expect(deps.scheduleReminder.mock.calls.map((c) => c[0].type)).toEqual(["24h", "10m"]);
   });
 
   it("con la primera sesión hoy ya pasada, la registra efectuada y sigue confirmando las próximas", async () => {

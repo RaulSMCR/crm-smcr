@@ -11,10 +11,11 @@ const APP_URL = process.env.APP_URL || SITE_URL;
  * Programa un recordatorio de cita vía QStash.
  * @param {object} opts
  * @param {string} opts.appointmentId - ID de la cita
- * @param {"24h"|"1h"} opts.type - Tipo de recordatorio
+ * @param {"24h"|"10m"} opts.type - Tipo de recordatorio (ver lib/recordatorios)
  * @param {Date|string} opts.sendAt - Momento en que debe enviarse
+ * @param {string} [opts.appointmentDate] - Inicio de la cita al programarlo
  */
-export async function scheduleReminder({ appointmentId, type, sendAt }) {
+export async function scheduleReminder({ appointmentId, type, sendAt, appointmentDate }) {
   if (!process.env.QSTASH_TOKEN || !APP_URL) {
     console.log(`[QStash] SKIPPED - TOKEN: ${!!process.env.QSTASH_TOKEN}, URL: ${APP_URL}`);
     return;
@@ -32,7 +33,7 @@ export async function scheduleReminder({ appointmentId, type, sendAt }) {
     const result = await qstash.publishJSON({
       url: `${APP_URL}/api/reminders/send`,
       delay: delaySec,
-      body: { appointmentId, type },
+      body: { appointmentId, type, ...(appointmentDate && { appointmentDate }) },
     });
     console.log(`[QStash] SUCCESS ${type}:`, result);
   } catch (err) {

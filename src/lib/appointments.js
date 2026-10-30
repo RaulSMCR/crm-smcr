@@ -27,12 +27,29 @@ function getStatusLabel(status) {
 /**
  * Dónde es la cita, dentro del correo. Va como bloque aparte y no como un ítem
  * más de la lista porque es lo que la persona busca cuando abre el recordatorio
- * una hora antes: la dirección, cómo llegar, y —si es virtual— cuándo le llega
+ * antes de la cita: la dirección, cómo llegar, y —si es virtual— cuándo le llega
  * el enlace. Antes el correo no decía nada de esto.
  */
-function bloqueLugar(appointment) {
+function bloqueLugar(appointment, enlaceVirtual = null) {
   const lugar = detalleLugarCita(appointment);
   if (!lugar.titulo && !lugar.direccion && !lugar.aviso) return "";
+
+  // `false`: era el momento de mandar el enlace y no lo hay. Prometer que
+  // "llegará 10 minutos antes" en el correo de los 10 minutos sería absurdo.
+  if (lugar.esVirtual && enlaceVirtual === false) {
+    lugar.aviso = "El profesional le enviará el enlace de la videollamada en unos minutos.";
+  }
+
+  // Con el enlace en la mano, el aviso de "le llegará" sobra: va el botón.
+  if (lugar.esVirtual && enlaceVirtual) {
+    return `
+      <div style="margin:16px 0;padding:14px;border:1px solid #bfdbfe;border-radius:8px;background:#eff6ff;">
+        <p style="margin:0 0 6px;font-weight:700;color:#0f172a;">Sesión virtual</p>
+        <p style="margin:0 0 12px;color:#0f172a;">Ingrese a la videollamada con este enlace:</p>
+        ${buildPrimaryButton("Entrar a Google Meet", enlaceVirtual)}
+        <p style="margin:10px 0 0;color:#475569;font-size:13px;word-break:break-all;">${enlaceVirtual}</p>
+      </div>`;
+  }
 
   const encabezado = [lugar.titulo, lugar.modalidad ? `(${lugar.modalidad})` : null]
     .filter(Boolean)
@@ -48,7 +65,7 @@ function bloqueLugar(appointment) {
       </div>`;
 }
 
-function buildNotificationHtml({ recipientName, appointment, reason, titulo }) {
+function buildNotificationHtml({ recipientName, appointment, reason, titulo, enlaceVirtual = null, nota = null }) {
   const start = new Date(appointment.date);
   const end = new Date(appointment.endDate);
   const fechaHoraInicio = formatDateTimeInTZ(start, "es-CR", TZ);
@@ -67,7 +84,8 @@ function buildNotificationHtml({ recipientName, appointment, reason, titulo }) {
         <li><strong>Fin:</strong> ${fechaHoraFin} (${TZ})</li>
         <li><strong>Estado:</strong> ${getStatusLabel(appointment.status)}</li>
       </ul>
-      ${bloqueLugar(appointment)}
+      ${bloqueLugar(appointment, enlaceVirtual)}
+      ${nota ? `<p style="margin:16px 0;padding:12px;border-radius:8px;background:#fef3c7;color:#78350f;">${nota}</p>` : ""}
       <p style="font-size:12px;color:#475569;">Este correo fue generado automáticamente por el sistema de agenda.</p>
     </div>
   `;
@@ -86,8 +104,16 @@ function buildSecondaryButton(label, href) {
  * @param {string} reason
  * @param {{ processUrl: string, amount: number, isFirst: boolean }|null} [paymentInfo]
  *   Si se provee, se incluye un botón de pago en el email al paciente.
+ * @param {{ titulo?: string|null, enlaceVirtual?: string|null, notaProfesional?: string|null }} [opciones]
+ *   `enlaceVirtual` va como botón en los dos correos (`false`: tocaba mandarlo y
+ *   no lo hay); `notaProfesional`, solo en el del profesional.
  */
-export async function sendAppointmentNotifications(appointment, reason, paymentInfo = null, { titulo = null } = {}) {
+export async function sendAppointmentNotifications(
+  appointment,
+  reason,
+  paymentInfo = null,
+  { titulo = null, enlaceVirtual = null, notaProfesional = null } = {}
+) {
   const patientEmail = appointment.patient?.email;
   const proEmail = appointment.professional?.user?.email;
 
@@ -108,7 +134,7 @@ export async function sendAppointmentNotifications(appointment, reason, paymentI
   const deliveries = [];
 
   if (patientEmail) {
-    let patientHtml = buildNotificationHtml({ recipientName: appointment.patient?.name, appointment, reason, titulo: tituloPaciente });
+    let patientHtml = buildNotificationHtml({ recipientName: appointment.patient?.name, appointment, reason, titulo: tituloPaciente, enlaceVirtual });
 
     if (paymentInfo?.emailUrl || paymentInfo?.processUrl) {
       const paymentUrl = paymentInfo.emailUrl || paymentInfo.processUrl;
@@ -171,7 +197,10 @@ export async function sendAppointmentNotifications(appointment, reason, paymentI
         from: FROM_EMAIL,
         to: proEmail,
         subject: tituloProfesional,
-        html: buildNotificationHtml({ recipientName: appointment.professional?.user?.name, appointment, reason, titulo: tituloProfesional }),
+        html: buildNotificationHtml({
+          recipientName: appointment.professional?.user?.name, appointment, reason, titulo: tituloProfesional,
+          enlaceVirtual, nota: notaProfesional,
+        }),
       }).then((res) => {
         if (res.error) console.error("[Resend] Error enviando email al profesional:", res.error);
         else console.log("[Resend] Email enviado al profesional:", proEmail, "id:", res.data?.id);

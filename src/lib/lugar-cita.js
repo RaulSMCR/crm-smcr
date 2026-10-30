@@ -22,7 +22,7 @@
 import { modalityLabel } from "@/lib/rates";
 
 export const AVISO_ENLACE_VIRTUAL =
-  "El profesional le hará llegar el enlace unos minutos antes de la cita.";
+  "Le enviaremos el enlace de la videollamada por correo 10 minutos antes de la cita.";
 
 const AVISO_DOMICILIO =
   "El profesional se traslada a la dirección que usted indicó al agendar.";

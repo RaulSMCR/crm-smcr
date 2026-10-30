@@ -1,6 +1,7 @@
 import { withQstashSignature } from "@/lib/qstash-webhook";
 import { prisma } from "@/lib/prisma";
-import { sendAppointmentNotifications } from "@/lib/appointments";
+import { sendAppointmentNotifications, syncGoogleCalendarEvent } from "@/lib/appointments";
+import { PLAZO_DE_RECORDATORIO, RECORDATORIO_FINAL } from "@/lib/recordatorios";
 import { sendPushToUser } from "@/lib/push/send";
 import { DEFAULT_TZ } from "@/lib/timezone";
 import { NextResponse } from "next/server";
@@ -21,7 +22,9 @@ async function sendReminderPush(appointment, type) {
     }).format(new Date(appointment.date));
 
     const body =
-      type === "24h" ? `Mañana a las ${time} con ${proName}` : "Tu cita es en 1 hora";
+      type === "24h"
+        ? `Mañana a las ${time} con ${proName}`
+        : `Tu cita es en ${PLAZO_DE_RECORDATORIO[type] || "unos minutos"}`;
 
     await sendPushToUser(appointment.patientId, {
       title: "Recordatorio de cita",
@@ -33,9 +36,33 @@ async function sendReminderPush(appointment, type) {
   }
 }
 
+/**
+ * El enlace de Meet que va en el último recordatorio. Si la cita todavía no lo
+ * tiene —Google no respondió al agendar, o la sala quedó pendiente— se le pide
+ * a Google en este momento. Sin enlace, se avisa al profesional para que lo
+ * mande él: el paciente no puede quedarse esperando sin forma de entrar.
+ */
+async function opcionesDeSesionVirtual(appointment) {
+  let enlace = appointment.meetLink || null;
+  if (!enlace && appointment.professional?.googleRefreshToken) {
+    await syncGoogleCalendarEvent(appointment);
+    const actualizada = await prisma.appointment.findUnique({
+      where: { id: appointment.id },
+      select: { meetLink: true },
+    });
+    enlace = actualizada?.meetLink || null;
+  }
+  if (enlace) return { enlaceVirtual: enlace };
+  return {
+    enlaceVirtual: false,
+    notaProfesional:
+      "Esta cita virtual no tiene enlace de Google Meet y el paciente no lo recibió. Envíeselo antes de empezar la sesión.",
+  };
+}
+
 async function handler(req) {
   try {
-    const { appointmentId, type } = await req.json();
+    const { appointmentId, type, appointmentDate } = await req.json();
 
     if (!appointmentId || !type) {
       return NextResponse.json({ ok: false, reason: "Missing fields" }, { status: 400 });
@@ -64,10 +91,22 @@ async function handler(req) {
       return NextResponse.json({ ok: true, skipped: true, reason: "Appointment cancelled" });
     }
 
-    const label = type === "24h" ? "24 horas" : "1 hora";
+    // QStash no se puede desprogramar: si la cita se reagendó, el recordatorio
+    // viejo llega igual, con la hora anterior. Los mensajes programados antes de
+    // que viajara la fecha no la traen y se envían como siempre.
+    if (appointmentDate && new Date(appointmentDate).getTime() !== new Date(appointment.date).getTime()) {
+      return NextResponse.json({ ok: true, skipped: true, reason: "Appointment rescheduled" });
+    }
+
+    const label = PLAZO_DE_RECORDATORIO[type] || type;
+    const opciones = type === RECORDATORIO_FINAL && appointment.modality === "VIRTUAL"
+      ? await opcionesDeSesionVirtual(appointment)
+      : {};
     await sendAppointmentNotifications(
       appointment,
-      `Recordatorio: la cita inicia en ${label}.`
+      `Recordatorio: la cita inicia en ${label}.`,
+      null,
+      opciones
     );
 
     // Canal push adicional (no bloquea ni afecta el email de arriba).

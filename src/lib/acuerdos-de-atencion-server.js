@@ -17,6 +17,7 @@
 
 import { getCalendarClient } from "@/lib/google";
 import { scheduleReminder } from "@/lib/qstash";
+import { recordatoriosDeCita } from "@/lib/recordatorios";
 import { abrirCasoSiNoExiste } from "@/lib/casos";
 import { verificarSerieParaAcuerdo } from "@/lib/calendario-pacientes";
 import { isAppointmentOverlapError } from "@/lib/appointment-errors";
@@ -191,9 +192,7 @@ export async function programarRecordatoriosDelDia(db, ymd, deps = DEPS_REALES) 
     select: { id: true, date: true },
   });
   for (const cita of citas) {
-    const ms = cita.date.getTime();
-    await deps.scheduleReminder({ appointmentId: cita.id, type: "24h", sendAt: new Date(ms - 24 * 3600_000) });
-    await deps.scheduleReminder({ appointmentId: cita.id, type: "1h", sendAt: new Date(ms - 3600_000) });
+    for (const recordatorio of recordatoriosDeCita(cita)) await deps.scheduleReminder(recordatorio);
   }
   return citas.length;
 }

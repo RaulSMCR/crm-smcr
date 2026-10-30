@@ -12,6 +12,7 @@ import { after } from "next/server";
 import { sendScheduleMeta } from "@/lib/analytics/meta-events";
 import { sendAppointmentNotifications, syncGoogleCalendarEvent } from "@/lib/appointments";
 import { scheduleReminder } from "@/lib/qstash";
+import { recordatoriosDeCita } from "@/lib/recordatorios";
 import {
   buildRecurringStarts,
   normalizeRecurrenceCount,
@@ -70,12 +71,10 @@ async function hydrateAppointments(appointmentIds) {
 async function notifyAppointments(appointments, reason, { titulo = null } = {}) {
   await Promise.allSettled(
     appointments.flatMap((appointment) => {
-      const appointmentMs = appointment.date.getTime();
       return [
         syncGoogleCalendarEvent(appointment),
         sendAppointmentNotifications(appointment, reason, null, { titulo }),
-        scheduleReminder({ appointmentId: appointment.id, type: "24h", sendAt: new Date(appointmentMs - 24 * 60 * 60 * 1000) }),
-        scheduleReminder({ appointmentId: appointment.id, type: "1h", sendAt: new Date(appointmentMs - 60 * 60 * 1000) }),
+        ...recordatoriosDeCita(appointment).map(scheduleReminder),
       ];
     })
   );
