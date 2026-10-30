@@ -1,6 +1,6 @@
 // src/app/layout.js
 import './globals.css';
-import { Cormorant_Garamond } from 'next/font/google';
+import localFont from 'next/font/local';
 import Header from '@/components/PublicHeader';
 import Footer from '@/components/Footer';
 import JsonLd from '@/components/JsonLd';
@@ -17,12 +17,19 @@ import { TITLE_SUFFIX, defaultOgImage } from '@/lib/seo';
 // Tipografía display (Art Nouveau contenido). Solo para titulares: el cuerpo
 // sigue en la sans del sistema. El fallback es serif a propósito, para que si
 // Cormorant no carga el contraste tipográfico no desaparezca.
-const cormorant = Cormorant_Garamond({
-  subsets: ['latin', 'latin-ext'],
-  weight: ['300', '400', '600'],
-  style: ['normal', 'italic'],
+//
+// Va alojada en el proyecto y no por next/font/google: descargarla de Google en
+// cada build volteaba deploys cuando Google devolvía URLs sin extensión
+// (vercel/next.js#99114). Son los archivos variables (pesos 300 a 600) del
+// subconjunto latin de Google, que ya cubre el español; licencia en fonts/OFL.txt.
+const cormorant = localFont({
+  src: [
+    { path: './fonts/cormorant-garamond-latin.woff2', weight: '300 600', style: 'normal' },
+    { path: './fonts/cormorant-garamond-latin-italic.woff2', weight: '300 600', style: 'italic' },
+  ],
   display: 'swap',
   variable: '--font-cormorant',
+  fallback: ['Georgia', 'Times New Roman', 'serif'],
 });
 
 // La organización y el sitio se describen UNA vez, acá, y el resto del sitio los
