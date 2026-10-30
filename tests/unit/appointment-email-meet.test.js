@@ -31,6 +31,13 @@ describe("correo de una sesión virtual", () => {
     }
   });
 
+  it("el correo del profesional trae el enlace listo para reenviar por WhatsApp; el del paciente no", async () => {
+    const conTelefono = { ...cita, patient: { ...cita.patient, phone: "88881234" } };
+    await sendAppointmentNotifications(conTelefono, "Recordatorio", null, { enlaceVirtual: MEET });
+    expect(html("pro@example.invalid")).toContain("https://wa.me/50688881234?text=");
+    expect(html("p@example.invalid")).not.toContain("wa.me");
+  });
+
   it("sin enlace todavía, anuncia que llega 10 minutos antes", async () => {
     await sendAppointmentNotifications(cita, "Cita confirmada");
     expect(html("p@example.invalid")).toContain("10 minutos antes");

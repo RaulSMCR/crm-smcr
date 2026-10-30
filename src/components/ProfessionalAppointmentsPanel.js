@@ -14,6 +14,34 @@ import CreateProfessionalAppointmentModal from "./appointments/CreateProfessiona
 import AcceptRecurringAppointmentModal from "./appointments/AcceptRecurringAppointmentModal";
 import FollowUpModal from "./appointments/FollowUpModal";
 import Toast from "@/components/ui/Toast";
+import { enlaceMeetPorWhatsApp } from "@/lib/whatsapp";
+
+/**
+ * Abre el WhatsApp del profesional con el enlace de Meet ya escrito para el
+ * paciente. El envío lo hace el profesional: es la alternativa sin costo a
+ * mandarlo automáticamente por la plataforma de Meta.
+ */
+function EnlaceMeetWhatsApp({ appointment }) {
+  const href = enlaceMeetPorWhatsApp({
+    telefono: appointment.user?.phone,
+    nombre: appointment.user?.name,
+    meetLink: appointment.meetLink,
+  });
+  if (href) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="rounded bg-green-600 px-3 py-1 text-xs text-white hover:bg-green-700"
+      >
+        Mandar enlace por WhatsApp
+      </a>
+    );
+  }
+  const motivo = !appointment.meetLink ? "Sin enlace de Meet todavía" : "El paciente no tiene teléfono";
+  return <span className="px-1 py-1 text-xs text-slate-400">{motivo}</span>;
+}
 
 const formatTimeInTZ = (date) =>
   new Intl.DateTimeFormat("es-CR", {
@@ -267,6 +295,12 @@ export default function ProfessionalAppointmentsPanel({
               Cancelar
             </button>
           </>
+        ) : null}
+
+        {appointment.status === "CONFIRMED" &&
+        appointment.modality === "VIRTUAL" &&
+        isFuture(new Date(appointment.endDate)) ? (
+          <EnlaceMeetWhatsApp appointment={appointment} />
         ) : null}
 
         {appointment.status === "CONFIRMED" ? (

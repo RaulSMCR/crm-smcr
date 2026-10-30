@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { DEFAULT_TZ, formatDateTimeInTZ, toGoogleDateTime } from "@/lib/timezone";
 import { SITE_URL } from "@/lib/site-url";
 import { detalleLugarCita } from "@/lib/lugar-cita";
+import { enlaceMeetPorWhatsApp } from "@/lib/whatsapp";
 
 const TZ = process.env.APP_TIMEZONE || DEFAULT_TZ;
 const FROM_EMAIL = process.env.EMAIL_FROM || process.env.NOTIFICATIONS_FROM_EMAIL || "Salud Mental Costa Rica <onboarding@resend.dev>";
@@ -93,6 +94,18 @@ function buildNotificationHtml({ recipientName, appointment, reason, titulo, enl
 
 function buildPrimaryButton(label, href) {
   return `<a href="${href}" style="display:inline-block;background:#2b7073;color:#ffffff;text-decoration:none;padding:11px 16px;border-radius:10px;font-weight:700;">${label}</a>`;
+}
+
+/** En el correo del profesional: el enlace de Meet listo para reenviarlo al paciente por WhatsApp. */
+function botonWhatsAppParaProfesional(appointment, enlaceVirtual) {
+  const href = enlaceVirtual
+    ? enlaceMeetPorWhatsApp({ telefono: appointment.patient?.phone, nombre: appointment.patient?.name, meetLink: enlaceVirtual })
+    : null;
+  if (!href) return "";
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto 16px;">
+      <a href="${href}" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;padding:11px 16px;border-radius:10px;font-weight:700;">Mandar enlace por WhatsApp</a>
+    </div>`;
 }
 
 function buildSecondaryButton(label, href) {
@@ -200,7 +213,7 @@ export async function sendAppointmentNotifications(
         html: buildNotificationHtml({
           recipientName: appointment.professional?.user?.name, appointment, reason, titulo: tituloProfesional,
           enlaceVirtual, nota: notaProfesional,
-        }),
+        }) + botonWhatsAppParaProfesional(appointment, enlaceVirtual),
       }).then((res) => {
         if (res.error) console.error("[Resend] Error enviando email al profesional:", res.error);
         else console.log("[Resend] Email enviado al profesional:", proEmail, "id:", res.data?.id);

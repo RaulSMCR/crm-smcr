@@ -11,6 +11,7 @@
 // agendando como si nada.
 
 import { prisma } from "@/lib/prisma";
+import { numeroWhatsApp } from "@/lib/whatsapp";
 import { createPaymentRequestForAppointment } from "@/lib/payment-requests";
 import { ETIQUETAS_BLOQUEO, montoMulta, saldoDeMulta } from "@/lib/rescheduling-policy";
 import { contextoDeRepaso } from "@/lib/acuerdo";
@@ -115,10 +116,8 @@ export const MENSAJE_REINVITACION =
  * contacte al paciente sin tener que redactarlo cada vez.
  */
 export function enlaceWhatsApp({ telefono, urlAgenda } = {}) {
-  const digitos = String(telefono || "").replace(/\D/g, "");
-  if (!digitos) return null;
-  // Costa Rica: 8 dígitos locales, se antepone el código de país.
-  const numero = digitos.length === 8 ? `506${digitos}` : digitos;
+  const numero = numeroWhatsApp(telefono);
+  if (!numero) return null;
 
   const texto = urlAgenda ? `${MENSAJE_REINVITACION}: ${urlAgenda}` : MENSAJE_REINVITACION;
 
