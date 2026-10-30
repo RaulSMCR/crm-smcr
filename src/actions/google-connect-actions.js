@@ -4,6 +4,7 @@
 import { prisma } from "@/lib/prisma";
 import { getOAuth2Client } from "@/lib/google-oauth";
 import { getCalendarClient } from "@/lib/google";
+import { syncGoogleCalendarEvent } from "@/lib/appointments";
 import { revalidatePath } from "next/cache";
 import { requireProfessionalProfileId } from "@/lib/auth-guards";
 
@@ -33,6 +34,29 @@ export async function desconectarGoogle() {
   });
   revalidatePath("/panel/profesional/integraciones");
   return { success: true };
+}
+
+/**
+ * Con la autorización vencida, las citas agendadas o confirmadas en ese lapso
+ * no llegaron a Google y nada las reintenta. Al reconectar se publican. Las de
+ * un acuerdo de atención quedan fuera: su serie la publica el acuerdo.
+ */
+async function publicarCitasSinEvento(professionalId) {
+  const citas = await prisma.appointment.findMany({
+    where: {
+      professionalId: String(professionalId),
+      gcalEventId: null,
+      acuerdoId: null,
+      status: { in: ["PENDING", "CONFIRMED"] },
+      date: { gte: new Date() },
+    },
+    include: {
+      patient: { select: { id: true, name: true, email: true, phone: true } },
+      professional: { select: { id: true, googleRefreshToken: true, user: { select: { name: true, email: true } } } },
+      service: { select: { id: true, title: true, price: true, durationMin: true } },
+    },
+  });
+  await Promise.allSettled(citas.map((cita) => syncGoogleCalendarEvent(cita)));
 }
 
 /** ¿Este profesional ya tiene guardado un refresh_token utilizable? */
@@ -72,6 +96,8 @@ export async function guardarCredencialesGoogle(code) {
       where: { id: String(professionalId) },
       data: { googleRefreshToken: tokens.refresh_token },
     });
+
+    await publicarCitasSinEvento(professionalId);
 
     return { success: true };
   } catch (err) {
@@ -224,7 +250,7 @@ export async function guardarCalendariosGoogle({
     revalidatePath("/panel/profesional/citas");
     return { success: true };
   } catch (error) {
-    console.error("Error guardando calendarios de Google:", error);
+    console.error("Error guardando calendarios de Google:", error?.message);
     return { success: false, error: "No se pudo guardar la selección." };
   }
 }

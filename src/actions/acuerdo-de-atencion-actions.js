@@ -145,7 +145,7 @@ export async function seriesDeGoogleParaAcuerdosAction() {
     }
     return { success: true, series };
   } catch (error) {
-    console.error("seriesDeGoogleParaAcuerdosAction error:", error);
+    console.error("seriesDeGoogleParaAcuerdosAction error:", error?.message);
     return { success: false, error: "No se pudo revisar el calendario." };
   }
 }

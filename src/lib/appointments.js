@@ -472,8 +472,12 @@ export async function syncGoogleCalendarEvent(appointment) {
       },
     });
   } catch (error) {
-    console.error("Error sincronizando evento con Google Calendar:", error);
-    console.error("SYNC ERROR DETAILS:", JSON.stringify(error?.response?.data || error?.message || error, null, 2));
+    // Nunca el error entero: el de gaxios trae el refresh_token en `config`.
+    console.error("Error sincronizando evento con Google Calendar:", {
+      appointmentId: appointment.id,
+      message: error?.message,
+      detail: error?.response?.data,
+    });
   }
 }
 
