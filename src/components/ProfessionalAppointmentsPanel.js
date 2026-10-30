@@ -230,9 +230,13 @@ export default function ProfessionalAppointmentsPanel({
         <p className="mt-2 font-medium text-gray-900">{appointment.user.name}</p>
         <p className="text-xs text-gray-500">{appointment.user.email}</p>
         <p className="mt-2 text-sm text-gray-800">{appointment.service?.title}</p>
-        <span className="text-xs font-bold text-green-600">
-          ₡{Number(appointment.service?.price || 0).toLocaleString("es-CR")}
-        </span>
+        {/* El precio es el que quedó congelado en la cita al agendar, no el de
+            catálogo del servicio, que no es lo que paga nadie. */}
+        {appointment.pricePaid != null ? (
+          <span className="text-xs font-bold text-green-600">
+            ₡{Number(appointment.pricePaid).toLocaleString("es-CR")}
+          </span>
+        ) : null}
       </div>
 
       <div className="flex flex-wrap items-start justify-end gap-2">

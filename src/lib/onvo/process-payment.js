@@ -47,6 +47,16 @@ function revalidarSiCambioElPrecio(result) {
   return result;
 }
 
+/**
+ * Id del payment intent del cobro: en checkout-session viene como
+ * `data.paymentIntentId`; en payment-intent es el propio `data.id`.
+ */
+function paymentIntentDelEvento(event, payload) {
+  if (event.paymentIntentId) return String(event.paymentIntentId);
+  if (event.tipo?.startsWith("payment-intent.") && payload?.data?.id) return String(payload.data.id);
+  return null;
+}
+
 function matching(transaction, event) {
   return matchTransaction([{ ...transaction, patientEmail: transaction.patient?.email }], event);
 }
@@ -106,6 +116,18 @@ export async function processOnvoPayment(prisma, event, payload, { usdCrcRate } 
     ]);
     if (processed || unmatched) return { kind: "duplicate" };
 
+    // ONVO avisa cada cobro dos veces: checkout-session.succeeded, que trae el
+    // enlace y acredita, y payment-intent.succeeded, que no lo trae. El segundo
+    // no se puede emparejar por enlace, pero sí reconocer como el mismo cobro.
+    const intentId = paymentIntentDelEvento(event, payload);
+    if (!event.onvoLinkId && intentId) {
+      const yaAcreditado = await tx.paymentTransaction.findFirst({
+        where: { status: "APPROVED", webhookPayload: { path: ["data", "paymentIntentId"], equals: intentId } },
+        select: { id: true },
+      });
+      if (yaAcreditado) return { kind: "duplicate" };
+    }
+
     const candidates = event.onvoLinkId ? await tx.paymentTransaction.findMany({
       where: {
         onvoPaymentLinkId: event.onvoLinkId,
@@ -127,7 +149,16 @@ export async function processOnvoPayment(prisma, event, payload, { usdCrcRate } 
       } });
       return { kind: "unmatched", reason, reasonCode: result.unmatchedReason };
     }
-    return applyPayment(tx, result.match, event, payload, usdCrcRate);
+    const applied = await applyPayment(tx, result.match, event, payload, usdCrcRate);
+    // Si el aviso sin enlace llegó primero, quedó como pendiente de conciliar:
+    // este cobro es el mismo, así que se cierra apuntando a esta transacción.
+    if (applied.transaction?.status === "APPROVED" && intentId) {
+      await tx.unmatchedPayment.updateMany({
+        where: { onvoEventId: `payment-intent.succeeded:${intentId}`, resolvedAt: null },
+        data: { resolvedAt: new Date(), resolvedTxId: applied.transaction.id },
+      });
+    }
+    return applied;
   });
   return revalidarSiCambioElPrecio(result);
 }

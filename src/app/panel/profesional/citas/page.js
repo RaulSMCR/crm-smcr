@@ -154,6 +154,7 @@ export default async function ProfesionalCitasPage() {
 
   const initialAppointments = appointments.map((appointment) => ({
     ...appointment,
+    pricePaid: appointment.pricePaid != null ? Number(appointment.pricePaid) : null,
     user: appointment.patient,
   }));
 
