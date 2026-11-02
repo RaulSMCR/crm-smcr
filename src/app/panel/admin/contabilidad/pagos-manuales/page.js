@@ -116,10 +116,18 @@ export default async function PagosManualesPage() {
       orderBy: { title: "asc" },
     }),
     // El universo realista de un cobro suelto: alguien que ya pasó por consulta
-    // con él. Un cliente nuevo se crea primero en su ficha, donde se le piden los
-    // datos fiscales que la factura exige.
+    // con él o está emparejado con él. Un cliente nuevo se crea primero en su
+    // ficha, donde se le piden los datos fiscales que la factura exige. También
+    // entra quien paga por otros sin atenderse nunca (una empresa que cubre a sus
+    // pacientes): no tiene citas propias, pero sí datos de facturación cargados.
     prisma.user.findMany({
-      where: { appointments: { some: { professionalId: profesional.id } } },
+      where: {
+        OR: [
+          { appointments: { some: { professionalId: profesional.id } } },
+          { casosComoPaciente: { some: { professionalId: profesional.id } } },
+          { billingIdNumber: { not: null }, appointments: { none: {} } },
+        ],
+      },
       select: {
         id: true, name: true, email: true, identification: true,
         billingName: true, billingIdType: true, billingIdNumber: true, billingEmail: true,
