@@ -49,6 +49,8 @@ const PROTECTED_ROUTES = [
   { prefix: "/api/mi", role: "USER" },
   { prefix: "/mi", role: "USER" },
   // PWA de profesionales (/pro/*): mismas reglas que el panel del profesional.
+  // Cada ruta de /api/pro exige además lo suyo (p. ej. pagos manuales: solo Raúl).
+  { prefix: "/api/pro", role: "PROFESSIONAL" },
   { prefix: "/pro", role: "PROFESSIONAL" },
 ];
 

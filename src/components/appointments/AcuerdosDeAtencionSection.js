@@ -1,8 +1,9 @@
 "use client";
 
 // Acuerdos de atención en la agenda del profesional: pacientes que se atienden
-// con una periodicidad fija y sin fecha de fin. Solo se muestra a quien puede
-// manejarlos (ver puedeGestionarAcuerdos).
+// con una periodicidad fija y sin fecha de fin. Los maneja cualquier
+// profesional; `esGestionado` (Raúl) además fija el precio acordado, cobra fuera
+// de ONVO y marca el seguro PALIG.
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -46,7 +47,7 @@ function fechaYHoraCR(iso) {
   return { fecha: `${partes.year}-${partes.month}-${partes.day}`, hora: `${partes.hour}:${partes.minute}` };
 }
 
-function NuevoAcuerdoModal({ patients, services, locations, serie, onClose, onCreado }) {
+function NuevoAcuerdoModal({ patients, services, locations, serie, esGestionado, onClose, onCreado }) {
   const [form, setForm] = useState({
     patientId: serie?.patientId || patients[0]?.id || "",
     serviceId: services[0]?.id || "",
@@ -57,6 +58,7 @@ function NuevoAcuerdoModal({ patients, services, locations, serie, onClose, onCr
     precioAcordado: "40000",
     notas: "",
     seguroPalig: false,
+    cobroFueraDeOnvo: false,
     serieGoogleId: serie?.serieId || null,
   });
   const [error, setError] = useState("");
@@ -86,8 +88,11 @@ function NuevoAcuerdoModal({ patients, services, locations, serie, onClose, onCr
         </div>
 
         <p className="text-sm text-slate-600">
-          Para pacientes en tratamiento que se atienden con una periodicidad fija. Las sesiones quedan confirmadas, al
-          precio acordado, sin adelanto y fuera de la escalera de precios. Se cobran por SINPE Móvil, no por ONVO.
+          Para pacientes en tratamiento que se atienden con una periodicidad fija. Las sesiones quedan confirmadas, sin
+          adelanto y fuera de la escalera de precios.{" "}
+          {esGestionado
+            ? "Se cobran al precio acordado, por ONVO o fuera de ONVO según marque abajo."
+            : "Se cobran a su tarifa aprobada: al completar cada sesión el paciente recibe el enlace de pago de ONVO."}
         </p>
 
         <div className="grid gap-4 md:grid-cols-2">
@@ -132,16 +137,41 @@ function NuevoAcuerdoModal({ patients, services, locations, serie, onClose, onCr
             <span className={etiqueta}>Hora (Costa Rica)</span>
             <input type="time" step="600" value={form.hora} onChange={cambiar("hora")} disabled={Boolean(serie)} className={campo} />
           </label>
-          <label className="block">
-            <span className={etiqueta}>Precio por sesión (₡, IVA incluido)</span>
-            <input type="number" min="0" step="500" value={form.precioAcordado} onChange={cambiar("precioAcordado")} className={campo} />
-          </label>
+          {esGestionado ? (
+            <label className="block">
+              <span className={etiqueta}>Precio por sesión (₡, IVA incluido)</span>
+              <input type="number" min="0" step="500" value={form.precioAcordado} onChange={cambiar("precioAcordado")} className={campo} />
+            </label>
+          ) : (
+            <div className="block">
+              <span className={etiqueta}>Precio por sesión</span>
+              <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                Su tarifa aprobada para ese servicio, lugar y horario.
+              </p>
+            </div>
+          )}
           <label className="block">
             <span className={etiqueta}>Notas (opcional)</span>
             <input type="text" value={form.notas} onChange={cambiar("notas")} className={campo} placeholder="Ej.: viene derivado de…" />
           </label>
         </div>
 
+        {esGestionado && (
+          <label className="flex items-start gap-2 text-sm text-slate-800">
+            <input
+              type="checkbox"
+              checked={form.cobroFueraDeOnvo}
+              onChange={(e) => setForm((s) => ({ ...s, cobroFueraDeOnvo: e.target.checked }))}
+              className="mt-1"
+            />
+            <span>
+              <strong>Se cobra fuera de ONVO</strong> (SINPE, PALIG). Al completar las sesiones no sale enlace de pago;
+              el cobro se registra con Pagos manuales o el cobro PALIG.
+            </span>
+          </label>
+        )}
+
+        {esGestionado && (
         <label className="flex items-start gap-2 text-sm text-slate-800">
           <input
             type="checkbox"
@@ -154,6 +184,7 @@ function NuevoAcuerdoModal({ patients, services, locations, serie, onClose, onCr
             aparecen en el piloto PALIG para generar la factura y el formulario.
           </span>
         </label>
+        )}
 
         {primera && (
           <div className="rounded-xl border-l-4 border-blue-600 bg-slate-50 px-4 py-2 text-sm text-slate-800">
@@ -230,7 +261,7 @@ function FilaAcuerdo({ acuerdo, onTerminado }) {
           <p className="font-semibold text-slate-900">{acuerdo.patientName}</p>
           <p className="text-slate-700">
             {ETIQUETA_PERIODICIDAD[acuerdo.periodicidad]}, {diaYHora(acuerdo.inicio)} · {acuerdo.serviceTitle} ·{" "}
-            {colones(acuerdo.precioAcordado)}
+            {colones(acuerdo.precioAcordado)} · {acuerdo.cobroFueraDeOnvo ? "se cobra fuera de ONVO" : "se cobra por ONVO"}
           </p>
           <p className="text-slate-500">
             Desde el {fechaCorta(acuerdo.inicio)} · {acuerdo.locationName || "Sin lugar"}
@@ -345,7 +376,13 @@ function SeriesDeGoogle({ onElegir }) {
   );
 }
 
-export default function AcuerdosDeAtencionSection({ acuerdos = [], patients = [], services = [], locations = [] }) {
+export default function AcuerdosDeAtencionSection({
+  acuerdos = [],
+  patients = [],
+  services = [],
+  locations = [],
+  esGestionado = false,
+}) {
   const [abierto, setAbierto] = useState(false);
   const [serie, setSerie] = useState(null);
   const router = useRouter();
@@ -358,7 +395,7 @@ export default function AcuerdosDeAtencionSection({ acuerdos = [], patients = []
 
   function alCrear(r) {
     cerrar();
-    const partes = [`Acuerdo creado: ${r.creadas} sesión(es) registrada(s).`];
+    const partes = [`Acuerdo creado: ${r.creadas} sesión(es) registrada(s), a ${colones(r.precioAcordado)} cada una.`];
     if (r.omitidas?.length) {
       partes.push(`${r.omitidas.length} se omitieron por chocar con otra cita: revíselas en la agenda.`);
     }
@@ -413,6 +450,7 @@ export default function AcuerdosDeAtencionSection({ acuerdos = [], patients = []
           services={services}
           locations={locations}
           serie={serie}
+          esGestionado={esGestionado}
           onClose={cerrar}
           onCreado={alCrear}
         />

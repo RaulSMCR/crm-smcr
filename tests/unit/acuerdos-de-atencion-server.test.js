@@ -165,10 +165,21 @@ describe("crearAcuerdo", () => {
     expect(recordadas).not.toContain(hoy.id);
   });
 
-  it("solo lo puede usar el profesional gestionado", async () => {
-    const r = await crearAcuerdo(db, { ...DATOS, professionalId: "pro-otra" }, { ahora: AHORA, deps });
-    expect(r).toMatchObject({ ok: false, code: "ACUERDO_NO_PERMITIDO" });
+  it("cualquier profesional crea acuerdos, cobrados por ONVO", async () => {
+    // Sin lugar: el de DATOS es de Raúl, y el de otro profesional se rechaza.
+    const r = await crearAcuerdo(db, { ...DATOS, professionalId: "pro-otra", locationId: null }, { ahora: AHORA, deps });
+    expect(r).toMatchObject({ ok: true });
+    expect(db.tablas.acuerdos[0]).toMatchObject({ professionalId: "pro-otra", cobroFueraDeOnvo: false });
+  });
+
+  it("solo Raúl puede cobrar un acuerdo fuera de ONVO", async () => {
+    const otra = await crearAcuerdo(db, { ...DATOS, professionalId: "pro-otra", cobroFueraDeOnvo: true }, { ahora: AHORA, deps });
+    expect(otra).toMatchObject({ ok: false, code: "COBRO_FUERA_DE_ONVO_NO_PERMITIDO" });
     expect(db.tablas.acuerdos).toHaveLength(0);
+
+    const raul = await crearAcuerdo(db, { ...DATOS, cobroFueraDeOnvo: true }, { ahora: AHORA, deps });
+    expect(raul).toMatchObject({ ok: true });
+    expect(db.tablas.acuerdos[0]).toMatchObject({ cobroFueraDeOnvo: true });
   });
 
   it("rechaza datos inválidos sin crear nada", async () => {

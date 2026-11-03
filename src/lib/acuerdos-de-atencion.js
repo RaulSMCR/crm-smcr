@@ -44,14 +44,23 @@ export const ESTADOS_ACUERDO = {
 export const SEMANAS_GENERADAS = 8;
 
 /**
- * Slug del profesional gestionado: por decisión de Raúl (2026-10-21) es el único
- * que maneja acuerdos. Repetido y no importado de `pagos-manuales`, que arrastra
- * medio sistema de facturación; que no se separen lo fija la prueba.
+ * Slug del profesional gestionado. Desde el 2026-11-03 todos los profesionales
+ * manejan acuerdos (decisión de Raúl), pero dos cosas siguen siendo solo suyas:
+ * fijar un precio acordado distinto de la tarifa aprobada y cobrar las sesiones
+ * fuera de ONVO (SINPE, PALIG), que solo él registra. Repetido y no importado de
+ * `pagos-manuales`, que arrastra medio sistema de facturación; que no se separen
+ * lo fija la prueba.
  */
-export const SLUG_QUE_GESTIONA_ACUERDOS = "raul-olmedo";
+export const SLUG_PROFESIONAL_GESTIONADO = "raul-olmedo";
 
-export function puedeGestionarAcuerdos(professionalSlug) {
-  return professionalSlug === SLUG_QUE_GESTIONA_ACUERDOS;
+/** Los demás cobran las sesiones del acuerdo por ONVO, como cualquier cita. */
+export function puedeCobrarFueraDeOnvo(professionalSlug) {
+  return professionalSlug === SLUG_PROFESIONAL_GESTIONADO;
+}
+
+/** Los demás usan su tarifa aprobada: el precio no se inventa en el acuerdo. */
+export function puedeFijarPrecioAcordado(professionalSlug) {
+  return professionalSlug === SLUG_PROFESIONAL_GESTIONADO;
 }
 
 const DIA_MS = 24 * 60 * 60 * 1000;

@@ -41,7 +41,7 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
   send.mockResolvedValue({ data: { id: "email1" }, error: null });
   createPaymentLink.mockResolvedValue({ id: "live_example", url: paymentUrl });
-  prisma.appointment.findUnique.mockResolvedValue({ acuerdoId: null });
+  prisma.appointment.findUnique.mockResolvedValue({ acuerdo: null });
   prisma.paymentTransaction.findFirst.mockResolvedValue(null);
   prisma.paymentTransaction.create.mockImplementation(async ({ data }) => ({ id: "tx1", ...data }));
   prisma.paymentTransaction.updateMany.mockResolvedValue({ count: 1 });
@@ -143,14 +143,23 @@ describe("adelanto: persistencia y recuperación del correo", () => {
     expect(prisma.paymentTransaction.create).not.toHaveBeenCalled();
   });
 
-  it("una cita de acuerdo de atención no recibe ningún cobro de ONVO", async () => {
+  it("una cita de un acuerdo que se cobra fuera de ONVO no recibe ningún enlace", async () => {
     // Se paga por SINPE Móvil: ni adelanto, ni saldo al completar, ni multa.
-    prisma.appointment.findUnique.mockResolvedValue({ acuerdoId: "acuerdo1" });
+    prisma.appointment.findUnique.mockResolvedValue({ acuerdo: { cobroFueraDeOnvo: true } });
     for (const tipo of ["DEPOSIT_50", "BALANCE_50", "PENALTY_50"]) {
       await expect(createPaymentRequestForAppointment(appointment, tipo))
         .resolves.toMatchObject({ success: false, code: "COBRO_FUERA_DE_ONVO" });
     }
     expect(createPaymentLink).not.toHaveBeenCalled();
     expect(send).not.toHaveBeenCalled();
+  });
+
+  it("una cita de un acuerdo que se cobra por ONVO sí recibe su enlace", async () => {
+    // Los acuerdos de los demás profesionales: la sesión se cobra como cualquier cita.
+    prisma.appointment.findUnique.mockResolvedValue({ acuerdo: { cobroFueraDeOnvo: false } });
+    await expect(createPaymentRequestForAppointment(appointment, "FULL_100")).resolves.not.toMatchObject({
+      code: "COBRO_FUERA_DE_ONVO",
+    });
+    expect(createPaymentLink).toHaveBeenCalled();
   });
 });

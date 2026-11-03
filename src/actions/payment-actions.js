@@ -10,6 +10,7 @@
 //   4. ONVO confirma via webhook en /api/payment/webhook.
 
 import { prisma } from "@/lib/prisma";
+import { tipoDeCobroPendiente } from "@/lib/cobro-de-cita";
 import { getSession, isPreviewSession, PREVIEW_BLOCKED_MESSAGE } from "@/lib/auth";
 import { requireProfessionalProfileId } from "@/lib/auth-guards";
 import { alertarCobroNoGenerado } from "@/lib/payment-alerts";
@@ -18,14 +19,6 @@ import {
   createPaymentRequestForAppointment,
   paymentRequestMessage,
 } from "@/lib/payment-requests";
-
-function getCompletionPaymentType(appointment) {
-  if (appointment.isFirstWithProfessional) {
-    return appointment.paymentStatus === "PARTIALLY_PAID" ? "BALANCE_50" : "DEPOSIT_50";
-  }
-
-  return "FULL_100";
-}
 
 async function assertProfessionalCanAccessAppointment(session, appointment) {
   if (session.role !== "PROFESSIONAL") return true;
@@ -96,7 +89,7 @@ export async function cobrarCita(appointmentId) {
       return { success: false, error: "Esta cita ya esta pagada." };
     }
 
-    const txType = getCompletionPaymentType(appointment);
+    const txType = tipoDeCobroPendiente(appointment);
     const paymentRequest = await createPaymentRequestForAppointment(appointment, txType);
 
     if (!paymentRequest.success) {
@@ -156,8 +149,12 @@ export async function sendPaymentLinkOnCompletion(appointmentId) {
       return null;
     }
 
-    const txType = getCompletionPaymentType(appointment);
+    const txType = tipoDeCobroPendiente(appointment);
     const paymentRequest = await createPaymentRequestForAppointment(appointment, txType);
+
+    // Un acuerdo que se cobra fuera de ONVO no lleva enlace a propósito: el pago
+    // se registra a mano. No es un cobro que se perdió y no amerita la alerta.
+    if (paymentRequest.code === "COBRO_FUERA_DE_ONVO") return null;
 
     if (!paymentRequest.success) {
       console.error(

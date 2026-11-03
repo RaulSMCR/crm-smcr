@@ -153,15 +153,17 @@ export async function createPaymentRequestForAppointment(appointmentEntrante, re
     return { success: false, error: "Cita invalida.", code: "INVALID_APPOINTMENT" };
   }
 
-  // Las citas de un acuerdo de atención se cobran fuera de ONVO (SINPE Móvil,
-  // registrado con pagos manuales): ningún camino —adelanto, saldo al completar
-  // ni multa— les manda un enlace. Se consulta acá y no en el objeto recibido
-  // porque cada llamador trae la cita con un `select` distinto.
+  // Las citas de un acuerdo que se cobra fuera de ONVO (SINPE, PALIG; solo los
+  // de Raúl, registrados con pagos manuales) no reciben enlace por ningún
+  // camino —adelanto, saldo al completar ni multa—. Los acuerdos de los demás
+  // profesionales se cobran por ONVO como cualquier cita. Se consulta acá y no
+  // en el objeto recibido porque cada llamador trae la cita con un `select`
+  // distinto.
   const origen = await prisma.appointment.findUnique({
     where: { id: String(appointmentEntrante.id) },
-    select: { acuerdoId: true },
+    select: { acuerdo: { select: { cobroFueraDeOnvo: true } } },
   });
-  if (origen?.acuerdoId) {
+  if (origen?.acuerdo?.cobroFueraDeOnvo) {
     return {
       success: false,
       error: "Esta cita pertenece a un acuerdo de atención y se cobra fuera de ONVO.",

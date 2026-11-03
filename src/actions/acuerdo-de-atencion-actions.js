@@ -2,7 +2,7 @@
 
 // src/actions/acuerdo-de-atencion-actions.js
 // Alta y fin de los acuerdos de atención desde el panel del profesional. La
-// lógica vive en src/lib/acuerdos-server.js; acá solo se resuelve quién pide y
+// lógica vive en src/lib/acuerdos-de-atencion-server.js; acá solo se resuelve quién pide y
 // se traduce la fecha que llega del formulario.
 
 import { revalidatePath } from "next/cache";
@@ -14,7 +14,8 @@ import { instanteDeHoraCR } from "@/lib/appointment-slots";
 import { marcarSeguroPalig } from "@/lib/seguro-palig";
 import { esPacienteDelProfesional, wherePacientesDelProfesional } from "@/lib/casos";
 import { pacientesEnElCalendario, proximaSesionDeSerie } from "@/lib/calendario-pacientes";
-import { ESTADOS_ACUERDO } from "@/lib/acuerdos-de-atencion";
+import { ESTADOS_ACUERDO, puedeCobrarFueraDeOnvo, puedeFijarPrecioAcordado } from "@/lib/acuerdos-de-atencion";
+import { resolveBookingSelection } from "@/lib/booking-rates";
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 const HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -32,7 +33,29 @@ async function contexto() {
   // ni crea citas en nombre del profesional.
   if (isPreviewSession(session)) return { error: PREVIEW_BLOCKED_MESSAGE };
   const professionalId = await requireProfessionalProfileId();
-  return { professionalId, userId: String(session.userId || session.sub || "") || null };
+  const perfil = await prisma.professionalProfile.findUnique({ where: { id: professionalId }, select: { slug: true } });
+  return { professionalId, slug: perfil?.slug || "", userId: String(session.userId || session.sub || "") || null };
+}
+
+/**
+ * El precio por sesión de un acuerdo de alguien que no es Raúl: su tarifa
+ * aprobada para ese servicio, lugar y franja (decisión de Raúl, 2026-11-03).
+ *
+ * Con el paciente, para respetar la escalera: quien ya entró en un escalón
+ * conserva ese precio en todas sus sesiones. Pero un acuerdo no ocupa un cupo
+ * nuevo —no hay adelanto que lo pague—, así que si el cálculo da el escalón de
+ * paciente nuevo se usa la tarifa aprobada.
+ */
+async function precioDeTarifa({ professionalId, serviceId, locationId, patientId, inicio }) {
+  const seleccion = await resolveBookingSelection({ professionalId, serviceId, startsAt: inicio, locationId, patientId });
+  if (seleccion.error) return { error: seleccion.error };
+  if (!seleccion.data.priceTierId) return { precio: Number(seleccion.data.pricePaid) };
+
+  const tarifa = await prisma.professionalRate.findUnique({
+    where: { id: seleccion.data.rateId },
+    select: { approvedPrice: true },
+  });
+  return tarifa?.approvedPrice ? { precio: Number(tarifa.approvedPrice) } : { error: "No hay una tarifa aprobada para ese horario." };
 }
 
 /**
@@ -54,14 +77,29 @@ export async function crearAcuerdoAction(datos = {}) {
       return { success: false, error: "Este paciente todavía no está emparejado con usted." };
     }
 
+    const inicio = instanteDeHoraCR(fecha, hora);
+    let precioAcordado = datos.precioAcordado;
+    if (!puedeFijarPrecioAcordado(ctx.slug)) {
+      const tarifa = await precioDeTarifa({
+        professionalId: ctx.professionalId,
+        serviceId: datos.serviceId,
+        locationId: datos.locationId || null,
+        patientId: datos.patientId,
+        inicio,
+      });
+      if (tarifa.error) return { success: false, error: tarifa.error };
+      precioAcordado = tarifa.precio;
+    }
+
     const resultado = await crearAcuerdo(prisma, {
       professionalId: ctx.professionalId,
       patientId: datos.patientId,
       serviceId: datos.serviceId,
       locationId: datos.locationId || null,
       periodicidad: datos.periodicidad,
-      inicio: instanteDeHoraCR(fecha, hora),
-      precioAcordado: datos.precioAcordado,
+      inicio,
+      precioAcordado,
+      cobroFueraDeOnvo: puedeCobrarFueraDeOnvo(ctx.slug) && Boolean(datos.cobroFueraDeOnvo),
       notas: datos.notas,
       createdBy: ctx.userId,
       serieGoogleId: datos.serieGoogleId || null,
@@ -70,8 +108,10 @@ export async function crearAcuerdoAction(datos = {}) {
 
     // Después de crear el acuerdo y no antes: si el alta falla, el paciente no
     // queda marcado con un seguro por un formulario que no se guardó.
+    // El piloto PALIG todavía es solo de Raúl; se abre a todos en las fases
+    // siguientes del plan de seguros.
     let seguroMarcado = null;
-    if (datos.seguroPalig) {
+    if (datos.seguroPalig && puedeCobrarFueraDeOnvo(ctx.slug)) {
       const marca = await marcarSeguroPalig(prisma, datos.patientId).catch(() => ({ ok: false }));
       seguroMarcado = marca.ok;
       revalidatePath("/panel/palig");
@@ -82,6 +122,7 @@ export async function crearAcuerdoAction(datos = {}) {
     return {
       success: true,
       seguroMarcado,
+      precioAcordado: Number(precioAcordado),
       creadas: resultado.creadas,
       omitidas: resultado.omitidas.map((d) => d.toISOString()),
       googlePublicado: Boolean(resultado.google?.publicado),

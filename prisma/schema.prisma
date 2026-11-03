@@ -1185,6 +1185,12 @@ model AcuerdoDeAtencion {
 
   precioAcordado Decimal @db.Decimal(10, 2)
 
+  /// Las sesiones se cobran fuera de ONVO (SINPE, PALIG) y se registran con
+  /// pagos manuales: no se les manda enlace. Solo lo puede marcar Raúl; los
+  /// acuerdos de los demás profesionales se cobran por ONVO al completar cada
+  /// sesión, como cualquier cita.
+  cobroFueraDeOnvo Boolean @default(false)
+
   /// ACTIVO | TERMINADO
   estado String @default("ACTIVO") @db.VarChar(16)
 

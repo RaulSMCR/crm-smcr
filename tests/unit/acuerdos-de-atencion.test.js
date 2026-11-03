@@ -3,13 +3,14 @@ import {
   ESTADOS_ACUERDO,
   PERIODICIDADES,
   SEMANAS_GENERADAS,
-  SLUG_QUE_GESTIONA_ACUERDOS,
+  SLUG_PROFESIONAL_GESTIONADO as SLUG_DE_ACUERDOS,
   diaQueProgramaLaTarea,
   diasQueProgramaLaCreacion,
   estadoInicialDeSesion,
   idDeSesionEnGoogle,
   problemaDeAcuerdo,
-  puedeGestionarAcuerdos,
+  puedeCobrarFueraDeOnvo,
+  puedeFijarPrecioAcordado,
   reglaDeGoogle,
   sesionesDelAcuerdo,
   ventanaPendiente,
@@ -27,12 +28,14 @@ const JAVIER = {
 
 const iso = (sesiones) => sesiones.map((s) => s.start.toISOString());
 
-describe("quién gestiona acuerdos", () => {
-  it("solo el profesional gestionado", () => {
-    expect(SLUG_QUE_GESTIONA_ACUERDOS).toBe(SLUG_PROFESIONAL_GESTIONADO);
-    expect(puedeGestionarAcuerdos("raul-olmedo")).toBe(true);
-    expect(puedeGestionarAcuerdos("otra-persona")).toBe(false);
-    expect(puedeGestionarAcuerdos(undefined)).toBe(false);
+describe("lo que en un acuerdo sigue siendo solo de Raúl", () => {
+  it("cobrar fuera de ONVO y fijar un precio distinto de la tarifa", () => {
+    expect(SLUG_DE_ACUERDOS).toBe(SLUG_PROFESIONAL_GESTIONADO);
+    for (const regla of [puedeCobrarFueraDeOnvo, puedeFijarPrecioAcordado]) {
+      expect(regla("raul-olmedo")).toBe(true);
+      expect(regla("otra-persona")).toBe(false);
+      expect(regla(undefined)).toBe(false);
+    }
   });
 });
 

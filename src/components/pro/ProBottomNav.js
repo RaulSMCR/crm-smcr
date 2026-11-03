@@ -9,7 +9,9 @@ import { usePathname } from "next/navigation";
 const TABS = [
   { href: "/pro", label: "Hoy", icon: "sun", exact: true },
   { href: "/pro/semana", label: "Semana", icon: "calendar" },
-  { href: "/panel/profesional/citas", label: "Panel completo", icon: "panel", externa: true },
+  { href: "/pro/cobros", label: "Cobros", icon: "card" },
+  { href: "/pro/acuerdos", label: "Acuerdos", icon: "repeat" },
+  { href: "/panel/profesional/citas", label: "Panel", icon: "panel", externa: true },
 ];
 
 function TabIcon({ name }) {
@@ -48,6 +50,22 @@ function TabIcon({ name }) {
           <path d="M16 2v4" />
           <rect width="18" height="18" x="3" y="4" rx="2" />
           <path d="M3 10h18" />
+        </svg>
+      );
+    case "repeat":
+      return (
+        <svg {...common}>
+          <path d="m17 2 4 4-4 4" />
+          <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
+          <path d="m7 22-4-4 4-4" />
+          <path d="M21 13v1a4 4 0 0 1-4 4H3" />
+        </svg>
+      );
+    case "card":
+      return (
+        <svg {...common}>
+          <rect width="20" height="14" x="2" y="5" rx="2" />
+          <line x1="2" x2="22" y1="10" y2="10" />
         </svg>
       );
     case "panel":

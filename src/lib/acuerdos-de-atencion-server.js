@@ -5,7 +5,8 @@
 //
 // Qué NO pasa con una cita de acuerdo, a diferencia de una reserva común:
 //   • no se cobra adelanto ni entra en la escalera de precios (no es paciente
-//     nuevo) y ningún cobro de ONVO se le genera (ver payment-requests.js);
+//     nuevo). Se cobra entera por ONVO al completarla, salvo que el acuerdo se
+//     cobre fuera de ONVO (`cobroFueraDeOnvo`, solo Raúl; ver payment-requests.js);
 //   • no se manda el correo de «cita agendada»: el paciente recibió UNA
 //     invitación, la del evento recurrente;
 //   • no tiene evento propio en Google: apunta a su instancia dentro de la serie.
@@ -30,7 +31,7 @@ import {
   estadoInicialDeSesion,
   idDeSesionEnGoogle,
   problemaDeAcuerdo,
-  puedeGestionarAcuerdos,
+  puedeCobrarFueraDeOnvo,
   reglaDeGoogle,
   sesionesDelAcuerdo,
   ventanaPendiente,
@@ -216,8 +217,11 @@ export async function crearAcuerdo(db, datos = {}, { ahora = new Date(), deps = 
     where: { id: String(datos.professionalId || "") },
     select: { id: true, slug: true },
   });
-  if (!profesional || !puedeGestionarAcuerdos(profesional.slug)) {
-    return falla(403, "Los acuerdos de atención solo los maneja el profesional gestionado.", "ACUERDO_NO_PERMITIDO");
+  if (!profesional) return falla(404, "Profesional no encontrado.", "PROFESIONAL_INVALIDO");
+  // Cobrar fuera de ONVO es registrar después un pago manual, y eso solo lo hace
+  // Raúl. Para cualquier otro, un acuerdo así quedaría sin forma de cobrarse.
+  if (datos.cobroFueraDeOnvo && !puedeCobrarFueraDeOnvo(profesional.slug)) {
+    return falla(403, "Las sesiones de sus acuerdos se cobran por ONVO.", "COBRO_FUERA_DE_ONVO_NO_PERMITIDO");
   }
 
   const [paciente, asignacion, lugar] = await Promise.all([
@@ -273,6 +277,7 @@ export async function crearAcuerdo(db, datos = {}, { ahora = new Date(), deps = 
       duracionMin,
       fin: datos.fin ? new Date(datos.fin) : null,
       precioAcordado: Number(datos.precioAcordado),
+      cobroFueraDeOnvo: Boolean(datos.cobroFueraDeOnvo),
       estado: ESTADOS_ACUERDO.ACTIVO,
       notas: datos.notas ? String(datos.notas).slice(0, 2000) : null,
       createdBy: datos.createdBy || null,
