@@ -40,3 +40,48 @@ export const PALIG_CLINICAL_FIELDS = Object.freeze([
 export const PALIG_AUTOMATIC_FIELDS = Object.freeze([
   PALIG_FIELDS.patientName, PALIG_FIELDS.serviceDate, PALIG_FIELDS.professionalName,
 ]);
+
+// Casillas del mismo formulario, con sus nombres del proveedor (también opacos:
+// «CY» es cónyuge, «HJ» hijo, y «Aaccidente» viene así, con dos aes).
+export const PALIG_CHECKBOXES = Object.freeze({
+  sexo: { F: "F", M: "M" },
+  parentesco: { titular: "Titular", conyuge: "CY", hijo: "HJ" },
+  tipoDeReclamo: { accidente: "Aaccidente", enfermedad: "Enfermedad", maternidad: "Maternidad" },
+  congenita: { si: "Si", no: "No" },
+  lugar: {
+    consultorio: "Consultorio",
+    urgencias: "Sala Urgencias",
+    ambulatorio: "Centro Ambulatorio",
+    laboratorio: "Labs RX",
+    hogar: "Hogar",
+    otro: "Otro",
+  },
+});
+
+// Lo que llena el asegurado (sección «A llenar por el asegurado»): sus textos y
+// las casillas que le tocan. Su firma va aparte, como imagen.
+export const PALIG_PATIENT_TEXT_FIELDS = Object.freeze({
+  empresa: PALIG_FIELDS.company,
+  poliza: PALIG_FIELDS.policyNumber,
+  certificado: PALIG_FIELDS.certificateNumber,
+  nombre: PALIG_FIELDS.patientName,
+  nacimiento: PALIG_FIELDS.birthDate,
+  inicioSintomas: PALIG_FIELDS.symptomStartDate,
+  telefono: PALIG_FIELDS.insuredPhone,
+  correo: PALIG_FIELDS.insuredEmail,
+});
+export const PALIG_PATIENT_CHECKBOX_GROUPS = Object.freeze(["sexo", "parentesco", "tipoDeReclamo"]);
+
+// Lo que completa el profesional una vez por paciente (sección «A llenar por el
+// médico»), sin las fechas: la de servicio y la de la firma las pone cada pago.
+export const PALIG_PROFESSIONAL_TEXT_FIELDS = Object.freeze({
+  motivo: PALIG_FIELDS.reason,
+  diagnostico: PALIG_FIELDS.diagnosis,
+  inicioPrimerosSintomas: PALIG_FIELDS.firstSymptoms,
+  tratamientoPrevio: PALIG_FIELDS.previousTreatment,
+  estudios: PALIG_FIELDS.studies,
+  tratamiento: PALIG_FIELDS.treatment,
+  autorizacion: PALIG_FIELDS.authorizationNumber,
+  observaciones: PALIG_FIELDS.observations,
+});
+export const PALIG_PROFESSIONAL_CHECKBOX_GROUPS = Object.freeze(["congenita", "lugar"]);

@@ -250,3 +250,33 @@ export async function sendSignedClaimToPatient({ patientEmail, patientName, form
     return false;
   }
 }
+
+// ── PALIG: el paciente entregó su parte; el profesional completa la suya ─────
+// Flujo estandarizado del 2026-11-03: ya no se descarga ni se vuelve a subir
+// nada. El enlace lleva a la pantalla donde se completa una sola vez.
+/** El nombre lo escribe el paciente: no puede meter HTML en el correo. */
+const escaparHtml = (texto) =>
+  String(texto || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
+export async function sendPaligParteProfesionalPendiente({ proEmail, patientName, patientId }) {
+  if (!proEmail || !process.env.RESEND_API_KEY) return;
+  const enlace = `${APP_URL}/pro/seguros/${encodeURIComponent(patientId)}`;
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#0f172a;">
+      <h2 style="color:#2b7073;">Formulario PALIG: falta su parte</h2>
+      <p><strong>${escaparHtml(patientName)}</strong> entregó su parte del formulario de reclamo de PALIG, con los datos de su póliza y su firma.</p>
+      <p>Complete una sola vez su parte (motivo de consulta, diagnóstico, tratamiento y lugar de atención). Con eso queda lista la plantilla: en cada pago, el sistema arma el formulario con la fecha del pago y su firma, y usted lo revisa antes de enviarlo.</p>
+      <p style="margin-top:20px;">
+        <a href="${enlace}" style="background:#2b7073;color:#fff;padding:10px 20px;text-decoration:none;border-radius:8px;font-weight:bold;">Completar mi parte</a>
+      </p>
+      <p style="font-size:12px;color:#64748b;margin-top:24px;">Mensaje automático — Salud Mental Costa Rica</p>
+    </div>`;
+
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: proEmail,
+    subject: `Formulario PALIG de ${patientName}: falta su parte`,
+    html,
+  });
+  if (error) console.error("[insurance-mail] sendPaligParteProfesionalPendiente error:", error?.name || "error");
+}

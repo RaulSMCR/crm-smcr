@@ -69,6 +69,10 @@ export default async function ProCobrosPage() {
         subtitle={porCobrar.length ? `${porCobrar.length} por cobrar · ${formatMoney(total)}` : "Todo cobrado"}
       />
 
+      <Link href="/pro/seguros" className="mb-3 block text-sm font-semibold text-brand-700 underline">
+        Seguros PALIG: formularios de reclamo de sus pacientes →
+      </Link>
+
       {esRaul ? (
         <Link
           href="/panel/palig/cobro"

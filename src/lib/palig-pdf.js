@@ -1,6 +1,13 @@
 import { PDFDocument, PDFName, StandardFonts, rgb } from "pdf-lib";
 import { facturaImprimible, facturaPdf } from "@/lib/fe/factura-pdf";
-import { PALIG_FIELDS as F } from "@/lib/palig-fields";
+import {
+  PALIG_CHECKBOXES,
+  PALIG_FIELDS as F,
+  PALIG_PATIENT_CHECKBOX_GROUPS,
+  PALIG_PATIENT_TEXT_FIELDS,
+  PALIG_PROFESSIONAL_CHECKBOX_GROUPS,
+  PALIG_PROFESSIONAL_TEXT_FIELDS,
+} from "@/lib/palig-fields";
 import { fechaCostaRica } from "@/lib/palig-policy";
 
 export class PaligError extends Error {
@@ -362,4 +369,215 @@ export async function facturaPaligPdf(invoice, issuer) {
     throw new PaligError("La factura todavía no ha sido aceptada por Hacienda. Use «Actualizar estado»; no registre otro pago.", 409);
   }
   return facturaPdf(invoice, issuer);
+}
+
+// ─── Las dos partes del formulario ──────────────────────────────────────────
+//
+// Desde el 2026-11-03 (decisión de Raúl) el paciente entrega su parte una sola
+// vez —la llena en línea y firma con el dedo, o sube la foto del papel firmado—
+// y el profesional completa la suya en una pantalla. De ahí sale la plantilla de
+// ese paciente; cada pago le pone después la fecha y la firma del profesional.
+//
+// El PDF es el que guarda los datos. Para poder mostrarlos de nuevo al editar
+// —en una foto no hay campos que leer— viajan también en el metadato «Subject».
+
+const CLAVE_DATOS = "smcr-datos:";
+
+/**
+ * Recuadro «Firma del paciente mayor de edad o responsable» del editable, en
+ * puntos (origen abajo-izquierda): a la derecha del rótulo, entre el texto de
+ * consentimiento y «(igual que en el documento de identificación)».
+ */
+export const RECUADRO_FIRMA_PACIENTE = Object.freeze({ x: 380, y: 619, w: 200, h: 27 });
+
+/** El texto más largo que se acepta en una casilla del formulario. */
+const LARGO_MAXIMO = 240;
+
+function leerDatos(doc) {
+  const subject = doc.getSubject() || "";
+  if (!subject.startsWith(CLAVE_DATOS)) return { paciente: null, profesional: null };
+  try {
+    const datos = JSON.parse(subject.slice(CLAVE_DATOS.length));
+    return { paciente: datos.paciente || null, profesional: datos.profesional || null };
+  } catch {
+    return { paciente: null, profesional: null };
+  }
+}
+
+function guardarDatos(doc, datos) {
+  doc.setSubject(`${CLAVE_DATOS}${JSON.stringify(datos)}`);
+}
+
+/** '2026-03-05' (lo que da un campo de fecha) → '05/03/26', como pide PALIG. Sin pasar por Date: es un día, no un instante. */
+export function diaPalig(ymd) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || ""));
+  return m ? `${m[3]}/${m[2]}/${m[1].slice(-2)}` : "";
+}
+
+/** Solo las claves conocidas, recortadas y sin exceder el largo de una casilla. */
+function limpiar(datos = {}, claves) {
+  const limpio = {};
+  for (const clave of claves) {
+    const valor = String(datos?.[clave] ?? "").replace(/\s+/g, " ").trim();
+    if (valor.length > LARGO_MAXIMO) throw new PaligError(`Un dato es demasiado largo para el formulario (máximo ${LARGO_MAXIMO} caracteres).`);
+    if (valor) limpio[clave] = valor;
+  }
+  return limpio;
+}
+
+/** De cada grupo de casillas, la opción elegida si es una de las del formulario. */
+function limpiarCasillas(datos = {}, grupos) {
+  const limpio = {};
+  for (const grupo of grupos) {
+    const opcion = String(datos?.[grupo] || "");
+    if (opcion && PALIG_CHECKBOXES[grupo][opcion]) limpio[grupo] = opcion;
+  }
+  return limpio;
+}
+
+/** Texto en una casilla, con un mensaje que no culpa al perfil si no cabe. */
+async function escribir(doc, form, campo, valor) {
+  try {
+    await setText(doc, form, campo, valor);
+  } catch (error) {
+    if (error instanceof PaligError) throw new PaligError("Un dato no cabe en su casilla del formulario o tiene caracteres no compatibles. Acórtelo.");
+    throw error;
+  }
+}
+
+function marcarGrupo(form, grupo, opcion) {
+  for (const [clave, nombre] of Object.entries(PALIG_CHECKBOXES[grupo])) {
+    const casilla = form.getCheckBox(nombre);
+    if (clave === opcion) casilla.check(); else casilla.uncheck();
+  }
+}
+
+/**
+ * La parte del paciente hecha en línea: el formulario editable con sus datos y
+ * su firma (PNG transparente) en el recuadro del asegurado. No se aplana: el
+ * profesional completa después su parte en los mismos campos.
+ *
+ * @param {Buffer} enBlanco  public/forms/palig-cr-reclamo-2023.pdf
+ * @param {object} datos     claves de PALIG_PATIENT_TEXT_FIELDS (fechas 'YYYY-MM-DD') y de sus grupos de casillas
+ */
+export async function formularioDelPaciente(enBlanco, datos, firmaPng) {
+  const textos = limpiar(datos, Object.keys(PALIG_PATIENT_TEXT_FIELDS));
+  const casillas = limpiarCasillas(datos, PALIG_PATIENT_CHECKBOX_GROUPS);
+  for (const obligatorio of ["empresa", "poliza", "nombre"]) {
+    if (!textos[obligatorio]) throw new PaligError("Complete la empresa contratante, el número de póliza y el nombre del paciente.");
+  }
+  if (!firmaPng?.length) throw new PaligError("Falta la firma del paciente.");
+
+  const { doc, form, tipo } = await loadTemplate(enBlanco);
+  if (tipo !== "editable") throw new PaligError("El formulario en blanco tiene que ser el editable.", 500);
+  for (const [clave, campo] of Object.entries(PALIG_PATIENT_TEXT_FIELDS)) {
+    const valor = clave === "nacimiento" || clave === "inicioSintomas" ? diaPalig(textos[clave]) : textos[clave];
+    await escribir(doc, form, campo, valor);
+  }
+  for (const [grupo, opcion] of Object.entries(casillas)) marcarGrupo(form, grupo, opcion);
+
+  let firma;
+  try { firma = await doc.embedPng(firmaPng); } catch { throw new PaligError("La firma no se pudo leer. Vuelva a firmar."); }
+  const r = RECUADRO_FIRMA_PACIENTE;
+  const escala = Math.min(r.w / firma.width, r.h / firma.height);
+  doc.getPages()[0].drawImage(firma, {
+    x: r.x, y: r.y + (r.h - firma.height * escala) / 2,
+    width: firma.width * escala, height: firma.height * escala,
+  });
+
+  guardarDatos(doc, { paciente: { ...textos, ...casillas, enLinea: true }, profesional: null });
+  return Buffer.from(await doc.save());
+}
+
+/**
+ * La parte del paciente como archivo: el PDF del formulario (editable o
+ * escaneado) o la foto del papel firmado, que se convierte en un PDF de una
+ * página con las proporciones de la foto.
+ */
+export async function formularioDelPacienteDesdeArchivo(bytes, mime) {
+  if (mime === "application/pdf") return validarPlantillaPalig(bytes);
+  const doc = await PDFDocument.create();
+  let imagen;
+  try {
+    imagen = mime === "image/png" ? await doc.embedPng(bytes) : await doc.embedJpg(bytes);
+  } catch { throw new PaligError("La foto está dañada. Vuelva a sacarla."); }
+  const proporcion = imagen.height / imagen.width;
+  if (proporcion < 1.3 || proporcion > 1.9) {
+    throw new PaligError("La foto tiene que mostrar la hoja completa, vertical y sin bordes de más.");
+  }
+  const ancho = 612;
+  const page = doc.addPage([ancho, ancho * proporcion]);
+  page.drawImage(imagen, { x: 0, y: 0, width: ancho, height: ancho * proporcion });
+  return validarPlantillaPalig(Buffer.from(await doc.save()));
+}
+
+/** Tipo y datos de cada parte, para mostrarlos al editar. */
+export async function leerDatosPalig(bytes) {
+  const { doc, tipo } = await loadTemplate(bytes);
+  return { tipo, ...leerDatos(doc) };
+}
+
+/**
+ * La plantilla de un paciente: su formulario más la parte del profesional.
+ * Se arma siempre a partir del formulario del paciente, nunca sobre una
+ * plantilla anterior: en una foto el texto queda dibujado y escribirlo de nuevo
+ * lo duplicaría.
+ *
+ * Las fechas (de servicio y junto a la firma) quedan vacías: las pone cada pago.
+ * Los datos clínicos son los que escribió el profesional; el sistema no los
+ * deduce ni completa.
+ *
+ * @param {Buffer} formularioPaciente
+ * @param {Buffer} enBlanco   el editable, para ubicar las casillas sobre una foto
+ * @param {object} datos      claves de PALIG_PROFESSIONAL_TEXT_FIELDS y de sus grupos de casillas
+ * @param {{nombre: string, especialidad?: string, colegiado?: string, telefono?: string}} profesional
+ */
+export async function plantillaConParteProfesional(formularioPaciente, enBlanco, datos, profesional) {
+  const textos = limpiar(datos, Object.keys(PALIG_PROFESSIONAL_TEXT_FIELDS));
+  const casillas = limpiarCasillas(datos, PALIG_PROFESSIONAL_CHECKBOX_GROUPS);
+  if (!textos.motivo || !textos.diagnostico) throw new PaligError("Complete al menos el motivo de la consulta y el diagnóstico.");
+
+  const fijos = [
+    [F.professionalName, profesional.nombre],
+    [F.specialty, profesional.especialidad],
+    [F.professionalLicense, profesional.colegiado],
+    [F.professionalPhone, profesional.telefono],
+  ];
+  const aEscribir = [...Object.entries(PALIG_PROFESSIONAL_TEXT_FIELDS).map(([clave, campo]) => [campo, textos[clave]]), ...fijos];
+
+  const { doc, form, tipo } = await loadTemplate(formularioPaciente);
+  const anteriores = leerDatos(doc);
+
+  if (tipo === "editable") {
+    for (const [campo, valor] of aEscribir) await escribir(doc, form, campo, valor);
+    for (const grupo of PALIG_PROFESSIONAL_CHECKBOX_GROUPS) {
+      if (casillas[grupo]) marcarGrupo(form, grupo, casillas[grupo]);
+      else for (const nombre of Object.values(PALIG_CHECKBOXES[grupo])) form.getCheckBox(nombre).uncheck();
+    }
+    await escribir(doc, form, F.serviceDate, "");
+    await escribir(doc, form, F.signatureDate, "");
+  } else {
+    // Sobre una foto: cada texto en el lugar proporcional de su casilla del
+    // editable. El formulario es el mismo; cambia solo la escala.
+    const { form: blanco } = await loadTemplate(enBlanco);
+    const page = doc.getPages()[0];
+    const ex = page.getWidth() / 612;
+    const ey = page.getHeight() / 1008;
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    for (const [campo, valor] of aEscribir) {
+      if (!valor) continue;
+      const r = blanco.getTextField(campo).acroField.getWidgets()[0].getRectangle();
+      const box = { x: r.x * ex, y: r.y * ey, w: r.width * ex, h: r.height * ey };
+      const size = Math.max(5, Math.min(box.h * 0.7, 10, (box.w - 4) / Math.max(1, font.widthOfTextAtSize(valor, 1))));
+      page.drawText(valor, { x: box.x + 2, y: box.y + (box.h - size * 0.72) / 2, size, font, color: rgb(0, 0, 0.35) });
+    }
+    for (const [grupo, opcion] of Object.entries(casillas)) {
+      const r = blanco.getCheckBox(PALIG_CHECKBOXES[grupo][opcion]).acroField.getWidgets()[0].getRectangle();
+      page.drawText("X", { x: r.x * ex + 1, y: r.y * ey + 1, size: Math.max(6, r.height * ey), font, color: rgb(0, 0, 0.35) });
+    }
+    guardarPosiciones(doc);
+  }
+
+  guardarDatos(doc, { paciente: anteriores.paciente, profesional: { ...textos, ...casillas } });
+  return Buffer.from(await doc.save());
 }

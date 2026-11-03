@@ -22,6 +22,7 @@ import {
   necesitaReleerAcuerdo,
 } from "@/lib/acuerdo";
 import { estadoParaPaciente } from "@/lib/casos";
+import { esPalig } from "@/lib/palig-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +57,7 @@ export default async function PacientePanelPage({ searchParams }) {
         insuranceName: true,
         insuranceBlankFormUrl: true,
         insurancePatientFormUrl: true,
+        insuranceTemplateUrl: true,
         billingName: true,
         billingIdType: true,
         billingIdNumber: true,
@@ -243,7 +245,20 @@ export default async function PacientePanelPage({ searchParams }) {
         </p>
       </div>
 
-      {user.insuranceBlankFormUrl && !user.insurancePatientFormUrl && (
+      {/* PALIG tiene su propio flujo: el paciente entrega su parte una vez, en
+          línea o con la foto del papel (/mi/seguro). El cargador de abajo queda
+          para las demás aseguradoras. */}
+      {esPalig(user.insuranceName) && !user.insurancePatientFormUrl && !user.insuranceTemplateUrl && (
+        <Link href="/mi/seguro" className="block rounded-2xl border border-brand-200 bg-brand-50 p-5 hover:bg-brand-100">
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Seguro PALIG</p>
+          <p className="mt-2 font-semibold text-brand-900">Entregue una vez su parte del formulario de reclamo</p>
+          <p className="mt-1 text-sm text-brand-800">
+            Llénelo en línea y fírmelo con el dedo, o suba la foto del papel. Después le llega completo con cada sesión pagada.
+          </p>
+        </Link>
+      )}
+
+      {!esPalig(user.insuranceName) && user.insuranceBlankFormUrl && !user.insurancePatientFormUrl && (
         <InsurancePatientUploader
           blankFormUrl={user.insuranceBlankFormUrl}
         />
