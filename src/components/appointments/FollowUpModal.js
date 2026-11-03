@@ -44,6 +44,7 @@ export default function FollowUpModal({ appointment, onClose, onSuccess }) {
     return buildSlots({
       availability: data.availability,
       durationMin: data.durationMin,
+      intervalMin: data.intervalMin,
       booked: data.booked,
     });
   }, [data]);

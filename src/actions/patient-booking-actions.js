@@ -14,6 +14,7 @@ import {
 } from "@/lib/appointment-recurrence";
 import { APPOINTMENT_OVERLAP_MESSAGE, isAppointmentOverlapError } from "@/lib/appointment-errors";
 import { motivoDeAnticipacion } from "@/lib/anticipacion-de-reserva";
+import { appointmentIntervalMin } from "@/lib/appointment-slots";
 import {
   buildOccurrenceEnds,
   CANCELLED_APPOINTMENT_STATUSES as CANCELLED_STATUSES,
@@ -366,9 +367,11 @@ export async function getAppointmentRescheduleData(appointmentId) {
   if (!appointment) return { error: "Cita no encontrada." };
   if (appointment.patientId !== String(session.sub)) return { error: "No autorizado." };
 
+  const durationMin = appointment.service?.durationMin ?? 60;
   return {
     professionalId: appointment.professionalId,
-    durationMin: appointment.service?.durationMin ?? 60,
+    durationMin,
+    intervalMin: appointmentIntervalMin(appointment.professional.slug, durationMin),
     availability: appointment.professional.availability,
     booked: appointment.professional.appointments.map((item) => ({
       startISO: item.date.toISOString(),

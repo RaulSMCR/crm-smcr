@@ -52,6 +52,7 @@ export default function RescheduleAppointmentModal({ appointment, onClose }) {
     return buildSlots({
       availability: data.availability,
       durationMin: data.durationMin,
+      intervalMin: data.intervalMin,
       booked: data.booked,
       // Mover la cita es volver a elegir horario, con la misma anticipación
       // que para pedirla por primera vez.

@@ -75,7 +75,8 @@ export default async function ProfesionalCitasPage() {
   const blockWindowFrom = new Date();
   const blockWindowTo = new Date(blockWindowFrom.getTime() + 60 * 24 * 60 * 60 * 1000);
 
-  const [appointments, serviceAssignments, availability, futureAppointments, patients, pendingSignedClaimsRaw, pendingTemplatePatientsRaw, scheduleBlocks] = await Promise.all([
+  const [perfil, appointments, serviceAssignments, availability, futureAppointments, patients, pendingSignedClaimsRaw, pendingTemplatePatientsRaw, scheduleBlocks] = await Promise.all([
+    prisma.professionalProfile.findUnique({ where: { id: professionalId }, select: { slug: true } }),
     prisma.appointment.findMany({
       where: { professionalId },
       orderBy: { date: "asc" },
@@ -163,6 +164,8 @@ export default async function ProfesionalCitasPage() {
   }).length;
 
   const bookingContext = {
+    // Define cada cuánto arranca un cupo (ver appointmentIntervalMin).
+    professionalSlug: perfil?.slug || "",
     services: serviceAssignments.map((assignment) => assignment.service).filter(Boolean),
     availability,
     // Citas tomadas y bloqueos de agenda en una sola lista de ratos ocupados.

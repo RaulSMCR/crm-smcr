@@ -49,6 +49,7 @@ export default function ProfessionalRescheduleModal({ appointment, onClose, onSu
     return buildSlots({
       availability: data.availability,
       durationMin: data.durationMin,
+      intervalMin: data.intervalMin,
       booked: data.booked,
     });
   }, [data]);

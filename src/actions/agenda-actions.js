@@ -11,7 +11,7 @@ import {
 import { sendPaymentLinkOnCompletion } from "@/actions/payment-actions";
 import { scheduleReminder } from "@/lib/qstash";
 import { recordatoriosDeCita } from "@/lib/recordatorios";
-import { buildSlots } from "@/lib/appointment-slots";
+import { appointmentIntervalMin, buildSlots } from "@/lib/appointment-slots";
 import { listBlocksInWindow, blocksToIntervals } from "@/lib/schedule-blocks";
 import { fetchBusyForProfessional } from "@/lib/google-busy";
 import { createPaymentRequestForAppointment } from "@/lib/payment-requests";
@@ -224,8 +224,10 @@ export async function getProfessionalRescheduleData(appointmentId) {
   if (!appointment) return { error: "Cita no encontrada." };
   if (appointment.professionalId !== professionalId) return { error: "No autorizado." };
 
+  const durationMin = appointment.service?.durationMin ?? 60;
   return {
-    durationMin: appointment.service?.durationMin ?? 60,
+    durationMin,
+    intervalMin: appointmentIntervalMin(appointment.professional.slug, durationMin),
     availability: appointment.professional.availability,
     booked: appointment.professional.appointments.map((item) => ({
       startISO: item.date.toISOString(),
@@ -837,8 +839,10 @@ export async function getFollowUpScheduleData(parentAppointmentId) {
     if (appointment.professionalId !== professionalId) return { error: "No autorizado." };
     if (appointment.status !== "COMPLETED") return { error: "Solo se puede agendar seguimiento de citas completadas." };
 
+    const durationMin = appointment.service?.durationMin ?? 60;
     return {
-      durationMin: appointment.service?.durationMin ?? 60,
+      durationMin,
+      intervalMin: appointmentIntervalMin(appointment.professional.slug, durationMin),
       availability: appointment.professional.availability,
       booked: appointment.professional.appointments.map((item) => ({
         startISO: item.date.toISOString(),

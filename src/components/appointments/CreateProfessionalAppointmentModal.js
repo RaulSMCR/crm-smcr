@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useToast } from "@/components/ui/ToastProvider";
 import { createAppointmentByProfessional } from "@/actions/agenda-actions";
 import {
+  appointmentIntervalMin,
   buildSlots,
   formatDayTab,
   formatSelectedLabel,
@@ -17,6 +18,7 @@ export default function CreateProfessionalAppointmentModal({
   services = [],
   availability = [],
   booked = [],
+  professionalSlug = "",
   onClose,
   onSuccess,
 }) {
@@ -33,12 +35,14 @@ export default function CreateProfessionalAppointmentModal({
 
   const selectedService = services.find((service) => service.id === serviceId) || null;
   const days = useMemo(() => {
+    const durationMin = selectedService?.durationMin ?? 60;
     return buildSlots({
       availability,
-      durationMin: selectedService?.durationMin ?? 60,
+      durationMin,
+      intervalMin: appointmentIntervalMin(professionalSlug, durationMin),
       booked,
     });
-  }, [availability, booked, selectedService]);
+  }, [availability, booked, selectedService, professionalSlug]);
   const activeDay = days[selectedDayIdx] ?? null;
 
   function handleConfirm() {

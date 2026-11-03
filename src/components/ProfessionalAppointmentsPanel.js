@@ -430,6 +430,7 @@ export default function ProfessionalAppointmentsPanel({
           services={bookingContext?.services || []}
           availability={bookingContext?.availability || []}
           booked={bookingContext?.booked || []}
+          professionalSlug={bookingContext?.professionalSlug || ""}
           onClose={() => setShowCreateModal(false)}
           onSuccess={() => {
             setShowCreateModal(false);
