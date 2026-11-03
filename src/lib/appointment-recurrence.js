@@ -74,3 +74,28 @@ export function buildRecurringStarts(startDate, recurrenceRule, recurrenceCount)
   }
   return starts;
 }
+
+/**
+ * Lo que cada cita nueva de una serie hereda de la cita de la que sale.
+ *
+ * Antes solo se copiaban el servicio y el precio: las demás semanas quedaban
+ * sin lugar ni modalidad —sin botón de Meet ni aviso de videollamada en los
+ * correos— y con el estado de pago de la primera, así que una serie que nacía
+ * de una primera cita con adelanto aparecía con «Depósito» sin que nadie
+ * hubiera pagado esas semanas. Cada cita de la serie se cobra por su cuenta.
+ */
+export function datosHeredadosEnLaSerie(cita) {
+  return {
+    serviceId: cita.serviceId || undefined,
+    pricePaid: cita.pricePaid,
+    paymentStatus: "UNPAID",
+    isFirstWithProfessional: false,
+    rateId: cita.rateId ?? null,
+    locationId: cita.locationId ?? null,
+    modality: cita.modality ?? null,
+    locationName: cita.locationName ?? null,
+    locationAddress: cita.locationAddress ?? null,
+    locationNotes: cita.locationNotes ?? null,
+    timeBandName: cita.timeBandName ?? null,
+  };
+}

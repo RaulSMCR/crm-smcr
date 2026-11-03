@@ -23,6 +23,7 @@ import { abrirCasoSiNoExiste, esPacienteDelProfesional } from "@/lib/casos";
 import { iniciarReenganche } from "@/lib/reenganche";
 import {
   buildRecurringStarts,
+  datosHeredadosEnLaSerie,
   normalizeRecurrenceCount,
   normalizeRecurrenceRule,
   RECURRENCE_RULES,
@@ -635,12 +636,10 @@ export async function confirmAppointmentByProfessional(
           data: {
             patientId: appointment.patientId,
             professionalId: appointment.professionalId,
-            serviceId: appointment.serviceId || undefined,
+            ...datosHeredadosEnLaSerie(appointment),
             date: extraStarts[index],
             endDate: extraEnds[index],
             status: "CONFIRMED",
-            paymentStatus: appointment.paymentStatus,
-            pricePaid: appointment.pricePaid,
           },
           select: { id: true },
         });
