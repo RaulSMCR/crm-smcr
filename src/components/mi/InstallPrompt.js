@@ -6,6 +6,7 @@
 //
 // variant="mi"      → se muestra en /mi a partir de la 2ª visita (montado en el
 //                     layout de /mi para capturar el evento en toda el área).
+// variant="pro"     → igual que "mi", para la PWA de profesionales (/pro).
 // variant="booking" → nudge inmediato tras reservar (pantalla /panel/paciente
 //                     con ?created=1). Esa ruta no enlaza el manifest, así que
 //                     no hay prompt nativo: cae en iOS-instrucciones o puente a /mi.
@@ -13,7 +14,8 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 
-const DISMISS_KEY = "mi_install_dismissed_at";
+// Cada app recuerda por separado que se cerró su aviso.
+const dismissKeyOf = (variant) => (variant === "pro" ? "pro_install_dismissed_at" : "mi_install_dismissed_at");
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 function isStandalone() {
@@ -25,8 +27,8 @@ function isStandalone() {
 function isIOSDevice() {
   return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
 }
-function dismissedRecently() {
-  const ts = Number(localStorage.getItem(DISMISS_KEY) || 0);
+function dismissedRecently(variant) {
+  const ts = Number(localStorage.getItem(dismissKeyOf(variant)) || 0);
   return ts > 0 && Date.now() - ts < WEEK_MS;
 }
 
@@ -79,7 +81,7 @@ export default function InstallPrompt({ variant = "mi" }) {
     };
     const onInstalled = () => {
       window.__miDeferredInstallPrompt = null;
-      localStorage.setItem(DISMISS_KEY, String(Date.now()));
+      localStorage.setItem(dismissKeyOf(variant), String(Date.now()));
       setEligible(false);
     };
     window.addEventListener("beforeinstallprompt", onBeforeInstall);
@@ -90,7 +92,7 @@ export default function InstallPrompt({ variant = "mi" }) {
 
     // Se ofrece desde la 1ª visita (el paciente pidió que se ofrezca), pero sigue
     // siendo dismissible: tras cerrarlo no reaparece por 7 días.
-    setEligible(!dismissedRecently());
+    setEligible(!dismissedRecently(variant));
 
     return () => {
       window.removeEventListener("beforeinstallprompt", onBeforeInstall);
@@ -100,7 +102,7 @@ export default function InstallPrompt({ variant = "mi" }) {
   }, [variant]);
 
   function dismiss() {
-    localStorage.setItem(DISMISS_KEY, String(Date.now()));
+    localStorage.setItem(dismissKeyOf(variant), String(Date.now()));
     setEligible(false);
   }
 
@@ -119,6 +121,7 @@ export default function InstallPrompt({ variant = "mi" }) {
 
   if (!eligible) return null;
   if (variant === "mi" && pathname !== "/mi") return null;
+  if (variant === "pro" && pathname !== "/pro") return null;
 
   const canNative = !!deferred;
   // En /mi sin prompt nativo y sin iOS no hay forma de instalar: no molestamos.
@@ -127,7 +130,9 @@ export default function InstallPrompt({ variant = "mi" }) {
   const copy =
     variant === "booking"
       ? "Instalá la app para recibir el recordatorio de tu cita."
-      : "Instalá la app. Tu bitácora, a un toque.";
+      : variant === "pro"
+        ? "Instale la agenda en el celular: las citas del día, a un toque."
+        : "Instalá la app. Tu bitácora, a un toque.";
 
   return (
     <div className="mb-4 rounded-2xl border border-brand-200 bg-brand-50 p-4">

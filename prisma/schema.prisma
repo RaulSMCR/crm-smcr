@@ -1175,7 +1175,7 @@ model AcuerdoDeAtencion {
   modality     LocationModality?
   locationName String?
 
-  /// WEEKLY | BIWEEKLY | MONTHLY. La hora y el día salen de `inicio`.
+  /// WEEKLY | BIWEEKLY | EVERY_4_WEEKS. La hora y el día salen de `inicio`.
   periodicidad String    @db.VarChar(16)
   /// Primera sesión del acuerdo. Ancla la hora de pared tica de toda la serie.
   inicio       DateTime  @db.Timestamptz(6)

@@ -3,9 +3,12 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useToast } from "@/components/ui/ToastProvider";
 import { createAppointmentByProfessional } from "@/actions/agenda-actions";
+import NavegadorDeQuincenas from "@/components/appointments/NavegadorDeQuincenas";
 import {
   appointmentIntervalMin,
   buildSlots,
+  crDay,
+  DIAS_POR_TANDA,
   formatDayTab,
   formatSelectedLabel,
   formatSlotTime,
@@ -33,6 +36,7 @@ export default function CreateProfessionalAppointmentModal({
     const anterior = previous?.serviceId;
     return services.some((service) => service.id === anterior) ? anterior : services[0]?.id || "";
   });
+  const [desde, setDesde] = useState(() => crDay(new Date()));
   const [selectedDayIdx, setSelectedDayIdx] = useState(0);
   const [selectedISO, setSelectedISO] = useState("");
   const [sugerido, setSugerido] = useState(false);
@@ -51,8 +55,10 @@ export default function CreateProfessionalAppointmentModal({
       durationMin,
       intervalMin: appointmentIntervalMin(professionalSlug, durationMin),
       booked,
+      startDay: desde,
+      daysAhead: DIAS_POR_TANDA,
     });
-  }, [availability, booked, selectedService, professionalSlug]);
+  }, [availability, booked, selectedService, professionalSlug, desde]);
   const activeDay = days[selectedDayIdx] ?? null;
 
   // Una sola vez, al abrir: si el mismo horario de la semana siguiente está
@@ -179,9 +185,18 @@ export default function CreateProfessionalAppointmentModal({
           </div>
         </div>
 
+        <NavegadorDeQuincenas
+          desde={desde}
+          onChange={(nuevoDesde) => {
+            // El horario ya elegido se conserva: solo cambia lo que se mira.
+            setDesde(nuevoDesde);
+            setSelectedDayIdx(0);
+          }}
+        />
+
         {days.length === 0 ? (
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            No hay horarios disponibles en los próximos 14 días para este servicio.
+            No hay horarios disponibles en estas dos semanas para este servicio.
           </div>
         ) : (
           <>

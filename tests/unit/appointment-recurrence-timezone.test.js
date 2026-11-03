@@ -6,8 +6,11 @@ import { buildSlots } from "@/lib/appointment-slots";
 describe("recurrencia y zona horaria", () => {
   it("limita la recurrencia al máximo configurado", () => {
     expect(normalizeRecurrenceCount(99)).toBe(12);
-    // La recurrencia mensual conserva el día del calendario local del llamador.
-    expect(buildRecurringStarts(new Date(2026, 0, 30, 9), "MONTHLY", 3).map((date) => date.getDate())).toEqual([30, 28, 30]);
+    // Cada 4 semanas: siempre el mismo día de la semana. Lunes 16-nov-2026 a
+    // las 19:00 de Costa Rica → 14-dic → 11-ene, todos lunes a la misma hora.
+    expect(
+      buildRecurringStarts(new Date("2026-11-17T01:00:00Z"), "EVERY_4_WEEKS", 3).map((date) => date.toISOString())
+    ).toEqual(["2026-11-17T01:00:00.000Z", "2026-12-15T01:00:00.000Z", "2027-01-12T01:00:00.000Z"]);
   });
 
   it("formatea la cita en la zona de Costa Rica", () => {

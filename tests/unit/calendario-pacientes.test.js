@@ -34,16 +34,17 @@ const SERIE = {
 beforeEach(() => vi.clearAllMocks());
 
 describe("periodicidadDeRegla()", () => {
-  it("reconoce semanal, quincenal y mensual por día del mes", () => {
+  it("reconoce cada una, dos y cuatro semanas", () => {
     expect(periodicidadDeRegla(["RRULE:FREQ=WEEKLY;BYDAY=TU"])).toBe("WEEKLY");
     expect(periodicidadDeRegla(["RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=TU"])).toBe("BIWEEKLY");
-    expect(periodicidadDeRegla(["RRULE:FREQ=MONTHLY"])).toBe("MONTHLY");
+    expect(periodicidadDeRegla(["RRULE:FREQ=WEEKLY;INTERVAL=4;BYDAY=TU"])).toBe("EVERY_4_WEEKS");
   });
 
   it("rechaza lo que el acuerdo no puede reproducir sesión por sesión", () => {
     expect(periodicidadDeRegla(["RRULE:FREQ=WEEKLY;COUNT=10"])).toBeNull();
     expect(periodicidadDeRegla(["RRULE:FREQ=WEEKLY;UNTIL=20261231T000000Z"])).toBeNull();
     expect(periodicidadDeRegla(["RRULE:FREQ=WEEKLY;BYDAY=TU,TH"])).toBeNull();
+    expect(periodicidadDeRegla(["RRULE:FREQ=MONTHLY"])).toBeNull();
     expect(periodicidadDeRegla(["RRULE:FREQ=MONTHLY;BYDAY=2TU"])).toBeNull();
     expect(periodicidadDeRegla(["RRULE:FREQ=WEEKLY;INTERVAL=3"])).toBeNull();
     expect(periodicidadDeRegla(["RRULE:FREQ=DAILY"])).toBeNull();

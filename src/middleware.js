@@ -22,6 +22,9 @@ const PUBLIC_EXACT = new Set([
   // por eso se listan aquí como excepciones públicas explícitas.
   "/mi/manifest.webmanifest",
   "/mi-offline.html",
+  // Lo mismo para la PWA de profesionales (/pro/*).
+  "/pro/manifest.webmanifest",
+  "/pro-offline.html",
 ]);
 
 // Públicas por prefijo
@@ -45,7 +48,18 @@ const PROTECTED_ROUTES = [
   // responde 401 JSON en /api/* y redirige a /ingresar en las páginas.
   { prefix: "/api/mi", role: "USER" },
   { prefix: "/mi", role: "USER" },
+  // PWA de profesionales (/pro/*): mismas reglas que el panel del profesional.
+  { prefix: "/pro", role: "PROFESSIONAL" },
 ];
+
+/**
+ * ¿La ruta está bajo ese prefijo? Por segmento completo: con un `startsWith`
+ * pelado, "/pro" atrapaba las fichas públicas "/profesionales/…" y "/mi" las
+ * páginas públicas de la raíz que empiezan igual ("/miedo", "/migracion").
+ */
+function estaBajo(pathname, prefix) {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
 
 // ---- Secret defensivo (NO rompe middleware) ----
 function getEncodedKeySafe() {
@@ -162,7 +176,7 @@ export async function middleware(request) {
   }
 
   // C) ¿Ruta protegida?
-  const rule = PROTECTED_ROUTES.find((r) => pathname.startsWith(r.prefix));
+  const rule = PROTECTED_ROUTES.find((r) => estaBajo(pathname, r.prefix));
   if (!rule) return NextResponse.next();
 
   // D) Si falta secret en prod, no rompemos middleware: devolvemos 503/redirect
@@ -195,7 +209,7 @@ export async function middleware(request) {
 
   // 2) Profesional no aprobado
   if (payload.role === "PROFESSIONAL" && payload.isApproved === false) {
-    if (pathname.startsWith("/panel/profesional")) {
+    if (estaBajo(pathname, "/panel/profesional") || estaBajo(pathname, "/pro")) {
       return NextResponse.redirect(new URL("/espera-aprobacion", request.url));
     }
   }

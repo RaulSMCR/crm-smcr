@@ -2,14 +2,17 @@ export const RECURRENCE_RULES = {
   NONE: "NONE",
   WEEKLY: "WEEKLY",
   BIWEEKLY: "BIWEEKLY",
-  MONTHLY: "MONTHLY",
+  // Cada 28 días, siempre el mismo día de la semana y la misma hora. Antes era
+  // «cada mes» por número de día: un lunes 16 seguía un miércoles 16, a veces
+  // fuera del horario de atención.
+  EVERY_4_WEEKS: "EVERY_4_WEEKS",
 };
 
 export const RECURRENCE_OPTIONS = [
   { value: RECURRENCE_RULES.NONE, label: "No recurrente" },
   { value: RECURRENCE_RULES.WEEKLY, label: "Cada semana" },
   { value: RECURRENCE_RULES.BIWEEKLY, label: "Cada dos semanas" },
-  { value: RECURRENCE_RULES.MONTHLY, label: "Cada mes" },
+  { value: RECURRENCE_RULES.EVERY_4_WEEKS, label: "Cada 4 semanas" },
 ];
 
 const MIN_RECURRENCE_COUNT = 1;
@@ -26,19 +29,6 @@ export function normalizeRecurrenceCount(value) {
   return Math.min(Math.max(count, MIN_RECURRENCE_COUNT), MAX_RECURRENCE_COUNT);
 }
 
-function addMonthsKeepingDay(baseDate, monthsToAdd) {
-  const next = new Date(baseDate);
-  const dayOfMonth = next.getDate();
-
-  next.setDate(1);
-  next.setMonth(next.getMonth() + monthsToAdd);
-
-  const lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
-  next.setDate(Math.min(dayOfMonth, lastDay));
-
-  return next;
-}
-
 function addRecurrence(date, rule, step) {
   const next = new Date(date);
 
@@ -52,8 +42,9 @@ function addRecurrence(date, rule, step) {
     return next;
   }
 
-  if (rule === RECURRENCE_RULES.MONTHLY) {
-    return addMonthsKeepingDay(next, step);
+  if (rule === RECURRENCE_RULES.EVERY_4_WEEKS) {
+    next.setDate(next.getDate() + step * 28);
+    return next;
   }
 
   return next;

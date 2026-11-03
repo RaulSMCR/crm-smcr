@@ -92,12 +92,18 @@ describe("sesionesDelAcuerdo", () => {
     expect(iso(sesiones)).toEqual(["2028-10-11T22:00:00.000Z", "2028-10-25T22:00:00.000Z"]);
   });
 
-  it("mensual del día 31 omite los meses sin 31, como Google", () => {
+  it("cada 4 semanas cae siempre el mismo día de la semana, aunque cruce de año", () => {
     const sesiones = sesionesDelAcuerdo(
-      { ...JAVIER, periodicidad: PERIODICIDADES.MONTHLY, inicio: new Date("2026-10-31T15:00:00Z") },
+      { ...JAVIER, periodicidad: PERIODICIDADES.EVERY_4_WEEKS },
       { desde: new Date("2026-10-01T00:00:00Z"), hasta: new Date("2027-02-01T00:00:00Z") },
     );
-    expect(iso(sesiones)).toEqual(["2026-10-31T15:00:00.000Z", "2026-12-31T15:00:00.000Z", "2027-01-31T15:00:00.000Z"]);
+    // Miércoles 28-oct a las 16:00 → 25-nov → 23-dic → 20-ene, todos miércoles.
+    expect(iso(sesiones)).toEqual([
+      "2026-10-28T22:00:00.000Z",
+      "2026-11-25T22:00:00.000Z",
+      "2026-12-23T22:00:00.000Z",
+      "2027-01-20T22:00:00.000Z",
+    ]);
   });
 
   it("respeta la fecha de fin, inclusive", () => {
@@ -117,7 +123,7 @@ describe("Google", () => {
   it("una regla sin fin por periodicidad", () => {
     expect(reglaDeGoogle(JAVIER)).toEqual(["RRULE:FREQ=WEEKLY;WKST=MO"]);
     expect(reglaDeGoogle({ ...JAVIER, periodicidad: PERIODICIDADES.BIWEEKLY })).toEqual(["RRULE:FREQ=WEEKLY;INTERVAL=2;WKST=MO"]);
-    expect(reglaDeGoogle({ ...JAVIER, periodicidad: PERIODICIDADES.MONTHLY })).toEqual(["RRULE:FREQ=MONTHLY"]);
+    expect(reglaDeGoogle({ ...JAVIER, periodicidad: PERIODICIDADES.EVERY_4_WEEKS })).toEqual(["RRULE:FREQ=WEEKLY;INTERVAL=4;WKST=MO"]);
     expect(reglaDeGoogle({ ...JAVIER, fin: new Date("2027-06-30T22:00:00Z") })).toEqual(["RRULE:FREQ=WEEKLY;WKST=MO;UNTIL=20270630T220000Z"]);
   });
 

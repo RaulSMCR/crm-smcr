@@ -24,8 +24,9 @@ const VENTANA_DIAS = 60;
  * La periodicidad de acuerdo que corresponde a la regla de una serie de Google,
  * o null si la serie no se puede adoptar tal cual.
  *
- * Se adopta solo lo que el acuerdo puede reproducir sesión por sesión: semanal,
- * quincenal o mensual por día del mes, sin fin. Una serie con fecha de cierre o
+ * Se adopta solo lo que el acuerdo puede reproducir sesión por sesión: cada
+ * una, dos o cuatro semanas, sin fin. Una mensual por número de día ya no: el
+ * acuerdo dejó de ofrecerla. Una serie con fecha de cierre o
  * con varios días por semana generaría citas que en Google no existen.
  */
 export function periodicidadDeRegla(recurrence = []) {
@@ -46,11 +47,8 @@ export function periodicidadDeRegla(recurrence = []) {
     if (partes.BYDAY && partes.BYDAY.split(",").length > 1) return null;
     if (intervalo === 1) return PERIODICIDADES.WEEKLY;
     if (intervalo === 2) return PERIODICIDADES.BIWEEKLY;
+    if (intervalo === 4) return PERIODICIDADES.EVERY_4_WEEKS;
     return null;
-  }
-  if (partes.FREQ === "MONTHLY") {
-    if (intervalo !== 1 || partes.BYDAY || partes.BYSETPOS) return null;
-    return PERIODICIDADES.MONTHLY;
   }
   return null;
 }

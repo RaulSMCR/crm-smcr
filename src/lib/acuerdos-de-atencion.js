@@ -7,22 +7,26 @@
 // solas. Las fechas se calculan con la MISMA semántica que la regla RRULE que
 // recibe Google: si el CRM y el calendario discreparan en una sola sesión, la
 // cita existiría en un lado y no en el otro, y nada lo avisaría.
-//
-// Por eso el mensual sigue la RFC 5545: un acuerdo del día 31 no tiene sesión en
-// los meses sin día 31 (Google hace eso), en lugar de correrla al día 30.
 
 import { crAddDays, crParts, instanteDeHoraCR } from "@/lib/appointment-slots";
 
 export const PERIODICIDADES = {
   WEEKLY: "WEEKLY",
   BIWEEKLY: "BIWEEKLY",
-  MONTHLY: "MONTHLY",
+  EVERY_4_WEEKS: "EVERY_4_WEEKS",
 };
 
 export const ETIQUETA_PERIODICIDAD = {
   WEEKLY: "Cada semana",
   BIWEEKLY: "Cada dos semanas",
-  MONTHLY: "Cada mes",
+  EVERY_4_WEEKS: "Cada 4 semanas",
+};
+
+/** Todas las periodicidades son semanales: mismo día de la semana, misma hora. */
+export const SEMANAS_ENTRE_SESIONES = {
+  WEEKLY: 1,
+  BIWEEKLY: 2,
+  EVERY_4_WEEKS: 4,
 };
 
 export const ESTADOS_ACUERDO = {
@@ -71,10 +75,6 @@ function hhmm(minutos) {
   return `${String(Math.floor(minutos / 60)).padStart(2, "0")}:${String(minutos % 60).padStart(2, "0")}`;
 }
 
-function diasDelMes(year, month) {
-  return new Date(Date.UTC(year, month, 0)).getUTCDate();
-}
-
 /**
  * Valida lo que el profesional cargó. Devuelve null si está bien, o el mensaje.
  *
@@ -83,7 +83,7 @@ function diasDelMes(year, month) {
  */
 export function problemaDeAcuerdo(datos = {}, ahora = new Date()) {
   if (!Object.values(PERIODICIDADES).includes(datos.periodicidad)) {
-    return "Elija la periodicidad: cada semana, cada dos semanas o cada mes.";
+    return "Elija la periodicidad: cada semana, cada dos semanas o cada 4 semanas.";
   }
   const inicio = new Date(datos.inicio);
   if (Number.isNaN(inicio.getTime())) return "La fecha y hora de la primera sesión no es válida.";
@@ -135,21 +135,7 @@ export function sesionesDelAcuerdo(acuerdo, { desde, hasta }) {
     return start;
   };
 
-  if (acuerdo.periodicidad === PERIODICIDADES.MONTHLY) {
-    const [year, month, day] = ymdInicio.split("-").map(Number);
-    for (let k = 0; ; k += 1) {
-      const total = month - 1 + k;
-      const y = year + Math.floor(total / 12);
-      const m = (total % 12) + 1;
-      // Primer día del mes: sirve para cortar aunque este mes no tenga sesión.
-      if (instanteDeHoraCR(`${y}-${String(m).padStart(2, "0")}-01`, hora).getTime() >= tope.getTime()) break;
-      if (day > diasDelMes(y, m)) continue;
-      agregar(`${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`);
-    }
-    return sesiones;
-  }
-
-  const paso = acuerdo.periodicidad === PERIODICIDADES.BIWEEKLY ? 14 : 7;
+  const paso = SEMANAS_ENTRE_SESIONES[acuerdo.periodicidad] * 7;
   // Salta directo cerca de `desde` en vez de recorrer desde el inicio: un
   // acuerdo de años tendría cientos de vueltas que no producen nada.
   const saltos = Math.max(0, Math.floor((desde.getTime() - inicio.getTime()) / (paso * DIA_MS)) - 1);
@@ -170,10 +156,8 @@ export function fechaRfc5545(date) {
  * Sin fecha de fin la serie sigue indefinidamente.
  */
 export function reglaDeGoogle(acuerdo) {
-  const partes =
-    acuerdo.periodicidad === PERIODICIDADES.MONTHLY
-      ? ["FREQ=MONTHLY"]
-      : ["FREQ=WEEKLY", ...(acuerdo.periodicidad === PERIODICIDADES.BIWEEKLY ? ["INTERVAL=2"] : []), "WKST=MO"];
+  const intervalo = SEMANAS_ENTRE_SESIONES[acuerdo.periodicidad];
+  const partes = ["FREQ=WEEKLY", ...(intervalo > 1 ? [`INTERVAL=${intervalo}`] : []), "WKST=MO"];
   if (acuerdo.fin) partes.push(`UNTIL=${fechaRfc5545(acuerdo.fin)}`);
   return [`RRULE:${partes.join(";")}`];
 }

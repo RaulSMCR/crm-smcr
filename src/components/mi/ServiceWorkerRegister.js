@@ -1,11 +1,12 @@
 "use client";
 
-// Registra el service worker de la PWA de pacientes con scope /mi.
-// El script vive en /mi-sw.js (raíz de public/), cuyo scope máximo por defecto
-// es "/", así que acotarlo a "/mi" es válido sin cabecera Service-Worker-Allowed.
+// Registra el service worker de una PWA: por defecto la de pacientes (/mi); la
+// de profesionales pasa src="/pro-sw.js" y scope="/pro". Los scripts viven en
+// la raíz de public/, cuyo scope máximo por defecto es "/", así que acotarlos a
+// su prefijo es válido sin cabecera Service-Worker-Allowed.
 import { useEffect } from "react";
 
-export default function ServiceWorkerRegister() {
+export default function ServiceWorkerRegister({ src = "/mi-sw.js", scope = "/mi" }) {
   useEffect(() => {
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
 
@@ -22,8 +23,8 @@ export default function ServiceWorkerRegister() {
 
     const register = () => {
       navigator.serviceWorker
-        .register("/mi-sw.js", { scope: "/mi" })
-        .catch((err) => console.error("[mi-sw] registro falló:", err));
+        .register(src, { scope })
+        .catch((err) => console.error(`[${src}] registro falló:`, err));
     };
 
     if (document.readyState === "complete") {
@@ -36,7 +37,7 @@ export default function ServiceWorkerRegister() {
       window.removeEventListener("beforeinstallprompt", onBeforeInstall);
       window.removeEventListener("load", register);
     };
-  }, []);
+  }, [src, scope]);
 
   return null;
 }

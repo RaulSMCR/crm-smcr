@@ -10,6 +10,7 @@ import AcuerdosDeAtencionSection from "@/components/appointments/AcuerdosDeAtenc
 import { TARIFA_VIGENTE } from "@/lib/service-pricing";
 import { ESTADOS_ACUERDO, puedeGestionarAcuerdos } from "@/lib/acuerdos-de-atencion";
 import { wherePacientesDelProfesional } from "@/lib/casos";
+import { DIAS_HACIA_ADELANTE } from "@/lib/appointment-slots";
 
 /** Huella corta de qué citas hay y en qué estado (FNV-1a de 32 bits). */
 function huellaDeCitas(citas) {
@@ -73,7 +74,8 @@ export default async function ProfesionalCitasPage() {
   if (!professionalId) redirect("/panel/profesional/perfil");
 
   const blockWindowFrom = new Date();
-  const blockWindowTo = new Date(blockWindowFrom.getTime() + 60 * 24 * 60 * 60 * 1000);
+  // La misma ventana hasta la que deja mirar el selector de horarios.
+  const blockWindowTo = new Date(blockWindowFrom.getTime() + DIAS_HACIA_ADELANTE * 24 * 60 * 60 * 1000);
 
   const [perfil, appointments, serviceAssignments, availability, futureAppointments, patients, pendingSignedClaimsRaw, pendingTemplatePatientsRaw, scheduleBlocks] = await Promise.all([
     prisma.professionalProfile.findUnique({ where: { id: professionalId }, select: { slug: true } }),

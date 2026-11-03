@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es-CR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#2B7073" />
+    <title>Sin conexión · SMCR</title>
+    <style>
+      :root { color-scheme: light; }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body {
+        display: flex;
+        min-height: 100dvh;
+        align-items: center;
+        justify-content: center;
+        padding: 24px calc(24px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) calc(24px + env(safe-area-inset-left));
+        background: rgb(246 239 223);
+        color: rgb(47 49 51);
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Inter, "Helvetica Neue", Arial, sans-serif;
+      }
+      .card {
+        width: 100%;
+        max-width: 22rem;
+        text-align: center;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 72px;
+        height: 72px;
+        margin: 0 auto 20px;
+        border-radius: 9999px;
+        background: rgb(233 244 244);
+        color: rgb(43 112 115);
+      }
+      h1 { font-size: 1.375rem; font-weight: 700; margin: 0 0 8px; }
+      p { margin: 0 auto 24px; max-width: 26ch; color: rgb(92 95 97); line-height: 1.5; }
+      button {
+        appearance: none;
+        border: 0;
+        cursor: pointer;
+        width: 100%;
+        padding: 14px 20px;
+        border-radius: 14px;
+        background: rgb(43 112 115);
+        color: #fff;
+        font-size: 1rem;
+        font-weight: 700;
+        transition: background-color 0.15s ease;
+      }
+      button:hover { background: rgb(56 134 138); }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <div class="badge" aria-hidden="true">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 20h.01" />
+          <path d="M8.5 16.5a5 5 0 0 1 7 0" />
+          <path d="M2 8.82a15 15 0 0 1 20 0" />
+          <line x1="2" x2="22" y1="2" y2="22" />
+        </svg>
+      </div>
+      <h1>Sin conexión</h1>
+      <p>No pudimos cargar esta pantalla. Revisá tu conexión e intentá de nuevo.</p>
+      <button type="button" onclick="location.reload()">Reintentar</button>
+    </main>
+  </body>
+</html>

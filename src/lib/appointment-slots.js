@@ -153,6 +153,16 @@ export function buildSlots({
   return days;
 }
 
+/** Días que muestra cada tanda del selector de horarios del profesional. */
+export const DIAS_POR_TANDA = 14;
+
+/**
+ * Hasta dónde deja mirar ese selector. Alcanza para un paciente mensual y es
+ * también la ventana en que la página de citas consulta bloqueos y Google:
+ * más allá, los cupos se mostrarían sin saber si el profesional tiene algo.
+ */
+export const DIAS_HACIA_ADELANTE = 120;
+
 /** Raúl atiende sesiones de 50 minutos con diez minutos entre inicios. */
 export function appointmentIntervalMin(professionalSlug, durationMin) {
   return professionalSlug === "raul-olmedo" && durationMin === 50 ? 60 : durationMin;

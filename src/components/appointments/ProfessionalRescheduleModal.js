@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useToast } from "@/components/ui/ToastProvider";
 import { getProfessionalRescheduleData, rescheduleAppointmentByProfessional } from "@/actions/agenda-actions";
+import NavegadorDeQuincenas from "@/components/appointments/NavegadorDeQuincenas";
 import {
   buildSlots,
   crAddDays,
   crDay,
+  DIAS_POR_TANDA,
   formatDayTab,
   formatSelectedLabel,
   formatSlotTime,
@@ -16,6 +18,12 @@ export default function ProfessionalRescheduleModal({ appointment, onClose, onSu
   const [data, setData] = useState(null);
   const [loadingData, setLoadingData] = useState(true);
   const [dataError, setDataError] = useState("");
+  const diaDeLaCita = crDay(new Date(appointment.date));
+  // Mover una semana puntual de una serie es mover esa cita a un día vecino:
+  // la ventana se abre en su semana, no en la de hoy, para que una cita de
+  // dentro de un mes se pueda mover sin buscarla. Nunca antes de hoy: los
+  // días ya pasados solo le restarían ventana.
+  const [desde, setDesde] = useState(() => [crAddDays(diaDeLaCita, -6), crDay(new Date())].sort()[1]);
   const [selectedDayIdx, setSelectedDayIdx] = useState(null);
   const [selectedISO, setSelectedISO] = useState("");
   const [error, setError] = useState("");
@@ -42,8 +50,6 @@ export default function ProfessionalRescheduleModal({ appointment, onClose, onSu
     };
   }, [appointment.id]);
 
-  const diaDeLaCita = crDay(new Date(appointment.date));
-
   const days = useMemo(() => {
     if (!data) return [];
     return buildSlots({
@@ -51,13 +57,10 @@ export default function ProfessionalRescheduleModal({ appointment, onClose, onSu
       durationMin: data.durationMin,
       intervalMin: data.intervalMin,
       booked: data.booked,
-      // Mover una semana puntual de una serie es mover esa cita a un día
-      // vecino: la ventana se abre en su semana, no en la de hoy, para que una
-      // cita de dentro de un mes se pueda mover sin buscarla.
-      // Nunca antes de hoy: los días ya pasados solo le restarían ventana.
-      startDay: [crAddDays(diaDeLaCita, -6), crDay(new Date())].sort()[1],
+      startDay: desde,
+      daysAhead: DIAS_POR_TANDA,
     });
-  }, [data, diaDeLaCita]);
+  }, [data, desde]);
 
   // Mientras no se elija otro, queda abierto el día de la cita.
   const indiceDelDiaDeLaCita = days.findIndex((dayItem) => crDay(dayItem.day) === diaDeLaCita);
@@ -128,9 +131,19 @@ export default function ProfessionalRescheduleModal({ appointment, onClose, onSu
           <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{dataError}</div>
         )}
 
+        {!loadingData && !dataError && (
+          <NavegadorDeQuincenas
+            desde={desde}
+            onChange={(nuevoDesde) => {
+              setDesde(nuevoDesde);
+              setSelectedDayIdx(0);
+            }}
+          />
+        )}
+
         {!loadingData && !dataError && days.length === 0 && (
           <div className="py-8 text-center text-sm text-slate-500">
-            No hay horarios disponibles cerca de esa fecha.
+            No hay horarios disponibles en estas dos semanas.
           </div>
         )}
 
