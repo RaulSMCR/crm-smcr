@@ -1,7 +1,8 @@
 // src/components/pro/CitaDelDia.js
 // Una cita en la pantalla «Hoy» de la app de profesionales. Sin hooks: se pinta
-// en el servidor. Meet y WhatsApp son enlaces comunes; solo el cierre de la
-// sesión (CerrarSesion) corre en el navegador.
+// en el servidor. Meet y WhatsApp son enlaces comunes; cerrar la sesión y
+// aceptar, reagendar o cancelar corren en el navegador.
+import AccionesDeCita from "@/components/pro/AccionesDeCita";
 import CerrarSesion from "@/components/pro/CerrarSesion";
 import { detalleLugarCita } from "@/lib/lugar-cita";
 import { enlaceMeetPorWhatsApp, numeroWhatsApp } from "@/lib/whatsapp";
@@ -45,6 +46,17 @@ function Acciones({ cita, porCerrar }) {
         <a href={mandarMeet} target="_blank" rel="noopener noreferrer" className={`${BOTON} bg-green-600 text-white hover:bg-green-700`}>
           Mandar enlace por WhatsApp
         </a>
+      ) : null}
+      {!porCerrar ? (
+        <AccionesDeCita
+          cita={{
+            id: cita.id,
+            date: new Date(cita.date).toISOString(),
+            status: cita.status,
+            paciente: cita.patient?.name || "el paciente",
+            servicio: cita.service?.title,
+          }}
+        />
       ) : null}
       {chat ? (
         <a href={chat} target="_blank" rel="noopener noreferrer" className={`${BOTON} border border-neutral-300 text-neutral-800 hover:bg-neutral-100`}>

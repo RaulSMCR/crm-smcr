@@ -1,13 +1,16 @@
 "use client";
 import { useState } from "react";
 
-export default function CancelAppointmentModal({ appointment, onCancel, onClose }) {
+export default function CancelAppointmentModal({ appointment, onCancel, onClose, role = "patient" }) {
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const hoursUntil = (new Date(appointment.date) - new Date()) / (1000 * 60 * 60);
-  const isLateCancel = hoursUntil < 24;
+  // La penalización por aviso tardío es del paciente. Cuando cancela el
+  // profesional no se le cobra nada a nadie, y el aviso lo asustaba de gusto.
+  const esProfesional = role === "professional";
+  const isLateCancel = !esProfesional && hoursUntil < 24;
 
   async function handleSubmit() {
     if (!reason.trim()) {
@@ -36,6 +39,12 @@ export default function CancelAppointmentModal({ appointment, onCancel, onClose 
             <p className="mt-1">Según nuestra política, las cancelaciones con menos de 24 horas
             de anticipación pueden estar sujetas a penalización.</p>
           </div>
+        )}
+
+        {esProfesional && (
+          <p className="text-sm text-slate-600">
+            El paciente recibe un aviso con el motivo y la cita se quita de Google Calendar.
+          </p>
         )}
 
         <div>

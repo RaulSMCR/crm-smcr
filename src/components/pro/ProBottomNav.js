@@ -8,6 +8,7 @@ import { usePathname } from "next/navigation";
 
 const TABS = [
   { href: "/pro", label: "Hoy", icon: "sun", exact: true },
+  { href: "/pro/semana", label: "Semana", icon: "calendar" },
   { href: "/panel/profesional/citas", label: "Panel completo", icon: "panel", externa: true },
 ];
 
@@ -38,6 +39,15 @@ function TabIcon({ name }) {
           <path d="M20 12h2" />
           <path d="m6.34 17.66-1.41 1.41" />
           <path d="m19.07 4.93-1.41 1.41" />
+        </svg>
+      );
+    case "calendar":
+      return (
+        <svg {...common}>
+          <path d="M8 2v4" />
+          <path d="M16 2v4" />
+          <rect width="18" height="18" x="3" y="4" rx="2" />
+          <path d="M3 10h18" />
         </svg>
       );
     case "panel":
