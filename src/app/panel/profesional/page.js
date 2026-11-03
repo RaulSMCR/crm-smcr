@@ -282,6 +282,9 @@ export default async function ProfesionalDashboardPage() {
         <Link href="/pro/seguros" className="text-sm inline-flex items-center rounded-xl border border-slate-200 px-4 py-2 hover:bg-slate-50">
           Seguros PALIG
         </Link>
+        <Link href="/pro/ayuda" className="text-sm inline-flex items-center rounded-xl border border-slate-200 px-4 py-2 hover:bg-slate-50">
+          Guía de la app
+        </Link>
         <Link href="/panel/profesional/contabilidad" className="text-sm inline-flex items-center rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 font-medium text-blue-700 hover:bg-blue-100">
           Contabilidad
         </Link>

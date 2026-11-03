@@ -55,6 +55,10 @@ export default async function ProSegurosPage() {
         <Link href="/pro/firmas" className="font-semibold text-brand-700 underline">
           Mis firmas
         </Link>
+        {" · "}
+        <Link href="/pro/ayuda#palig" className="font-semibold text-brand-700 underline">
+          Cómo funciona
+        </Link>
       </p>
       {porEnviar.length > 0 ? (
         <section className="mb-6 space-y-3">

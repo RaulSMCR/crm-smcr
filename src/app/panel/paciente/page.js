@@ -251,9 +251,9 @@ export default async function PacientePanelPage({ searchParams }) {
       {esPalig(user.insuranceName) && !user.insurancePatientFormUrl && !user.insuranceTemplateUrl && (
         <Link href="/mi/seguro" className="block rounded-2xl border border-brand-200 bg-brand-50 p-5 hover:bg-brand-100">
           <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Seguro PALIG</p>
-          <p className="mt-2 font-semibold text-brand-900">Entregue una vez su parte del formulario de reclamo</p>
+          <p className="mt-2 font-semibold text-brand-900">Entregá una vez tu parte del formulario de reclamo</p>
           <p className="mt-1 text-sm text-brand-800">
-            Llénelo en línea y fírmelo con el dedo, o suba la foto del papel. Después le llega completo con cada sesión pagada.
+            Llenalo en línea y firmalo con el dedo, o subí la foto del papel. Después te llega completo con cada sesión pagada.
           </p>
         </Link>
       )}

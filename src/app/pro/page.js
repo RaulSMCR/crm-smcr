@@ -137,6 +137,9 @@ export default async function ProHoyPage({ searchParams }) {
       <Link href="/pro/firmas" className="mt-2 block text-center text-sm font-medium text-brand-700 underline">
         Mis firmas para formularios de seguro
       </Link>
+      <Link href="/pro/ayuda" className="mt-2 block text-center text-sm font-medium text-brand-700 underline">
+        Guía de la app
+      </Link>
     </>
   );
 }

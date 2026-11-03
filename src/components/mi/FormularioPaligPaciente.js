@@ -7,6 +7,7 @@
 // Dos caminos, a elección del paciente: llenarlo acá y firmar con el dedo, o
 // subir la foto o el PDF del papel ya firmado. Ver /api/mi/seguro-palig.
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useToast } from "@/components/ui/ToastProvider";
 import { ConElDedo } from "@/components/firma/CapturaDeFirma";
 import { Card } from "@/components/mi/ui";
@@ -18,8 +19,8 @@ const BOTON =
 
 const ETAPAS = {
   SIN_FORMULARIO: null,
-  FALTA_PROFESIONAL: "Recibimos su parte. Su profesional completa la suya y, desde la próxima sesión pagada, le llega el formulario listo.",
-  LISTO: "Su formulario está listo. Con cada sesión pagada le llega por correo, con la fecha y la firma de su profesional.",
+  FALTA_PROFESIONAL: "Recibimos tu parte. Tu profesional completa la suya y, desde la próxima sesión pagada, te llega el formulario listo.",
+  LISTO: "Tu formulario está listo. Con cada sesión pagada te llega por correo, con la fecha y la firma de tu profesional.",
 };
 
 function Opciones({ nombre, valor, onChange, opciones }) {
@@ -68,7 +69,7 @@ function EnLinea({ precarga, anteriores, onEnviado }) {
         avisar(respuesta.message || "No se pudo guardar el formulario.", "error");
         return;
       }
-      avisar("Listo: recibimos su parte del formulario.", "success");
+      avisar("Listo: recibimos tu parte del formulario.", "success");
       onEnviado();
     } finally {
       setEnviando(false);
@@ -81,7 +82,7 @@ function EnLinea({ precarga, anteriores, onEnviado }) {
     <div className="space-y-4">
       <label className={ETIQUETA}>
         Empresa contratante de la póliza
-        <input value={datos.empresa} onChange={cambiar("empresa")} className={CAMPO} placeholder="La empresa donde trabaja, o su nombre si la póliza es personal" />
+        <input value={datos.empresa} onChange={cambiar("empresa")} className={CAMPO} placeholder="La empresa donde trabajás, o tu nombre si la póliza es personal" />
       </label>
       <div className="grid grid-cols-2 gap-3">
         <label className={ETIQUETA}>
@@ -93,7 +94,7 @@ function EnLinea({ precarga, anteriores, onEnviado }) {
           <input value={datos.certificado} onChange={cambiar("certificado")} className={CAMPO} />
         </label>
       </div>
-      <p className="-mt-2 text-xs text-neutral-500">Los dos números están en su carné del seguro.</p>
+      <p className="-mt-2 text-xs text-neutral-500">Los dos números están en tu carné del seguro.</p>
       <label className={ETIQUETA}>
         Nombre completo del paciente
         <input value={datos.nombre} onChange={cambiar("nombre")} className={CAMPO} />
@@ -127,7 +128,7 @@ function EnLinea({ precarga, anteriores, onEnviado }) {
         />
       </div>
       <label className={ETIQUETA}>
-        Fecha en que empezaron los síntomas (o del accidente), si la sabe
+        Fecha en que empezaron los síntomas (o del accidente), si la sabés
         <input type="date" value={datos.inicioSintomas} onChange={cambiar("inicioSintomas")} className={CAMPO} />
       </label>
       <div className="grid grid-cols-2 gap-3">
@@ -142,8 +143,8 @@ function EnLinea({ precarga, anteriores, onEnviado }) {
       </div>
 
       <div className="rounded-xl bg-neutral-50 p-3 text-xs leading-relaxed text-neutral-700">
-        Al firmar, usted declara lo mismo que en el formulario en papel: que sus respuestas son correctas y verdaderas, y
-        autoriza a Pan-American Life Insurance de Costa Rica a pedir y compartir su información médica para tramitar el
+        Al firmar, declarás lo mismo que en el formulario en papel: que tus respuestas son correctas y verdaderas, y
+        autorizás a Pan-American Life Insurance de Costa Rica a pedir y compartir tu información médica para tramitar el
         reclamo, según su{" "}
         <a href="https://www.palig.com/es/privacy-policy" target="_blank" rel="noreferrer" className="underline">
           política de privacidad
@@ -152,13 +153,13 @@ function EnLinea({ precarga, anteriores, onEnviado }) {
       </div>
 
       <div>
-        <p className={ETIQUETA}>Firma (como en su documento de identidad)</p>
+        <p className={ETIQUETA}>Firma (como en tu documento de identidad)</p>
         <ConElDedo onLista={alFirmar} />
       </div>
 
       <label className="flex items-start gap-2 text-sm text-neutral-800">
         <input type="checkbox" checked={acepta} onChange={(e) => setAcepta(e.target.checked)} className="mt-0.5" />
-        Leí la declaración y autorizo el uso de mi firma en los formularios de reclamo de mis sesiones.
+        Leí la declaración y autorizo que mi firma vaya en los formularios de reclamo de mis sesiones.
       </label>
 
       <button type="button" onClick={enviar} disabled={!completo || enviando} className={`${BOTON} w-full bg-brand-600 text-white hover:bg-brand-500`}>
@@ -185,7 +186,7 @@ function DesdeArchivo({ onEnviado }) {
         avisar(respuesta.message || "No se pudo guardar el formulario.", "error");
         return;
       }
-      avisar("Listo: recibimos su formulario.", "success");
+      avisar("Listo: recibimos tu formulario.", "success");
       onEnviado();
     } finally {
       setEnviando(false);
@@ -196,14 +197,14 @@ function DesdeArchivo({ onEnviado }) {
     <div className="space-y-3">
       <ol className="list-decimal space-y-1 pl-5 text-sm text-neutral-700">
         <li>
-          Descargue el{" "}
+          Descargá el{" "}
           <a href="/forms/palig-cr-reclamo-2023.pdf" target="_blank" rel="noreferrer" className="font-semibold text-brand-700 underline">
             formulario de PALIG
           </a>{" "}
-          y llene solo la parte «A llenar por el asegurado».
+          y llená solo la parte «A llenar por el asegurado».
         </li>
-        <li>Fírmelo donde dice «Firma del paciente».</li>
-        <li>Sáquele una foto a la hoja completa, de frente y con buena luz, o súbalo en PDF.</li>
+        <li>Firmalo donde dice «Firma del paciente».</li>
+        <li>Sacale una foto a la hoja completa, de frente y con buena luz, o subilo en PDF.</li>
       </ol>
       <input
         type="file"
@@ -232,7 +233,7 @@ export default function FormularioPaligPaciente() {
       setEstado(datos);
       setModo(null);
     } catch (e) {
-      setError(e?.message || "No se pudo cargar su formulario.");
+      setError(e?.message || "No se pudo cargar tu formulario.");
     }
   }, []);
 
@@ -249,9 +250,12 @@ export default function FormularioPaligPaciente() {
     <div className="space-y-4">
       <Card>
         <p className="text-sm text-neutral-700">
-          Si su seguro es PALIG, entregue su parte del formulario de reclamo <strong>una sola vez</strong>. Después, con
-          cada sesión pagada, le llega por correo el formulario completo —con la fecha y la firma de su profesional— y la
-          factura, listos para presentar a PALIG.
+          Si tu seguro es PALIG, entregá tu parte del formulario de reclamo <strong>una sola vez</strong>. Después, con
+          cada sesión pagada, te llega por correo el formulario completo —con la fecha y la firma de tu profesional— y la
+          factura, listos para presentar a PALIG.{" "}
+          <Link href="/ayuda/seguros" className="font-semibold text-brand-700 underline">
+            Cómo funciona
+          </Link>
         </p>
         {aviso ? <p className="mt-3 rounded-xl bg-brand-50 p-3 text-sm font-medium text-brand-900">{aviso}</p> : null}
       </Card>

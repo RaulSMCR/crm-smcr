@@ -8,7 +8,7 @@ export const metadata = { title: "Seguro PALIG" };
 export default function MiSeguroPage() {
   return (
     <>
-      <SectionHeader title="Seguro PALIG" subtitle="Su parte del formulario de reclamo" />
+      <SectionHeader title="Seguro PALIG" subtitle="Tu parte del formulario de reclamo" />
       <FormularioPaligPaciente />
     </>
   );
