@@ -32,7 +32,6 @@ import {
   buildOccurrenceEnds,
   CANCELLED_APPOINTMENT_STATUSES as CANCELLED_STATUSES,
   findRecurringConflict as findOverlappingOccurrence,
-  findSingleSlotConflict,
   formatConflictDate,
 } from "@/lib/booking-conflicts";
 
@@ -245,11 +244,16 @@ export async function createAppointmentByProfessional({
   // Lugar de atención elegido. Si el profesional no lo indica, resolveBookingSelection
   // lo deduce cuando hay una sola opción y falla pidiendo elegir si hay varias.
   locationId = null,
+  // Cita recién completada de la que sale esta. La próxima sesión se acuerda
+  // con el paciente dentro de la sesión, así que nace confirmada: dejarla
+  // pendiente obligaba al profesional a aceptar su propia cita.
+  parentAppointmentId = null,
 }) {
   try {
     const professionalId = await requireProfessionalProfileId();
     const pid = toStr(patientId);
     const sid = toStr(serviceId);
+    const parentId = toStr(parentAppointmentId);
     const start = new Date(toStr(startISO));
     const rule = normalizeRecurrenceRule(recurrenceRule);
     const count = rule === RECURRENCE_RULES.NONE ? 1 : normalizeRecurrenceCount(recurrenceCount);
@@ -284,6 +288,18 @@ export async function createAppointmentByProfessional({
         success: false,
         error: "Este paciente todavía no está emparejado con usted. Pídale a la administración que lo empareje.",
       };
+    }
+    if (parentId) {
+      const parent = await prisma.appointment.findUnique({
+        where: { id: parentId },
+        select: { professionalId: true, patientId: true, status: true },
+      });
+      if (!parent || parent.professionalId !== professionalId || parent.patientId !== pid) {
+        return { success: false, error: "La cita anterior no corresponde a este paciente." };
+      }
+      if (parent.status !== "COMPLETED") {
+        return { success: false, error: "Solo se agenda la próxima cita a partir de una completada." };
+      }
     }
     if (!service || !service.isActive) {
       return { success: false, error: "Servicio no disponible." };
@@ -374,8 +390,9 @@ export async function createAppointmentByProfessional({
             serviceId: sid,
             date: occurrence,
             endDate: ends[index],
-            status: "PENDING",
+            status: parentId ? "CONFIRMED" : "PENDING",
             paymentStatus: "UNPAID",
+            parentAppointmentId: parentId && index === 0 ? parentId : null,
             pricePaid: booking.pricePaid,
             rateId: booking.rateId,
             locationId: booking.locationId,
@@ -395,7 +412,11 @@ export async function createAppointmentByProfessional({
     );
 
     const hydratedAppointments = await hydrateAppointments(createdAppointments.map((item) => item.id));
-    await notifyAppointments(hydratedAppointments, "El profesional creó una nueva cita en estado pendiente.", { titulo: "Cita agendada" });
+    await notifyAppointments(
+      hydratedAppointments,
+      parentId ? "Su profesional agendó su próxima cita." : "El profesional creó una nueva cita en estado pendiente.",
+      { titulo: "Cita agendada" }
+    );
 
     // También acá se abre el caso: la primera cita puede nacer del profesional y
     // no del paciente, y el expediente no puede depender de por dónde entró.
@@ -422,18 +443,13 @@ export async function createAppointmentByProfessional({
   }
 }
 
-export async function rescheduleAppointmentByProfessional(
-  appointmentId,
-  newStartISO,
-  recurrenceRule,
-  recurrenceCount
-) {
+// Mueve una sola cita. Las series no se arman acá: reagendar con recurrencia
+// creaba citas nuevas encima de la serie existente, duplicándola.
+export async function rescheduleAppointmentByProfessional(appointmentId, newStartISO) {
   try {
     const professionalId = await requireProfessionalProfileId();
     const id = toStr(appointmentId);
     const newStart = new Date(toStr(newStartISO));
-    const rule = normalizeRecurrenceRule(recurrenceRule);
-    const count = rule === RECURRENCE_RULES.NONE ? 1 : normalizeRecurrenceCount(recurrenceCount);
 
     if (!id) return { success: false, error: "ID inválido." };
     if (Number.isNaN(newStart.getTime()) || newStart <= new Date()) {
@@ -456,13 +472,12 @@ export async function rescheduleAppointmentByProfessional(
     }
 
     const durationMin = appointment.service?.durationMin ?? 60;
-    const starts = buildRecurringStarts(newStart, rule, count);
-    const ends = buildOccurrenceEnds(starts, durationMin);
+    const newEnd = new Date(newStart.getTime() + durationMin * 60000);
 
     const conflict = await findRecurringConflict({
       professionalId,
-      starts,
-      ends,
+      starts: [newStart],
+      ends: [newEnd],
       ignoreAppointmentId: id,
     });
 
@@ -500,52 +515,23 @@ export async function rescheduleAppointmentByProfessional(
       return conflictResponse;
     }
 
-    const extraStarts = starts.slice(1);
-    const extraEnds = ends.slice(1);
-
-    const changedAppointments = await prisma.$transaction(async (tx) => {
-      const updatedAppointment = await tx.appointment.update({
-        where: { id },
-        data: {
-          date: starts[0],
-          endDate: ends[0],
-          status: "CONFIRMED",
-          lastRescheduledBy: "PROFESSIONAL",
-          lastRescheduledAt: new Date(),
-          rescheduleCount: { increment: 1 },
-        },
-        select: { id: true },
-      });
-
-      const createdAppointments = [];
-      for (let index = 0; index < extraStarts.length; index += 1) {
-        const createdAppointment = await tx.appointment.create({
-          data: {
-            patientId: appointment.patientId,
-            professionalId: appointment.professionalId,
-            serviceId: appointment.serviceId || undefined,
-            date: extraStarts[index],
-            endDate: extraEnds[index],
-            status: "CONFIRMED",
-            paymentStatus: appointment.paymentStatus,
-            pricePaid: appointment.pricePaid,
-            lastRescheduledBy: "PROFESSIONAL",
-            lastRescheduledAt: new Date(),
-            rescheduleCount: 1,
-          },
-          select: { id: true },
-        });
-        createdAppointments.push(createdAppointment);
-      }
-
-      return [updatedAppointment, ...createdAppointments];
+    await prisma.appointment.update({
+      where: { id },
+      data: {
+        date: newStart,
+        endDate: newEnd,
+        status: "CONFIRMED",
+        lastRescheduledBy: "PROFESSIONAL",
+        lastRescheduledAt: new Date(),
+        rescheduleCount: { increment: 1 },
+      },
     });
 
-    const hydratedAppointments = await hydrateAppointments(changedAppointments.map((item) => item.id));
+    const hydratedAppointments = await hydrateAppointments([id]);
     await notifyAppointments(hydratedAppointments, "La cita fue reagendada por el profesional.");
     revalidateAgendaPaths();
 
-    return { success: true, createdCount: hydratedAppointments.length };
+    return { success: true };
   } catch (error) {
     console.error("rescheduleAppointmentByProfessional error:", error);
     if (isAppointmentOverlapError(error)) return { success: false, error: APPOINTMENT_OVERLAP_MESSAGE };
@@ -809,118 +795,3 @@ export async function cancelAppointmentByProfessional(appointmentId, reason) {
     return { error: "Error interno al cancelar. Por favor, intentelo nuevamente." };
   }
 }
-
-export async function getFollowUpScheduleData(parentAppointmentId) {
-  try {
-    const professionalId = await requireProfessionalProfileId();
-    const id = toStr(parentAppointmentId);
-
-    const appointment = await prisma.appointment.findUnique({
-      where: { id },
-      include: {
-        service: { select: { durationMin: true, title: true } },
-        patient: { select: { name: true } },
-        professional: {
-          include: {
-            availability: true,
-            appointments: {
-              where: {
-                status: { notIn: CANCELLED_STATUSES },
-                date: { gte: new Date() },
-              },
-              select: { date: true, endDate: true },
-            },
-          },
-        },
-      },
-    });
-
-    if (!appointment) return { error: "Cita no encontrada." };
-    if (appointment.professionalId !== professionalId) return { error: "No autorizado." };
-    if (appointment.status !== "COMPLETED") return { error: "Solo se puede agendar seguimiento de citas completadas." };
-
-    const durationMin = appointment.service?.durationMin ?? 60;
-    return {
-      durationMin,
-      intervalMin: appointmentIntervalMin(appointment.professional.slug, durationMin),
-      availability: appointment.professional.availability,
-      booked: appointment.professional.appointments.map((item) => ({
-        startISO: item.date.toISOString(),
-        endISO: item.endDate.toISOString(),
-      })),
-      patientName: appointment.patient?.name ?? "",
-      serviceName: appointment.service?.title ?? "Consulta",
-    };
-  } catch (error) {
-    console.error("getFollowUpScheduleData error:", error);
-    return { error: "Error interno al cargar disponibilidad." };
-  }
-}
-
-export async function createFollowUpAppointment(parentAppointmentId, startISO) {
-  try {
-    const professionalId = await requireProfessionalProfileId();
-    const id = toStr(parentAppointmentId);
-
-    const parent = await prisma.appointment.findUnique({
-      where: { id },
-      include: { service: { select: { durationMin: true } } },
-    });
-
-    if (!parent) return { error: "Cita padre no encontrada." };
-    if (parent.professionalId !== professionalId) return { error: "No autorizado." };
-    if (parent.status !== "COMPLETED") return { error: "Solo se puede agendar seguimiento de citas completadas." };
-
-    const durationMin = parent.service?.durationMin ?? 60;
-    const newStart = new Date(startISO);
-    const newEnd = new Date(newStart.getTime() + durationMin * 60000);
-
-    if (isNaN(newStart.getTime())) return { error: "Fecha inválida." };
-
-    // Por el módulo central, para que el seguimiento tampoco caiga sobre un
-    // bloqueo de agenda del profesional.
-    const conflict = await findSingleSlotConflict({
-      professionalId,
-      start: newStart,
-      end: newEnd,
-    });
-
-    if (conflict) return { error: "Conflicto: ese horario no está disponible." };
-
-    const created = await prisma.appointment.create({
-      data: {
-        date: newStart,
-        endDate: newEnd,
-        status: "PENDING",
-        patientId: parent.patientId,
-        professionalId: parent.professionalId,
-        serviceId: parent.serviceId,
-        parentAppointmentId: id,
-        pricePaid: parent.pricePaid ?? null,
-      },
-      include: {
-        patient: { select: { name: true, email: true } },
-        professional: {
-          select: {
-            id: true,
-            googleRefreshToken: true,
-            user: { select: { name: true, email: true } },
-          },
-        },
-        service: { select: { title: true } },
-      },
-    });
-
-    await Promise.allSettled([
-      syncGoogleCalendarEvent(created),
-      sendAppointmentNotifications(created, "Se agendó una cita de seguimiento.", null, { titulo: "Cita agendada" }),
-    ]);
-
-    revalidateAgendaPaths();
-    return { success: true };
-  } catch (error) {
-    console.error("createFollowUpAppointment error:", error);
-    return { error: "Error interno al agendar el seguimiento." };
-  }
-}
-

@@ -5,21 +5,19 @@ import { useToast } from "@/components/ui/ToastProvider";
 import { getProfessionalRescheduleData, rescheduleAppointmentByProfessional } from "@/actions/agenda-actions";
 import {
   buildSlots,
+  crAddDays,
+  crDay,
   formatDayTab,
   formatSelectedLabel,
   formatSlotTime,
 } from "@/lib/appointment-slots";
-import { RECURRENCE_RULES } from "@/lib/appointment-recurrence";
-import RecurrenceFields from "@/components/appointments/RecurrenceFields";
 
 export default function ProfessionalRescheduleModal({ appointment, onClose, onSuccess }) {
   const [data, setData] = useState(null);
   const [loadingData, setLoadingData] = useState(true);
   const [dataError, setDataError] = useState("");
-  const [selectedDayIdx, setSelectedDayIdx] = useState(0);
+  const [selectedDayIdx, setSelectedDayIdx] = useState(null);
   const [selectedISO, setSelectedISO] = useState("");
-  const [recurrenceRule, setRecurrenceRule] = useState(RECURRENCE_RULES.NONE);
-  const [recurrenceCount, setRecurrenceCount] = useState(4);
   const [error, setError] = useState("");
   const [conflictMeta, setConflictMeta] = useState(null);
   const [isPending, startTransition] = useTransition();
@@ -44,6 +42,8 @@ export default function ProfessionalRescheduleModal({ appointment, onClose, onSu
     };
   }, [appointment.id]);
 
+  const diaDeLaCita = crDay(new Date(appointment.date));
+
   const days = useMemo(() => {
     if (!data) return [];
     return buildSlots({
@@ -51,10 +51,18 @@ export default function ProfessionalRescheduleModal({ appointment, onClose, onSu
       durationMin: data.durationMin,
       intervalMin: data.intervalMin,
       booked: data.booked,
+      // Mover una semana puntual de una serie es mover esa cita a un día
+      // vecino: la ventana se abre en su semana, no en la de hoy, para que una
+      // cita de dentro de un mes se pueda mover sin buscarla.
+      // Nunca antes de hoy: los días ya pasados solo le restarían ventana.
+      startDay: [crAddDays(diaDeLaCita, -6), crDay(new Date())].sort()[1],
     });
-  }, [data]);
+  }, [data, diaDeLaCita]);
 
-  const activeDay = days[selectedDayIdx] ?? null;
+  // Mientras no se elija otro, queda abierto el día de la cita.
+  const indiceDelDiaDeLaCita = days.findIndex((dayItem) => crDay(dayItem.day) === diaDeLaCita);
+  const activeIdx = selectedDayIdx ?? Math.max(0, indiceDelDiaDeLaCita);
+  const activeDay = days[activeIdx] ?? null;
 
   function handleConfirm() {
     if (!selectedISO) {
@@ -66,12 +74,7 @@ export default function ProfessionalRescheduleModal({ appointment, onClose, onSu
     setConflictMeta(null);
     startTransition(async () => {
       try {
-        const result = await rescheduleAppointmentByProfessional(
-          appointment.id,
-          selectedISO,
-          recurrenceRule,
-          recurrenceCount
-        );
+        const result = await rescheduleAppointmentByProfessional(appointment.id, selectedISO);
   
         if (!result?.success) {
           setError(result?.error || "No se pudo reagendar.");
@@ -111,10 +114,13 @@ export default function ProfessionalRescheduleModal({ appointment, onClose, onSu
           </button>
         </div>
 
-        <p className="text-sm text-slate-600">
-          Se reagendara la cita de <strong>{appointment.user?.name}</strong> para{" "}
-          <strong>{appointment.service?.title || "consulta"}</strong>.
-        </p>
+        <div className="space-y-1 text-sm text-slate-600">
+          <p>
+            Cita de <strong>{appointment.user?.name}</strong> del{" "}
+            <strong>{formatSelectedLabel(new Date(appointment.date))}</strong>.
+          </p>
+          <p>Solo se mueve esta cita: las demás de la serie quedan en su horario de siempre.</p>
+        </div>
 
         {loadingData && <div className="py-8 text-center text-sm text-slate-500">Cargando disponibilidad...</div>}
 
@@ -124,7 +130,7 @@ export default function ProfessionalRescheduleModal({ appointment, onClose, onSu
 
         {!loadingData && !dataError && days.length === 0 && (
           <div className="py-8 text-center text-sm text-slate-500">
-            No hay horarios disponibles en los próximos 14 días.
+            No hay horarios disponibles cerca de esa fecha.
           </div>
         )}
 
@@ -139,7 +145,7 @@ export default function ProfessionalRescheduleModal({ appointment, onClose, onSu
                     setSelectedISO("");
                   }}
                   className={`flex-shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    selectedDayIdx === index
+                    activeIdx === index
                       ? "border-blue-600 bg-blue-600 text-white"
                       : "border-slate-300 text-slate-800 hover:bg-slate-100"
                   }`}
@@ -178,14 +184,6 @@ export default function ProfessionalRescheduleModal({ appointment, onClose, onSu
                 <span className="text-slate-500">(hora de Costa Rica)</span>
               </div>
             )}
-
-            <RecurrenceFields
-              recurrenceRule={recurrenceRule}
-              recurrenceCount={recurrenceCount}
-              onRuleChange={setRecurrenceRule}
-              onCountChange={setRecurrenceCount}
-              compact
-            />
           </>
         )}
 

@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useToast } from "@/components/ui/ToastProvider";
 import { isFuture } from "date-fns";
 import { DEFAULT_TZ } from "@/lib/timezone";
 import {
@@ -12,7 +14,6 @@ import CancelAppointmentModal from "./appointments/CancelAppointmentModal";
 import ProfessionalRescheduleModal from "./appointments/ProfessionalRescheduleModal";
 import CreateProfessionalAppointmentModal from "./appointments/CreateProfessionalAppointmentModal";
 import AcceptRecurringAppointmentModal from "./appointments/AcceptRecurringAppointmentModal";
-import FollowUpModal from "./appointments/FollowUpModal";
 import Toast from "@/components/ui/Toast";
 import { enlaceMeetPorWhatsApp } from "@/lib/whatsapp";
 
@@ -56,6 +57,19 @@ const formatDateShortInTZ = (date) =>
     day: "2-digit",
     month: "short",
   }).format(new Date(date));
+
+/** La cita activa más próxima del paciente, como texto, o null si no tiene. */
+function proximaCitaDe(appointments, patientId) {
+  const ahora = Date.now();
+  const proxima = appointments
+    .filter((appointment) =>
+      appointment.patientId === patientId &&
+      (appointment.status === "PENDING" || appointment.status === "CONFIRMED") &&
+      new Date(appointment.date).getTime() > ahora
+    )
+    .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
+  return proxima ? `${formatDateShortInTZ(proxima.date)}, ${formatTimeInTZ(proxima.date)}` : null;
+}
 
 function getStatusBadge(status) {
   const config = {
@@ -112,7 +126,19 @@ export default function ProfessionalAppointmentsPanel({
   const [reschedulingApt, setReschedulingApt] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [acceptingApt, setAcceptingApt] = useState(null);
-  const [followUpApt, setFollowUpApt] = useState(null);
+  // La próxima sesión se abre desde la URL y no desde el estado: al completar
+  // una cita la página se revalida, la `key` del panel cambia y el componente
+  // se rearma, así que un estado local se perdería con el modal recién abierto.
+  const router = useRouter();
+  const pathname = usePathname();
+  const proximaId = useSearchParams().get("proxima");
+  const nextSessionApt = proximaId
+    ? appointments.find((appointment) => appointment.id === proximaId && appointment.status === "COMPLETED") || null
+    : null;
+  const setNextSessionApt = (appointment) => {
+    router.replace(appointment ? `${pathname}?proxima=${appointment.id}` : pathname, { scroll: false });
+  };
+  const { avisar } = useToast();
   const [cobrandoId, setCobrandoId] = useState(null);
   const [toast, setToast] = useState(null);
   const dismissToast = useCallback(() => setToast(null), []);
@@ -135,6 +161,9 @@ export default function ProfessionalAppointmentsPanel({
         updateAppointmentLocally(id, { status: newStatus });
         const labels = { COMPLETED: "Cita marcada como completada.", NO_SHOW: "Cita marcada como ausente." };
         setToast({ message: labels[newStatus] || "Estado actualizado.", type: "success" });
+        // Terminar una sesión es el momento de agendar la siguiente: se abre
+        // la agenda ya armada en vez de dejar que el profesional la busque.
+        if (newStatus === "COMPLETED") setNextSessionApt({ id });
       } else {
         setToast({ message: result.error || "Error al actualizar la cita.", type: "error" });
       }
@@ -344,10 +373,10 @@ export default function ProfessionalAppointmentsPanel({
               </button>
             ) : null}
             <button
-              onClick={() => setFollowUpApt(appointment)}
+              onClick={() => setNextSessionApt(appointment)}
               className="rounded bg-brand-700 px-3 py-1 text-xs text-white hover:bg-brand-800"
             >
-              Seguimiento
+              Próxima sesión
             </button>
           </>
         ) : null}
@@ -475,14 +504,28 @@ export default function ProfessionalAppointmentsPanel({
         />
       ) : null}
 
-      {followUpApt ? (
-        <FollowUpModal
-          appointment={followUpApt}
-          onClose={() => setFollowUpApt(null)}
-          onSuccess={() => {
-            setFollowUpApt(null);
-            setToast({ message: "Cita de seguimiento agendada correctamente.", type: "success" });
-            window.location.reload();
+      {nextSessionApt ? (
+        <CreateProfessionalAppointmentModal
+          patients={bookingContext?.patients || []}
+          services={bookingContext?.services || []}
+          availability={bookingContext?.availability || []}
+          booked={bookingContext?.booked || []}
+          professionalSlug={bookingContext?.professionalSlug || ""}
+          previousAppointment={{
+            id: nextSessionApt.id,
+            date: nextSessionApt.date,
+            patientId: nextSessionApt.patientId,
+            patientName: nextSessionApt.user?.name || "el paciente",
+            serviceId: nextSessionApt.serviceId,
+            nextLabel: proximaCitaDe(appointments, nextSessionApt.patientId),
+          }}
+          onClose={() => setNextSessionApt(null)}
+          onSuccess={(result) => {
+            setNextSessionApt(null);
+            const cuantas = Number(result?.createdCount || 1);
+            // El aviso global y no el toast del panel: las citas nuevas cambian
+            // la `key` y el panel se rearma antes de mostrarlo.
+            avisar(cuantas > 1 ? `Se agendaron ${cuantas} sesiones.` : "Próxima sesión agendada.", "success");
           }}
         />
       ) : null}

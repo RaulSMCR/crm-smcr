@@ -166,7 +166,7 @@ export async function fetchGoogleBusyIntervals({
  * cero: si el profesional se tomó el trabajo de marcar un calendario como algo
  * que le ocupa el tiempo, eso ya es la declaración de intención.
  */
-async function fetchCalendariosExtra({ refreshToken, calendarIds, from, to }) {
+async function fetchCalendariosExtra({ refreshToken, calendarIds, from, to, excludeEventIds = [] }) {
   const ids = [...new Set((calendarIds || []).filter(Boolean))];
   if (!ids.length) return [];
 
@@ -181,6 +181,7 @@ async function fetchCalendariosExtra({ refreshToken, calendarIds, from, to }) {
         to,
         calendarId: id,
         respetarDisponible: false,
+        excludeEventIds,
       });
       intervalos.push(...eventos);
     } catch (error) {
@@ -284,6 +285,11 @@ export async function fetchBusyForProfessional({ prisma, professionalId, from, t
       calendarIds: (profile.googleBusyCalendarIds || []).filter((id) => id !== calendarioDeTrabajo),
       from,
       to,
+      // Las citas se publican en el calendario de trabajo con el profesional
+      // como invitado, así que también aparecen en su calendario personal con
+      // el mismo id. Sin excluirlas acá, una cita chocaba contra su propia
+      // copia al aceptarla con recurrencia o al reprogramarla.
+      excludeEventIds,
     }),
   ]);
 

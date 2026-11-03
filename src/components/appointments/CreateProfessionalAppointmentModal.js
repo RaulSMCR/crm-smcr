@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useToast } from "@/components/ui/ToastProvider";
 import { createAppointmentByProfessional } from "@/actions/agenda-actions";
 import {
@@ -13,19 +13,29 @@ import {
 import { RECURRENCE_RULES } from "@/lib/appointment-recurrence";
 import RecurrenceFields from "@/components/appointments/RecurrenceFields";
 
+const SEMANA_MS = 7 * 24 * 60 * 60 * 1000;
+
 export default function CreateProfessionalAppointmentModal({
   patients = [],
   services = [],
   availability = [],
   booked = [],
   professionalSlug = "",
+  // Cita recién completada: el modal pasa a «próxima sesión», con su paciente
+  // fijo, su servicio y el mismo día y hora de la semana siguiente sugeridos.
+  previousAppointment = null,
   onClose,
   onSuccess,
 }) {
-  const [patientId, setPatientId] = useState(patients[0]?.id || "");
-  const [serviceId, setServiceId] = useState(services[0]?.id || "");
+  const previous = previousAppointment;
+  const [patientId, setPatientId] = useState(previous?.patientId || patients[0]?.id || "");
+  const [serviceId, setServiceId] = useState(() => {
+    const anterior = previous?.serviceId;
+    return services.some((service) => service.id === anterior) ? anterior : services[0]?.id || "";
+  });
   const [selectedDayIdx, setSelectedDayIdx] = useState(0);
   const [selectedISO, setSelectedISO] = useState("");
+  const [sugerido, setSugerido] = useState(false);
   const [recurrenceRule, setRecurrenceRule] = useState(RECURRENCE_RULES.NONE);
   const [recurrenceCount, setRecurrenceCount] = useState(4);
   const [error, setError] = useState("");
@@ -45,6 +55,20 @@ export default function CreateProfessionalAppointmentModal({
   }, [availability, booked, selectedService, professionalSlug]);
   const activeDay = days[selectedDayIdx] ?? null;
 
+  // Una sola vez, al abrir: si el mismo horario de la semana siguiente está
+  // libre, queda elegido; si no, se muestra el primer día con cupos.
+  useEffect(() => {
+    if (!previous || sugerido) return;
+    setSugerido(true);
+    const objetivo = new Date(previous.date).getTime() + SEMANA_MS;
+    days.forEach((dayItem, index) => {
+      if (dayItem.slots.some((slot) => slot.start.getTime() === objetivo)) {
+        setSelectedDayIdx(index);
+        setSelectedISO(new Date(objetivo).toISOString());
+      }
+    });
+  }, [previous, sugerido, days]);
+
   function handleConfirm() {
     if (!patientId || !serviceId || !selectedISO) {
       setError("Completa paciente, servicio y horario.");
@@ -61,6 +85,7 @@ export default function CreateProfessionalAppointmentModal({
           startISO: selectedISO,
           recurrenceRule,
           recurrenceCount,
+          parentAppointmentId: previous?.id || null,
         });
   
         if (!result?.success) {
@@ -73,7 +98,7 @@ export default function CreateProfessionalAppointmentModal({
           return;
         }
   
-        onSuccess?.();
+        onSuccess?.(result);
         onClose();
       } catch (fallo) {
         // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
@@ -88,7 +113,9 @@ export default function CreateProfessionalAppointmentModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="max-h-[90vh] w-full max-w-3xl space-y-4 overflow-y-auto rounded-2xl bg-white p-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-slate-800">Nueva cita</h2>
+          <h2 className="text-lg font-bold text-slate-800">
+            {previous ? `Próxima sesión con ${previous.patientName}` : "Nueva cita"}
+          </h2>
           <button
             onClick={onClose}
             className="text-xl font-bold leading-none text-slate-400 hover:text-slate-600"
@@ -97,9 +124,27 @@ export default function CreateProfessionalAppointmentModal({
           </button>
         </div>
 
+        {previous ? (
+          <div className="space-y-1 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-slate-800">
+            <p>
+              La sesión quedó completada. Si ya acordaron la próxima, agéndela acá: nace
+              confirmada y el paciente recibe el aviso.
+            </p>
+            {previous.nextLabel ? (
+              <p className="font-semibold">Ya tiene agendada: {previous.nextLabel}.</p>
+            ) : null}
+            <p className="text-slate-600">Para varias sesiones seguidas, use «Recurrencia» más abajo.</p>
+          </div>
+        ) : null}
+
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-800">Paciente</label>
+            {previous ? (
+              <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900">
+                {previous.patientName}
+              </p>
+            ) : (
             <select
               value={patientId}
               onChange={(event) => setPatientId(event.target.value)}
@@ -111,6 +156,7 @@ export default function CreateProfessionalAppointmentModal({
                 </option>
               ))}
             </select>
+            )}
           </div>
 
           <div>
@@ -218,14 +264,14 @@ export default function CreateProfessionalAppointmentModal({
             onClick={onClose}
             className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-100"
           >
-            Cancelar
+            {previous ? "Ahora no" : "Cancelar"}
           </button>
           <button
             onClick={handleConfirm}
             disabled={isPending || !selectedISO || !patientId || !serviceId}
             className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
           >
-            {isPending ? "Creando..." : "Crear cita"}
+            {isPending ? "Creando..." : previous ? "Agendar próxima sesión" : "Crear cita"}
           </button>
         </div>
       </div>
