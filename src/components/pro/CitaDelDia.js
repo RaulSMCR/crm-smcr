@@ -1,8 +1,8 @@
 // src/components/pro/CitaDelDia.js
 // Una cita en la pantalla «Hoy» de la app de profesionales. Sin hooks: se pinta
-// en el servidor. Los botones son enlaces comunes (Meet, WhatsApp), así que no
-// necesita JavaScript propio.
-import Link from "next/link";
+// en el servidor. Meet y WhatsApp son enlaces comunes; solo el cierre de la
+// sesión (CerrarSesion) corre en el navegador.
+import CerrarSesion from "@/components/pro/CerrarSesion";
 import { detalleLugarCita } from "@/lib/lugar-cita";
 import { enlaceMeetPorWhatsApp, numeroWhatsApp } from "@/lib/whatsapp";
 import { formatDayTab, formatSlotTime } from "@/lib/appointment-slots";
@@ -34,6 +34,8 @@ function Acciones({ cita, porCerrar }) {
 
   return (
     <div className="mt-3 flex flex-wrap gap-2">
+      {/* Lo primero que hay que hacer con una sesión que ya pasó. */}
+      {porCerrar ? <CerrarSesion citaId={cita.id} paciente={cita.patient?.name || "el paciente"} /> : null}
       {enlaceMeet && !porCerrar ? (
         <a href={enlaceMeet} target="_blank" rel="noopener noreferrer" className={`${BOTON} bg-brand-600 text-white hover:bg-brand-500`}>
           Abrir Meet
@@ -48,12 +50,6 @@ function Acciones({ cita, porCerrar }) {
         <a href={chat} target="_blank" rel="noopener noreferrer" className={`${BOTON} border border-neutral-300 text-neutral-800 hover:bg-neutral-100`}>
           WhatsApp
         </a>
-      ) : null}
-      {/* Cerrar la sesión desde la app llega en la etapa 2; por ahora, el panel. */}
-      {porCerrar ? (
-        <Link href="/panel/profesional/citas" className={`${BOTON} bg-brand-600 text-white hover:bg-brand-500`}>
-          Cerrar en el panel
-        </Link>
       ) : null}
     </div>
   );

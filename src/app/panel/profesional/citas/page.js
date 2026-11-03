@@ -1,16 +1,12 @@
 ﻿import { prisma } from "@/lib/prisma";
-import { listBlocksInWindow, blocksToIntervals } from "@/lib/schedule-blocks";
-import { fetchBusyForProfessional } from "@/lib/google-busy";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import Link from "next/link";
 import ProfessionalAppointmentsPanel from "@/components/ProfessionalAppointmentsPanel";
 import InsuranceClaimsSection from "@/components/profesional/InsuranceClaimsSection";
 import AcuerdosDeAtencionSection from "@/components/appointments/AcuerdosDeAtencionSection";
-import { TARIFA_VIGENTE } from "@/lib/service-pricing";
 import { ESTADOS_ACUERDO, puedeGestionarAcuerdos } from "@/lib/acuerdos-de-atencion";
-import { wherePacientesDelProfesional } from "@/lib/casos";
-import { DIAS_HACIA_ADELANTE } from "@/lib/appointment-slots";
+import { contextoParaAgendar } from "@/lib/pro/contexto-para-agendar";
 
 /** Huella corta de qué citas hay y en qué estado (FNV-1a de 32 bits). */
 function huellaDeCitas(citas) {
@@ -73,12 +69,8 @@ export default async function ProfesionalCitasPage() {
   const professionalId = String(session.professionalProfileId || "");
   if (!professionalId) redirect("/panel/profesional/perfil");
 
-  const blockWindowFrom = new Date();
-  // La misma ventana hasta la que deja mirar el selector de horarios.
-  const blockWindowTo = new Date(blockWindowFrom.getTime() + DIAS_HACIA_ADELANTE * 24 * 60 * 60 * 1000);
-
-  const [perfil, appointments, serviceAssignments, availability, futureAppointments, patients, pendingSignedClaimsRaw, pendingTemplatePatientsRaw, scheduleBlocks] = await Promise.all([
-    prisma.professionalProfile.findUnique({ where: { id: professionalId }, select: { slug: true } }),
+  const [bookingContext, appointments, pendingSignedClaimsRaw, pendingTemplatePatientsRaw] = await Promise.all([
+    contextoParaAgendar(professionalId),
     prisma.appointment.findMany({
       where: { professionalId },
       orderBy: { date: "asc" },
@@ -87,42 +79,6 @@ export default async function ProfesionalCitasPage() {
         service: { select: { id: true, title: true, price: true, durationMin: true } },
       },
       take: 300,
-    }),
-    prisma.serviceAssignment.findMany({
-      where: {
-        professionalId,
-        status: "APPROVED",
-        rates: { some: TARIFA_VIGENTE },
-        service: { isActive: true },
-      },
-      select: {
-        service: {
-          select: {
-            id: true,
-            title: true,
-            durationMin: true,
-            price: true,
-          },
-        },
-      },
-    }),
-    prisma.availability.findMany({
-      where: { professionalId },
-      orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
-    }),
-    prisma.appointment.findMany({
-      where: {
-        professionalId,
-        status: { notIn: ["CANCELLED_BY_USER", "CANCELLED_BY_PRO"] },
-        date: { gte: new Date() },
-      },
-      select: { date: true, endDate: true, gcalEventId: true },
-      orderBy: { date: "asc" },
-    }),
-    prisma.user.findMany({
-      where: wherePacientesDelProfesional(professionalId),
-      select: { id: true, name: true, email: true },
-      orderBy: { name: "asc" },
     }),
     prisma.insuranceClaim.findMany({
       where: { professionalId, status: "PENDING_SIGNED_FORM" },
@@ -142,18 +98,9 @@ export default async function ProfesionalCitasPage() {
       },
       select: { id: true, name: true, insurancePatientFormUrl: true },
     }),
-    listBlocksInWindow({ professionalId, from: blockWindowFrom, to: blockWindowTo }),
   ]);
 
   const acuerdos = await datosDeAcuerdos(professionalId);
-
-  const googleBusy = await fetchBusyForProfessional({
-    prisma,
-    professionalId,
-    from: blockWindowFrom,
-    to: blockWindowTo,
-    excludeEventIds: futureAppointments.map((appointment) => appointment.gcalEventId),
-  });
 
   const initialAppointments = appointments.map((appointment) => ({
     ...appointment,
@@ -164,23 +111,6 @@ export default async function ProfesionalCitasPage() {
   const appointmentsToCollectCount = appointments.filter((appointment) => {
     return appointment.status === "COMPLETED" && appointment.paymentStatus !== "PAID";
   }).length;
-
-  const bookingContext = {
-    // Define cada cuánto arranca un cupo (ver appointmentIntervalMin).
-    professionalSlug: perfil?.slug || "",
-    services: serviceAssignments.map((assignment) => assignment.service).filter(Boolean),
-    availability,
-    // Citas tomadas y bloqueos de agenda en una sola lista de ratos ocupados.
-    booked: [
-      ...futureAppointments.map((appointment) => ({
-        startISO: appointment.date.toISOString(),
-        endISO: appointment.endDate.toISOString(),
-      })),
-      ...blocksToIntervals(scheduleBlocks),
-      ...googleBusy,
-    ],
-    patients,
-  };
 
   const pendingSignedClaims = pendingSignedClaimsRaw.map((c) => ({
     id: c.id,
@@ -224,7 +154,7 @@ export default async function ProfesionalCitasPage() {
         pendingSignedClaims={pendingSignedClaims}
       />
 
-      {acuerdos && <AcuerdosDeAtencionSection patients={patients} {...acuerdos} />}
+      {acuerdos && <AcuerdosDeAtencionSection patients={bookingContext.patients} {...acuerdos} />}
 
       {/* El panel guarda las citas en su propio estado: la clave lo rearma
           cuando cambian por fuera (un acuerdo creado o terminado). */}
