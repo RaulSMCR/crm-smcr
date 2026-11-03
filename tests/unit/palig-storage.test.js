@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { PDFDocument } from "pdf-lib";
-const storage = vi.hoisted(() => ({ download: vi.fn(), upload: vi.fn() }));
+const storage = vi.hoisted(() => ({ download: vi.fn(), upload: vi.fn(), list: vi.fn(), remove: vi.fn() }));
 vi.mock("@/lib/supabase-admin", () => ({ getSupabaseAdmin: () => ({ storage: { from: () => storage } }) }));
-import { leerArchivoPalig, descargarPlantillaPalig, guardarPalig, PALIG_FILE_LIMIT } from "@/lib/palig-storage";
+import { borrarFirma, carpetaDeFirmas, guardarFirma, leerArchivoPalig, descargarPlantillaPalig, guardarPalig, MAXIMO_DE_FIRMAS, PALIG_FILE_LIMIT } from "@/lib/palig-storage";
 
 describe("validación de archivos PALIG en servidor", () => {
   it("acepta el PDF real y comprueba contenido, MIME y límite", async () => {
@@ -29,5 +29,36 @@ describe("validación de archivos PALIG en servidor", () => {
     storage.upload.mockResolvedValue({ error: null });
     expect(await guardarPalig("insurance-signed-forms", "claim/palig/form.pdf", Buffer.from("pdf"))).toBe("insurance-signed-forms/claim/palig/form.pdf");
     expect(storage.upload).toHaveBeenCalledWith("claim/palig/form.pdf", expect.any(Buffer), { contentType: "application/pdf", upsert: false, cacheControl: "0" });
+  });
+});
+
+describe("firmas de cada profesional", () => {
+  const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+
+  it("cada profesional tiene su carpeta, y el slug no puede salirse de ella", () => {
+    expect(carpetaDeFirmas("andrea-robles")).toBe("firmas/andrea-robles");
+    for (const malo of ["", "../raul-olmedo", "raul/olmedo", "Raul", undefined]) expect(() => carpetaDeFirmas(malo)).toThrow("inválido");
+  });
+
+  it("guarda la firma nueva con el número que sigue, sin pisar ninguna", async () => {
+    storage.list.mockResolvedValue({ data: [{ name: "firma-1.png" }, { name: "firma-3.png" }], error: null });
+    storage.upload.mockResolvedValue({ error: null });
+    expect(await guardarFirma("andrea-robles", PNG)).toBe(4);
+    expect(storage.upload).toHaveBeenLastCalledWith("firmas/andrea-robles/firma-4.png", PNG, expect.objectContaining({ upsert: false, contentType: "image/png" }));
+  });
+
+  it("solo acepta PNG reales y hasta el máximo de versiones", async () => {
+    storage.upload.mockClear();
+    storage.list.mockResolvedValue({ data: [], error: null });
+    await expect(guardarFirma("andrea-robles", Buffer.from("%PDF-1.7"))).rejects.toThrow("PNG");
+    storage.list.mockResolvedValue({ data: Array.from({ length: MAXIMO_DE_FIRMAS }, (_, i) => ({ name: `firma-${i + 1}.png` })), error: null });
+    await expect(guardarFirma("andrea-robles", PNG)).rejects.toThrow("hasta");
+    expect(storage.upload).not.toHaveBeenCalled();
+  });
+
+  it("borra una versión de su propia carpeta", async () => {
+    storage.remove.mockResolvedValue({ error: null });
+    await borrarFirma("andrea-robles", "2");
+    expect(storage.remove).toHaveBeenCalledWith(["firmas/andrea-robles/firma-2.png"]);
   });
 });

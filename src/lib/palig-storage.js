@@ -43,21 +43,62 @@ export async function descargarDelTramite(reference, claimId) {
   return Buffer.from(await data.arrayBuffer());
 }
 
-// Las firmas de Raúl: PNG transparentes, privados, firma-1.png, firma-2.png…
-// /api/files no las entrega a nadie; solo se leen acá, al firmar.
-export const CARPETA_FIRMAS = "firmas/raul-olmedo";
+// Las firmas de cada profesional: PNG transparentes, privados, en
+// firmas/<slug>/firma-1.png, firma-2.png… Rotan: cada formulario lleva una
+// distinta. /api/files no las entrega a nadie; se leen acá al firmar, y solo su
+// dueño las ve en su pantalla de firmas (/api/pro/firmas).
+const BUCKET_FIRMAS = "insurance-templates";
+
+/** Cuántas versiones puede tener guardadas un profesional. */
+export const MAXIMO_DE_FIRMAS = 10;
+
+/** Una firma no necesita más: es un trazo sobre fondo transparente. */
+export const LIMITE_DE_FIRMA = 1024 * 1024;
+
+/** La carpeta de las firmas de un profesional. El slug arma una ruta: se valida. */
+export function carpetaDeFirmas(slug) {
+  const limpio = String(slug || "");
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(limpio)) throw new PaligError("Profesional inválido.", 400);
+  return `firmas/${limpio}`;
+}
 
 /** Números de las versiones de la firma que hay guardadas, de menor a mayor. */
-export async function versionesDeFirma() {
-  const { data, error } = await getSupabaseAdmin().storage.from("insurance-templates").list(CARPETA_FIRMAS, { limit: 100 });
+export async function versionesDeFirma(slug) {
+  const { data, error } = await getSupabaseAdmin().storage.from(BUCKET_FIRMAS).list(carpetaDeFirmas(slug), { limit: 100 });
   if (error) throw new PaligError("No se pudieron leer las firmas guardadas.", 503);
   return (data || []).map((f) => /^firma-(\d+)\.png$/.exec(f.name)?.[1]).filter(Boolean).map(Number).sort((a, b) => a - b);
 }
 
-export async function descargarFirma(version) {
-  const { data, error } = await getSupabaseAdmin().storage.from("insurance-templates").download(`${CARPETA_FIRMAS}/firma-${version}.png`);
+export async function descargarFirma(slug, version) {
+  const { data, error } = await getSupabaseAdmin().storage.from(BUCKET_FIRMAS).download(`${carpetaDeFirmas(slug)}/firma-${Number(version)}.png`);
   if (error || !data) throw new PaligError("No se pudo leer la firma guardada.", 503);
   return Buffer.from(await data.arrayBuffer());
+}
+
+/**
+ * Guarda una firma nueva con el número que sigue. Nunca pisa una versión: un
+ * formulario ya firmado anota qué versión usó, y moverle la firma tiene que
+ * volver a encontrar la misma.
+ */
+export async function guardarFirma(slug, bytes) {
+  if (!bytes?.length || bytes.length > LIMITE_DE_FIRMA) throw new PaligError("La firma no puede superar 1 MB.");
+  if (detectFileMimeType(bytes) !== "image/png") throw new PaligError("La firma tiene que ser una imagen PNG.");
+  try {
+    await (await PDFDocument.create()).embedPng(bytes);
+  } catch { throw new PaligError("La imagen de la firma está dañada."); }
+
+  const versiones = await versionesDeFirma(slug);
+  if (versiones.length >= MAXIMO_DE_FIRMAS) throw new PaligError(`Puede guardar hasta ${MAXIMO_DE_FIRMAS} firmas. Borre alguna primero.`, 409);
+  const version = (versiones.at(-1) || 0) + 1;
+  const { error } = await getSupabaseAdmin().storage.from(BUCKET_FIRMAS)
+    .upload(`${carpetaDeFirmas(slug)}/firma-${version}.png`, bytes, { contentType: "image/png", upsert: false, cacheControl: "0" });
+  if (error) throw new PaligError("No se pudo guardar la firma. Intente de nuevo.", 503);
+  return version;
+}
+
+export async function borrarFirma(slug, version) {
+  const { error } = await getSupabaseAdmin().storage.from(BUCKET_FIRMAS).remove([`${carpetaDeFirmas(slug)}/firma-${Number(version)}.png`]);
+  if (error) throw new PaligError("No se pudo borrar la firma.", 503);
 }
 
 /**

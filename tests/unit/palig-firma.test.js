@@ -102,7 +102,10 @@ describe("firmar y enviar el trámite", () => {
     storage.list.mockResolvedValue({ data: [{ name: "firma-2.png" }, { name: "firma-3.png" }, { name: "notas.txt" }], error: null });
     storage.download.mockImplementation(async (path) => (archivos[path] ? { data: new Blob([archivos[path]]), error: null } : { data: null, error: new Error("no") }));
     storage.upload.mockImplementation(async (path, bytes) => { archivos[path] = bytes; return { error: null }; });
-    db = { insuranceClaim: { findFirst: vi.fn(), update: vi.fn(async ({ data }) => ({ ...claim, ...data })) } };
+    db = {
+      insuranceClaim: { findFirst: vi.fn(), update: vi.fn(async ({ data }) => ({ ...claim, ...data })) },
+      professionalProfile: { findUnique: vi.fn().mockResolvedValue({ slug: "raul-olmedo" }) },
+    };
   });
 
   it("firma con la versión que sigue a la última usada y guarda el PDF sin pisar nada", async () => {
@@ -157,6 +160,7 @@ describe("firma en un formulario escaneado", () => {
     storage.upload.mockImplementation(async (path, bytes) => { archivos[path] = bytes; return { error: null }; });
     db = {
       insuranceClaim: { findFirst: vi.fn().mockResolvedValue(null), update: vi.fn(async ({ data }) => ({ ...claim, ...data })) },
+      professionalProfile: { findUnique: vi.fn().mockResolvedValue({ slug: "raul-olmedo" }) },
       user: { update: vi.fn() },
     };
   });

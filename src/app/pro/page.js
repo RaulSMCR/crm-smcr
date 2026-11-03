@@ -2,6 +2,7 @@
 // Lo que el profesional necesita al abrir el celular: qué falta cerrar, qué le
 // queda del día y qué viene después. Las sesiones vencidas se cierran desde acá,
 // y al completar una se abre la «Próxima sesión» (?proxima=<id>).
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
@@ -131,6 +132,11 @@ export default async function ProHoyPage({ searchParams }) {
           ))}
         </Seccion>
       ) : null}
+
+      {/* Los ajustes que se tocan una vez quedan al pie, fuera de la barra. */}
+      <Link href="/pro/firmas" className="mt-2 block text-center text-sm font-medium text-brand-700 underline">
+        Mis firmas para formularios de seguro
+      </Link>
     </>
   );
 }

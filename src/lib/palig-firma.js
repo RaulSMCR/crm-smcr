@@ -4,8 +4,16 @@ import { sendSignedClaimToPatient } from "@/lib/insurance-mail";
 import { FE_EMISOR } from "@/lib/fe/config";
 
 // Firma desde el panel (pedido de Raúl, 27-oct-2026 hora CR): un botón estampa
-// su firma en el formulario emitido; se revisa y otro botón lo manda al
-// paciente. La firma rota entre las versiones guardadas, una distinta cada vez.
+// la firma del profesional del trámite en el formulario emitido; se revisa y
+// otro botón lo manda al paciente. La firma rota entre las versiones guardadas
+// de ese profesional, una distinta cada vez.
+
+/** El slug nombra la carpeta de las firmas del profesional del trámite. */
+async function slugDelProfesional(db, professionalId) {
+  const perfil = await db.professionalProfile.findUnique({ where: { id: String(professionalId || "") }, select: { slug: true } });
+  if (!perfil?.slug) throw new PaligError("No se encontró al profesional del trámite.", 409);
+  return perfil.slug;
+}
 
 /** La versión que sigue a `ultima`; después de la última vuelve a la primera. */
 export function siguienteVersion(disponibles, ultima) {
@@ -54,11 +62,12 @@ export async function firmarTramitePalig(db, claim, { ahora = new Date() } = {})
     where: { professionalId: claim.professionalId, firmaVersion: { not: null } },
     orderBy: { firmadoAt: "desc" }, select: { firmaVersion: true },
   });
-  const version = siguienteVersion(await versionesDeFirma(), ultima?.firmaVersion);
+  const slug = await slugDelProfesional(db, claim.professionalId);
+  const version = siguienteVersion(await versionesDeFirma(slug), ultima?.firmaVersion);
   const [formulario, plantilla, firma] = await Promise.all([
     descargarDelTramite(claim.generatedFormUrl, claim.id),
     descargarDelTramite(claim.templateSnapshotUrl, claim.id),
-    descargarFirma(version),
+    descargarFirma(slug, version),
   ]);
   const escaneada = (await tipoDePlantillaPalig(plantilla)) === "escaneada";
   const posicion = escaneada ? await posicionAnterior(claim) : null;
@@ -81,11 +90,12 @@ export async function moverFirmaTramitePalig(db, claim, { dx = 0, dy = 0, patien
   exigirAbierto(claim);
   const ruta = rutaFirmado(claim);
   if (!ruta || claim.firmaVersion == null) throw new PaligError("Primero firme el formulario.", 409);
+  const slug = await slugDelProfesional(db, claim.professionalId);
   const [anterior, formulario, plantilla, firma] = await Promise.all([
     descargarDelTramite(ruta, claim.id),
     descargarDelTramite(claim.generatedFormUrl, claim.id),
     descargarDelTramite(claim.templateSnapshotUrl, claim.id),
-    descargarFirma(claim.firmaVersion),
+    descargarFirma(slug, claim.firmaVersion),
   ]);
   if ((await tipoDePlantillaPalig(plantilla)) !== "escaneada") {
     throw new PaligError("En el formulario editable la firma va en su lugar fijo.", 409);
