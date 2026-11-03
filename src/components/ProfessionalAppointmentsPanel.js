@@ -189,7 +189,6 @@ export default function ProfessionalAppointmentsPanel({
     const closed = [];
 
     for (const appointment of appointments) {
-      const future = isFuture(new Date(appointment.date));
       const cancelled =
         appointment.status === "CANCELLED_BY_USER" ||
         appointment.status === "CANCELLED_BY_PRO" ||
@@ -200,7 +199,10 @@ export default function ProfessionalAppointmentsPanel({
         continue;
       }
 
-      if (appointment.status === "CONFIRMED" && future) {
+      // Una confirmada que ya empezó sigue acá hasta que se la complete o se la
+      // marque ausente: si se filtrara por fecha, desaparecería del panel justo
+      // cuando hay que cerrarla. Por el orden ascendente queda arriba de todo.
+      if (appointment.status === "CONFIRMED") {
         scheduled.push(appointment);
         continue;
       }
@@ -382,7 +384,7 @@ export default function ProfessionalAppointmentsPanel({
         <SectionHeader
           title="Citas confirmadas"
           count={sections.scheduled.length}
-          description="Citas futuras ya aceptadas y aun activas."
+          description="Citas aceptadas; las que ya pasaron quedan arriba hasta completarlas o marcarlas ausentes."
         />
         <div className="space-y-4">
           {sections.scheduled.length > 0 ? sections.scheduled.map(renderAppointment) : <EmptySection title="Citas confirmadas" />}
