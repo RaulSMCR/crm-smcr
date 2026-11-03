@@ -1,7 +1,8 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
-const m = vi.hoisted(() => ({ auth: vi.fn(), generate: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), submit: vi.fn(), deliveries: vi.fn(), signed: vi.fn() }));
+const m = vi.hoisted(() => ({ auth: vi.fn(), session: vi.fn(), perfil: vi.fn(), generate: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), submit: vi.fn(), deliveries: vi.fn(), signed: vi.fn() }));
 vi.mock("@/lib/palig-auth", () => ({ requirePaligOperator: m.auth }));
-vi.mock("@/lib/prisma", () => ({ prisma: { insuranceClaim: { findUnique: m.findUnique, findFirst: m.findFirst } } }));
+vi.mock("@/lib/auth", () => ({ getSession: m.session, isPreviewSession: (s) => Boolean(s?.isPreview) }));
+vi.mock("@/lib/prisma", () => ({ prisma: { insuranceClaim: { findUnique: m.findUnique, findFirst: m.findFirst }, professionalProfile: { findUnique: m.perfil } } }));
 vi.mock("@/lib/palig-service", async (original) => ({ ...await original(), generarPagoPalig: m.generate }));
 vi.mock("@/lib/fe/submit", () => ({ submitInvoiceToFe: m.submit }));
 vi.mock("@/lib/payment-deliveries", () => ({ processPaymentDeliveries: m.deliveries }));
@@ -16,6 +17,26 @@ beforeEach(() => {
   m.generate.mockResolvedValue(claim); m.findUnique.mockResolvedValue(claim); m.findFirst.mockResolvedValue(claim);
   m.signed.mockResolvedValue("https://storage.example.com/signed");
 });
+describe("trámites de otros profesionales (flujo estandarizado)", () => {
+  it("un profesional aprobado abre solo sus propios trámites", async () => {
+    m.auth.mockResolvedValue({ error: new Response(null, { status: 403 }) });
+    m.session.mockResolvedValue({ role: "PROFESSIONAL", sub: "u-andrea" });
+    m.perfil.mockResolvedValue({ id: "p-andrea", isApproved: true });
+    expect((await GET(new Request("http://localhost/api/palig/claims/c1"), ctx)).status).toBe(200);
+    expect(m.findFirst.mock.calls[0][0].where).toMatchObject({ id: "c1", professionalId: "p-andrea" });
+  });
+
+  it("sin aprobación, sin sesión o en «ver como» no entra", async () => {
+    m.auth.mockResolvedValue({ error: new Response(null, { status: 403 }) });
+    for (const [session, perfil] of [[null, null], [{ role: "PROFESSIONAL", sub: "u1" }, { id: "p1", isApproved: false }], [{ role: "PROFESSIONAL", sub: "u1", isPreview: true }, { id: "p1", isApproved: true }]]) {
+      m.session.mockResolvedValueOnce(session);
+      m.perfil.mockResolvedValueOnce(perfil);
+      expect((await GET(new Request("http://localhost/api/palig/claims/c1"), ctx)).status).toBe(403);
+    }
+    expect(m.findFirst).not.toHaveBeenCalled();
+  });
+});
+
 describe("rutas del piloto PALIG", () => {
   it("rechaza acceso sin consultar ni mutar documentos", async () => {
     m.auth.mockResolvedValue({ error: new Response(null, { status: 403 }) });

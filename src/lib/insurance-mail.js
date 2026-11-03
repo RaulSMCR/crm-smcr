@@ -280,3 +280,27 @@ export async function sendPaligParteProfesionalPendiente({ proEmail, patientName
   });
   if (error) console.error("[insurance-mail] sendPaligParteProfesionalPendiente error:", error?.name || "error");
 }
+
+// ── PALIG: entró un pago; el formulario está listo para firmar y enviar ──────
+export async function sendPaligFormularioListo({ proEmail, patientName }) {
+  if (!proEmail || !process.env.RESEND_API_KEY) return;
+  const enlace = `${APP_URL}/pro/seguros`;
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#0f172a;">
+      <h2 style="color:#2b7073;">Formulario PALIG listo para enviar</h2>
+      <p>Entró el pago de <strong>${escaparHtml(patientName)}</strong>. Su formulario de reclamo ya está armado, con la fecha del pago y la factura.</p>
+      <p>Fírmelo con un toque, revíselo y envíelo al paciente. No hace falta imprimir.</p>
+      <p style="margin-top:20px;">
+        <a href="${enlace}" style="background:#2b7073;color:#fff;padding:10px 20px;text-decoration:none;border-radius:8px;font-weight:bold;">Firmar y enviar</a>
+      </p>
+      <p style="font-size:12px;color:#64748b;margin-top:24px;">Mensaje automático — Salud Mental Costa Rica</p>
+    </div>`;
+
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: proEmail,
+    subject: `Formulario PALIG de ${patientName}: listo para firmar y enviar`,
+    html,
+  });
+  if (error) console.error("[insurance-mail] sendPaligFormularioListo error:", error?.name || "error");
+}

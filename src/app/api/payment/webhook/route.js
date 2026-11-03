@@ -23,7 +23,9 @@ import { processOnvoPayment } from "@/lib/onvo/process-payment";
 import { sendAdminPaymentAlert } from "@/lib/onvo/payment-alert";
 import { logOnvoWebhook } from "@/lib/onvo/observability";
 import { resend } from "@/lib/resend";
-import { sendInsuranceProSignAlert } from "@/lib/insurance-mail";
+import { sendInsuranceProSignAlert, sendPaligFormularioListo } from "@/lib/insurance-mail";
+import { esPalig } from "@/lib/palig-policy";
+import { generarTramiteDePago } from "@/lib/palig-service";
 import { obtenerTipoCambio } from "@/lib/exchange-rate";
 import { reportDepositConversion } from "@/lib/analytics/reportDepositConversion";
 import { sendPurchaseMeta } from "@/lib/analytics/meta-events";
@@ -149,7 +151,13 @@ async function processAuthenticatedWebhook(request, trace) {
       ));
       after(() => sendPurchaseMeta(processedTransaction.id));
     }
-    if (nextPaymentStatus === "PAID") {
+    // PALIG arma un formulario por cada pago aprobado (adelanto y saldo
+    // incluidos); las demás aseguradoras siguen con el trámite por cita pagada.
+    if (esPalig(processedTransaction.patient?.insuranceName)) {
+      after(() => handlePaligClaim(processedTransaction, invoiceId).catch((error) =>
+        logOnvoWebhook("error", "PALIG_CLAIM_FAILED", { transactionId: processedTransaction.id, error })
+      ));
+    } else if (nextPaymentStatus === "PAID") {
       after(() => handleInsuranceClaim(processedTransaction, processedTransaction.paidAt).catch((error) =>
         logOnvoWebhook("error", "INSURANCE_CLAIM_FAILED", { transactionId: processedTransaction.id, error })
       ));
@@ -165,6 +173,28 @@ async function processAuthenticatedWebhook(request, trace) {
 // ── Emails ───────────────────────────────────────────────────────────────────
 
 // ── Reclamo de seguro ────────────────────────────────────────────────────────
+
+/**
+ * PALIG (flujo estandarizado del 2026-11-03): el formulario se arma solo con
+ * la fecha del pago y queda para que el profesional lo firme y lo envíe. Si el
+ * paciente todavía no tiene plantilla de este profesional, no se arma nada: el
+ * profesional ve en «Seguros» que falta completarla.
+ */
+async function handlePaligClaim(transaction, invoiceId) {
+  const resultado = await generarTramiteDePago(prisma, {
+    patientId: transaction.patientId,
+    professionalId: transaction.professionalId,
+    invoiceId,
+    appointmentId: transaction.appointmentId,
+    paymentDate: transaction.paidAt,
+  });
+  if (!resultado?.nuevo) return;
+  logOnvoWebhook("info", "PALIG_CLAIM_CREATED", { claimId: resultado.claim.id });
+  await sendPaligFormularioListo({
+    proEmail: transaction.professional?.user?.email,
+    patientName: transaction.patient?.name || "Su paciente",
+  }).catch((error) => logOnvoWebhook("error", "PALIG_ALERT_FAILED", { claimId: resultado.claim.id, error }));
+}
 
 async function handleInsuranceClaim(transaction, paidAt) {
   const patient = transaction.patient;

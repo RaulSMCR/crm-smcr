@@ -7,6 +7,8 @@ import { getSession } from "@/lib/auth";
 import { wherePacientesDelProfesional } from "@/lib/casos";
 import { esPalig } from "@/lib/palig-policy";
 import { etapaDelFormulario } from "@/lib/palig-plantillas";
+import { PALIG_CLAIM_SELECT, resumenPalig } from "@/lib/palig-service";
+import { Documents } from "@/components/palig/PaligPilot";
 import { Card, EmptyState, Pill, SectionHeader } from "@/components/mi/ui";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +24,19 @@ export default async function ProSegurosPage() {
   const session = await getSession();
   if (!session) redirect("/ingresar?next=/pro/seguros");
   const professionalId = String(session.professionalProfileId || "");
+
+  // Los formularios que armó cada pago y todavía no se enviaron al paciente.
+  const porEnviar = await prisma.insuranceClaim.findMany({
+    where: {
+      professionalId,
+      invoiceId: { not: null },
+      emailSentAt: null,
+      generatedFormUrl: { not: null },
+      invoice: { status: { in: ["OPEN", "PAID"] } },
+    },
+    orderBy: { createdAt: "asc" },
+    select: { ...PALIG_CLAIM_SELECT, patient: { select: { name: true } } },
+  });
 
   const pacientes = (
     await prisma.user.findMany({
@@ -41,6 +56,18 @@ export default async function ProSegurosPage() {
           Mis firmas
         </Link>
       </p>
+      {porEnviar.length > 0 ? (
+        <section className="mb-6 space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">Por firmar y enviar</h2>
+          {porEnviar.map((claim) => (
+            <div key={claim.id} className="rounded-2xl bg-white">
+              <Documents initial={{ ...resumenPalig(claim), patientName: claim.patient?.name }} aMano={false} />
+            </div>
+          ))}
+        </section>
+      ) : null}
+
+      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-neutral-500">Pacientes</h2>
       {pacientes.length === 0 ? (
         <EmptyState
           title="Sin pacientes con PALIG"

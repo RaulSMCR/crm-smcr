@@ -1,6 +1,7 @@
 import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePaligOperator } from "@/lib/palig-auth";
+import { getSession, isPreviewSession } from "@/lib/auth";
 import { PALIG_PROFESSIONAL_SLUG } from "@/lib/palig-policy";
 import { resumenPalig } from "@/lib/palig-service";
 import { enviarFirmadoPalig, firmarTramitePalig, moverFirmaTramitePalig, rutaFirmado } from "@/lib/palig-firma";
@@ -14,10 +15,28 @@ import { processPaymentDeliveries } from "@/lib/payment-deliveries";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+/**
+ * Qué trámites puede abrir quien pide: Raúl y la administración responsable,
+ * los del piloto (de Raúl); cualquier otro profesional aprobado, solo los suyos
+ * (flujo estandarizado del 2026-11-03). En «ver como» no se firma ni se envía.
+ */
+async function filtroDeAcceso() {
+  const operador = await requirePaligOperator();
+  if (!operador.error) return { professional: { slug: PALIG_PROFESSIONAL_SLUG } };
+
+  const session = await getSession();
+  if (!session || session.role !== "PROFESSIONAL" || isPreviewSession(session)) return null;
+  const userId = String(session.sub || session.userId || "");
+  const perfil = userId
+    ? await prisma.professionalProfile.findUnique({ where: { userId }, select: { id: true, isApproved: true } })
+    : null;
+  return perfil?.isApproved ? { professionalId: perfil.id } : null;
+}
+
 async function context(id) {
-  const auth = await requirePaligOperator();
-  if (auth.error) return auth;
-  const claim = await prisma.insuranceClaim.findFirst({ where: { id, invoiceId: { not: null }, professional: { slug: PALIG_PROFESSIONAL_SLUG } }, include: {
+  const filtro = await filtroDeAcceso();
+  if (!filtro) return { error: NextResponse.json({ message: "No tiene acceso a este trámite." }, { status: 403 }) };
+  const claim = await prisma.insuranceClaim.findFirst({ where: { id, invoiceId: { not: null }, ...filtro }, include: {
     invoice: { include: { lines: { orderBy: { sortOrder: "asc" } } } },
     patient: { select: { id: true, name: true, email: true, insuranceTemplateUrl: true } },
   } });
@@ -64,7 +83,7 @@ export async function GET(request, { params }) {
 
 /**
  * POST sin cuerpo: actualiza el estado fiscal.
- * { accion: "firmar" }: estampa la siguiente versión de la firma de Raúl.
+ * { accion: "firmar" }: estampa la siguiente versión de la firma del profesional del trámite.
  * { accion: "moverFirma", dx, dy }: corre la firma de un formulario escaneado.
  * { accion: "enviar" }: manda al paciente el formulario firmado.
  */

@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({ register: vi.fn(), read: vi.fn(), download: vi
 vi.mock("@/lib/pagos-manuales", () => ({ registrarPagoManual: mocks.register }));
 vi.mock("@/lib/palig-storage", () => ({ leerArchivoPalig: mocks.read, descargarPlantillaPalig: mocks.download, guardarPalig: mocks.save }));
 vi.mock("@/lib/palig-pdf", async (original) => ({ ...await original(), validarPlantillaPalig: mocks.validate, completarPalig: mocks.fill }));
-import { generarFormularioDeFacturaPalig, generarPagoPalig, resumenPalig } from "@/lib/palig-service";
+import { generarFormularioDeFacturaPalig, generarPagoPalig, generarTramiteDePago, resumenPalig } from "@/lib/palig-service";
 
 // 21-oct-2026 a las 17:00 CR.
 const AHORA = new Date("2026-10-21T23:00:00Z");
@@ -175,5 +175,50 @@ describe("formulario para una factura ya emitida", () => {
     // El que ganó ya existe sobre la misma factura.
     db.insuranceClaim.findUnique.mockImplementation(async ({ where }) => (where.invoiceId || where.id ? claim : null));
     expect(await generarFormularioDeFacturaPalig(db, { patientId: "u1", invoiceId: "inv205", proof: {} })).toEqual(claim);
+  });
+});
+
+describe("formulario de un pago por ONVO", () => {
+  const PAGO = { patientId: "u1", professionalId: "p1", invoiceId: "i9", appointmentId: "a1", paymentDate: AHORA };
+  beforeEach(() => {
+    db.insuranceClaim.create = vi.fn().mockResolvedValue({});
+    db.insuranceClaim.findUnique.mockImplementation(async ({ where }) => (where.id ? claim : null));
+  });
+
+  it("arma el formulario con la fecha del pago, sin comprobante, para firmar y enviar después", async () => {
+    const r = await generarTramiteDePago(db, PAGO);
+    expect(r).toEqual({ claim, nuevo: true });
+    expect(mocks.fill.mock.calls[0][1]).toEqual({ date: AHORA, final: true });
+    // Plantilla y formulario: no hay comprobante que guardar.
+    expect(mocks.save).toHaveBeenCalledTimes(2);
+    const data = db.insuranceClaim.create.mock.calls[0][0].data;
+    expect(data).toMatchObject({ patientId: "u1", professionalId: "p1", invoiceId: "i9", appointmentId: "a1", status: "PENDING_SIGNED_FORM", paymentDate: AHORA });
+    expect(data.paymentProofUrl).toBeUndefined();
+  });
+
+  it("no arma nada si el paciente no es PALIG, no tiene plantilla o la plantilla es de otro profesional", async () => {
+    for (const cambio of [{ insuranceName: "INS" }, { insuranceTemplateUrl: null }, { insuranceTemplateProId: "otro" }]) {
+      db.user.findUnique.mockResolvedValueOnce({ ...paciente, ...cambio });
+      expect(await generarTramiteDePago(db, PAGO)).toBeNull();
+    }
+    expect(mocks.save).not.toHaveBeenCalled();
+    expect(db.insuranceClaim.create).not.toHaveBeenCalled();
+  });
+
+  it("un reintento del aviso de ONVO devuelve el trámite de esa factura", async () => {
+    db.insuranceClaim.findUnique.mockImplementation(async ({ where }) => (where.invoiceId === "i9" ? claim : null));
+    expect(await generarTramiteDePago(db, PAGO)).toEqual({ claim, nuevo: false });
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
+
+  it("no vincula la sesión si otro pago de la misma cita ya tiene trámite", async () => {
+    db.insuranceClaim.findUnique.mockImplementation(async ({ where }) => (where.id ? claim : where.appointmentId ? { id: "otro" } : null));
+    await generarTramiteDePago(db, PAGO);
+    expect(db.insuranceClaim.create.mock.calls[0][0].data.appointmentId).toBeNull();
+  });
+
+  it("el resumen dice si hay comprobante para no ofrecer un enlace vacío", () => {
+    expect(resumenPalig({ ...claim, paymentProofUrl: null }).tieneComprobante).toBe(false);
+    expect(resumenPalig({ ...claim, paymentProofUrl: "insurance-signed-forms/c1/palig/proof.png" }).tieneComprobante).toBe(true);
   });
 });

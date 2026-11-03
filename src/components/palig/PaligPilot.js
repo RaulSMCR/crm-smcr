@@ -175,7 +175,9 @@ function SubirFirmado({ claimId, onListo }) {
 }
 
 // También la usa la app del celular (CobroMovil) para firmar y enviar.
-export function Documents({ initial }) {
+// `aMano`: subir el formulario firmado a mano usa el piloto, que es solo de
+// Raúl; los demás profesionales firman con sus firmas guardadas.
+export function Documents({ initial, aMano = true }) {
   const router = useRouter();
   const [claim, setClaim] = useState(initial);
   const [busy, setBusy] = useState(false);
@@ -201,12 +203,12 @@ export function Documents({ initial }) {
     <div className="flex flex-wrap gap-4 text-sm font-medium text-blue-700">
       <a href={`${base}?file=form`} target="_blank" rel="noopener noreferrer" className="underline">Descargar formulario para firmar</a>
       {claim.invoiceReady && <><a href={`${base}?file=invoice`} target="_blank" rel="noopener noreferrer" className="underline">Factura PDF</a><a href={`${base}?file=xml`} className="underline">XML aceptado</a></>}
-      <a href={`${base}?file=proof`} target="_blank" rel="noopener noreferrer" className="underline">Comprobante SINPE</a>
+      {claim.tieneComprobante !== false && <a href={`${base}?file=proof`} target="_blank" rel="noopener noreferrer" className="underline">Comprobante SINPE</a>}
       {!claim.invoiceReady && <button type="button" disabled={busy} onClick={refresh} className="underline">{busy ? "Consultando…" : "Actualizar estado"}</button>}
     </div>
     {!claim.emailSent && <FirmarEnPanel claim={claim} onCambio={(json) => setClaim((c) => ({ ...c, ...json }))} onEnviado={() => router.refresh()} />}
     {/* Firmar a mano es la excepción: queda a mano para quien lo elija. */}
-    {!claim.emailSent && <details className="rounded-lg bg-slate-50 p-3 text-sm">
+    {aMano && !claim.emailSent && <details className="rounded-lg bg-slate-50 p-3 text-sm">
       <summary className="cursor-pointer font-medium text-slate-700">Prefiero firmarlo a mano y subirlo</summary>
       <div className="mt-3"><SubirFirmado claimId={claim.id} onListo={() => router.refresh()} /></div>
     </details>}

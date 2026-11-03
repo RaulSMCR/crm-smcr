@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { registrarPagoManual } from "@/lib/pagos-manuales";
-import { PALIG_PROFESSIONAL_SLUG, fechaCostaRica, validarPagoPalig } from "@/lib/palig-policy";
+import { PALIG_PROFESSIONAL_SLUG, esPalig, fechaCostaRica, validarPagoPalig } from "@/lib/palig-policy";
 import { completarPalig, validarPlantillaPalig, PaligError } from "@/lib/palig-pdf";
 import { descargarPlantillaPalig, guardarPalig, leerArchivoPalig } from "@/lib/palig-storage";
 
@@ -19,6 +19,8 @@ export function resumenPalig(claim) {
     signed: Boolean(claim.signedFormUploadedAt), emailSent: Boolean(claim.emailSentAt),
     // Firmado desde el panel y todavía sin enviar: se puede revisar y reenviar.
     firmadoEnPanel: Boolean(claim.firmadoAt), firmaVersion: claim.firmaVersion ?? null,
+    // Un pago por ONVO no tiene comprobante subido: lo confirmó el procesador.
+    tieneComprobante: Boolean(claim.paymentProofUrl),
     invoiceReady: claim.invoice?.feStatus === "ACCEPTED" && Boolean(claim.invoice?.feNumber && claim.invoice?.feXml) && ["PAID", "OPEN"].includes(claim.invoice?.status),
   };
 }
@@ -198,4 +200,58 @@ export async function generarPagoPalig(db, { patientId, appointmentId = null, mo
   }
   if (!result.ok) throw new PaligError(result.message, result.status);
   return db.insuranceClaim.findUnique({ where: { id: claimId }, select: PALIG_CLAIM_SELECT });
+}
+
+/**
+ * Formulario PALIG de un pago por ONVO (flujo estandarizado del 2026-11-03).
+ *
+ * Se arma solo, sin comprobante: el pago lo confirmó ONVO y la factura ya
+ * salió. La «fecha de atención» es la del pago, como en el piloto. Queda listo
+ * para que el profesional lo firme, lo revise y lo envíe; no se manda solo.
+ *
+ * Solo si el paciente es PALIG y su plantilla la armó el mismo profesional que
+ * cobró: una plantilla con los datos de otro no puede salir con esta factura.
+ * Idempotente por factura (InsuranceClaim.invoiceId es único): un reintento del
+ * aviso de ONVO devuelve el trámite que ya estaba.
+ *
+ * @returns {Promise<{ claim: object, nuevo: boolean } | null>} null si no corresponde
+ */
+export async function generarTramiteDePago(db, { patientId, professionalId, invoiceId, appointmentId = null, paymentDate }) {
+  const patient = await db.user.findUnique({
+    where: { id: String(patientId || "") },
+    select: { id: true, insuranceName: true, insuranceTemplateUrl: true, insuranceTemplateProId: true },
+  });
+  if (!patient || !esPalig(patient.insuranceName) || !patient.insuranceTemplateUrl) return null;
+  if (!professionalId || patient.insuranceTemplateProId !== professionalId) return null;
+
+  const existente = await db.insuranceClaim.findUnique({ where: { invoiceId }, select: PALIG_CLAIM_SELECT });
+  if (existente) return { claim: existente, nuevo: false };
+
+  // La sesión se vincula solo si ningún otro trámite la tiene: en una primera
+  // cita, el adelanto y el saldo son dos pagos y dos formularios.
+  const sesionLibre = appointmentId
+    && !(await db.insuranceClaim.findUnique({ where: { appointmentId }, select: { id: true } }));
+
+  const original = await descargarPlantillaPalig(patient.insuranceTemplateUrl, patient.id);
+  const plantilla = await validarPlantillaPalig(original);
+  const formulario = await completarPalig(plantilla, { date: paymentDate, final: true });
+  const claimId = randomUUID();
+  const base = `${claimId}/palig`;
+  const templateSnapshotUrl = await guardarPalig("insurance-signed-forms", `${base}/template.pdf`, original);
+  const generatedFormUrl = await guardarPalig("insurance-signed-forms", `${base}/form.pdf`, formulario);
+
+  try {
+    await db.insuranceClaim.create({ data: {
+      id: claimId, patientId: patient.id, professionalId, invoiceId,
+      appointmentId: sesionLibre ? appointmentId : null, paymentDate, status: "PENDING_SIGNED_FORM",
+      templateSnapshotUrl, generatedFormUrl,
+    } });
+  } catch (error) {
+    if (error?.code === "P2002") {
+      const ganador = await db.insuranceClaim.findUnique({ where: { invoiceId }, select: PALIG_CLAIM_SELECT });
+      if (ganador) return { claim: ganador, nuevo: false };
+    }
+    throw error;
+  }
+  return { claim: await db.insuranceClaim.findUnique({ where: { id: claimId }, select: PALIG_CLAIM_SELECT }), nuevo: true };
 }
