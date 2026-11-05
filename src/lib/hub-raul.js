@@ -354,7 +354,7 @@ export function formatHubPrice(rango) {
  * @param {object} [source] el hub, de donde sale el número
  */
 export function buildWaLink(tema = "", source = hubData) {
-  const text = `Hola, quisiera agendar una sesión paga con Raúl Olmedo. Vengo de la página de ${tema || "Raúl Olmedo"}.`;
+  const text = `Hola, quisiera hacer una consulta sobre el servicio. Vengo de la página de ${tema || "Raúl Olmedo"}.`;
   return `https://wa.me/${source.whatsapp}?text=${encodeURIComponent(text)}`;
 }
 

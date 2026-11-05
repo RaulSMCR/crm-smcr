@@ -34,7 +34,7 @@ describe("hub de Raúl Olmedo Evans", () => {
 
   it("sin tema, el mensaje es el de la portada del hub", () => {
     const text = decodeURIComponent(new URL(buildWaLink()).searchParams.get("text"));
-    expect(text).toBe("Hola, quisiera agendar una sesión paga con Raúl Olmedo. Vengo de la página de Raúl Olmedo.");
+    expect(text).toBe("Hola, quisiera hacer una consulta sobre el servicio. Vengo de la página de Raúl Olmedo.");
   });
 
   // El mensaje se sella en HTML que se sirve cacheado una hora (`revalidate`),
