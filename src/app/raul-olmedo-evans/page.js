@@ -70,7 +70,7 @@ export default async function RaulHubPage() {
   // El precio sale de la tarifa aprobada, igual que en la ficha y en agendar.
   const precio = formatHubPrice(agenda.rango);
   const pageUrl = siteUrl("raul-olmedo-evans");
-  const waUrl = buildWaLink("", hub);
+  const waUrl = buildWaLink(hub);
   const functionEnabled = (key) => !hub.herramientas_habilitadas.length || hub.herramientas_habilitadas.includes(key);
 
   const schema = grafo(

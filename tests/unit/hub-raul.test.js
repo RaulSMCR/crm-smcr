@@ -24,26 +24,15 @@ describe("hub de Raúl Olmedo Evans", () => {
     ]);
   });
 
-  it("nombra el tema de donde sale el clic y dice que la sesión es paga", () => {
-    const url = buildWaLink("Duelo");
-    const text = decodeURIComponent(new URL(url).searchParams.get("text"));
-    expect(url).toContain("https://wa.me/50671291909");
-    expect(text).toContain("sesión paga");
-    expect(text).toContain("Vengo de la página de Duelo.");
+  // El chat se abre vacío: que la persona escriba con sus palabras. El origen
+  // del clic lo mide el evento de GA4, no el texto.
+  it("abre WhatsApp sin mensaje armado", () => {
+    const url = new URL(buildWaLink());
+    expect(url.href).toBe("https://wa.me/50671291909");
+    expect(url.searchParams.has("text")).toBe(false);
   });
 
-  it("sin tema, el mensaje es el de la portada del hub", () => {
-    const text = decodeURIComponent(new URL(buildWaLink()).searchParams.get("text"));
-    expect(text).toBe("Hola, quisiera hacer una consulta sobre el servicio. Vengo de la página de Raúl Olmedo.");
-  });
-
-  // El mensaje se sella en HTML que se sirve cacheado una hora (`revalidate`),
-  // así que un precio ahí dentro anuncia el del tramo anterior. La regla es que
-  // el texto no dependa de nada que cambie entre visitas.
-  it("no lleva precio ni duración en el mensaje", () => {
-    const text = decodeURIComponent(new URL(buildWaLink("Duelo")).searchParams.get("text"));
-    expect(text).not.toContain("₡");
-    expect(text).not.toContain("min");
+  it("formatea el precio del hub a partir del rango de tarifas", () => {
     expect(formatHubPrice(null)).toBe("");
     expect(formatHubPrice({ min: 30000, max: 40000 })).toBe("₡30.000 – ₡40.000");
   });

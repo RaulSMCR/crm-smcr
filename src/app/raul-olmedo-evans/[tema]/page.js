@@ -88,7 +88,7 @@ export default async function RaulThemePage({ params }) {
   const whatsappEnabled = !hub.herramientas_habilitadas.length || hub.herramientas_habilitadas.includes("whatsapp");
   // El mensaje nombra el tema de donde sale el clic, así la conversación empieza
   // sabiendo qué se vino a consultar sin que el visitante tenga que explicarlo.
-  const waUrl = buildWaLink(doc.titulo, hub);
+  const waUrl = buildWaLink(hub);
   const schema = esquemaTemaHub({ hub, doc, slug, imagen: seoDelTema(doc).image, profile });
   const actualizado = fechaLarga(doc.actualizado || doc.fecha);
 

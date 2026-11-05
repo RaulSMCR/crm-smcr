@@ -338,24 +338,18 @@ export function formatHubPrice(rango) {
 }
 
 /**
- * El enlace de WhatsApp del hub, con el mensaje ya escrito.
+ * El enlace de WhatsApp del hub. Abre el chat VACÍO, a propósito.
  *
- * El texto es ESTÁTICO a propósito. Estas páginas se sirven con
- * `revalidate = 3600`: cualquier dato por visita —un código de referencia, el
- * gclid, la hora— quedaría sellado en el HTML cacheado y le llegaría idéntico a
- * todo el que entre durante esa hora. Lo único que varía es el nombre del tema,
- * que es un dato de la página y no del visitante.
+ * Antes llevaba un mensaje armado («quisiera agendar…», «vengo de la página
+ * de…»): le ponía palabras en la boca a quien escribe y tapaba la consulta
+ * espontánea, que es lo que importa leer. De qué página sale el clic lo
+ * registra el evento `whatsapp_click_hub_raul` (tema y ubicación), que es el
+ * que usa Google Ads; no hace falta que viaje en el chat.
  *
- * Ya no lleva precio ni duración. El precio cambia por tramos y el mensaje
- * quedaba anunciando el del tramo anterior por el mismo cacheo; la medición de
- * la campaña tampoco lo necesita.
- *
- * @param {string} [tema]   nombre del tema de donde sale el clic; vacío = portada
  * @param {object} [source] el hub, de donde sale el número
  */
-export function buildWaLink(tema = "", source = hubData) {
-  const text = `Hola, quisiera hacer una consulta sobre el servicio. Vengo de la página de ${tema || "Raúl Olmedo"}.`;
-  return `https://wa.me/${source.whatsapp}?text=${encodeURIComponent(text)}`;
+export function buildWaLink(source = hubData) {
+  return `https://wa.me/${source.whatsapp}`;
 }
 
 export function getCrisisData() {

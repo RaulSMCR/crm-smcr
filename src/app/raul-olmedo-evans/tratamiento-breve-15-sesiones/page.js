@@ -47,7 +47,7 @@ export default async function TratamientoBrevePage() {
   const precio = formatHubPrice(agenda.rango);
   const agendaEnabled = !hub.herramientas_habilitadas.length || hub.herramientas_habilitadas.includes("agenda");
   const whatsappEnabled = !hub.herramientas_habilitadas.length || hub.herramientas_habilitadas.includes("whatsapp");
-  const waUrl = buildWaLink(doc.titulo, hub);
+  const waUrl = buildWaLink(hub);
   const url = siteUrl("raul-olmedo-evans/tratamiento-breve-15-sesiones");
   const schema = grafo(
     {
