@@ -54,6 +54,7 @@ export default async function AttributionDashboard({ searchParams }) {
   const from = new Date(Date.now() - dias * 24 * 60 * 60 * 1000);
 
   let leads = [], appts = [], spends = [];
+  let dataUnavailable = false;
   try {
     leads = await prisma.lead.findMany({
       where: { createdAt: { gte: from, lte: to } },
@@ -69,7 +70,11 @@ export default async function AttributionDashboard({ searchParams }) {
       : [];
     spends = await prisma.channelSpend.findMany({ orderBy: [{ month: "desc" }, { source: "asc" }] });
   } catch {
-    // Si la DB no responde, la vista se renderiza vacía en vez de romper.
+    // No presentar resultados parciales ni un fallo de consulta como ausencia de leads.
+    dataUnavailable = true;
+    leads = [];
+    appts = [];
+    spends = [];
   }
 
   // Índice cita-por-usuario (ya ordenadas asc)
@@ -119,8 +124,8 @@ export default async function AttributionDashboard({ searchParams }) {
               <h1 className="mt-1 text-2xl font-bold text-neutral-950">Atribución de marketing</h1>
               <p className="mt-1 text-sm text-neutral-600">
                 Embudo por fuente de campaña (utm_source): de <strong>lead</strong> a{" "}
-                <strong>agendar</strong> y <strong>pagar la primera cita</strong>. Se deriva de eventos reales
-                (lead → usuario vinculado → cita → pago); no depende de estados manuales. Lo recurrente no se
+                <strong>agendar</strong> y al <strong>estado de pago de la primera cita posterior al lead</strong>.
+                Se deriva del lead, usuario vinculado y estado de la cita. Lo recurrente no se
                 mide acá (es desempeño del profesional).
               </p>
             </div>
@@ -147,6 +152,29 @@ export default async function AttributionDashboard({ searchParams }) {
           </div>
         </section>
 
+        {dataUnavailable ? (
+          <section role="alert" className="rounded-lg border border-accent-300 bg-accent-100 p-5 text-sm text-accent-950">
+            No se pudieron cargar los datos de atribución. Los resultados no están disponibles;
+            esto no significa que no haya leads, citas o gasto. Volvé a intentar más tarde.
+          </section>
+        ) : null}
+
+        {!dataUnavailable ? <>
+        <section className="rounded-lg border border-neutral-200 bg-white p-5 text-sm text-neutral-700">
+          <h2 className="font-bold text-neutral-950">Alcance de esta medición</h2>
+          <p className="mt-2">
+            Se cuentan leads, no pacientes únicos: varios contactos de una persona pueden contar varias veces.
+            La primera cita es la creada después del lead; no necesariamente la primera de su historia.
+            «Estado distinto de impago» incluye pagos parciales y estados reembolsados; no acredita un pago
+            completo ni un ingreso neto.
+          </p>
+          <p className="mt-2">
+            El gasto incluye los meses completos que toca el rango seleccionado. El cociente mostrado
+            divide ese gasto por los leads con estado distinto de impago; es orientativo y no equivale
+            al CAC de nuevos pacientes pagadores del período. Un gasto incompleto limita también el total.
+          </p>
+        </section>
+
         {/* Tabla principal por fuente */}
         <section className="rounded-lg border border-neutral-200 bg-neutral-50 p-5 shadow-card">
           <h2 className="text-lg font-bold text-neutral-950">Por fuente (utm_source)</h2>
@@ -161,10 +189,10 @@ export default async function AttributionDashboard({ searchParams }) {
                   <th className="py-2 pr-4">Fuente</th>
                   <th className="py-2 pr-4">Leads</th>
                   <th className="py-2 pr-4">Agendó 1ª cita</th>
-                  <th className="py-2 pr-4">Pagó 1ª cita</th>
+                  <th className="py-2 pr-4">Estado distinto de impago</th>
                   <th className="py-2 pr-4">Mediana a agendar</th>
                   <th className="py-2 pr-4">Gasto</th>
-                  <th className="py-2 pr-4">CAC</th>
+                  <th className="py-2 pr-4">Costo orientativo por lead con pago</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-200">
@@ -210,8 +238,9 @@ export default async function AttributionDashboard({ searchParams }) {
             </table>
           </div>
           <p className="mt-3 text-xs text-neutral-400">
-            Agendó/Pagó = el usuario vinculado al lead (mismo email registrado) creó/pagó su 1ª cita.
-            CAC = gasto del canal en el período / pacientes que pagaron. NUEVO→AGENDO y AGENDO→PAGO son las dos tasas mostradas.
+            Agendó = el usuario vinculado al lead creó una cita posterior al contacto.
+            El estado de pago se consulta al abrir el informe, sin una ventana fija de conversión.
+            Las tasas se calculan sobre leads y citas vinculadas, no sobre pacientes únicos.
           </p>
         </section>
 
@@ -229,7 +258,7 @@ export default async function AttributionDashboard({ searchParams }) {
                     <th className="py-2 pr-4">Campaña</th>
                     <th className="py-2 pr-4">Leads</th>
                     <th className="py-2 pr-4">Agendó</th>
-                    <th className="py-2 pr-4">Pagó</th>
+                    <th className="py-2 pr-4">Estado distinto de impago</th>
                     <th className="py-2 pr-4">Mediana a agendar</th>
                   </tr>
                 </thead>
@@ -251,9 +280,9 @@ export default async function AttributionDashboard({ searchParams }) {
 
         {/* Gasto por canal (para CAC) */}
         <section className="rounded-lg border border-neutral-200 bg-neutral-50 p-5 shadow-card">
-          <h2 className="text-lg font-bold text-neutral-950">Gasto por canal (para el CAC)</h2>
+          <h2 className="text-lg font-bold text-neutral-950">Gasto mensual manual por canal</h2>
           <p className="mt-1 text-xs text-neutral-500">
-            Cargá el gasto publicitario mensual de cada fuente. El CAC de arriba usa el gasto de los meses que toca el rango.
+            Cargá el gasto publicitario mensual de cada fuente. El costo orientativo de arriba usa los meses completos que toca el rango.
           </p>
 
           <form action={upsertChannelSpend} className="mt-4 flex flex-wrap items-end gap-3">
@@ -302,9 +331,10 @@ export default async function AttributionDashboard({ searchParams }) {
               </table>
             </div>
           ) : (
-            <p className="mt-4 text-xs text-neutral-400">Todavía no cargaste gasto. El CAC queda en «—» hasta que ingreses montos.</p>
+            <p className="mt-4 text-xs text-neutral-400">Todavía no cargaste gasto. El costo orientativo queda en «—» hasta que ingreses montos.</p>
           )}
         </section>
+        </> : null}
       </div>
     </div>
   );
