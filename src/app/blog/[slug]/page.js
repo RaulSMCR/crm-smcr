@@ -5,6 +5,8 @@ import { resolveRedirect, TIPOS } from '@/lib/slug-redirect';
 import { resolveSeo, buildMetadata } from "@/lib/seo";
 import BlogArticleView from "@/components/blog/BlogArticleView";
 import ArticleTaxonomy from "@/components/blog/ArticleTaxonomy";
+import ParaEntender from "@/components/ParaEntender";
+import { enlacesDeLectura } from "@/lib/enlaces-de-lectura";
 import { TARIFA_VIGENTE } from "@/lib/service-pricing";
 
 export const revalidate = 3600;
@@ -106,6 +108,8 @@ export default async function BlogPostPage({ params }) {
     notFound();
   }
 
+  const lecturas = await enlacesDeLectura({ excluirPostSlug: post.slug }).catch(() => []);
+
   return (
     <>
       <BlogArticleView post={post} slug={slug} />
@@ -121,6 +125,7 @@ export default async function BlogPostPage({ params }) {
           createdAt: post.createdAt,
         }}
       />
+      <ParaEntender enlaces={lecturas} variante="articulo" />
     </>
   );
 }

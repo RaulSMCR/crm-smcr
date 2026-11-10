@@ -6,6 +6,7 @@ import { resend } from "@/lib/resend";
 import { getSession } from "@/lib/auth";
 import { SITE_URL as BASE_URL } from "@/lib/site-url";
 import { slugify, slugUnico } from "@/lib/slug";
+import { registrarCambioDeSlug, TIPOS } from "@/lib/slug-redirect";
 
 
 function clampInt(value, min, max, fallback) {
@@ -179,38 +180,47 @@ export async function updateAdminPost(postInput) {
       return { error: "Ya existe otro artículo con ese slug." };
     }
 
-    const post = await prisma.post.update({
-      where: { id },
-      data: {
-        // Marca la edición real del contenido. `updatedAt` no puede usarse para
-        // esto: el contador de vistas lo mueve en cada visita.
-        contentUpdatedAt: new Date(),
-        title,
-        slug,
-        content,
-        excerpt,
-        coverImage,
-        coverImageTitle,
-        coverImageAlt,
-        coverImageAuthor,
-        coverImageNote,
-        coverImageFocusX,
-        coverImageFocusY,
-        coverImageScale,
-        metaTitle,
-        metaDescription,
-        ogImage,
-        focusKeyword,
-        noindex,
-        extractiveBlock,
-      },
-      select: { slug: true },
+    const anterior = await prisma.post.findUnique({ where: { id }, select: { slug: true } });
+    if (!anterior) return { error: "Artículo no encontrado." };
+
+    // El slug sale del título: editarlo cambia la URL. La vieja redirige a la
+    // nueva en la misma transacción, o no se guarda nada.
+    const post = await prisma.$transaction(async (tx) => {
+      if (anterior.slug !== slug) await registrarCambioDeSlug(TIPOS.POST, anterior.slug, slug, tx);
+      return tx.post.update({
+        where: { id },
+        data: {
+          // Marca la edición real del contenido. `updatedAt` no puede usarse para
+          // esto: el contador de vistas lo mueve en cada visita.
+          contentUpdatedAt: new Date(),
+          title,
+          slug,
+          content,
+          excerpt,
+          coverImage,
+          coverImageTitle,
+          coverImageAlt,
+          coverImageAuthor,
+          coverImageNote,
+          coverImageFocusX,
+          coverImageFocusY,
+          coverImageScale,
+          metaTitle,
+          metaDescription,
+          ogImage,
+          focusKeyword,
+          noindex,
+          extractiveBlock,
+        },
+        select: { slug: true },
+      });
     });
 
     revalidatePath("/panel/admin/blog");
     revalidatePath(`/panel/admin/blog/${id}`);
     revalidatePath("/blog");
     revalidatePath(`/blog/${post.slug}`);
+    if (anterior.slug !== post.slug) revalidatePath(`/blog/${anterior.slug}`);
     revalidatePath("/"); // la home lista los artículos publicados
 
     return { success: true };

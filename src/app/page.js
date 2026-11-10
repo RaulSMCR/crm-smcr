@@ -6,6 +6,8 @@ import MissionVideo from "@/components/MissionVideo";
 import HomeFeatureCarousel from "@/components/HomeFeatureCarousel";
 import ProfessionalCtaSection from "@/components/ProfessionalCtaSection";
 import JsonLd from "@/components/JsonLd";
+import ParaEntender from "@/components/ParaEntender";
+import { enlacesDeLectura } from "@/lib/enlaces-de-lectura";
 import { buildMetadata } from "@/lib/seo";
 import { fallarSiEsBuild, enPrerender } from "@/lib/prisma-safe";
 
@@ -108,6 +110,7 @@ export default async function HomePage() {
   // artículos o personas que quizá no existan sería peor que no mostrarlos.
   let latestPosts = [];
   let teamMembers = [];
+  let lecturas = [];
 
   try {
     // Dos grupos con presupuestos separados, y no uno solo, porque no todo pesa
@@ -280,6 +283,8 @@ export default async function HomePage() {
       createdAt: post.createdAt ? post.createdAt.toISOString() : null,
     }));
 
+    lecturas = await enlacesDeLectura();
+
     teamMembers = (dbProfessionals || []).map((professional) => ({
       id: professional.id,
       slug: professional.slug || "",
@@ -321,6 +326,9 @@ export default async function HomePage() {
       <MissionVideo />
       <HomeFeatureCarousel items={carouselItems} />
       <HomeServicesAndBlog categories={categoriesToShow} posts={latestPosts} />
+      {/* S17: sin un enlace desde acá, Google veía /ansiedad, el hub y la guía
+          de psicoterapia como poco prioritarias y no las indexaba. */}
+      <ParaEntender enlaces={lecturas} />
       <HomeTeamBand professionals={teamMembers} />
       <ProfessionalCtaSection />
     </div>

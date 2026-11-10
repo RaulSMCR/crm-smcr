@@ -1,5 +1,6 @@
 import Link from "next/link";
 import LogoTile from "@/components/brand/LogoTile";
+import { TEMA_DEL_MENU } from "@/lib/tema-del-menu";
 import { PHONE_URL, WHATSAPP_DISPLAY, WHATSAPP_URL } from "@/lib/contact-info";
 
 export default function Footer() {
@@ -45,6 +46,7 @@ export default function Footer() {
             <li><Link href="/" className="text-neutral-100 hover:text-accent-100">Inicio</Link></li>
             <li><Link href="/servicios" className="text-neutral-100 hover:text-accent-100">Servicios</Link></li>
             <li><Link href="/blog" className="text-neutral-100 hover:text-accent-100">Blog</Link></li>
+            <li><Link href={TEMA_DEL_MENU.href} className="text-neutral-100 hover:text-accent-100">Temas</Link></li>
             <li><Link href="/profesionales" className="text-neutral-100 hover:text-accent-100">Profesionales</Link></li>
             <li><Link href="/faq" className="text-neutral-100 hover:text-accent-100">FAQs</Link></li>
           </ul>

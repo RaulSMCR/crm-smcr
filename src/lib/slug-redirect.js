@@ -107,3 +107,24 @@ export async function registrarRedirect(entityType, fromSlug, toSlug, cliente = 
     create: { entityType, fromSlug: desde, toSlug: hacia },
   });
 }
+
+/**
+ * Lo que hay que hacer cuando una entidad publicada cambia de slug, dentro de
+ * la misma transacción que lo cambia:
+ *
+ *   1. la URL vieja pasa a redirigir a la nueva;
+ *   2. si la nueva había sido el origen de un redirect (volver a un nombre
+ *      anterior), ese redirect se borra: la URL vuelve a estar viva y dejarlo
+ *      armaría un ciclo que `resolveRedirect` resuelve en 404.
+ *
+ * Antes de esto `updateAdminPost` cambiaba el slug al editar el título y la URL
+ * vieja quedaba en 404 duro: así se perdieron las cuatro entregas de la serie
+ * de genealogía que Search Console reportó el 2026-11-10.
+ */
+export async function registrarCambioDeSlug(entityType, anterior, nuevo, cliente = prisma) {
+  const desde = normalizar(anterior);
+  const hacia = normalizar(nuevo);
+  if (!desde || !hacia || desde === hacia) return null;
+  await cliente.slugRedirect.deleteMany({ where: { entityType, fromSlug: hacia } });
+  return registrarRedirect(entityType, desde, hacia, cliente);
+}

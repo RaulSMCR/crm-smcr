@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { slugify, slugUnico } from "@/lib/slug";
+import { registrarCambioDeSlug, TIPOS } from "@/lib/slug-redirect";
 
 
 /**
@@ -78,24 +79,28 @@ export async function PATCH(request, { params }) {
       metadata.extractiveBlock = String(body.extractiveBlock || "").trim() || null;
     }
 
-    const updated = await prisma.post.update({
-      where: { id },
-      data: {
-        // Ver la nota en admin-actions: `updatedAt` está contaminado por el
-        // contador de vistas.
-        contentUpdatedAt: new Date(),
-        title,
-        content,
-        slug: nextSlug,
-        coverImage,
-        coverImageTitle,
-        coverImageAlt,
-        coverImageAuthor,
-        coverImageNote,
-        status: "DRAFT",
-        ...metadata,
-      },
-      select: { id: true, title: true, status: true, updatedAt: true },
+    // Ver registrarCambioDeSlug: la URL vieja redirige a la nueva.
+    const updated = await prisma.$transaction(async (tx) => {
+      if (existing.slug !== nextSlug) await registrarCambioDeSlug(TIPOS.POST, existing.slug, nextSlug, tx);
+      return tx.post.update({
+        where: { id },
+        data: {
+          // Ver la nota en admin-actions: `updatedAt` está contaminado por el
+          // contador de vistas.
+          contentUpdatedAt: new Date(),
+          title,
+          content,
+          slug: nextSlug,
+          coverImage,
+          coverImageTitle,
+          coverImageAlt,
+          coverImageAuthor,
+          coverImageNote,
+          status: "DRAFT",
+          ...metadata,
+        },
+        select: { id: true, title: true, status: true, updatedAt: true },
+      });
     });
 
     revalidatePublicPost(existing.slug);

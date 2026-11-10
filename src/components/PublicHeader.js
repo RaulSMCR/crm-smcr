@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { TEMA_DEL_MENU } from "@/lib/tema-del-menu";
 import LogoTile from "@/components/brand/LogoTile";
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
@@ -82,6 +83,7 @@ export default function PublicHeader() {
             <Link href="/servicios" className="transition-colors hover:text-brand-700">Servicios</Link>
             <Link href="/profesionales" className="transition-colors hover:text-brand-700">Profesionales</Link>
             <Link href="/blog" className="transition-colors hover:text-brand-700">Blog</Link>
+            <Link href={TEMA_DEL_MENU.href} className="transition-colors hover:text-brand-700">Temas</Link>
             <Link href="/faq" className="transition-colors hover:text-brand-700">FAQs</Link>
           </nav>
         ) : null}
