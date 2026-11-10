@@ -4,6 +4,29 @@ import { detalleLineaFactura } from "@/lib/detalle-consulta";
 import { siguienteNumeroDeFactura } from "@/lib/invoice-sequence";
 
 /**
+ * El saldo de una sesión cuya otra mitad entró como multa (caso del 9-nov-2026:
+ * la paciente pagó el enlace de la multa por un fallo y asistió igual). Esa
+ * factura no se rectifica por decisión de Raúl; esta la nombra, para que las
+ * dos juntas digan qué se cobró. Con la reagenda tardía sin multa no debería
+ * repetirse, pero si pasa, sale igual de clara.
+ */
+async function conReferenciaALaOtraMitad(tx, transaction, description) {
+  if (transaction.type !== "BALANCE_50" && transaction.type !== "FULL_100") return description;
+  if (typeof tx.paymentTransaction?.findFirst !== "function") return description;
+  const multa = await tx.paymentTransaction.findFirst({
+    where: { appointmentId: transaction.appointmentId, type: "PENALTY_50", status: "APPROVED" },
+    select: { id: true },
+  });
+  if (!multa) return description;
+  const factura = await tx.invoice.findFirst({
+    where: { originDocument: `ONVO_TX:${multa.id}`, invoiceType: "CUSTOMER_INVOICE" },
+    select: { invoiceNumber: true },
+  });
+  if (!factura?.invoiceNumber) return description;
+  return `${description}. La otra mitad se pagó aparte y consta en la factura ${factura.invoiceNumber}.`;
+}
+
+/**
  * Se invoca dentro de la misma transacción que acredita el pago y la cita.
  *
  * `origen` describe de dónde salió la plata, y por defecto describe un cobro de
@@ -28,11 +51,13 @@ export async function createPaymentInvoice(tx, transaction, origen = {}) {
   const fiscalWarning = !service?.cabysCode || !service?.taxId;
   const now = origen.invoiceDate ? new Date(origen.invoiceDate) : new Date();
   const receptor = datosFacturacionDe(transaction.patient);
-  const { productName, description } = detalleLineaFactura({
+  const detalle = detalleLineaFactura({
     fecha: transaction.appointment?.date,
     profesional: transaction.professional,
     paymentType: transaction.type,
   });
+  const { productName } = detalle;
+  const description = await conReferenciaALaOtraMitad(tx, transaction, detalle.description);
 
   // El consecutivo también revierte si falla la acreditación.
   // La serie la decide el receptor: el extranjero no domiciliado va por la del
