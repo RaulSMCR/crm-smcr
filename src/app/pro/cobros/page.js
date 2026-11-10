@@ -33,6 +33,7 @@ export default async function ProCobrosPage() {
       select: {
         id: true,
         date: true,
+        status: true,
         pricePaid: true,
         paymentStatus: true,
         isFirstWithProfessional: true,
@@ -52,10 +53,13 @@ export default async function ProCobrosPage() {
 
   const porCobrar = citas.map((cita) => {
     const enlace = cita.paymentTransactions.find((t) => t.status === "LINK_SENT");
+    const monto = montoPendiente(cita, cita.paymentTransactions);
+    const tipo = tipoDeCobroPendiente(cita);
     return {
       cita,
-      tipo: tipoDeCobroPendiente(cita),
-      monto: montoPendiente(cita, cita.paymentTransactions),
+      // Lo que queda de una sesión pagada en parte es un saldo (ver payment-requests).
+      tipo: tipo === "FULL_100" && monto < Number(cita.pricePaid || 0) ? "BALANCE_50" : tipo,
+      monto,
       enlaceEnviado: enlace ? enlace.createdAt : null,
       palig: esPalig(cita.patient?.insuranceName),
     };

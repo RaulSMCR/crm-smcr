@@ -114,8 +114,9 @@ async function conProfesional(appointment) {
   }
 }
 
-async function emailPaymentRequest({ appointment, paymentUrl, amount, paymentType }) {
+async function emailPaymentRequest({ appointment, paymentUrl, amount, paymentType, nota }) {
   await sendPaymentRequestEmail({
+    nota,
     patientName: appointment.patient?.name,
     patientEmail: appointment.patient?.email,
     processUrl: paymentUrl,
@@ -127,11 +128,11 @@ async function emailPaymentRequest({ appointment, paymentUrl, amount, paymentTyp
   });
 }
 
-async function deliverPaymentRequest(appointment, transaction, paymentUrl, reused) {
+async function deliverPaymentRequest(appointment, transaction, paymentUrl, reused, nota = null) {
   const result = { reused, paymentUrl, amount: Number(transaction.amount), type: transaction.type };
   try {
     await emailPaymentRequest({
-      appointment, paymentUrl, amount: result.amount, paymentType: result.type,
+      appointment, paymentUrl, amount: result.amount, paymentType: result.type, nota,
     });
     // El webhook puede acreditar el pago mientras se envía el correo.
     await prisma.paymentTransaction.updateMany({
@@ -148,7 +149,11 @@ async function deliverPaymentRequest(appointment, transaction, paymentUrl, reuse
   }
 }
 
-export async function createPaymentRequestForAppointment(appointmentEntrante, requestedType) {
+/**
+ * @param {{ nota?: string|null }} [opciones] `nota`: mensaje del profesional o
+ *   del administrador que va en el correo, sobre el botón de pago.
+ */
+export async function createPaymentRequestForAppointment(appointmentEntrante, requestedType, { nota = null } = {}) {
   if (!appointmentEntrante?.id) {
     return { success: false, error: "Cita invalida.", code: "INVALID_APPOINTMENT" };
   }
@@ -161,7 +166,7 @@ export async function createPaymentRequestForAppointment(appointmentEntrante, re
   // distinto.
   const origen = await prisma.appointment.findUnique({
     where: { id: String(appointmentEntrante.id) },
-    select: { acuerdo: { select: { cobroFueraDeOnvo: true } } },
+    select: { status: true, acuerdo: { select: { cobroFueraDeOnvo: true } } },
   });
   if (origen?.acuerdo?.cobroFueraDeOnvo) {
     return {
@@ -197,11 +202,34 @@ export async function createPaymentRequestForAppointment(appointmentEntrante, re
     }
 
     const reusedUrl = buildPaymentLinkUrl(active.onvoPaymentLinkId);
-    return deliverPaymentRequest(appointment, active, reusedUrl, true);
+    return deliverPaymentRequest(appointment, active, reusedUrl, true, nota);
   }
 
   const totalAmount = await resolvePriceForAppointment(appointment);
-  const amount = amountForPaymentType(requestedType, totalAmount);
+  let amount = amountForPaymentType(requestedType, totalAmount);
+  let tipo = requestedType;
+
+  // El cobro de la sesión nunca pide más de lo que falta. Si la sesión se dio,
+  // lo pagado como multa sobre esta cita cuenta como pago de la sesión: antes se
+  // pedía el precio entero aunque el paciente ya hubiera pagado la mitad.
+  if (requestedType === "FULL_100" || requestedType === "BALANCE_50") {
+    const aprobados = await prisma.paymentTransaction.findMany({
+      where: { appointmentId: appointment.id, status: "APPROVED" },
+      select: { type: true, amount: true, status: true },
+    });
+    const atendida = origen?.status === "COMPLETED";
+    const pagado = aprobados
+      .filter((t) => t.type !== "PENALTY_50" || atendida)
+      .reduce((suma, t) => suma + Number(t.amount || 0), 0);
+    const restante = Math.round((totalAmount - pagado) * 100) / 100;
+    if (totalAmount > 0 && restante <= 0) {
+      return { success: false, error: "La cita ya está pagada.", code: "NADA_POR_COBRAR" };
+    }
+    // Lo que queda de una sesión ya pagada en parte es un saldo, y así tiene que
+    // decirlo el enlace y la factura: «pago 100%» por la mitad del precio mentiría.
+    if (requestedType === "FULL_100" && restante < amount) tipo = "BALANCE_50";
+    amount = Math.min(amount, restante);
+  }
 
   if (!amount || amount <= 0) {
     return {
@@ -217,7 +245,7 @@ export async function createPaymentRequestForAppointment(appointmentEntrante, re
   try {
     link = await createPaymentLink({
       amount,
-      description: rotuloCobroOnvo(appointment, requestedType),
+      description: rotuloCobroOnvo(appointment, tipo),
       currency: "CRC",
     });
   } catch (error) {
@@ -242,7 +270,7 @@ export async function createPaymentRequestForAppointment(appointmentEntrante, re
       appointmentId: appointment.id,
       professionalId: appointment.professionalId,
       patientId: appointment.patientId,
-      type: requestedType,
+      type: tipo,
       amount,
       currency: "CRC",
       onvoPaymentLinkId: link.id,
@@ -250,7 +278,7 @@ export async function createPaymentRequestForAppointment(appointmentEntrante, re
     },
   });
 
-  return deliverPaymentRequest(appointment, transaction, paymentUrl, false);
+  return deliverPaymentRequest(appointment, transaction, paymentUrl, false, nota);
 }
 
 export function paymentRequestMessage(result) {

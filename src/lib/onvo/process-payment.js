@@ -83,8 +83,10 @@ async function applyPayment(tx, transaction, event, payload, usdCrcRate, manual 
 
   // Un adelanto tardío no puede degradar un saldo ya pagado. Tampoco borra
   // un estado de reembolso de la cita; ese caso necesita revisión operativa.
+  // La multa no es pago de la sesión (ver pagadoDeCita): si la marcara PAID, una
+  // cita que después se atiende quedaría saldada con la mitad del precio.
   const previous = transaction.appointment.paymentStatus;
-  const nextPaymentStatus = ["PAID", "REFUNDED"].includes(previous)
+  const nextPaymentStatus = ["PAID", "REFUNDED"].includes(previous) || transaction.type === "PENALTY_50"
     ? previous : transaction.type === "DEPOSIT_50" ? "PARTIALLY_PAID" : "PAID";
   await tx.appointment.update({ where: { id: transaction.appointmentId }, data: { paymentStatus: nextPaymentStatus } });
   processed.appointment = { ...transaction.appointment, paymentStatus: nextPaymentStatus };

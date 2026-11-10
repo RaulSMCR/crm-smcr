@@ -4,7 +4,7 @@
 import { prisma } from "@/lib/prisma";
 import { getOAuth2Client } from "@/lib/google-oauth";
 import { getCalendarClient } from "@/lib/google";
-import { syncGoogleCalendarEvent } from "@/lib/appointments";
+import { sincronizarCitasConGoogle } from "@/lib/appointments";
 import { revalidatePath } from "next/cache";
 import { requireProfessionalProfileId } from "@/lib/auth-guards";
 
@@ -56,7 +56,8 @@ async function publicarCitasSinEvento(professionalId) {
       service: { select: { id: true, title: true, price: true, durationMin: true } },
     },
   });
-  await Promise.allSettled(citas.map((cita) => syncGoogleCalendarEvent(cita)));
+  // Las que nacieron juntas como serie recurrente vuelven a Google como serie.
+  await sincronizarCitasConGoogle(citas);
 }
 
 /** ¿Este profesional ya tiene guardado un refresh_token utilizable? */

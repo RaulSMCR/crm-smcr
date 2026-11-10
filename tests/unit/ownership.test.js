@@ -19,7 +19,7 @@ const {
 } = vi.hoisted(() => ({
   prisma: {
     appointment: { findUnique: vi.fn(), update: vi.fn() },
-    paymentTransaction: { findFirst: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
+    paymentTransaction: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
     serviceAssignment: { findUnique: vi.fn() },
     // El rótulo del cobro nombra al profesional con su título, así que el cobro
     // completa la cita desde la base antes de crear el enlace.
@@ -84,6 +84,7 @@ beforeEach(() => {
   prisma.paymentTransaction.create.mockImplementation(async ({ data }) => ({ id: "tx1", ...data }));
   prisma.paymentTransaction.updateMany.mockResolvedValue({ count: 1 });
   prisma.paymentTransaction.findFirst.mockResolvedValue(null);
+  prisma.paymentTransaction.findMany.mockResolvedValue([]);
   prisma.professionalProfile.findUnique.mockResolvedValue({
     academicDegree: "licenciada",
     user: { name: "Ana Solano" },

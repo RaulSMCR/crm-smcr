@@ -10,9 +10,7 @@ import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { sendScheduleMeta } from "@/lib/analytics/meta-events";
-import { sendAppointmentNotifications, syncGoogleCalendarEvent } from "@/lib/appointments";
-import { scheduleReminder } from "@/lib/qstash";
-import { recordatoriosDeCita } from "@/lib/recordatorios";
+import { notificarCitas as notifyAppointments } from "@/lib/notificar-citas";
 import {
   buildRecurringStarts,
   normalizeRecurrenceCount,
@@ -66,18 +64,6 @@ async function hydrateAppointments(appointmentIds) {
     },
     orderBy: { date: "asc" },
   });
-}
-
-async function notifyAppointments(appointments, reason, { titulo = null } = {}) {
-  await Promise.allSettled(
-    appointments.flatMap((appointment) => {
-      return [
-        syncGoogleCalendarEvent(appointment),
-        sendAppointmentNotifications(appointment, reason, null, { titulo }),
-        ...recordatoriosDeCita(appointment).map(scheduleReminder),
-      ];
-    })
-  );
 }
 
 /** Días que se ofrecen por tanda. Tres semanas alcanzan para ver varias consultas de quien atiende una vez por semana. */

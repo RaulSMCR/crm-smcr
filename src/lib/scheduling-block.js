@@ -13,7 +13,7 @@
 import { prisma } from "@/lib/prisma";
 import { numeroWhatsApp } from "@/lib/whatsapp";
 import { createPaymentRequestForAppointment } from "@/lib/payment-requests";
-import { ETIQUETAS_BLOQUEO, montoMulta, saldoDeMulta } from "@/lib/rescheduling-policy";
+import { ETIQUETAS_BLOQUEO, MOTIVOS_BLOQUEO, montoMulta, saldoDeMulta } from "@/lib/rescheduling-policy";
 import { contextoDeRepaso } from "@/lib/acuerdo";
 import { marcarRepasoPendiente } from "@/lib/acuerdo-server";
 
@@ -73,6 +73,39 @@ export async function aplicarMultaYPausa(appointment, motivo) {
   }
 
   return { aplicada: true, multa, cobrada: porCobrar, cobroError };
+}
+
+/**
+ * La sesión se dio: una multa anterior sobre esta misma cita ya no corresponde.
+ *
+ * El horario no se perdió, así que el enlace de multa sin pagar se anula (si se
+ * pagara igual, el webhook no lo encuentra y avisa al administrador). Lo que ya
+ * se pagó como multa se descuenta del cobro de la sesión en
+ * `createPaymentRequestForAppointment`. Y si la pausa de agenda vino de esa
+ * reagenda tardía, se levanta: la conversación que buscaba forzar ya ocurrió
+ * en la sesión.
+ *
+ * Nunca lanza: el cobro de la sesión tiene que salir igual.
+ */
+export async function anularMultaSiAsistio(appointment) {
+  if (!appointment?.penaltyAppliedAt) return { anulada: false };
+  try {
+    const { count } = await prisma.paymentTransaction.updateMany({
+      where: { appointmentId: appointment.id, type: "PENALTY_50", status: { in: ["PENDING", "LINK_SENT"] } },
+      data: { status: "EXPIRED", statusMessage: "Anulada: el paciente asistió a la sesión" },
+    });
+    const paciente = await prisma.user.findUnique({
+      where: { id: String(appointment.patientId) },
+      select: { schedulingBlockedReason: true },
+    });
+    if (paciente?.schedulingBlockedReason === MOTIVOS_BLOQUEO.REAGENDA_TARDIA) {
+      await restituirAgendamiento(appointment.patientId);
+    }
+    return { anulada: count > 0 };
+  } catch (error) {
+    console.error("[multa] No se pudo anular la multa de una cita atendida:", error?.message);
+    return { anulada: false };
+  }
 }
 
 /**

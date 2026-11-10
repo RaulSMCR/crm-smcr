@@ -5,6 +5,7 @@ import { DEFAULT_TZ, formatDateTimeInTZ, toGoogleDateTime } from "@/lib/timezone
 import { SITE_URL } from "@/lib/site-url";
 import { detalleLugarCita } from "@/lib/lugar-cita";
 import { enlaceMeetPorWhatsApp } from "@/lib/whatsapp";
+import { agruparParaGoogle, esInstanciaDeSerie, idDeInstancia, reglaDeSerie, textoDeFrecuencia } from "@/lib/serie-de-citas";
 
 const TZ = process.env.APP_TIMEZONE || DEFAULT_TZ;
 const FROM_EMAIL = process.env.EMAIL_FROM || process.env.NOTIFICATIONS_FROM_EMAIL || "Salud Mental Costa Rica <onboarding@resend.dev>";
@@ -229,6 +230,77 @@ export async function sendAppointmentNotifications(
   }
 }
 
+/**
+ * Un solo correo por destinatario para varias citas a la vez (una serie
+ * recurrente o un lote reagendado). Antes salía uno por cita: doce lunes eran
+ * doce correos a cada uno, y el proveedor dejaba caer la mitad por ráfaga.
+ */
+export async function sendSeriesNotifications(citas, reason, { titulo = null } = {}) {
+  const ordenadas = [...(citas || [])].sort((a, b) => new Date(a.date) - new Date(b.date));
+  const primera = ordenadas[0];
+  if (!primera) return;
+  if (ordenadas.length === 1) return sendAppointmentNotifications(primera, reason, null, { titulo });
+
+  if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY === "re_dummy_key") {
+    console.warn("[Resend] RESEND_API_KEY no configurada, omitiendo envío de emails.");
+    return;
+  }
+
+  const regla = reglaDeSerie(ordenadas);
+  const encabezado = regla
+    ? `Cita recurrente: ${textoDeFrecuencia(regla.intervaloSemanas)}, ${ordenadas.length} sesiones.`
+    : `${ordenadas.length} citas.`;
+  const fechas = ordenadas
+    .map((cita) => `<li>${formatDateTimeInTZ(new Date(cita.date), "es-CR", TZ)}</li>`)
+    .join("");
+  const bloqueSerie = `
+    <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto 16px;">
+      <p style="margin:0 0 6px;font-weight:700;color:#2b7073;">${encabezado}</p>
+      <ol style="margin:0;padding-left:20px;color:#1f2937;">${fechas}</ol>
+    </div>`;
+
+  const tituloPaciente = titulo || "Actualización de cita";
+  const tituloProfesional = titulo || "Actualización de agenda";
+  const deliveries = [];
+
+  if (primera.patient?.email) {
+    // Una serie pendiente se confirma desde el panel: el botón de confirmar de
+    // la cita suelta confirmaría solo la primera.
+    const confirmar = ordenadas.some((c) => c.status === "PENDING")
+      ? `<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto 16px;">
+           ${buildPrimaryButton("Ver y confirmar mis citas", `${APP_DOMAIN}/panel/paciente`)}
+         </div>`
+      : "";
+    deliveries.push(resend.emails.send({
+      from: FROM_EMAIL,
+      to: primera.patient.email,
+      subject: regla ? `${tituloPaciente} (recurrente)` : tituloPaciente,
+      html: buildNotificationHtml({ recipientName: primera.patient?.name, appointment: primera, reason, titulo: tituloPaciente })
+        + bloqueSerie + confirmar
+        + `<p style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;font-size:14px;color:#374151;">
+             Tu recorrido, siempre a mano.
+             <a href="${APP_DOMAIN}/mi" style="color:#2b7073;font-weight:700;text-decoration:none;">Ingresá a tu espacio →</a>
+           </p>`,
+    }));
+  }
+
+  if (primera.professional?.user?.email) {
+    deliveries.push(resend.emails.send({
+      from: FROM_EMAIL,
+      to: primera.professional.user.email,
+      subject: regla ? `${tituloProfesional} (recurrente)` : tituloProfesional,
+      html: buildNotificationHtml({ recipientName: primera.professional.user.name, appointment: primera, reason, titulo: tituloProfesional })
+        + bloqueSerie,
+    }));
+  }
+
+  const results = await Promise.allSettled(deliveries);
+  for (const r of results) {
+    if (r.status === "rejected") console.error("[Resend] Error enviando correo de serie:", r.reason?.message);
+    else if (r.value?.error) console.error("[Resend] Error enviando correo de serie:", r.value.error);
+  }
+}
+
 export async function sendRecurringConflictResolutionEmail({
   appointment,
   conflictLabel,
@@ -297,6 +369,7 @@ export async function sendPaymentRequestEmail({
   proName,
   isFirst,
   paymentType = "FULL_100",
+  nota = null,
 }) {
   if (!patientEmail) throw new Error("PAYMENT_EMAIL_RECIPIENT_MISSING");
   if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY === "re_dummy_key") {
@@ -317,6 +390,14 @@ export async function sendPaymentRequestEmail({
       subject: "Pago pendiente - sesion completada",
       intro: `Su sesion de <strong>${serviceTitle}</strong> con <strong>${proName}</strong> ha sido completada. El monto a pagar es de <strong>${amountFormatted}</strong>.`,
     },
+    // La multa sale antes de la cita (reagenda tardía) o después de una
+    // inasistencia: nunca sobre una sesión completada. Sin copia propia caía en
+    // la de FULL_100 y el paciente recibía dos correos idénticos de «sesión
+    // completada» con montos distintos, y pagaba el que no era.
+    PENALTY_50: {
+      subject: "Cargo por cancelación tardía",
+      intro: `Corresponde el cargo por cancelación tardía de su cita de <strong>${serviceTitle}</strong> con <strong>${proName}</strong>, por <strong>${amountFormatted}</strong>. Este cargo es independiente del pago de la sesión.`,
+    },
   };
   const selectedCopy = copyByType[paymentType] || (isFirst ? copyByType.BALANCE_50 : copyByType.FULL_100);
   const subject = selectedCopy.subject;
@@ -326,6 +407,7 @@ export async function sendPaymentRequestEmail({
     <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;line-height:1.5;color:#1f2937;">
       <h2 style="margin-bottom:6px;">Solicitud de pago</h2>
       <p>Estimado/a ${patientName || ""},</p>
+      ${bloqueNota(nota)}
       <p>${intro}</p>
       <p style="margin:20px 0;">
         ${buildPrimaryButton("Realizar pago ahora", processUrl)}
@@ -348,6 +430,23 @@ export async function sendPaymentRequestEmail({
   } catch {
     throw new Error("PAYMENT_EMAIL_NOT_ACCEPTED");
   }
+}
+
+/** Mensaje escrito a mano para el paciente; se escapa: es texto libre. */
+function bloqueNota(nota) {
+  const texto = String(nota || "").trim().slice(0, 2000);
+  if (!texto) return "";
+  const parrafos = texto
+    .split(/\n{2,}/)
+    .map((p) => `<p style="margin:0 0 10px;">${escapeHtml(p).replace(/\n/g, "<br>")}</p>`)
+    .join("");
+  return `<div style="margin:16px 0;padding:14px 16px;border-radius:8px;background:#f6efdf;color:#1f2937;">${parrafos}</div>`;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 function buildGoogleEvent(appointment) {
@@ -388,7 +487,8 @@ function buildGoogleEvent(appointment) {
     // Una sesión de un acuerdo es una instancia del evento recurrente y hereda
     // su sala: pedirle una propia le daría a esa semana un enlace distinto del
     // que el paciente tiene en la invitación.
-    ...(appointment.acuerdoId
+    // Lo mismo una cita de una serie común (ver serie-de-citas.js).
+    ...(appointment.acuerdoId || esInstanciaDeSerie(appointment.gcalEventId)
       ? {}
       : {
           conferenceData: {
@@ -521,5 +621,72 @@ export async function syncGoogleCalendarEvent(appointment) {
       detail: error?.response?.data,
     });
   }
+}
+
+/**
+ * Publica varias citas como UN evento recurrente: una sola invitación y una
+ * sola sala de Meet. Cada cita queda apuntando a su instancia.
+ *
+ * Si Google falla, las citas quedan sin evento (y sin aviso suelto por cada
+ * una): al reconectar, `sincronizarCitasConGoogle` las vuelve a agrupar.
+ */
+export async function publicarSerieEnGoogle(citas, regla) {
+  const primera = citas[0];
+  const refreshToken = primera?.professional?.googleRefreshToken;
+  if (!refreshToken) return;
+
+  try {
+    const calendar = getCalendarClient(refreshToken);
+    const profile = await prisma.professionalProfile.findUnique({
+      where: { id: String(primera.professionalId) },
+      select: { googleCalendarId: true },
+    });
+    const calendarId = profile?.googleCalendarId || "primary";
+
+    const base = buildGoogleEvent({ ...primera, gcalEventId: null });
+    const { data } = await calendar.events.insert({
+      calendarId,
+      requestBody: {
+        ...base,
+        description: `${base.description}\nSerie: ${textoDeFrecuencia(regla.intervaloSemanas)}, ${regla.total} sesiones`,
+        recurrence: [regla.rrule],
+        conferenceData: {
+          createRequest: { requestId: `smcr-serie-${primera.id}`, conferenceSolutionKey: { type: "hangoutsMeet" } },
+        },
+      },
+      sendUpdates: "all",
+      conferenceDataVersion: 1,
+    });
+    if (!data?.id) return;
+
+    const meetLink = extractMeetLink(data);
+    for (const cita of citas) {
+      await prisma.appointment.update({
+        where: { id: cita.id },
+        data: { gcalEventId: idDeInstancia(data.id, cita.date), meetLink },
+      });
+    }
+  } catch (error) {
+    console.error("Error publicando serie en Google Calendar:", {
+      appointmentIds: citas.map((c) => c.id),
+      message: error?.message,
+      detail: error?.response?.data,
+    });
+  }
+}
+
+/**
+ * Lleva a Google un lote de citas: las que ya tienen evento se actualizan una
+ * por una; las que no, se agrupan en series cuando nacieron juntas.
+ */
+export async function sincronizarCitasConGoogle(citas = []) {
+  const conEvento = citas.filter((c) => c.gcalEventId || CANCELLED_STATUSES.has(c.status));
+  const sinEvento = citas.filter((c) => !c.gcalEventId && !CANCELLED_STATUSES.has(c.status));
+  const { series, sueltas } = agruparParaGoogle(sinEvento);
+  await Promise.allSettled([
+    ...conEvento.map((c) => syncGoogleCalendarEvent(c)),
+    ...sueltas.map((c) => syncGoogleCalendarEvent(c)),
+    ...series.map(({ citas: grupo, regla }) => publicarSerieEnGoogle(grupo, regla)),
+  ]);
 }
 

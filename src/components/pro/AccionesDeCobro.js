@@ -158,13 +158,17 @@ export default function AccionesDeCobro({ cita, puedeRegistrarManual }) {
   const { avisar } = useToast();
   const [reenviando, setReenviando] = useState(false);
   const [registrando, setRegistrando] = useState(false);
+  const [conMensaje, setConMensaje] = useState(false);
+  const [mensaje, setMensaje] = useState("");
 
   async function reenviar() {
     setReenviando(true);
     try {
-      const resultado = await cobrarCita(cita.id);
+      const resultado = await cobrarCita(cita.id, { nota: conMensaje ? mensaje : null });
       if (resultado?.success) {
         avisar(resultado.message || `Enlace de ${formatMoney(cita.monto)} enviado al paciente.`, "success");
+        setConMensaje(false);
+        setMensaje("");
         router.refresh();
       } else {
         avisar(resultado?.error || "No se pudo enviar el enlace.", "error");
@@ -178,9 +182,30 @@ export default function AccionesDeCobro({ cita, puedeRegistrarManual }) {
 
   return (
     <div className="mt-3 flex flex-wrap gap-2">
+      {conMensaje ? (
+        <label className="block w-full text-xs font-medium text-neutral-700">
+          Mensaje para {cita.paciente} (va en el correo, sobre el botón de pago)
+          <textarea
+            value={mensaje}
+            onChange={(e) => setMensaje(e.target.value)}
+            maxLength={2000}
+            rows={5}
+            className="mt-1 w-full rounded-xl border border-neutral-300 p-2 text-sm text-neutral-900"
+          />
+        </label>
+      ) : null}
       <button type="button" onClick={reenviar} disabled={reenviando} className={`${BOTON} bg-brand-600 text-white hover:bg-brand-500`}>
-        {reenviando ? "Enviando…" : "Reenviar enlace ONVO"}
+        {reenviando ? "Enviando…" : conMensaje ? "Enviar enlace con el mensaje" : "Reenviar enlace ONVO"}
       </button>
+      {conMensaje ? null : (
+        <button
+          type="button"
+          onClick={() => setConMensaje(true)}
+          className={`${BOTON} border border-neutral-300 text-neutral-800 hover:bg-neutral-100`}
+        >
+          Agregar mensaje
+        </button>
+      )}
       {puedeRegistrarManual ? (
         <button
           type="button"

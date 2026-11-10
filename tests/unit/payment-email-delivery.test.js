@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const { prisma, send, createPaymentLink } = vi.hoisted(() => ({
   prisma: {
     appointment: { findUnique: vi.fn() },
-    paymentTransaction: { findFirst: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
+    paymentTransaction: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
   },
   send: vi.fn(),
   createPaymentLink: vi.fn(),
@@ -43,6 +43,7 @@ beforeEach(() => {
   createPaymentLink.mockResolvedValue({ id: "live_example", url: paymentUrl });
   prisma.appointment.findUnique.mockResolvedValue({ acuerdo: null });
   prisma.paymentTransaction.findFirst.mockResolvedValue(null);
+  prisma.paymentTransaction.findMany.mockResolvedValue([]);
   prisma.paymentTransaction.create.mockImplementation(async ({ data }) => ({ id: "tx1", ...data }));
   prisma.paymentTransaction.updateMany.mockResolvedValue({ count: 1 });
 });
@@ -60,6 +61,21 @@ describe("correo de cobro: aceptación del proveedor", () => {
       subject: "Pago de adelanto 50% - primera cita",
       html: expect.stringContaining(`href="${paymentUrl}"`),
     }));
+  });
+
+  it("incluye la nota escrita a mano, escapada", async () => {
+    await sendPaymentRequestEmail({ ...email, nota: "Disculpas por el <fallo>.\n\nGracias." });
+    const { html } = send.mock.calls[0][0];
+    expect(html).toContain("Disculpas por el &lt;fallo&gt;.");
+    expect(html).toContain("Gracias.");
+    expect(html).not.toContain("<fallo>");
+  });
+
+  it("la multa no se presenta como sesión completada", async () => {
+    await sendPaymentRequestEmail({ ...email, paymentType: "PENALTY_50", isFirst: false });
+    const { subject, html } = send.mock.calls[0][0];
+    expect(subject).toBe("Cargo por cancelación tardía");
+    expect(html).not.toMatch(/completada/);
   });
 
   it.each([
@@ -152,6 +168,23 @@ describe("adelanto: persistencia y recuperación del correo", () => {
     }
     expect(createPaymentLink).not.toHaveBeenCalled();
     expect(send).not.toHaveBeenCalled();
+  });
+
+  it("si la sesión se dio, lo pagado como multa se descuenta del cobro de la sesión", async () => {
+    // Caso 2026-11-09: pagó la multa (la mitad) y asistió. Se pide solo el resto.
+    prisma.appointment.findUnique.mockResolvedValue({ status: "COMPLETED", acuerdo: null });
+    prisma.paymentTransaction.findMany.mockResolvedValue([{ type: "PENALTY_50", amount: "1000.00", status: "APPROVED" }]);
+    await createPaymentRequestForAppointment({ ...appointment, isFirstWithProfessional: false }, "FULL_100");
+    expect(createPaymentLink).toHaveBeenCalledWith(expect.objectContaining({ amount: 1000 }));
+    // Es un saldo, y así lo nombran el enlace, la transacción y la factura.
+    expect(prisma.paymentTransaction.create).toHaveBeenCalledWith({ data: expect.objectContaining({ type: "BALANCE_50", amount: 1000 }) });
+  });
+
+  it("si la cita no se dio, la multa no cuenta como pago de la sesión", async () => {
+    prisma.appointment.findUnique.mockResolvedValue({ status: "CONFIRMED", acuerdo: null });
+    prisma.paymentTransaction.findMany.mockResolvedValue([{ type: "PENALTY_50", amount: "1000.00", status: "APPROVED" }]);
+    await createPaymentRequestForAppointment({ ...appointment, isFirstWithProfessional: false }, "FULL_100");
+    expect(createPaymentLink).toHaveBeenCalledWith(expect.objectContaining({ amount: 2000 }));
   });
 
   it("una cita de un acuerdo que se cobra por ONVO sí recibe su enlace", async () => {

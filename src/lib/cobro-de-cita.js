@@ -18,10 +18,15 @@ export function tipoDeCobroPendiente(cita) {
   return "FULL_100";
 }
 
-/** Lo ya pagado de la cita: solo cobros aprobados, sin contar multas. */
-export function pagadoDeCita(transacciones = []) {
+/**
+ * Lo ya pagado de la cita: solo cobros aprobados. Las multas no cuentan, salvo
+ * que la sesión se haya dado (`contarMultas`): entonces el horario no se perdió
+ * y lo pagado como multa es pago de la sesión. Es la misma regla que aplica
+ * `createPaymentRequestForAppointment` al armar el enlace.
+ */
+export function pagadoDeCita(transacciones = [], { contarMultas = false } = {}) {
   return transacciones
-    .filter((t) => t.status === "APPROVED" && t.type !== "PENALTY_50")
+    .filter((t) => t.status === "APPROVED" && (contarMultas || t.type !== "PENALTY_50"))
     .reduce((total, t) => total + Number(t.amount || 0), 0);
 }
 
@@ -31,7 +36,7 @@ export function pagadoDeCita(transacciones = []) {
  */
 export function montoPendiente(cita, transacciones = []) {
   const precio = Number(cita.pricePaid || 0);
-  const saldo = Math.max(0, precio - pagadoDeCita(transacciones));
+  const saldo = Math.max(0, precio - pagadoDeCita(transacciones, { contarMultas: cita.status === "COMPLETED" }));
   const tipo = tipoDeCobroPendiente(cita);
   const porConcepto = tipo === "FULL_100" ? precio : Math.round((precio / 2) * 100) / 100;
   return Math.min(porConcepto, saldo);

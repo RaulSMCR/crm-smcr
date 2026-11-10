@@ -14,6 +14,7 @@ import { tipoDeCobroPendiente } from "@/lib/cobro-de-cita";
 import { getSession, isPreviewSession, PREVIEW_BLOCKED_MESSAGE } from "@/lib/auth";
 import { requireProfessionalProfileId } from "@/lib/auth-guards";
 import { alertarCobroNoGenerado } from "@/lib/payment-alerts";
+import { anularMultaSiAsistio } from "@/lib/scheduling-block";
 import { revalidatePath } from "next/cache";
 import {
   createPaymentRequestForAppointment,
@@ -51,7 +52,7 @@ function paymentErrorMessage(paymentRequest) {
  * Envia o reenvia el adelanto de una primera cita reservada, o el cobro de
  * una cita completada. Respeta adelanto/saldo 50% sin cambiar la reserva.
  */
-export async function cobrarCita(appointmentId) {
+export async function cobrarCita(appointmentId, { nota = null } = {}) {
   try {
     const session = await getSession();
     if (!session || (session.role !== "PROFESSIONAL" && session.role !== "ADMIN")) {
@@ -89,8 +90,12 @@ export async function cobrarCita(appointmentId) {
       return { success: false, error: "Esta cita ya esta pagada." };
     }
 
+    if (appointment.status === "COMPLETED") await anularMultaSiAsistio(appointment);
+
     const txType = tipoDeCobroPendiente(appointment);
-    const paymentRequest = await createPaymentRequestForAppointment(appointment, txType);
+    const paymentRequest = await createPaymentRequestForAppointment(appointment, txType, {
+      nota: typeof nota === "string" ? nota.slice(0, 2000) : null,
+    });
 
     if (!paymentRequest.success) {
       return { success: false, error: paymentErrorMessage(paymentRequest) };
@@ -144,6 +149,8 @@ export async function sendPaymentLinkOnCompletion(appointmentId) {
       return null;
     }
 
+    if (appointment.status === "COMPLETED") await anularMultaSiAsistio(appointment);
+
     if (appointment.paymentStatus === "PAID") {
       console.log(`[payment] sendPaymentLinkOnCompletion: cita ${id} ya esta PAID.`);
       return null;
@@ -154,7 +161,7 @@ export async function sendPaymentLinkOnCompletion(appointmentId) {
 
     // Un acuerdo que se cobra fuera de ONVO no lleva enlace a propósito: el pago
     // se registra a mano. No es un cobro que se perdió y no amerita la alerta.
-    if (paymentRequest.code === "COBRO_FUERA_DE_ONVO") return null;
+    if (paymentRequest.code === "COBRO_FUERA_DE_ONVO" || paymentRequest.code === "NADA_POR_COBRAR") return null;
 
     if (!paymentRequest.success) {
       console.error(

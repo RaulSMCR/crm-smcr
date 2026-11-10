@@ -4,8 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/actions/auth-actions";
 import { sendAppointmentNotifications, syncGoogleCalendarEvent } from "@/lib/appointments";
-import { scheduleReminder } from "@/lib/qstash";
-import { recordatoriosDeCita } from "@/lib/recordatorios";
+import { notificarCitas as notifyAppointments } from "@/lib/notificar-citas";
 import {
   buildRecurringStarts,
   datosHeredadosEnLaSerie,
@@ -23,9 +22,9 @@ import {
   formatConflictDate,
 } from "@/lib/booking-conflicts";
 import { createPaymentRequestForAppointment, splitFirstAppointmentAmount } from "@/lib/payment-requests";
-import { alertarCobroNoGenerado, alertarAgendaEnPausa } from "@/lib/payment-alerts";
-import { evaluarReagenda, MOTIVOS_BLOQUEO, PORCENTAJE_MULTA } from "@/lib/rescheduling-policy";
-import { aplicarMultaYPausa, estaBloqueado } from "@/lib/scheduling-block";
+import { alertarCobroNoGenerado } from "@/lib/payment-alerts";
+import { evaluarReagenda } from "@/lib/rescheduling-policy";
+import { estaBloqueado } from "@/lib/scheduling-block";
 import { getBookingOptions, resolveBookingSelection } from "@/lib/booking-rates";
 import {
   anotarRecordatorioSegundaCita,
@@ -56,18 +55,6 @@ async function hydrateAppointments(appointmentIds) {
     },
     orderBy: { date: "asc" },
   });
-}
-
-async function notifyAppointments(appointments, reason, { titulo = null } = {}) {
-  await Promise.allSettled(
-    appointments.flatMap((appointment) => {
-      return [
-        syncGoogleCalendarEvent(appointment),
-        sendAppointmentNotifications(appointment, reason, null, { titulo }),
-        ...recordatoriosDeCita(appointment).map(scheduleReminder),
-      ];
-    })
-  );
 }
 
 export async function createAppointmentForPatient({
@@ -430,16 +417,16 @@ export async function rescheduleAppointmentByPatient(
       return { error: veredicto.mensaje, errorCode: veredicto.motivo };
     }
 
-    const sancion = await aplicarMultaYPausa(appointment, MOTIVOS_BLOQUEO.REAGENDA_TARDIA);
-    await alertarAgendaEnPausa(appointment, MOTIVOS_BLOQUEO.REAGENDA_TARDIA, sancion);
-
+    // Intentar mover la cita no cobra nada: la cita sigue en pie. Antes este
+    // intento aplicaba la multa y pausaba la agenda en el acto, sin aviso
+    // previo; el 2026-11-09 una paciente lo probó dos horas antes, asistió
+    // igual, y terminó pagando el enlace de la multa en lugar del de la sesión.
+    // La multa la deja la inasistencia (NO_SHOW), no la consulta.
     return {
       error:
-        `${veredicto.mensaje} Se aplica el cargo del ${PORCENTAJE_MULTA}% del valor de la cita. ` +
-        "La administración se pone en contacto con vos para coordinar tu próxima cita.",
+        `${veredicto.mensaje} Tu cita sigue en pie. Si no vas a poder asistir, ` +
+        "escribinos y lo coordinamos.",
       errorCode: veredicto.motivo,
-      multa: veredicto.multa,
-      bloqueado: true,
     };
   }
 

@@ -30,6 +30,12 @@ describe("montoPendiente", () => {
     expect(montoPendiente({ pricePaid: "40000.00", isFirstWithProfessional: false, paymentStatus: "UNPAID" })).toBe(40000);
   });
 
+  it("si la sesión se dio, lo pagado como multa cuenta (caso 2026-11-09)", () => {
+    const completada = { pricePaid: 30000, isFirstWithProfessional: false, paymentStatus: "PARTIALLY_PAID", status: "COMPLETED" };
+    expect(montoPendiente(completada, [aprobado("PENALTY_50", 15000)])).toBe(15000);
+    expect(montoPendiente({ ...completada, status: "NO_SHOW" }, [aprobado("PENALTY_50", 15000)])).toBe(30000);
+  });
+
   it("nunca pide más de lo que falta", () => {
     const cita = { pricePaid: 40000, isFirstWithProfessional: false, paymentStatus: "UNPAID" };
     expect(montoPendiente(cita, [aprobado("FULL_100", 30000)])).toBe(10000);

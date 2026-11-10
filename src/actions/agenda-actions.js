@@ -9,8 +9,7 @@ import {
   syncGoogleCalendarEvent,
 } from "@/lib/appointments";
 import { sendPaymentLinkOnCompletion } from "@/actions/payment-actions";
-import { scheduleReminder } from "@/lib/qstash";
-import { recordatoriosDeCita } from "@/lib/recordatorios";
+import { notificarCitas as notifyAppointments } from "@/lib/notificar-citas";
 import { appointmentIntervalMin, buildSlots } from "@/lib/appointment-slots";
 import { listBlocksInWindow, blocksToIntervals } from "@/lib/schedule-blocks";
 import { fetchBusyForProfessional } from "@/lib/google-busy";
@@ -176,18 +175,6 @@ async function hydrateAppointments(appointmentIds) {
     },
     orderBy: { date: "asc" },
   });
-}
-
-async function notifyAppointments(appointments, reason, { titulo = null } = {}) {
-  await Promise.allSettled(
-    appointments.flatMap((appointment) => {
-      return [
-        syncGoogleCalendarEvent(appointment),
-        sendAppointmentNotifications(appointment, reason, null, { titulo }),
-        ...recordatoriosDeCita(appointment).map(scheduleReminder),
-      ];
-    })
-  );
 }
 
 function revalidateAgendaPaths() {
