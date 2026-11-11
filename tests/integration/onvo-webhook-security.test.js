@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   db: {
     paymentTransaction: { findFirst: vi.fn(), findMany: vi.fn(), update: vi.fn() },
-    unmatchedPayment: { findUnique: vi.fn(), create: vi.fn() },
+    unmatchedPayment: { findUnique: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
     appointment: { update: vi.fn() },
     invoice: { create: vi.fn(), update: vi.fn() },
     invoiceSequence: { upsert: vi.fn() },
@@ -90,6 +90,7 @@ beforeEach(() => {
   mocks.db.unmatchedPayment.findUnique.mockResolvedValue(null);
   mocks.db.paymentTransaction.findMany.mockResolvedValue([]);
   mocks.db.unmatchedPayment.create.mockResolvedValue({ id: "unmatched_test" });
+  mocks.db.unmatchedPayment.updateMany.mockResolvedValue({ count: 1 });
   mocks.db.paymentTransaction.update.mockImplementation(async ({ data }) => ({ id: "tx_test", ...data }));
   mocks.db.appointment.update.mockResolvedValue({ id: "apt_test" });
   mocks.db.invoice.create.mockResolvedValue({ id: "invoice_test" });

@@ -1530,6 +1530,14 @@ model UnmatchedPayment {
   payload       Json
   resolvedAt    DateTime?
   resolvedTxId  String?
+  /// Cómo se cerró: CHECKOUT_POSTERIOR (llegó el aviso con enlace y acreditó),
+  /// VERIFICACION_DIFERIDA (la verificación de QStash encontró el cobro ya
+  /// acreditado), CONCILIACION_MANUAL (el admin, desde el panel) o AJUSTE_MANUAL
+  /// (corrección de datos fuera de la app).
+  resolution    String?
+  /// Cuándo se avisó al admin. Es también el candado que impide repetir la
+  /// alerta si QStash reintenta o el aviso llega dos veces.
+  alertedAt     DateTime?
   createdAt     DateTime  @default(now())
 
   @@index([createdAt])

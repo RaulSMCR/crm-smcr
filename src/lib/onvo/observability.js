@@ -2,6 +2,7 @@
 const REFERENCE_FIELDS = [
   "eventId", "onvoLinkId", "transactionId", "appointmentId",
   "invoiceId", "claimId", "status", "reason",
+  "unmatchedId", "result", "motivo",
 ];
 
 export function logOnvoWebhook(level, action, context = {}) {

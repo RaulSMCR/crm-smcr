@@ -4,14 +4,29 @@ import { escapePaymentAlertValue, logOnvoWebhook } from "@/lib/onvo/observabilit
 const FROM_EMAIL = process.env.EMAIL_FROM || "Salud Mental Costa Rica <onboarding@resend.dev>";
 
 /**
+ * Monto legible. `amount` llega ya en colones (o en la unidad mayor de la
+ * moneda): quien llama convierte la unidad menor de ONVO antes de pasarlo.
+ */
+export function formatearMontoAlerta(amount, currency) {
+  const n = Number(amount);
+  if (amount == null || amount === "" || !Number.isFinite(n)) return "—";
+  const moneda = String(currency || "CRC").toUpperCase();
+  const cifra = n.toLocaleString("es-CR", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  return moneda === "CRC" ? `₡${cifra}` : `${cifra} ${moneda}`;
+}
+
+/**
  * Alerta de incidencias autenticadas, con referencias para consultar el panel.
  * No incluye la identidad del pagador y escapa los valores interpolados.
  */
-export async function sendAdminPaymentAlert({ subject, reason, eventId, onvoLinkId, amount, currency, paymentRecorded = false }) {
+export async function sendAdminPaymentAlert({
+  subject, reason, eventId, onvoLinkId, amount, currency, paymentRecorded = false,
+  paymentIntentId = null, checkoutSessionId = null,
+}) {
   const to = process.env.ADMIN_ALERT_EMAIL || process.env.EMAIL_FROM;
   if (!to || !process.env.RESEND_API_KEY) {
     logOnvoWebhook("error", "ADMIN_ALERT_UNAVAILABLE", { eventId });
-    return;
+    return false;
   }
 
   const safe = escapePaymentAlertValue;
@@ -23,7 +38,9 @@ export async function sendAdminPaymentAlert({ subject, reason, eventId, onvoLink
         <tr><td style="padding:6px 8px;color:#64748b;width:180px;">Motivo</td><td style="padding:6px 8px;font-weight:600;">${safe(reason)}</td></tr>
         <tr style="background:#f8fafc;"><td style="padding:6px 8px;color:#64748b;">Evento ONVO</td><td style="padding:6px 8px;">${safe(eventId)}</td></tr>
         <tr><td style="padding:6px 8px;color:#64748b;">Enlace de pago</td><td style="padding:6px 8px;">${safe(onvoLinkId)}</td></tr>
-        <tr style="background:#f8fafc;"><td style="padding:6px 8px;color:#64748b;">Monto</td><td style="padding:6px 8px;">${safe(amount)} ${safe(currency)}</td></tr>
+        <tr style="background:#f8fafc;"><td style="padding:6px 8px;color:#64748b;">Payment intent</td><td style="padding:6px 8px;">${safe(paymentIntentId)}</td></tr>
+        ${checkoutSessionId ? `<tr><td style="padding:6px 8px;color:#64748b;">Checkout session</td><td style="padding:6px 8px;">${safe(checkoutSessionId)}</td></tr>` : ""}
+        <tr style="background:#f8fafc;"><td style="padding:6px 8px;color:#64748b;">Monto</td><td style="padding:6px 8px;">${safe(formatearMontoAlerta(amount, currency))}</td></tr>
       </table>
       <p style="font-size:13px;color:#475569;">Revise las referencias en el panel de conciliación y compruebe el registro en ONVO antes de actuar.</p>
       <p style="font-size:12px;color:#94a3b8;margin-top:24px;">Alerta automática del sistema de pagos de Salud Mental Costa Rica.</p>
@@ -36,4 +53,5 @@ export async function sendAdminPaymentAlert({ subject, reason, eventId, onvoLink
     html,
   });
   if (error) logOnvoWebhook("error", "ADMIN_ALERT_FAILED", { eventId, error });
+  return !error;
 }

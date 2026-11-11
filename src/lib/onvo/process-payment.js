@@ -1,5 +1,5 @@
 import { matchTransaction } from "@/lib/onvo/match-payment";
-import { normalizeOnvoEvent } from "@/lib/onvo/event";
+import { normalizeOnvoEvent, paymentIntentDelEvento } from "@/lib/onvo/event";
 import { createPaymentInvoice } from "@/lib/onvo/payment-invoice";
 import { estimateOnvoFee } from "@/lib/commission-plan";
 import { enqueueDelivery } from "@/lib/delivery-jobs";
@@ -47,14 +47,21 @@ function revalidarSiCambioElPrecio(result) {
   return result;
 }
 
-/**
- * Id del payment intent del cobro: en checkout-session viene como
- * `data.paymentIntentId`; en payment-intent es el propio `data.id`.
- */
-function paymentIntentDelEvento(event, payload) {
-  if (event.paymentIntentId) return String(event.paymentIntentId);
-  if (event.tipo?.startsWith("payment-intent.") && payload?.data?.id) return String(payload.data.id);
-  return null;
+/** Cómo se cerró un pendiente de conciliación (columna `resolution`). */
+export const CIERRE = {
+  CHECKOUT_POSTERIOR: "CHECKOUT_POSTERIOR",
+  VERIFICACION_DIFERIDA: "VERIFICACION_DIFERIDA",
+  CONCILIACION_MANUAL: "CONCILIACION_MANUAL",
+  /** Corrección de datos hecha fuera de la app (SQL revisado y aprobado). */
+  AJUSTE_MANUAL: "AJUSTE_MANUAL",
+};
+
+/** El cobro APROBADO que acreditó este payment intent, si existe. */
+function acreditadoPorIntent(tx, intentId) {
+  return tx.paymentTransaction.findFirst({
+    where: { status: "APPROVED", webhookPayload: { path: ["data", "paymentIntentId"], equals: intentId } },
+    select: { id: true },
+  });
 }
 
 function matching(transaction, event) {
@@ -121,13 +128,9 @@ export async function processOnvoPayment(prisma, event, payload, { usdCrcRate } 
     // ONVO avisa cada cobro dos veces: checkout-session.succeeded, que trae el
     // enlace y acredita, y payment-intent.succeeded, que no lo trae. El segundo
     // no se puede emparejar por enlace, pero sí reconocer como el mismo cobro.
-    const intentId = paymentIntentDelEvento(event, payload);
+    const intentId = paymentIntentDelEvento(payload);
     if (!event.onvoLinkId && intentId) {
-      const yaAcreditado = await tx.paymentTransaction.findFirst({
-        where: { status: "APPROVED", webhookPayload: { path: ["data", "paymentIntentId"], equals: intentId } },
-        select: { id: true },
-      });
-      if (yaAcreditado) return { kind: "duplicate" };
+      if (await acreditadoPorIntent(tx, intentId)) return { kind: "duplicate" };
     }
 
     const candidates = event.onvoLinkId ? await tx.paymentTransaction.findMany({
@@ -141,7 +144,7 @@ export async function processOnvoPayment(prisma, event, payload, { usdCrcRate } 
     const result = matchTransaction(candidates.map((row) => ({ ...row, patientEmail: row.patient?.email })), event);
     if (result.unmatchedReason) {
       const reason = result.unmatchedDetail || result.unmatchedReason;
-      await tx.unmatchedPayment.create({ data: {
+      const pendiente = await tx.unmatchedPayment.create({ data: {
         onvoEventId: event.eventId,
         onvoLinkId: event.onvoLinkId || null,
         amount: event.amount != null ? Number(event.amount) : null,
@@ -149,7 +152,12 @@ export async function processOnvoPayment(prisma, event, payload, { usdCrcRate } 
         customerEmail: event.customerEmail || null,
         reason, payload,
       } });
-      return { kind: "unmatched", reason, reasonCode: result.unmatchedReason };
+      // El aviso sin enlace de un cobro aprobado casi siempre se adelantó al
+      // checkout-session que lo acredita. No se alerta todavía: lo decide la
+      // verificación diferida (verificarPendienteDiferido).
+      const diferido = result.unmatchedReason === "NO_TRANSACTION" && !event.onvoLinkId && Boolean(intentId) &&
+        event.resultado === "aprobado" && Boolean(event.tipo?.startsWith("payment-intent."));
+      return { kind: "unmatched", reason, reasonCode: result.unmatchedReason, unmatchedId: pendiente?.id ?? null, diferido };
     }
     const applied = await applyPayment(tx, result.match, event, payload, usdCrcRate);
     // Si el aviso sin enlace llegó primero, quedó como pendiente de conciliar:
@@ -157,7 +165,7 @@ export async function processOnvoPayment(prisma, event, payload, { usdCrcRate } 
     if (applied.transaction?.status === "APPROVED" && intentId) {
       await tx.unmatchedPayment.updateMany({
         where: { onvoEventId: `payment-intent.succeeded:${intentId}`, resolvedAt: null },
-        data: { resolvedAt: new Date(), resolvedTxId: applied.transaction.id },
+        data: { resolvedAt: new Date(), resolvedTxId: applied.transaction.id, resolution: CIERRE.CHECKOUT_POSTERIOR },
       });
     }
     return applied;
@@ -184,9 +192,67 @@ export async function reconcileOnvoPayment(prisma, { unmatchedId, transactionId,
     if (alreadyApplied) return { kind: "conflict" };
     const result = await applyPayment(tx, transaction, event, unmatched.payload, usdCrcRate, true);
     await tx.unmatchedPayment.update({
-      where: { id: unmatchedId }, data: { resolvedAt: new Date(), resolvedTxId: transactionId },
+      where: { id: unmatchedId },
+      data: { resolvedAt: new Date(), resolvedTxId: transactionId, resolution: CIERRE.CONCILIACION_MANUAL },
     });
     return result;
   });
   return revalidarSiCambioElPrecio(result);
+}
+
+/**
+ * Verificación diferida de un pendiente sin enlace (la dispara QStash ~5 min
+ * después del aviso). Decide en una transacción serializable, así que es segura
+ * frente al checkout que llega en el mismo instante y frente a reintentos:
+ *
+ *   - ya cerrado, o ya alertado → nada que hacer;
+ *   - su payment intent quedó acreditado → se cierra en silencio;
+ *   - si no → se reclama la alerta (alertedAt). Solo quien la reclama la envía.
+ *
+ * @returns {Promise<{ kind: "not_found"|"resolved"|"already_alerted"|"closed"|"alert", unmatched?: object, alertedAt?: Date }>}
+ */
+export async function verificarPendienteDiferido(prisma, unmatchedId) {
+  return serializable(prisma, async (tx) => {
+    const pendiente = await tx.unmatchedPayment.findUnique({ where: { id: String(unmatchedId || "") } });
+    if (!pendiente) return { kind: "not_found" };
+    if (pendiente.resolvedAt) return { kind: "resolved" };
+    if (pendiente.alertedAt) return { kind: "already_alerted" };
+
+    const intentId = paymentIntentDelEvento(pendiente.payload);
+    const acreditado = intentId ? await acreditadoPorIntent(tx, intentId) : null;
+    if (acreditado) {
+      await tx.unmatchedPayment.update({
+        where: { id: pendiente.id },
+        data: { resolvedAt: new Date(), resolvedTxId: acreditado.id, resolution: CIERRE.VERIFICACION_DIFERIDA },
+      });
+      return { kind: "closed" };
+    }
+
+    const alertedAt = new Date();
+    const { count } = await tx.unmatchedPayment.updateMany({
+      where: { id: pendiente.id, alertedAt: null, resolvedAt: null },
+      data: { alertedAt },
+    });
+    return count === 1 ? { kind: "alert", unmatched: pendiente, alertedAt } : { kind: "already_alerted" };
+  });
+}
+
+/**
+ * Reclama la alerta de un pendiente para enviarla en el acto. Devuelve la marca
+ * si este llamador la ganó, o null si otro ya avisó o el pendiente se cerró.
+ */
+export async function reclamarAlerta(prisma, unmatchedId) {
+  if (!unmatchedId) return null;
+  const alertedAt = new Date();
+  const { count } = await prisma.unmatchedPayment.updateMany({
+    where: { id: unmatchedId, alertedAt: null, resolvedAt: null },
+    data: { alertedAt },
+  });
+  return count === 1 ? alertedAt : null;
+}
+
+/** Si el envío de la alerta falló, se suelta el candado para que un reintento la mande. */
+export async function liberarAlerta(prisma, unmatchedId, alertedAt) {
+  if (!unmatchedId || !alertedAt) return;
+  await prisma.unmatchedPayment.updateMany({ where: { id: unmatchedId, alertedAt }, data: { alertedAt: null } });
 }

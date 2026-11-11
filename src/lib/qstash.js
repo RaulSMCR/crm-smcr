@@ -76,6 +76,45 @@ export async function scheduleReengagement({ patientId, appointmentId, intento, 
   }
 }
 
+/** Espera antes de verificar un aviso de ONVO que llegó sin enlace. */
+export const ESPERA_VERIFICACION_PAGO_SEG = 300;
+
+/**
+ * Programa la verificación diferida de un pago ONVO pendiente
+ * (`/api/payment/unmatched-check`).
+ *
+ * ONVO avisa cada cobro dos veces y el aviso sin enlace a veces llega primero.
+ * En vez de alertar en el acto, se mira de nuevo a los ~5 minutos: para entonces
+ * el checkout-session ya acreditó el cobro y el pendiente está cerrado.
+ *
+ * `deduplicationId` por pendiente: aunque se programe dos veces, QStash entrega
+ * un solo mensaje. Solo en producción, por la misma razón que la cola de envíos.
+ * Nunca lanza: si no se pudo programar, quien llama alerta en el acto.
+ *
+ * @param {string} unmatchedId
+ * @returns {Promise<{ programado: boolean, motivo?: string }>}
+ */
+export async function programarVerificacionDePago(unmatchedId) {
+  if (!unmatchedId) return { programado: false, motivo: "SIN_PENDIENTE" };
+  if (process.env.NODE_ENV !== "production") return { programado: false, motivo: "FUERA_DE_PRODUCCION" };
+  if (!process.env.QSTASH_TOKEN || !APP_URL) return { programado: false, motivo: "SIN_CONFIGURAR" };
+
+  try {
+    const qstash = new Client({ token: process.env.QSTASH_TOKEN });
+    await qstash.publishJSON({
+      url: `${APP_URL}/api/payment/unmatched-check`,
+      delay: ESPERA_VERIFICACION_PAGO_SEG,
+      deduplicationId: `smcr-onvo-pendiente-${unmatchedId}`,
+      body: { unmatchedId },
+    });
+    return { programado: true };
+  } catch {
+    // Sin el error: puede traer la URL firmada o el token en el mensaje.
+    console.error("[QStash] PAYMENT_CHECK_SCHEDULE_FAILED");
+    return { programado: false, motivo: "ERROR" };
+  }
+}
+
 /**
  * Despierta la cola de envíos (`/api/payments/deliveries/run`) en un momento
  * dado.

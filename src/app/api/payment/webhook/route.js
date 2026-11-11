@@ -17,9 +17,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyOnvoWebhookSecret } from "@/lib/onvo/webhook";
 import { buildPaymentLinkUrl } from "@/lib/onvo/client";
-import { normalizeOnvoEvent } from "@/lib/onvo/event";
+import { checkoutSessionDelEvento, normalizeOnvoEvent, paymentIntentDelEvento } from "@/lib/onvo/event";
+import { normalizeEventAmount } from "@/lib/onvo/match-payment";
 import { processPaymentDeliveries } from "@/lib/payment-deliveries";
-import { processOnvoPayment } from "@/lib/onvo/process-payment";
+import { liberarAlerta, processOnvoPayment, reclamarAlerta } from "@/lib/onvo/process-payment";
+import { programarVerificacionDePago } from "@/lib/qstash";
 import { sendAdminPaymentAlert } from "@/lib/onvo/payment-alert";
 import { logOnvoWebhook } from "@/lib/onvo/observability";
 import { resend } from "@/lib/resend";
@@ -117,11 +119,33 @@ async function processAuthenticatedWebhook(request, trace) {
     return NextResponse.json({ ok: true });
   }
   if (result.kind === "unmatched") {
+    // El aviso sin enlace casi siempre se adelantó al checkout que acredita el
+    // cobro: se verifica a los ~5 minutos y solo entonces se decide si alertar.
+    // Si no se pudo programar la verificación, se alerta ya: mejor un aviso de
+    // más que un pago sin acreditar del que nadie se entera.
+    if (result.diferido) {
+      const { programado, motivo } = await programarVerificacionDePago(result.unmatchedId);
+      if (programado) {
+        logOnvoWebhook("info", "UNMATCHED_DEFERRED", { eventId, reason: result.reasonCode });
+        return NextResponse.json({ ok: true });
+      }
+      logOnvoWebhook("warn", "UNMATCHED_DEFER_UNAVAILABLE", { eventId, motivo });
+    }
     logOnvoWebhook("warn", "UNMATCHED", { eventId, onvoLinkId, reason: result.reasonCode });
-    await sendAdminPaymentAlert({
+    const alertedAt = await reclamarAlerta(prisma, result.unmatchedId);
+    if (!alertedAt) return NextResponse.json({ ok: true });
+    const enviada = await sendAdminPaymentAlert({
       subject: `⚠ Pago ONVO no conciliado (${result.reasonCode})`,
-      reason: result.reason, eventId, onvoLinkId, amount: eventAmount, currency: eventCurrency,
-    }).catch((error) => logOnvoWebhook("error", "UNMATCHED_ALERT_FAILED", { eventId, error }));
+      reason: result.reason, eventId, onvoLinkId,
+      amount: normalizeEventAmount(eventAmount), currency: eventCurrency,
+      paymentIntentId: paymentIntentDelEvento(payload), checkoutSessionId: checkoutSessionDelEvento(payload),
+    }).catch((error) => {
+      logOnvoWebhook("error", "UNMATCHED_ALERT_FAILED", { eventId, error });
+      return false;
+    });
+    // Sin candado tomado, el pendiente sigue a la vista en el panel de
+    // conciliación y una conciliación posterior no queda bloqueada.
+    if (!enviada) await liberarAlerta(prisma, result.unmatchedId, alertedAt).catch(() => {});
     return NextResponse.json({ ok: true });
   }
 

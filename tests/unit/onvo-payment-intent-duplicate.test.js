@@ -44,7 +44,7 @@ describe("payment-intent.succeeded sin enlace", () => {
 
   it("sigue quedando para conciliar si ningún pago lo acreditó", async () => {
     const { tx, prisma } = fakePrisma();
-    expect(await process(prisma, intentBody)).toMatchObject({ kind: "unmatched", reasonCode: "NO_TRANSACTION" });
+    expect(await process(prisma, intentBody)).toMatchObject({ kind: "unmatched", reasonCode: "NO_TRANSACTION", diferido: true });
     expect(tx.unmatchedPayment.create).toHaveBeenCalled();
   });
 });
@@ -63,7 +63,7 @@ describe("checkout-session.succeeded después del aviso sin enlace", () => {
     expect((await process(prisma, body)).kind).toBe("processed");
     expect(tx.unmatchedPayment.updateMany).toHaveBeenCalledWith({
       where: { onvoEventId: `payment-intent.succeeded:${INTENT}`, resolvedAt: null },
-      data: { resolvedAt: expect.any(Date), resolvedTxId: "tx-1" },
+      data: { resolvedAt: expect.any(Date), resolvedTxId: "tx-1", resolution: "CHECKOUT_POSTERIOR" },
     });
   });
 });

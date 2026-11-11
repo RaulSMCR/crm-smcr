@@ -55,6 +55,29 @@ export function normalizeOnvoEvent(payload) {
 }
 
 /**
+ * Id del payment intent del cobro: en checkout-session viene como
+ * `data.paymentIntentId`; en payment-intent es el propio `data.id`.
+ */
+export function paymentIntentDelEvento(payload) {
+  const tipo = String(payload?.type ?? "");
+  const data = payload?.data || {};
+  if (data.paymentIntentId) return String(data.paymentIntentId);
+  if (tipo.startsWith("payment-intent.") && data.id) return String(data.id);
+  return null;
+}
+
+/**
+ * Id de la checkout session, si el evento lo trae: en checkout-session es el
+ * propio `data.id`. El payment-intent que nace de un checkout no lo informa.
+ */
+export function checkoutSessionDelEvento(payload) {
+  const tipo = String(payload?.type ?? "");
+  const data = payload?.data || {};
+  if (tipo.startsWith("checkout-session.") && data.id) return String(data.id);
+  return data.checkoutSessionId ? String(data.checkoutSessionId) : null;
+}
+
+/**
  * Identificador para idempotencia. ONVO no manda un id de evento, así que se
  * arma con el tipo y el id del objeto: el mismo objeto puede emitir varios
  * eventos distintos y cada uno debe procesarse una sola vez.
