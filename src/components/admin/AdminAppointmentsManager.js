@@ -79,12 +79,15 @@ export default function AdminAppointmentsManager({ appointments = [] }) {
   const [pendingReschedule, setPendingReschedule] = useState(null);
   const [rescheduleDateTime, setRescheduleDateTime] = useState("");
 
-  const handleDeposit = (appointmentId) => {
+  // Adelanto de una primera cita o cobro de una cita ya atendida: la misma acción
+  // que el botón «Cobrar» del profesional. El monto lo decide el servidor, que
+  // descuenta lo ya pagado (adelanto o multa de una sesión que sí se dio).
+  const handleCobro = (appointmentId) => {
     startTransition(async () => {
       try {
         const result = await cobrarCita(appointmentId);
         setToast({
-          message: result?.success ? result.message : result?.error || "No se pudo enviar el adelanto.",
+          message: result?.success ? result.message : result?.error || "No se pudo enviar el cobro.",
           type: result?.success ? "success" : "error",
         });
       } catch {
@@ -263,12 +266,23 @@ export default function AdminAppointmentsManager({ appointments = [] }) {
                       ["PENDING", "CONFIRMED"].includes(row.status) ? (
                       <button
                         type="button"
-                        onClick={() => handleDeposit(row.id)}
+                        onClick={() => handleCobro(row.id)}
                         disabled={isPending}
                         className="mt-2 block rounded border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
                         title="Enviar o reenviar el mismo enlace de adelanto del 50%"
                       >
                         {isPending ? "Enviando…" : "Enviar adelanto 50%"}
+                      </button>
+                    ) : null}
+                    {row.status === "COMPLETED" && ["UNPAID", "PARTIALLY_PAID"].includes(row.paymentStatus) ? (
+                      <button
+                        type="button"
+                        onClick={() => handleCobro(row.id)}
+                        disabled={isPending}
+                        className="mt-2 block rounded border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+                        title="Envía el enlace ONVO por lo que falta pagar; si ya hay uno vigente, reenvía ese"
+                      >
+                        {isPending ? "Enviando…" : partiallyPaid ? "Cobrar saldo" : "Cobrar sesión"}
                       </button>
                     ) : null}
                   </td>
