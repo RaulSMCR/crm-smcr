@@ -26,6 +26,7 @@ export async function generateMetadata() {
     },
   );
   return buildMetadata({
+    sinSufijo: true,
     title: seo.title,
     description: seo.description,
     image: seo.image,

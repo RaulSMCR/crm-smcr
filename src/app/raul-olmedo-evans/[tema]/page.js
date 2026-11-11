@@ -57,6 +57,7 @@ export async function generateMetadata({ params }) {
   if (!doc) return { title: "Tema no encontrado", robots: { index: false, follow: false } };
   const seo = seoDelTema(doc);
   return buildMetadata({
+    sinSufijo: true,
     title: seo.title,
     description: seo.description,
     image: seo.image,

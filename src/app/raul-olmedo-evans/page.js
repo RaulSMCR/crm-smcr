@@ -46,6 +46,7 @@ export async function generateMetadata() {
     subtitle: hub.titulo,
   });
   return buildMetadata({
+    sinSufijo: true,
     title: seo.title,
     description: seo.description,
     path: "raul-olmedo-evans",

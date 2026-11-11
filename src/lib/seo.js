@@ -196,6 +196,10 @@ export function buildMetadata({
   type = "website",
   noindex = false,
   keywords,
+  // Sin « | Salud Mental Costa Rica». Lo usan las páginas del hub de un
+  // profesional, cuyo título ya lo nombra: con el sufijo pasaban de 75
+  // caracteres y Google las cortaba (decisión de Raúl, 2026-11-10).
+  sinSufijo = false,
 } = {}) {
   const canonical = siteUrl(path);
   const ogImage = image || defaultOgImage(title, subtitle);
@@ -203,7 +207,7 @@ export function buildMetadata({
   const ogImages = [{ url: ogImage, width: 1200, height: 630, alt: imageAlt || title || SITE_NAME }];
 
   const metadata = {
-    title,
+    title: sinSufijo && title ? { absolute: title } : title,
     description: cleanDescription,
     alternates: { canonical },
     openGraph: {
