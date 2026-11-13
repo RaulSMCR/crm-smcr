@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { SITE_URL as BASE_URL } from '@/lib/site-url';
 import { getPublishedHubTopicsAsync, hubLastModifiedAsync } from '@/lib/hub-raul';
+import { topicHubSeo } from '@/lib/topic-hub-markdown';
 
 // Sin esto, Next resuelve el sitemap en el build y lo sirve congelado hasta el
 // siguiente despliegue: un artículo publicado un martes no aparecía hasta que
@@ -92,7 +93,7 @@ export default async function sitemap() {
       }),
       prisma.topic.findMany({
         where: { status: 'PUBLISHED', isActive: true },
-        select: { slug: true, updatedAt: true },
+        select: { slug: true, updatedAt: true, sections: { where: { config: { path: ['ingesta', 'slug'], equals: '_hub' } }, select: { config: true } } },
       }),
     ]);
   } catch (error) {
@@ -141,7 +142,7 @@ export default async function sitemap() {
     priority: 0.7,
   }));
 
-  const topicHubEntries = topicHubs.map(({ slug, updatedAt }) => ({
+  const topicHubEntries = topicHubs.filter((hub) => !topicHubSeo(hub.sections).noindex).map(({ slug, updatedAt }) => ({
     url: `${BASE_URL}/${slug}`,
     lastModified: updatedAt,
     changeFrequency: 'weekly',

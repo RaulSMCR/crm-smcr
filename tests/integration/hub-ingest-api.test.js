@@ -1,9 +1,10 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
-const mocks = vi.hoisted(() => ({ session: vi.fn(), leer: vi.fn(), aplicar: vi.fn(), revalidar: vi.fn() }));
+const mocks = vi.hoisted(() => ({ session: vi.fn(), leer: vi.fn(), aplicar: vi.fn(), revalidar: vi.fn(), leerContenido: vi.fn(), aplicarContenido: vi.fn(), revalidarContenido: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ getSession: mocks.session }));
 vi.mock("@/lib/hub-ingest", () => ({ leerLote: mocks.leer, aplicarLote: mocks.aplicar, hashDocumento: (texto) => createHash("sha256").update(texto).digest("hex") }));
-vi.mock("@/lib/hub-revalidate", () => ({ revalidarHub: mocks.revalidar }));
+vi.mock("@/lib/hub-revalidate", () => ({ revalidarHub: mocks.revalidar, revalidarHubContenido: mocks.revalidarContenido }));
+vi.mock("@/lib/topic-hub-ingest", () => ({ leerLoteContenido: mocks.leerContenido, aplicarLoteContenido: mocks.aplicarContenido }));
 import { POST as preview } from "@/app/api/admin/hubs/[id]/ingesta/preview/route";
 import { POST as confirm } from "@/app/api/admin/hubs/[id]/ingesta/confirm/route";
 
@@ -16,6 +17,24 @@ beforeEach(() => {
   mocks.session.mockResolvedValue({ role: "ADMIN", sub: "admin" });
   mocks.leer.mockResolvedValue({ revision, lote: [], resumen: {} });
   mocks.aplicar.mockResolvedValue({ hub: { slug: "raul-olmedo-evans" }, lote: [], aplicados: [], writesPerformed: false });
+  mocks.leerContenido.mockResolvedValue({ revision, lote: [], resumen: {} });
+  mocks.aplicarContenido.mockResolvedValue({ hub: { slug: "ansiedad" }, lote: [], aplicados: [], writesPerformed: true });
+});
+it("dirige los hubs de contenido a su importador y revalida sus páginas", async () => {
+  expect((await preview(request({ archivos: [archivo], feed: true, tipoHub: "contenido" }), contexto)).status).toBe(200);
+  expect(mocks.leerContenido).toHaveBeenCalledWith(expect.objectContaining({ hubId: "hub", feed: true }));
+  expect(mocks.leer).not.toHaveBeenCalled();
+  expect((await confirm(request({ archivos: [archivo], revision, feed: true, tipoHub: "contenido" }), contexto)).status).toBe(200);
+  expect(mocks.aplicarContenido).toHaveBeenCalled();
+  expect(mocks.aplicar).not.toHaveBeenCalled();
+  expect(mocks.revalidarContenido).toHaveBeenCalledWith("ansiedad");
+  expect(mocks.revalidar).not.toHaveBeenCalled();
+});
+it("rechaza tipos de hub desconocidos en ambos endpoints", async () => {
+  expect((await preview(request({ archivos: [archivo], tipoHub: "otro" }), contexto)).status).toBe(422);
+  expect((await confirm(request({ archivos: [archivo], revision, tipoHub: "otro" }), contexto)).status).toBe(422);
+  expect(mocks.leer).not.toHaveBeenCalled();
+  expect(mocks.aplicarContenido).not.toHaveBeenCalled();
 });
 it.each([null, "USER", "PROFESSIONAL"])("no lee ni confirma sin rol ADMIN: %s", async (role) => {
   mocks.session.mockResolvedValue(role ? { role } : null);

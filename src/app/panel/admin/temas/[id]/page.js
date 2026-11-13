@@ -13,7 +13,8 @@ function serializeTopic(topic) {
     excerpt: topic.excerpt, status: topic.status, heroImage: topic.heroImage, heroImageAlt: topic.heroImageAlt,
     introVideoUrl: topic.introVideoUrl, podcastUrl: topic.podcastUrl, metaTitle: topic.metaTitle,
     metaDescription: topic.metaDescription, featured: topic.featured, order: topic.order,
-    sections: topic.sections.map(({ id, topicId, type, title, body, position, isVisible }) => ({ id, topicId, type, title, body, position, isVisible })),
+    updatedAt: topic.updatedAt?.toISOString?.() || null,
+    sections: topic.sections.map(({ id, topicId, type, title, body, position, isVisible, config, updatedAt }) => ({ id, topicId, type, title, body, position, isVisible, config, updatedAt: updatedAt?.toISOString?.() || null })),
     posts: topic.posts.map((item) => ({ postId: item.postId, topicId: item.topicId, role: item.role, featured: item.featured, position: item.position, post: item.post })),
     services: topic.services.map((item) => ({ topicId: item.topicId, serviceId: item.serviceId, featured: item.featured, position: item.position, service: item.service })),
     perspectives: topic.perspectives.map(({ id, topicId, disciplineId, title, content, position, status, discipline }) => ({ id, topicId, disciplineId, title, content, position, status, discipline })),
@@ -31,5 +32,6 @@ export default async function EditTopicPage({ params }) {
   if (!topic) notFound();
   const options = await listTopicEditorOptions();
   const safeTopic = serializeTopic(topic);
-  return <main className="min-h-screen bg-slate-50 p-6"><div className="mx-auto max-w-7xl space-y-5"><div className="flex flex-wrap items-center justify-between gap-3"><Link href="/panel/admin/temas" className="text-sm font-semibold text-slate-600 hover:underline">← Hubs temáticos</Link><div className="flex gap-3"><Link href={`/panel/admin/temas/${topic.id}/preview`} target="_blank" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800">Vista previa ↗</Link>{topic.status === "PUBLISHED" ? <Link href={`/${topic.slug}`} target="_blank" className="rounded-lg bg-brand-800 px-4 py-2 text-sm font-semibold text-white">Ver público ↗</Link> : null}</div></div><div><h1 className="text-3xl font-bold text-slate-950">{topic.title || topic.name}</h1><p className="mt-1 text-slate-600">/{topic.slug} · {topic.status}</p></div><TopicHubEditor topic={safeTopic} options={options} /></div></main>;
+  return <main className="min-h-screen bg-slate-50 p-6"><div className="mx-auto max-w-7xl space-y-5"><div className="flex flex-wrap items-center justify-between gap-3"><Link href="/panel/admin/temas" className="text-sm font-semibold text-slate-600 hover:underline">← Hubs temáticos</Link><div className="flex gap-3">
+            <Link href="#cargar-feed" className="rounded-lg bg-brand-800 px-4 py-2 text-sm font-semibold text-white">Cargar feed .md</Link><Link href={`/panel/admin/temas/${topic.id}/preview`} target="_blank" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800">Vista previa ↗</Link>{topic.status === "PUBLISHED" ? <Link href={`/${topic.slug}`} target="_blank" className="rounded-lg bg-brand-800 px-4 py-2 text-sm font-semibold text-white">Ver público ↗</Link> : null}</div></div><div><h1 className="text-3xl font-bold text-slate-950">{topic.title || topic.name}</h1><p className="mt-1 text-slate-600">/{topic.slug} · {topic.status}</p></div><TopicHubEditor topic={safeTopic} options={options} /></div></main>;
 }

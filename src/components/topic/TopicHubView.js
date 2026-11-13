@@ -9,14 +9,15 @@ import { safeTopicMediaUrl, topicSectionLabel } from "@/lib/topic";
 import { grafo, nodoMigas, ref, ID_ORGANIZACION, ID_SITIO } from "@/lib/jsonld";
 import { siteUrl } from "@/lib/site-url";
 import { etiquetaDeRango } from "@/lib/service-pricing";
+import { topicCustomSections } from "@/lib/topic-hub-markdown";
 
 function section(topic, type) {
-  return (topic.sections || []).find((item) => item.type === type) || null;
+  return (topic.sections || []).find((item) => item.type === type && item.config?.ingesta?.slug !== "_hub") || null;
 }
 
 function shouldRender(topic, type, hasContent) {
   const configured = section(topic, type);
-  if (!hasContent) return false;
+  if (!hasContent && !(configured?.config?.ingesta?.slug && configured?.body)) return false;
   return configured ? configured.isVisible : true;
 }
 
@@ -31,7 +32,7 @@ function MarkdownBlock({ body, inverted = false }) {
   const className = inverted
     ? "prose prose-lg prose-invert max-w-none text-white/90 [&_a]:text-white [&_a]:underline [&_a:hover]:text-nv-teal-pale"
     : "prose prose-lg max-w-none text-slate-700";
-  return <div className={className}><MarkdownRenderer content={body} /></div>;
+  return <div className={className}><MarkdownRenderer content={body} idsEnEncabezados bloquesHub /></div>;
 }
 
 function ArticleCard({ article, topic }) {
@@ -55,6 +56,7 @@ function ArticleCard({ article, topic }) {
 export default function TopicHubView({ topic, preview = false }) {
   const validVideo = safeTopicMediaUrl(topic.introVideoUrl);
   const validPodcast = safeTopicMediaUrl(topic.podcastUrl);
+  const customSections = topicCustomSections(topic.sections);
   const hasFeatured = topic.featuredArticles.length > 0;
   const hasExplore = topic.exploreArticles.length > 0;
   const hasPerspectives = topic.perspectives.length > 0;
@@ -83,7 +85,7 @@ export default function TopicHubView({ topic, preview = false }) {
       name: topic.title || topic.name,
       description: topic.excerpt || undefined,
       url: siteUrl(topic.slug),
-      image: topic.heroImage || defaultOgImage(topic.title || topic.name),
+      image: topic.ogImage || topic.heroImage || defaultOgImage(topic.title || topic.name),
       inLanguage: "es-CR",
       isPartOf: ref(ID_SITIO),
       publisher: ref(ID_ORGANIZACION),
@@ -108,7 +110,7 @@ export default function TopicHubView({ topic, preview = false }) {
           <span aria-current="page" className="font-medium text-slate-900">{topic.title || topic.name}</span>
         </nav>
 
-        <header className="relative overflow-hidden rounded-[2rem] bg-brand-950 px-6 py-12 text-white shadow-card md:px-12 md:py-20">
+        <header id="portada" className="relative overflow-hidden rounded-[2rem] bg-brand-950 px-6 py-12 text-white shadow-card md:px-12 md:py-20">
           {topic.heroImage ? (
             <SafeImage src={topic.heroImage} alt={topic.heroImageAlt || topic.title || topic.name} className="absolute inset-0 h-full w-full object-cover opacity-35" />
           ) : null}
@@ -118,6 +120,7 @@ export default function TopicHubView({ topic, preview = false }) {
             <h1 className="mt-4 text-4xl font-light leading-tight text-white md:text-6xl">{topic.title || topic.name}</h1>
             {topic.subtitle ? <p className="mt-4 text-xl leading-8 text-white/85">{topic.subtitle}</p> : null}
             {topic.excerpt ? <p className="mt-5 max-w-2xl text-base leading-7 text-white/80">{topic.excerpt}</p> : null}
+            {section(topic, "HERO")?.isVisible && section(topic, "HERO")?.config?.ingesta?.slug ? <div className="mt-4"><h2 className="text-2xl font-semibold">{section(topic, "HERO").title}</h2><MarkdownBlock body={section(topic, "HERO").body} inverted /></div> : null}
             <TopicTrackedLink
               href={ctaHref}
               eventName="start_booking_from_topic"
@@ -147,6 +150,7 @@ export default function TopicHubView({ topic, preview = false }) {
           {shouldRender(topic, "FEATURED_ARTICLES", hasFeatured) ? (
             <section aria-labelledby="destacados">
               <h2 id="destacados" className="text-3xl font-semibold text-slate-950">{sectionHeading(topic, "FEATURED_ARTICLES", "Artículos destacados")}</h2>
+              {section(topic, "FEATURED_ARTICLES")?.config?.ingesta?.slug ? <div className="mt-4"><MarkdownBlock body={section(topic, "FEATURED_ARTICLES").body} /></div> : null}
               <div className="mt-5 grid gap-4 md:grid-cols-2">{topic.featuredArticles.map((article) => <ArticleCard key={article.id} article={article} topic={topic} />)}</div>
             </section>
           ) : null}
@@ -154,6 +158,7 @@ export default function TopicHubView({ topic, preview = false }) {
           {shouldRender(topic, "EXPLORE_TOPIC", hasExplore) ? (
             <section aria-labelledby="explorar">
               <h2 id="explorar" className="text-3xl font-semibold text-slate-950">{sectionHeading(topic, "EXPLORE_TOPIC", "Explorar este tema")}</h2>
+              {section(topic, "EXPLORE_TOPIC")?.config?.ingesta?.slug ? <div className="mt-4"><MarkdownBlock body={section(topic, "EXPLORE_TOPIC").body} /></div> : null}
               <div className="mt-5 grid gap-4 md:grid-cols-2">{topic.exploreArticles.map((article) => <ArticleCard key={article.id} article={article} topic={topic} />)}</div>
             </section>
           ) : null}
@@ -161,6 +166,7 @@ export default function TopicHubView({ topic, preview = false }) {
           {shouldRender(topic, "PERSPECTIVES", hasPerspectives) ? (
             <section aria-labelledby="perspectivas">
               <h2 id="perspectivas" className="text-3xl font-semibold text-slate-950">{sectionHeading(topic, "PERSPECTIVES", "Perspectivas interdisciplinarias")}</h2>
+              {section(topic, "PERSPECTIVES")?.config?.ingesta?.slug ? <div className="mt-4"><MarkdownBlock body={section(topic, "PERSPECTIVES").body} /></div> : null}
               <div className="mt-5 grid gap-4 md:grid-cols-2">
                 {topic.perspectives.map((perspective) => (
                   <article key={perspective.id} className="rounded-2xl border border-brand-200 bg-brand-50/60 p-6">
@@ -192,6 +198,7 @@ export default function TopicHubView({ topic, preview = false }) {
           {shouldRender(topic, "FAQ", hasFaqs) ? (
             <section aria-labelledby="preguntas">
               <h2 id="preguntas" className="text-3xl font-semibold text-slate-950">{sectionHeading(topic, "FAQ", "Preguntas frecuentes")}</h2>
+              {section(topic, "FAQ")?.config?.ingesta?.slug ? <div className="mt-4"><MarkdownBlock body={section(topic, "FAQ").body} /></div> : null}
               <div className="mt-5 divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
                 {topic.faqs.map((faq) => <details key={faq.id} className="p-5"><summary className="cursor-pointer font-semibold text-slate-950">{faq.question}</summary><p className="mt-3 whitespace-pre-line leading-7 text-slate-700">{faq.answer}</p></details>)}
               </div>
@@ -201,6 +208,7 @@ export default function TopicHubView({ topic, preview = false }) {
           {shouldRender(topic, "SERVICES", hasServices) ? (
             <section id="servicios" aria-labelledby="servicios-titulo">
               <h2 id="servicios-titulo" className="text-3xl font-semibold text-slate-950">{sectionHeading(topic, "SERVICES", "Servicios pertinentes")}</h2>
+              {section(topic, "SERVICES")?.config?.ingesta?.slug ? <div className="mt-4"><MarkdownBlock body={section(topic, "SERVICES").body} /></div> : null}
               <div className="mt-5 grid gap-4 md:grid-cols-2">
                 {topic.services.map((service) => (
                   <TopicTrackedLink
@@ -223,6 +231,7 @@ export default function TopicHubView({ topic, preview = false }) {
           {shouldRender(topic, "PROFESSIONALS", hasProfessionals) ? (
             <section id="profesionales" aria-labelledby="profesionales-titulo">
               <h2 id="profesionales-titulo" className="text-3xl font-semibold text-slate-950">{sectionHeading(topic, "PROFESSIONALS", "Profesionales relacionados")}</h2>
+              {section(topic, "PROFESSIONALS")?.config?.ingesta?.slug ? <div className="mt-4"><MarkdownBlock body={section(topic, "PROFESSIONALS").body} /></div> : null}
               <p className="mt-2 text-slate-600">Estos perfiles se muestran porque ofrecen servicios vinculados con este tema y tienen agenda disponible.</p>
               <div className="mt-5 grid gap-4 md:grid-cols-2">
                 {topic.professionals.map((professional) => (
@@ -251,21 +260,22 @@ export default function TopicHubView({ topic, preview = false }) {
           {shouldRender(topic, "RELATED_TOPICS", hasRelated) ? (
             <section aria-labelledby="relacionados" className="rounded-2xl border border-slate-200 bg-white p-6">
               <h2 id="relacionados" className="text-2xl font-semibold text-slate-950">{sectionHeading(topic, "RELATED_TOPICS", "Temas relacionados")}</h2>
+              {section(topic, "RELATED_TOPICS")?.config?.ingesta?.slug ? <div className="mt-4"><MarkdownBlock body={section(topic, "RELATED_TOPICS").body} /></div> : null}
               <div className="mt-4 flex flex-wrap gap-3">
                 {topic.relatedTopics.map((related) => <TopicTrackedLink key={related.id} href={`/${related.slug}`} eventName="click_topic_related" eventParams={{ topic_slug: topic.slug, target_topic_slug: related.slug, content_type: "related_topic", source_page: `/${topic.slug}` }} className="rounded-full border border-brand-300 px-4 py-2 text-sm font-semibold text-brand-800 hover:border-brand-700 hover:text-brand-900">{related.title || related.name}</TopicTrackedLink>)}
               </div>
             </section>
           ) : null}
 
-          {shouldRender(topic, "CUSTOM_RICH_TEXT", Boolean(section(topic, "CUSTOM_RICH_TEXT")?.body)) ? (
-            <section aria-labelledby="texto-adicional" className="rounded-2xl border border-slate-200 bg-white p-6">
-              <h2 id="texto-adicional" className="text-2xl font-semibold text-slate-950">{sectionHeading(topic, "CUSTOM_RICH_TEXT", "Información adicional")}</h2>
-              <div className="mt-4"><MarkdownBlock body={section(topic, "CUSTOM_RICH_TEXT")?.body} /></div>
+          {customSections.map((customSection) => (
+            <section key={customSection.id} aria-labelledby={customSection.config?.ingesta?.slug || "texto-adicional"} className="rounded-2xl border border-slate-200 bg-white p-6">
+              <h2 id={customSection.config?.ingesta?.slug || "texto-adicional"} className="text-2xl font-semibold text-slate-950">{customSection.title || sectionHeading(topic, "CUSTOM_RICH_TEXT", "Información adicional")}</h2>
+              <div className="mt-4"><MarkdownBlock body={customSection.body} /></div>
             </section>
-          ) : null}
+          ))}
 
           {shouldRender(topic, "CTA", true) ? (
-            <section className="rounded-2xl bg-brand-900 p-7 text-white md:p-9">
+            <section id="cierre" className="rounded-2xl bg-brand-900 p-7 text-white md:p-9">
               <h2 className="text-2xl font-semibold text-white">{sectionHeading(topic, "CTA", "Podés empezar por donde te resulte posible")}</h2>
               {section(topic, "CTA")?.body ? <div className="mt-3"><MarkdownBlock body={section(topic, "CTA").body} inverted /></div> : <p className="mt-3 max-w-2xl leading-7 text-white/80">Conocé los servicios y perfiles disponibles para decidir con más información cómo continuar.</p>}
               <TopicTrackedLink href={ctaHref} eventName="start_booking_from_topic" eventParams={{ topic_slug: topic.slug, content_type: "topic_hub", source_page: `/${topic.slug}` }} className="mt-5 inline-flex rounded-nv bg-nv-coral px-5 py-3 font-bold text-nv-coral-ink hover:bg-nv-coral/90 hover:text-nv-coral-ink">Ver opciones de atención</TopicTrackedLink>

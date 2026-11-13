@@ -64,13 +64,13 @@ function recortar(valor, max = 120) {
   return texto.length > max ? `${texto.slice(0, max)}…` : texto;
 }
 
-function iguales(a, b) {
+export function iguales(a, b) {
   if (typeof a === "object" && a !== null || typeof b === "object" && b !== null) return estable(a ?? []) === estable(b ?? []);
   const normal = (valor) => (valor === null || valor === undefined ? "" : String(valor));
   return normal(a) === normal(b);
 }
 
-function estable(valor) {
+export function estable(valor) {
   return JSON.stringify(valor, (_, v) => v && typeof v === "object" && !Array.isArray(v) && !(v instanceof Date)
     ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b))) : v);
 }
@@ -157,7 +157,7 @@ export function diffModulo(existente, payload) {
  * `metaTitle` y `metaDescription` pero no palabra clave—, así que un tema de la
  * biblioteca no se puede comparar todavía. Es una omisión conocida, no un olvido.
  */
-async function buscarCanibalizacion(keywords, { hubId, db = prisma }) {
+export async function buscarCanibalizacion(keywords, { hubId, db = prisma }) {
   const buscadas = [...new Set(keywords.filter(Boolean).map((item) => item.toLowerCase()))];
   if (!buscadas.length) return new Map();
 
@@ -166,7 +166,7 @@ async function buscarCanibalizacion(keywords, { hubId, db = prisma }) {
   // mayúsculas dejaría pasar el conflicto.
   const comoSea = buscadas.map((keyword) => ({ focusKeyword: { equals: keyword, mode: "insensitive" } }));
 
-  const [modulos, hubs, posts, servicios, profesionales] = await Promise.all([
+  const [modulos, hubs, posts, servicios, profesionales, portadasContenido] = await Promise.all([
     db.professionalHubModule.findMany({
       where: { OR: comoSea },
       select: { id: true, slug: true, focusKeyword: true, hubId: true, isPublished: true, hub: { select: { slug: true } } },
@@ -184,6 +184,7 @@ async function buscarCanibalizacion(keywords, { hubId, db = prisma }) {
       select: { slug: true, focusKeyword: true },
     }),
     db.professionalProfile.findMany({ where: { OR: comoSea, isApproved: true, user: { is: { isActive: true } } }, select: { slug: true, focusKeyword: true } }),
+    db.topicSection.findMany({ where: { config: { path: ["ingesta", "slug"], equals: "_hub" } }, select: { topicId: true, config: true, topic: { select: { slug: true, status: true } } } }),
   ]);
 
   const mapa = new Map();
@@ -206,6 +207,13 @@ async function buscarCanibalizacion(keywords, { hubId, db = prisma }) {
   for (const post of posts) agregar(post.focusKeyword, `/blog/${post.slug}`, "artículo publicado");
   for (const servicio of servicios) agregar(servicio.focusKeyword, `/servicios/${servicio.slug}`, "servicio activo");
   for (const p of profesionales) agregar(p.focusKeyword, `/profesionales/${p.slug}`, "perfil profesional");
+  for (const portada of portadasContenido) {
+    const keyword = portada.config?.ingesta?.metadatos?.busqueda_objetivo;
+    if (!keyword || !buscadas.includes(String(keyword).toLowerCase())) continue;
+    const clave = String(keyword).toLowerCase();
+    if (!mapa.has(clave)) mapa.set(clave, []);
+    mapa.get(clave).push({ ruta: `/${portada.topic.slug}`, detalle: "hub de contenido", topicId: portada.topicId });
+  }
 
   // Los conflictos dentro del propio hub se resuelven aparte, comparando contra
   // los módulos que ya están en la fila (ver `leerLote`), porque ahí sí hace
@@ -223,7 +231,7 @@ async function buscarCanibalizacion(keywords, { hubId, db = prisma }) {
  * con el mismo criterio de su página y de `getFeaturedSeries`: activa y con al
  * menos una entrega publicada y aprobada.
  */
-async function verificarRutas(rutas, { hubSlug, slugsDelHub, db = prisma }) {
+export async function verificarRutas(rutas, { hubSlug, slugsDelHub, db = prisma }) {
   const pendientes = [...new Set(rutas.filter(Boolean))];
   if (!pendientes.length) return new Map();
 

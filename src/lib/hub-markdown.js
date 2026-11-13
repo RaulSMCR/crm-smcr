@@ -348,6 +348,11 @@ export function slugDeArchivo(nombre) {
  * configuración del hub, y elegir un módulo para eso es una contradicción que
  * `hub-ingest` bloquea en vez de resolver por su cuenta.
  */
+export function contieneFraseProhibida(source) {
+  const texto = String(source).normalize("NFC").replace(/[*_`]/g, "").replace(/&oacute;|&#243;|&#xf3;/gi, "ó").replace(/&nbsp;/gi, " ");
+  return /psic[oó]logos\s+en\s+costa\s+rica/iu.test(texto);
+}
+
 export function parseHubDocument(source, nombreArchivo = "", opciones = {}) {
   const avisos = [];
   const bloqueos = [];
@@ -364,7 +369,7 @@ export function parseHubDocument(source, nombreArchivo = "", opciones = {}) {
   const clase = tipo === "hub" || base === "hub" || /^_hub$/i.test(String(nombre).replace(/\.[^.]+$/, "")) ? "hub" : "tema";
 
   const comunes = { archivo: nombre, clase, frontmatter, body, avisos, bloqueos };
-  if (/psic[oó]logos\s+en\s+costa\s+rica/iu.test(String(source).normalize("NFC").replace(/[*_`]/g, "").replace(/&oacute;|&#243;|&#xf3;/gi, "ó").replace(/&nbsp;/gi, " "))) {
+  if (contieneFraseProhibida(source)) {
     bloqueos.push("el documento contiene la frase plural prohibida por el contrato del sitio");
   }
   if (opciones.feed) validarContratoFeed({ frontmatter, body, clase, bloqueos });
@@ -372,7 +377,7 @@ export function parseHubDocument(source, nombreArchivo = "", opciones = {}) {
   return { ...comunes, ...leerTema({ frontmatter, body, base: elegido || base, baseArchivo: base, elegido: Boolean(elegido), avisos, bloqueos }) };
 }
 
-function validarCuerpo({ body, avisos, bloqueos }) {
+export function validarCuerpo({ body, avisos, bloqueos }) {
   if (/^#\s+/m.test(body)) bloqueos.push("el cuerpo trae un «#»: el h1 sale del campo «titulo»");
   if (RE_PRECIO.test(body)) bloqueos.push("el cuerpo trae un precio o teléfono literal (₡, 800-, +506): el precio sale de la tarifa vigente");
   if (RE_ABSOLUTO.test(body)) bloqueos.push("el cuerpo enlaza con dominio absoluto: los enlaces internos van relativos a la raíz");

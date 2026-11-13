@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import HubMarkdownIngest from "@/components/admin/HubMarkdownIngest";
 import {
   archiveTopic,
   deleteTopicFaq,
@@ -150,8 +151,8 @@ function SectionsEditor({ topic }) {
       <h2 className="text-xl font-bold text-slate-950">Secciones del hub</h2>
       <p className="mt-1 text-sm text-slate-600">Cada tipo define la función del módulo. Además podés editar título, contenido Markdown seguro, orden y visibilidad; no se interpreta HTML ni código.</p>
       <div className="mt-5 space-y-4">
-        {topic.sections.map((section) => (
-          <form key={section.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4" onSubmit={(event) => { event.preventDefault(); const data = Object.fromEntries(new FormData(event.currentTarget)); run(() => saveTopicSection(topic.id, { ...data, id: section.id, position: Number(data.position || 0), isVisible: data.isVisible === "on" })); }}>
+        {topic.sections.filter((section) => section.config?.ingesta?.slug !== "_hub").map((section) => (
+          <form key={`${section.id}:${section.updatedAt || ""}`} className="rounded-xl border border-slate-200 bg-slate-50 p-4" onSubmit={(event) => { event.preventDefault(); const data = Object.fromEntries(new FormData(event.currentTarget)); run(() => saveTopicSection(topic.id, { ...data, id: section.id, position: Number(data.position || 0), isVisible: data.isVisible === "on" })); }}>
             <div className="grid gap-3 md:grid-cols-[1.3fr_2fr_100px_auto] md:items-end">
               <label className="text-sm text-slate-700"><span className="mb-1 block font-medium">Tipo</span><select name="type" defaultValue={section.type} className="w-full rounded-lg border border-slate-300 px-3 py-2">{["HERO","USER_SITUATIONS","EDITORIAL_INTRO","FEATURED_ARTICLES","EXPLORE_TOPIC","PERSPECTIVES","VIDEO","PODCAST","FAQ","PROFESSIONALS","SERVICES","RELATED_TOPICS","CTA","CUSTOM_RICH_TEXT"].map((type) => <option key={type} value={type}>{topicSectionLabel(type)}</option>)}</select></label>
               <Field label="Título de sección" name="title" defaultValue={section.title} />
@@ -247,7 +248,8 @@ export default function TopicHubEditor({ topic, options }) {
   const { pending, message, run } = useTopicAction();
   return (
     <div className="space-y-6">
-      <CoreForm topic={topic} />
+      <HubMarkdownIngest hubId={topic.id} hubSlug={topic.slug} tipoHub="contenido" modulos={topic.sections.filter((s) => s.config?.ingesta?.slug !== "_hub").map((s) => ({ slug: s.id, title: s.title || topicSectionLabel(s.type) }))} />
+      <CoreForm key={topic.updatedAt} topic={topic} />
       <SectionsEditor topic={topic} />
       <RelationsEditor topic={topic} options={options} />
       <PerspectivesEditor topic={topic} options={options} />

@@ -46,6 +46,7 @@ vi.mock("@/lib/prisma", () => ({
     series: { findMany: vi.fn(async () => base.series) },
     service: { findMany: vi.fn(async () => base.servicios) },
     professionalProfile: { findMany: vi.fn(async () => []) },
+    topicSection: { findMany: vi.fn(async () => []) },
     topic: { findMany: vi.fn(async () => base.temas) },
     $transaction: vi.fn(async (fn) => {
       const tx = {
@@ -74,6 +75,7 @@ vi.mock("@/lib/prisma", () => ({
         service: { findMany: async () => base.servicios },
         topic: { findMany: async () => base.temas },
         professionalProfile: { findMany: async () => [] },
+        topicSection: { findMany: async () => [] },
       };
       return fn(tx);
     }),

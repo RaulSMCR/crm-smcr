@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { topicHubSeo } from "@/lib/topic-hub-markdown";
 import { SELECT_TARIFA_PUBLICA, TARIFA_VIGENTE, rangoDePrecios } from "@/lib/service-pricing";
 
 const PUBLIC_TOPIC_SELECT = {
@@ -111,6 +112,7 @@ function mapPublicTopic(topic) {
 
   return {
     ...topic,
+    ...topicHubSeo(topic.sections),
     articles,
     featuredArticles: articles.filter((article) => article.featured || article.role === "PRIMARY"),
     exploreArticles: articles.filter((article) => !article.featured && article.role !== "PRIMARY"),

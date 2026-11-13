@@ -4,6 +4,7 @@ import { buildMetadata, resolveSeo } from "@/lib/seo";
 import { resolveRedirect, TIPOS } from "@/lib/slug-redirect";
 import { getPublishedTopicBySlug } from "@/lib/topic-queries";
 import TopicHubView from "@/components/topic/TopicHubView";
+import { topicHubSeo } from "@/lib/topic-hub-markdown";
 
 export const revalidate = 3600;
 
@@ -29,12 +30,13 @@ export async function generateMetadata({ params }) {
       metaDescription: true,
       status: true,
       isActive: true,
+      sections: { where: { config: { path: ["ingesta", "slug"], equals: "_hub" } }, select: { config: true } },
     },
   });
 
   if (!topic) return { title: "Tema no encontrado", robots: { index: false, follow: false } };
   const published = topic.status === "PUBLISHED" && topic.isActive;
-  const seo = resolveSeo(topic, {
+  const seo = resolveSeo({ ...topic, ...topicHubSeo(topic.sections) }, {
     title: topic.title || topic.name,
     description: topic.excerpt || topic.title || topic.name,
     image: topic.heroImage,

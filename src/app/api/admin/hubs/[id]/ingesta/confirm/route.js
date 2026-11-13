@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { aplicarLote, hashDocumento } from "@/lib/hub-ingest";
-import { revalidarHub } from "@/lib/hub-revalidate";
+import { aplicarLoteContenido } from "@/lib/topic-hub-ingest";
+import { revalidarHub, revalidarHubContenido } from "@/lib/hub-revalidate";
 import { MAX_ARCHIVOS_LOTE, MAX_ARCHIVOS_FEED, MAX_ARCHIVO_BYTES, MAX_LOTE_BYTES } from "@/lib/hub-markdown";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +33,8 @@ export async function POST(request, { params }) {
   }
 
   const archivos = Array.isArray(cuerpo?.archivos) ? cuerpo.archivos : [];
+  const tipoHub = cuerpo?.tipoHub ?? "profesional";
+  if (!["profesional", "contenido"].includes(tipoHub)) return NextResponse.json({ error: "Tipo de hub inválido." }, { status: 422 });
   const feed = cuerpo?.feed === true;
   const maxArchivos = feed ? MAX_ARCHIVOS_FEED : MAX_ARCHIVOS_LOTE;
   if (!/^[a-f0-9]{64}$/.test(String(cuerpo?.revision || ""))) return NextResponse.json({ error: "Falta la revisión de la vista previa. Volvé a leer los archivos." }, { status: 409 });
@@ -65,7 +68,8 @@ export async function POST(request, { params }) {
   const destino = typeof cuerpo?.destino === "string" && cuerpo.destino.trim() ? cuerpo.destino.trim() : null;
 
   try {
-    const resultado = await aplicarLote({
+    const aplicar = tipoHub === "contenido" ? aplicarLoteContenido : aplicarLote;
+    const resultado = await aplicar({
       hubId: String(id || ""),
       archivos,
       destino,
@@ -74,7 +78,10 @@ export async function POST(request, { params }) {
       actor: session.email || session.sub || "admin",
     });
     if (resultado.error) return NextResponse.json({ error: resultado.error }, { status: resultado.motivo === "revision" ? 409 : resultado.motivo === "destino" ? 422 : 404 });
-    if (resultado.writesPerformed) revalidarHub(resultado.hub?.slug);
+    if (resultado.writesPerformed) {
+      if (tipoHub === "contenido") revalidarHubContenido(resultado.hub?.slug);
+      else revalidarHub(resultado.hub?.slug);
+    }
     return NextResponse.json({ ok: true, ...resultado });
   } catch (error) {
     if (error?.code === "P2034") return NextResponse.json({ error: "El hub cambió durante la confirmación. Volvé a revisar los archivos." }, { status: 409 });

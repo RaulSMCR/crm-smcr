@@ -15,11 +15,12 @@ export default function TopicHubCreateForm() {
     event.preventDefault();
     setError(null);
     const data = Object.fromEntries(new FormData(event.currentTarget));
+    const cargarFeed = event.nativeEvent.submitter?.value === "feed";
     startTransition(async () => {
       try {
         const result = await createTopicHub({ ...data, order: Number(data.order || 0), featured: data.featured === "on" });
         if (result?.error) setError(result.error);
-        else router.push(`/panel/admin/temas/${result.id}`);
+        else router.push(`/panel/admin/hubs/${result.id}${cargarFeed ? "#cargar-feed" : ""}`);
       } catch (fallo) {
         // Antes esto se perdía como promesa rechazada: ni mensaje ni cambio.
         const mensaje = String(fallo?.message || "").trim() || "No se pudo completar la acción.";
@@ -37,7 +38,10 @@ export default function TopicHubCreateForm() {
       </div>
       <p className="text-sm text-slate-600">El resto del contenido se completa en el editor. El hub se crea como borrador y no se indexa.</p>
       {error ? <p className="text-sm text-red-700" role="alert">{error}</p> : null}
-      <button disabled={pending} className="rounded-lg bg-brand-800 px-4 py-2 font-semibold text-white disabled:opacity-60">{pending ? "Creando…" : "Crear hub borrador"}</button>
+      <div className="flex flex-wrap gap-3">
+        <button disabled={pending} className="rounded-lg bg-brand-800 px-4 py-2 font-semibold text-white disabled:opacity-60">{pending ? "Creando…" : "Crear hub borrador"}</button>
+        <button type="submit" name="siguientePaso" value="feed" disabled={pending} className="rounded-lg border border-brand-300 px-4 py-2 font-semibold text-brand-800 disabled:opacity-60">Crear y cargar feed</button>
+      </div>
     </form>
   );
 }

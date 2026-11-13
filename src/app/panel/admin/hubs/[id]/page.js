@@ -13,7 +13,8 @@ function serializeTopic(topic) {
     excerpt: topic.excerpt, status: topic.status, heroImage: topic.heroImage, heroImageAlt: topic.heroImageAlt,
     introVideoUrl: topic.introVideoUrl, podcastUrl: topic.podcastUrl, metaTitle: topic.metaTitle,
     metaDescription: topic.metaDescription, featured: topic.featured, order: topic.order,
-    sections: topic.sections.map(({ id, topicId, type, title, body, position, isVisible }) => ({ id, topicId, type, title, body, position, isVisible })),
+    updatedAt: topic.updatedAt?.toISOString?.() || null,
+    sections: topic.sections.map(({ id, topicId, type, title, body, position, isVisible, config, updatedAt }) => ({ id, topicId, type, title, body, position, isVisible, config, updatedAt: updatedAt?.toISOString?.() || null })),
     posts: topic.posts.map((item) => ({ postId: item.postId, topicId: item.topicId, role: item.role, featured: item.featured, position: item.position, post: item.post })),
     services: topic.services.map((item) => ({ topicId: item.topicId, serviceId: item.serviceId, featured: item.featured, position: item.position, service: item.service })),
     perspectives: topic.perspectives.map(({ id, topicId, disciplineId, title, content, position, status, discipline }) => ({ id, topicId, disciplineId, title, content, position, status, discipline })),
@@ -37,6 +38,7 @@ export default async function EditHubPage({ params }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Link href="/panel/admin/hubs" className="text-sm font-semibold text-slate-600 hover:underline">← Administración de hubs</Link>
           <div className="flex gap-3">
+            <Link href="#cargar-feed" className="rounded-lg bg-brand-800 px-4 py-2 text-sm font-semibold text-white">Cargar feed .md</Link>
             <Link href={`/panel/admin/temas/${topic.id}/preview`} target="_blank" rel="noreferrer" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800">Vista previa ↗</Link>
             {topic.status === "PUBLISHED" ? <Link href={`/${topic.slug}`} target="_blank" rel="noreferrer" className="rounded-lg bg-brand-800 px-4 py-2 text-sm font-semibold text-white">Ver público ↗</Link> : null}
           </div>

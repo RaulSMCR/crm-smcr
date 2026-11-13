@@ -1,6 +1,15 @@
-# Ingesta de `.md` en el panel de hubs de personas
+# Ingesta de `.md` en hubs profesionales y de contenido
 
 ## Contrato vigente — 13 de noviembre de 2026
+
+La carga está disponible para ambos tipos de hub, desde su lista y su editor.
+En creación, «Crear y cargar feed» guarda el borrador y abre el importador del
+nuevo hub. La selección de carpeta y el arrastre comparten el mismo flujo de
+vista previa y confirmación.
+
+Las reglas de piezas profesionales que siguen se mantienen. Para un hub de
+contenido, cada archivo corresponde a una sección de su página y usa el mapa
+de campos descrito en «Hubs de contenido» más abajo.
 
 Esta sección reemplaza las reglas contradictorias de la descripción histórica
 que sigue. Fuente acordada del feed: **carpeta seleccionada desde el panel**.
@@ -107,6 +116,101 @@ el siguiente `##`. El título y la prosa salen del Markdown. Se conservan listas
 enlaces y subsecciones; no se habilita HTML crudo. Riesgo usa la misma paleta
 neutral y no agrega botones de agenda dentro de la caja. Esto permite mostrar
 los marcadores ya guardados sin reimportar ni modificar módulos publicados.
+
+---
+
+## Hubs de contenido
+
+El mismo componente y los mismos endpoints aceptan `tipoHub: "contenido"`.
+El valor por defecto sigue siendo `profesional`, para los consumidores
+anteriores. El servidor valida el tipo y consulta exclusivamente su modelo.
+Ambos endpoints exigen ADMIN. Los límites, los hashes, la revisión del hub y la
+transacción serializable también se aplican a contenido.
+
+Se usan `Topic`, `TopicSection.config` y `PostTopic`, sin migración de schema.
+Los módulos anteriores siguen siendo editables. El feed no elimina secciones,
+relaciones ni contenido que no aparezca en sus archivos.
+
+### Portada de contenido
+
+`_hub.md` o `tipo: hub` configura la portada mediante frontmatter, sin cuerpo.
+
+```yaml
+---
+tipo: hub
+titulo: "Comprender la ansiedad"
+subtitulo: "Lecturas y recursos"
+resumen: "Presentación del hub."
+titulo_seo: "Comprender la ansiedad"
+meta: "Una descripción editorial de entre 120 y 155 caracteres para presentar el hub y sus contenidos en los resultados de búsqueda."
+imagen_hero: "/images/ansiedad.jpg"
+imagen_alt: "Descripción de la imagen"
+imagen_social: ""
+no_indexar: false
+busqueda_objetivo: "comprender la ansiedad"
+articulos_relacionados: []
+publicado: false
+---
+```
+
+Mapa a Topic: `nombre` → name, `titulo` → title, `subtitulo` → subtitle,
+`resumen` / `descripcion` → excerpt, `titulo_seo` → metaTitle, `meta` →
+metaDescription, `imagen_hero` → heroImage, `imagen_alt` → heroImageAlt,
+`video_url` → introVideoUrl, `podcast_url` → podcastUrl, `destacada` → featured,
+`orden` → order. Los campos omitidos conservan su valor.
+
+Imagen social, no indexar, búsqueda objetivo y otros metadatos se conservan en
+la configuración de una sección técnica `_hub`, siempre oculta. SEO y sitemap
+leen esa configuración. Las búsquedas se comparan también con portadas de
+contenido importadas previamente. La sección técnica no aparece entre los
+destinos ni en los formularios de secciones editoriales.
+
+### Secciones de contenido
+
+```yaml
+---
+titulo: "Introducción editorial"
+tipo_seccion: "EDITORIAL_INTRO"
+orden: 2
+---
+
+## Un primer acercamiento
+
+Contenido Markdown de la sección.
+```
+
+`tipo_seccion` usa los tipos del editor, como EDITORIAL_INTRO, USER_SITUATIONS,
+FEATURED_ARTICLES, EXPLORE_TOPIC, PERSPECTIVES, VIDEO, PODCAST, FAQ, SERVICES,
+PROFESSIONALS, RELATED_TOPICS, CTA, HERO y CUSTOM_RICH_TEXT. Sin tipo, se conserva
+el existente o se crea un CUSTOM_RICH_TEXT. Los nombres `introduccion-editorial`,
+`situaciones` y los nombres de tipo en minúsculas con guiones se reconocen.
+
+El nombre identifica el archivo en `config.ingesta.slug`. En una sección anterior
+sin esa identificación se puede usar su tipo, si identifica un único destino.
+Cuando hay ambigüedad, se bloquea y se ofrece elegir una sección del editor o
+indicar `seccion_id` en el frontmatter. Un ID de otro hub queda bloqueado.
+Un destino repetido, un orden ocupado o dos secciones del mismo tipo de función
+única también bloquean. CUSTOM_RICH_TEXT admite varias secciones y las muestra
+individualmente en la página.
+
+Las secciones nuevas necesitan título y las secciones de texto también cuerpo.
+El cuerpo admite hasta 30.000 caracteres. Otros campos editoriales, incluidos
+tarjeta y fechas, se conservan como metadatos de la sección. Su título SEO y su
+meta se conservan como datos editoriales; el SEO de la página se configura en
+`_hub.md`. No se exigen los bloques clínicos obligatorios de una página de
+consulta profesional. Los marcadores presentes se renderizan como cajas.
+Las variables de sesión de un profesional requieren el contexto de su hub
+profesional y se bloquean en una sección de contenido general.
+
+`articulos_relacionados` acepta slugs o rutas `/blog/<slug>` publicados y agrega
+vínculos aprobados sin eliminar los anteriores. La vista previa muestra estos
+vínculos y bloquea referencias inexistentes. Los enlaces entre secciones usan
+la URL del hub con ancla, por ejemplo `/ansiedad#otra-seccion`.
+
+Importar conserva el estado del hub y la visibilidad de las secciones existentes.
+En un hub publicado las nuevas quedan ocultas hasta activarlas desde su editor.
+En un borrador pueden quedar visibles dentro del borrador. La publicación sigue
+pasando por «Publicar hub», con las validaciones del editor.
 
 ---
 

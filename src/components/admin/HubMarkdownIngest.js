@@ -39,7 +39,7 @@ import { EXTENSIONES, MAX_ARCHIVOS_LOTE, MAX_ARCHIVOS_FEED, MAX_ARCHIVO_BYTES, M
  * @param {string|null} [props.destino] slug fijo: sin selector y un archivo por vez.
  * @param {boolean} [props.compacto] chrome reducido, para vivir dentro de un formulario.
  */
-export default function HubMarkdownIngest({ hubId, hubSlug, modulos = [], destino = null, compacto = false }) {
+export default function HubMarkdownIngest({ hubId, hubSlug, modulos = [], destino = null, compacto = false, tipoHub = "profesional" }) {
   const router = useRouter();
   const inputRef = useRef(null);
   const carpetaRef = useRef(null);
@@ -116,7 +116,7 @@ export default function HubMarkdownIngest({ hubId, hubSlug, modulos = [], destin
       const leidos = await Promise.all(
         lista.map(async (archivo) => ({ nombre: feed ? archivo.webkitRelativePath || archivo.name : archivo.name, texto: await archivo.text() })),
       );
-      const carga = JSON.stringify({ archivos: leidos, destino: destinoDelLote, feed });
+      const carga = JSON.stringify({ archivos: leidos, destino: destinoDelLote, feed, tipoHub });
       if (new TextEncoder().encode(carga).length > MAX_LOTE_BYTES - 16000) {
         setError("El lote supera el tamaño permitido (3 MB incluyendo el informe de confirmación). Dividí la carpeta antes de continuar.");
         return;
@@ -158,7 +158,7 @@ export default function HubMarkdownIngest({ hubId, hubSlug, modulos = [], destin
       const respuesta = await fetch(`/api/admin/hubs/${hubId}/ingesta/confirm`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ archivos, destino: destinoUsado, feed: feedUsado, revision: informe.revision }),
+        body: JSON.stringify({ archivos, destino: destinoUsado, feed: feedUsado, tipoHub, revision: informe.revision }),
       });
       const datos = await respuesta.json();
       if (!respuesta.ok) {
@@ -177,7 +177,7 @@ export default function HubMarkdownIngest({ hubId, hubSlug, modulos = [], destin
     }
   }
 
-  const borradores = (resultado?.aplicados || []).filter((fila) => fila.clase === "tema" && !fila.publicado);
+  const borradores = tipoHub === "profesional" ? (resultado?.aplicados || []).filter((fila) => fila.clase === "tema" && !fila.publicado) : [];
 
   function publicarBorradores() {
     const slugs = borradores.map((fila) => fila.slug).filter(Boolean);
@@ -206,7 +206,7 @@ export default function HubMarkdownIngest({ hubId, hubSlug, modulos = [], destin
   }
 
   return (
-    <Marco compacto={compacto} hubSlug={hubSlug} destinoFijo={destinoFijo}>
+    <Marco compacto={compacto} hubSlug={hubSlug} destinoFijo={destinoFijo} tipoHub={tipoHub}>
       {informe || resultado ? null : (
         <>
           {!destinoFijo && !compacto ? (
@@ -229,13 +229,13 @@ export default function HubMarkdownIngest({ hubId, hubSlug, modulos = [], destin
                 <option value="">Por el nombre del archivo · varios a la vez</option>
                 {modulos.map((modulo) => (
                   <option key={modulo.slug} value={modulo.slug}>
-                    Escribir en «{modulo.title}» · /{modulo.slug}
+                    Escribir en «{modulo.title}»
                   </option>
                 ))}
               </select>
               <span className="mt-1 block text-xs text-slate-500">
                 {eleccion
-                  ? `El nombre del archivo deja de contar: se escribe en /${hubSlug}/${eleccion}, un archivo por vez.`
+                  ? "Se actualiza el destino elegido, un archivo por vez."
                   : "Cada archivo va al módulo que lleva su nombre; si no existe, se crea como borrador."}
               </span>
             </label>
@@ -298,6 +298,7 @@ export default function HubMarkdownIngest({ hubId, hubSlug, modulos = [], destin
               </li>
             ))}
           </ul>
+          {tipoHub === "contenido" ? <p className="text-sm text-slate-600">Revisá las secciones importadas y su visibilidad en el editor. El botón «Publicar hub» comprueba los requisitos de publicación.</p> : null}
 
           {borradores.length ? (
             <div className="rounded border border-amber-200 bg-amber-50 p-3">
@@ -338,7 +339,7 @@ export default function HubMarkdownIngest({ hubId, hubSlug, modulos = [], destin
  * decir lo que ahí se vuelve peligroso: escribe en la base directamente, así que
  * lo que esté a medio escribir en ese formulario se pierde al recargar.
  */
-function Marco({ compacto, hubSlug, destinoFijo, children }) {
+function Marco({ compacto, hubSlug, destinoFijo, tipoHub, children }) {
   if (compacto) {
     return (
       <div className="mt-3 rounded-lg border border-dashed border-brand-300 bg-white p-3">
@@ -356,12 +357,12 @@ function Marco({ compacto, hubSlug, destinoFijo, children }) {
   return (
     <section id="cargar-feed" className="scroll-mt-6 rounded-2xl border border-brand-200 bg-white p-6 shadow-sm">
       <h2 className="text-xl font-bold text-slate-950">Cargar feed y archivos .md</h2>
-      <p className="mt-1 text-sm text-slate-600">
+      {tipoHub === "contenido" ? <p className="mt-1 text-sm text-slate-600">Un archivo por sección. Usá «tipo_seccion» para indicar su función y «_hub.md» para la portada. Primero se muestran las diferencias. La publicación se cambia manualmente.</p> : <p className="mt-1 text-sm text-slate-600">
         Un archivo por tema, con el nombre del archivo como slug. <span className="font-mono">_hub.md</span> configura el hub.
         Se lee, se muestra qué cambiaría y recién entonces se escribe. Lo nuevo entra como borrador. Si el archivo no se llama
         como el módulo, elegí el destino acá abajo o usá la zona de subida del propio módulo.
         El campo «publicado» se ignora: importar conserva el estado existente. La publicación y despublicación son manuales.
-      </p>
+      </p>}
       {children}
     </section>
   );

@@ -19,3 +19,15 @@ export function revalidarHub(slug) {
   revalidatePath("/sitemap.xml");
   if (slug) revalidatePath(`/${slug}`);
 }
+
+export function revalidarHubContenido(slug) {
+  revalidatePath("/panel/admin/hubs");
+  revalidatePath("/panel/admin/hubs/[id]", "page");
+  revalidatePath("/panel/admin/temas");
+  revalidatePath("/panel/admin/temas/[id]", "page");
+  revalidatePath("/panel/admin/temas/[id]/preview", "page");
+  revalidatePath("/[slug]", "page");
+  revalidatePath("/blog");
+  revalidatePath("/sitemap.xml");
+  if (slug) revalidatePath(`/${slug}`);
+}

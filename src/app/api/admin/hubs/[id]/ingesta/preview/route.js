@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { leerLote } from "@/lib/hub-ingest";
+import { leerLoteContenido } from "@/lib/topic-hub-ingest";
 import { MAX_ARCHIVOS_LOTE, MAX_ARCHIVOS_FEED, MAX_ARCHIVO_BYTES, MAX_LOTE_BYTES } from "@/lib/hub-markdown";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,8 @@ export async function POST(request, { params }) {
   }
 
   const archivos = Array.isArray(cuerpo?.archivos) ? cuerpo.archivos : [];
+  const tipoHub = cuerpo?.tipoHub ?? "profesional";
+  if (!["profesional", "contenido"].includes(tipoHub)) return NextResponse.json({ error: "Tipo de hub inválido." }, { status: 422 });
   const feed = cuerpo?.feed === true;
   const maxArchivos = feed ? MAX_ARCHIVOS_FEED : MAX_ARCHIVOS_LOTE;
   if (!archivos.length) return NextResponse.json({ error: "No llegó ningún archivo." }, { status: 422 });
@@ -51,7 +54,8 @@ export async function POST(request, { params }) {
   const destino = typeof cuerpo?.destino === "string" && cuerpo.destino.trim() ? cuerpo.destino.trim() : null;
 
   try {
-    const informe = await leerLote({ hubId: String(id || ""), archivos, destino, feed });
+    const leer = tipoHub === "contenido" ? leerLoteContenido : leerLote;
+    const informe = await leer({ hubId: String(id || ""), archivos, destino, feed });
     // Un destino inválido lo manda la pantalla, no el hub: 422, no 404.
     if (informe.error) return NextResponse.json({ error: informe.error }, { status: informe.motivo === "destino" ? 422 : 404 });
     return NextResponse.json({ ok: true, writesPerformed: false, confirmationRequired: true, destino, ...informe });
