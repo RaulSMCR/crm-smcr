@@ -87,7 +87,7 @@ export default function HubMarkdownIngest({ hubId, hubSlug, modulos = [], destin
     setResultado(null);
     setAvisoPublicacion(null);
 
-    const tope = unSoloArchivo ? 1 : feed ? MAX_ARCHIVOS_FEED : MAX_ARCHIVOS_LOTE;
+    const tope = feed ? MAX_ARCHIVOS_FEED : unSoloArchivo ? 1 : MAX_ARCHIVOS_LOTE;
     if (lista.length > tope) {
       setError(
         unSoloArchivo
@@ -110,7 +110,8 @@ export default function HubMarkdownIngest({ hubId, hubSlug, modulos = [], destin
     setOcupado(true);
     // Se congela acá y no se vuelve a leer del estado: entre el `await` de la
     // lectura y el informe, el selector podría haber cambiado.
-    const destinoDelLote = destinoEfectivo;
+    const destinoDelLote = feed ? null : destinoEfectivo;
+    if (feed) setEleccion("");
     try {
       const leidos = await Promise.all(
         lista.map(async (archivo) => ({ nombre: feed ? archivo.webkitRelativePath || archivo.name : archivo.name, texto: await archivo.text() })),
@@ -208,6 +209,15 @@ export default function HubMarkdownIngest({ hubId, hubSlug, modulos = [], destin
     <Marco compacto={compacto} hubSlug={hubSlug} destinoFijo={destinoFijo}>
       {informe || resultado ? null : (
         <>
+          {!destinoFijo && !compacto ? (
+            <div className="mt-5">
+              <button type="button" disabled={ocupado} onClick={() => carpetaRef.current?.click()} className="rounded-lg bg-brand-800 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
+                Cargar feed desde una carpeta
+              </button>
+              <p className="mt-2 text-xs text-slate-600">Seleccioná la carpeta con los .md del hub. Hasta {MAX_ARCHIVOS_FEED} archivos y 3 MB por lote. Primero se muestran las diferencias.</p>
+              <input ref={carpetaRef} type="file" multiple webkitdirectory="" directory="" className="hidden" aria-label="Carpeta del feed del hub" onChange={(event) => leerArchivos(event.target.files, true)} />
+            </div>
+          ) : null}
           {destinoFijo || !modulos.length ? null : (
             <label className="mt-5 block text-sm text-slate-700">
               <span className="mb-1 block font-medium">Módulo de destino</span>
@@ -264,15 +274,6 @@ export default function HubMarkdownIngest({ hubId, hubSlug, modulos = [], destin
             className="hidden"
             onChange={(event) => leerArchivos(event.target.files)}
           />
-          {!unSoloArchivo && !compacto ? (
-            <div className="mt-4">
-              <button type="button" disabled={ocupado} onClick={() => carpetaRef.current?.click()} className="rounded-lg border border-brand-300 px-4 py-2 text-sm font-semibold text-brand-800 disabled:opacity-60">
-                Leer feed desde una carpeta
-              </button>
-              <p className="mt-2 text-xs text-slate-600">Lee todos los .md de la carpeta y sus subcarpetas, con validación estricta. Hasta {MAX_ARCHIVOS_FEED} archivos y 3 MB por lote. Primero se muestran las diferencias.</p>
-              <input ref={carpetaRef} type="file" multiple webkitdirectory="" directory="" className="hidden" onChange={(event) => leerArchivos(event.target.files, true)} />
-            </div>
-          ) : null}
         </>
       )}
 
@@ -353,8 +354,8 @@ function Marco({ compacto, hubSlug, destinoFijo, children }) {
   }
 
   return (
-    <section className="rounded-2xl border border-brand-200 bg-white p-6 shadow-sm">
-      <h2 className="text-xl font-bold text-slate-950">Importar contenido desde archivos .md</h2>
+    <section id="cargar-feed" className="scroll-mt-6 rounded-2xl border border-brand-200 bg-white p-6 shadow-sm">
+      <h2 className="text-xl font-bold text-slate-950">Cargar feed y archivos .md</h2>
       <p className="mt-1 text-sm text-slate-600">
         Un archivo por tema, con el nombre del archivo como slug. <span className="font-mono">_hub.md</span> configura el hub.
         Se lee, se muestra qué cambiaría y recién entonces se escribe. Lo nuevo entra como borrador. Si el archivo no se llama

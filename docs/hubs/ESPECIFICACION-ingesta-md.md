@@ -5,7 +5,7 @@
 Esta sección reemplaza las reglas contradictorias de la descripción histórica
 que sigue. Fuente acordada del feed: **carpeta seleccionada desde el panel**.
 No se lee el repositorio ni una URL, no se descomprimen ZIP y no se instalan
-dependencias. El botón «Leer feed desde una carpeta» recorre los `.md` de la
+dependencias. El botón «Cargar feed desde una carpeta» recorre los `.md` de la
 carpeta y sus subcarpetas. Ignora otros tipos de archivo. El nombre base decide
 el slug; las rutas relativas identifican cada archivo en el informe.
 
