@@ -116,6 +116,9 @@ function moduleData(payload = {}) {
       metadata: {
         fecha: clean(payload.fecha, 40),
         actualizado: clean(payload.actualizado, 40),
+        ...(payload.tarjeta !== undefined ? { tarjeta: clean(payload.tarjeta, 5000) } : {}),
+        ...(payload.herramienta_relacionada !== undefined ? { herramienta_relacionada: clean(payload.herramienta_relacionada, 500) } : {}),
+        ...(payload.articulos_relacionados !== undefined ? { articulos_relacionados: (Array.isArray(payload.articulos_relacionados) ? payload.articulos_relacionados : String(payload.articulos_relacionados).split(/[\n,]/)).map((item) => clean(item, 2000)).filter(Boolean) } : {}),
       },
       // `position` ya no se edita en este formulario: el orden se guarda completo
       // y contiguo desde la pantalla de orden (`reorderProfessionalHubModules`).

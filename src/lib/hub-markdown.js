@@ -1,5 +1,6 @@
 import { SEO_LIMITS } from "@/lib/seo";
-import { normalizeTopicSlug, validateTopicSlug } from "@/lib/topic";
+import { normalizeTopicSlug, validateTopicSlug, safeTopicMediaUrl } from "@/lib/topic";
+import { seccionesHub } from "@/lib/hub-sections";
 
 /**
  * Lee un `.md` del contrato de contenido de hubs y lo convierte al payload de
@@ -17,6 +18,9 @@ import { normalizeTopicSlug, validateTopicSlug } from "@/lib/topic";
 
 export const MAX_ARCHIVO_BYTES = 2 * 1024 * 1024;
 export const MAX_ARCHIVOS_LOTE = 12;
+export const MAX_ARCHIVOS_FEED = 100;
+// Deja margen para el JSON dentro del límite de una función de Vercel.
+export const MAX_LOTE_BYTES = 3 * 1024 * 1024;
 export const EXTENSIONES = [".md", ".markdown", ".mdown", ".txt"];
 
 /** Marcadores de bloque semántico que la especificación de contenido define. */
@@ -52,7 +56,7 @@ export const CAMPOS_HUB_IGNORADOS = Object.freeze({
 });
 
 const RE_PRECIO = /₡|\b800-|\+506|\b506\d{8}\b/;
-const RE_ABSOLUTO = /https?:\/\/(?:www\.)?saludmentalcostarica\.com/i;
+const RE_ABSOLUTO = /(?:https?:)?\/\/(?:www\.)?saludmentalcostarica\.com(?:[/:?#]|$)/i;
 const RE_HTML = /<\s*(?:script|iframe|object|embed|style|form)\b|javascript:|\son\w+\s*=/i;
 const RE_ENLACE_MD = /\[[^\]]*\]\(([^)\s]+)/g;
 
@@ -69,7 +73,17 @@ const RE_ENLACE_MD = /\[[^\]]*\]\(([^)\s]+)/g;
  * distinguir un teléfono de un entero.
  */
 export function parseEscalarYaml(raw) {
-  const valor = String(raw ?? "").trim();
+  let valor = String(raw ?? "").trim();
+  let comilla = null;
+  for (let i = 0; i < valor.length; i += 1) {
+    if ((valor[i] === '"' || valor[i] === "'") && valor[i - 1] !== "\\") {
+      comilla = comilla === valor[i] ? null : comilla || valor[i];
+    }
+    if (!comilla && valor[i] === "#" && (i === 0 || /\s/.test(valor[i - 1]))) {
+      valor = valor.slice(0, i).trim();
+      break;
+    }
+  }
   if (!valor) return "";
 
   const sinComillas = valor.replace(/^(['"])([\s\S]*)\1$/, "$2");
@@ -264,11 +278,15 @@ export function leerEnlacesInternos(body) {
   const texto = String(body || "");
   let match = RE_ENLACE_MD.exec(texto);
   while (match) {
-    const href = match[1].trim();
+    const href = match[1].trim().replace(/^<|>$/g, "");
     if (href.startsWith("/") && !href.startsWith("//") && !salida.includes(href)) salida.push(href);
     match = RE_ENLACE_MD.exec(texto);
   }
   RE_ENLACE_MD.lastIndex = 0;
+  for (const referencia of texto.matchAll(/^\s{0,3}\[[^\]\n]+\]:\s*<?(\/[^\s>]*)/gm)) {
+    const href = referencia[1];
+    if (!href.startsWith("//") && !salida.includes(href)) salida.push(href);
+  }
   return salida;
 }
 
@@ -311,6 +329,7 @@ export function esNombreMarkdown(nombre) {
 
 export function slugDeArchivo(nombre) {
   return String(nombre || "")
+    .split(/[\\/]/).pop()
     .replace(/\.[^.]+$/, "")
     .replace(/^_+/, "");
 }
@@ -345,6 +364,10 @@ export function parseHubDocument(source, nombreArchivo = "", opciones = {}) {
   const clase = tipo === "hub" || base === "hub" || /^_hub$/i.test(String(nombre).replace(/\.[^.]+$/, "")) ? "hub" : "tema";
 
   const comunes = { archivo: nombre, clase, frontmatter, body, avisos, bloqueos };
+  if (/psic[oó]logos\s+en\s+costa\s+rica/iu.test(String(source).normalize("NFC").replace(/[*_`]/g, "").replace(/&oacute;|&#243;|&#xf3;/gi, "ó").replace(/&nbsp;/gi, " "))) {
+    bloqueos.push("el documento contiene la frase plural prohibida por el contrato del sitio");
+  }
+  if (opciones.feed) validarContratoFeed({ frontmatter, body, clase, bloqueos });
   if (clase === "hub") return { ...comunes, ...leerHub(frontmatter, avisos, bloqueos) };
   return { ...comunes, ...leerTema({ frontmatter, body, base: elegido || base, baseArchivo: base, elegido: Boolean(elegido), avisos, bloqueos }) };
 }
@@ -393,7 +416,6 @@ function leerTema({ frontmatter, body, base, baseArchivo = null, elegido = false
   for (const bloque of bloques) {
     if (!BLOQUES_CONOCIDOS.includes(bloque)) avisos.push(`marcador de bloque desconocido: «${bloque}»`);
   }
-  if (bloques.length) avisos.push("los marcadores de bloque se guardan y no se ven en la página, pero la plantilla todavía no los pinta como caja");
 
   const fecha = texto(frontmatter.fecha);
   const actualizado = texto(frontmatter.actualizado) || fecha;
@@ -414,11 +436,13 @@ function leerTema({ frontmatter, body, base, baseArchivo = null, elegido = false
   const herramienta = texto(frontmatter.herramienta_relacionada);
   const tarjeta = texto(frontmatter.tarjeta);
   if (!tarjeta) avisos.push("falta «tarjeta»: la grilla del hub va a usar el resumen");
+  const tipoModulo = ({ tema: "TOPIC", tratamiento: "TREATMENT", personalizado: "CUSTOM" })[texto(frontmatter.tipo).toLowerCase()] || (slug === SLUG_TRATAMIENTO ? "TREATMENT" : "TOPIC");
 
   return {
     slugArchivo,
     slug,
-    tipo: slug === SLUG_TRATAMIENTO ? "TREATMENT" : "TOPIC",
+    tipo: tipoModulo,
+    tipoExplicito: ["tema", "tratamiento", "personalizado"].includes(texto(frontmatter.tipo).toLowerCase()),
     encabezados,
     bloques,
     enlaces,
@@ -430,15 +454,16 @@ function leerTema({ frontmatter, body, base, baseArchivo = null, elegido = false
     // fila, y esto no consulta la base.
     modulo: {
       slug,
-      type: slug === SLUG_TRATAMIENTO ? "TREATMENT" : "TOPIC",
+      type: tipoModulo,
       title: titulo,
       summary: texto(frontmatter.resumen) || null,
       body: body || null,
       metaTitle: tituloSeo || null,
       metaDescription: meta || null,
       focusKeyword: texto(frontmatter.busqueda_objetivo) || null,
-      ogImage: texto(frontmatter.imagen_social || frontmatter.ogImage) || null,
-      noindex: frontmatter.no_indexar === true || frontmatter.noindex === true,
+      ogImage: "imagen_social" in frontmatter || "ogImage" in frontmatter ? texto(frontmatter.imagen_social || frontmatter.ogImage) || null : undefined,
+      noindex: "no_indexar" in frontmatter || "noindex" in frontmatter ? frontmatter.no_indexar === true || frontmatter.noindex === true : undefined,
+      isFeatured: "destacada" in frontmatter ? frontmatter.destacada === true : undefined,
       position,
       metadata: {
         fecha,
@@ -453,14 +478,48 @@ function leerTema({ frontmatter, body, base, baseArchivo = null, elegido = false
   };
 }
 
-/**
- * `_hub.md`: configura la fila del hub.
- *
- * Las claves de copy del esquema (`hero`, `cierre`, `barra_movil`, `pie`…) no
- * tienen columna, así que salen aparte en `copy` y la ingesta las guarda en un
- * módulo `CUSTOM` invisible con slug `_hub`. Es la opción sin migración; el día
- * que el copy salga de la plantilla, se mueven a una columna `copy Json?`.
- */
+/** Contrato estricto del feed; el arrastre conserva sus avisos históricos. */
+function validarContratoFeed({ frontmatter: fm, body, clase, bloqueos }) {
+  if (clase === "tema") {
+    for (const clave of ["titulo", "titulo_seo", "meta", "resumen", "tarjeta", "orden", "fecha", "actualizado", "herramienta_relacionada", "articulos_relacionados", "busqueda_objetivo", "publicado"]) {
+      if (!Object.hasOwn(fm, clave)) bloqueos.push(`falta el campo obligatorio «${clave}»`);
+    }
+    for (const clave of ["titulo", "resumen", "tarjeta", "busqueda_objetivo"]) {
+      if (!texto(fm[clave])) bloqueos.push(`«${clave}» no puede quedar vacío`);
+    }
+    for (const clave of ["titulo", "titulo_seo", "meta", "resumen", "tarjeta", "fecha", "actualizado", "herramienta_relacionada", "busqueda_objetivo"]) {
+      if (fm[clave] !== undefined && typeof fm[clave] !== "string") bloqueos.push(`«${clave}» debe ser texto`);
+    }
+    if (!Number.isInteger(fm.orden) || fm.orden < 0) bloqueos.push("«orden» debe ser un entero no negativo");
+    for (const clave of ["fecha", "actualizado"]) {
+      if (!esFechaISO(fm[clave])) bloqueos.push(`«${clave}» debe ser una fecha ISO válida`);
+    }
+    if (!Array.isArray(fm.articulos_relacionados)) bloqueos.push("«articulos_relacionados» debe ser una lista");
+    const marcados = seccionesHub(body).map((h) => h.bloque);
+    for (const bloque of BLOQUES_ESPERADOS) {
+      if (!marcados.includes(bloque)) bloqueos.push(`falta el bloque «${bloque}» antes de un encabezado ##`);
+    }
+    if (fm.tipo !== undefined && !["tema", "tratamiento", "personalizado"].includes(texto(fm.tipo).toLowerCase())) {
+      bloqueos.push("«tipo» debe ser tema, tratamiento o personalizado");
+    }
+  }
+  if ((clase === "tema" || fm.titulo_seo !== undefined) && (!texto(fm.titulo_seo) || texto(fm.titulo_seo).length > 60)) {
+    bloqueos.push("«titulo_seo» debe tener entre 1 y 60 caracteres");
+  }
+  if ((clase === "tema" || fm.meta !== undefined) && (texto(fm.meta).length < 120 || texto(fm.meta).length > 155)) {
+    bloqueos.push("«meta» debe tener entre 120 y 155 caracteres");
+  }
+  for (const clave of ["destacada", "no_indexar", "publicado"]) {
+    if (fm[clave] !== undefined && typeof fm[clave] !== "boolean") bloqueos.push(`«${clave}» debe ser true o false`);
+  }
+  if (fm.imagen_social && !safeTopicMediaUrl(fm.imagen_social)) bloqueos.push("«imagen_social» debe ser una ruta desde / o una URL HTTPS");
+  if (/(?:[$€₡]\s*\d|\b\d[\d.,]*\s*(?:colones|dólares|euros)\b|(?<!\d)(?:\+?506[\s-]*)?[2-8]\d{3}[\s-]?\d{4}(?!\d))/iu.test(body)) {
+    bloqueos.push("el cuerpo contiene un precio o teléfono literal: usá las variables del hub");
+  }
+  if (/^[^\n]+\n={2,}\s*$/m.test(body)) bloqueos.push("el cuerpo trae un H1 subrayado: el h1 sale de «titulo»");
+}
+
+/** `_hub.md`: columnas del hub y copy conservado en el módulo invisible _hub. */
 function leerHub(frontmatter, avisos, bloqueos) {
   const ignorados = [];
   for (const [clave, razon] of Object.entries(CAMPOS_HUB_IGNORADOS)) {

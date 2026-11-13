@@ -142,7 +142,7 @@ export default async function RaulHubPage() {
               >
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-nv-teal">{topic.destacado ? "Empezá por acá" : "Tema"}</p>
                 <h3 className={`mt-3 font-display font-semibold text-nv-teal-deep group-hover:text-nv-teal ${topic.destacado ? "text-4xl sm:text-5xl" : "text-3xl"}`}>{topic.titulo}</h3>
-                <p className={`mt-3 leading-6 text-neutral-700 ${topic.destacado ? "max-w-2xl text-base" : "text-sm"}`}>{topic.resumen || "Página en preparación. El contenido se incorporará próximamente."}</p>
+                <p className={`mt-3 leading-6 text-neutral-700 ${topic.destacado ? "max-w-2xl text-base" : "text-sm"}`}>{topic.tarjeta || topic.resumen || hub.tarjeta_vacia}</p>
                 <span className="mt-5 inline-flex text-sm font-bold text-nv-teal-deep">Leer sobre {topic.titulo.toLowerCase()} →</span>
               </HubTrackedLink>
             ))}

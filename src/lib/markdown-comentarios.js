@@ -33,7 +33,7 @@ const COMENTARIO = /<!--[\s\S]*?-->/g;
  * @returns {string} el mismo texto sin comentarios HTML. Si no había ninguno,
  *   devuelve la cadena original sin tocar: la función es un no-op verificable.
  */
-export function quitarComentariosHtml(texto) {
+export function quitarComentariosHtml(texto, { conservarBloques = false } = {}) {
   const fuente = String(texto ?? "");
   if (!fuente.includes("<!--")) return fuente;
 
@@ -50,7 +50,11 @@ export function quitarComentariosHtml(texto) {
     // más. Markdown los ignora, pero el cuerpo guardado no cambió y este
     // colapso es solo de presentación, así que se hace únicamente donde se quitó
     // algo: sin comentarios, la salida es idéntica a la entrada.
-    return parte.replace(COMENTARIO, "").replace(/\n{3,}/g, "\n\n");
+    return parte.replace(COMENTARIO, (comentario, offset) => {
+      const antes = parte.slice(0, offset).split("\n").pop();
+      const despues = parte.slice(offset + comentario.length).split("\n")[0];
+      return conservarBloques && !antes.trim() && !despues.trim() && /^<!--\s*bloque:\s*(cuando-consultar|riesgo|aviso)\s*-->$/i.test(comentario) ? comentario : "";
+    }).replace(/\n{3,}/g, "\n\n");
   });
 
   return toco ? limpias.join("") : fuente;

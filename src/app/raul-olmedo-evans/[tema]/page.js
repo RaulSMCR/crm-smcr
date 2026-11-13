@@ -9,6 +9,7 @@ import JsonLd from "@/components/JsonLd";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import { buildMetadata, resolveSeo } from "@/lib/seo";
 import { leerEncabezados } from "@/lib/hub-markdown";
+import { variablesHub } from "@/lib/hub-sections";
 import {
   RAUL_JOB_TITLE,
   buildWaLink,
@@ -149,7 +150,7 @@ export default async function RaulThemePage({ params }) {
             </p>
             {doc.body ? (
               <div className="prose prose-lg mt-10 max-w-none text-neutral-800">
-                <MarkdownRenderer content={doc.body} idsEnEncabezados />
+                <MarkdownRenderer content={variablesHub(doc.body, { precio, duracion: hub.duracion_min, whatsapp: hub.whatsapp })} idsEnEncabezados bloquesHub />
               </div>
             ) : (
               <div className="mt-10 rounded-nv border border-nv-teal-deep/20 bg-nv-cream-hi p-6">

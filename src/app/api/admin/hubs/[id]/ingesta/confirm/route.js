@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { aplicarLote, hashDocumento } from "@/lib/hub-ingest";
 import { revalidarHub } from "@/lib/hub-revalidate";
-import { MAX_ARCHIVOS_LOTE, MAX_ARCHIVO_BYTES } from "@/lib/hub-markdown";
+import { MAX_ARCHIVOS_LOTE, MAX_ARCHIVOS_FEED, MAX_ARCHIVO_BYTES, MAX_LOTE_BYTES } from "@/lib/hub-markdown";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -32,10 +32,14 @@ export async function POST(request, { params }) {
   }
 
   const archivos = Array.isArray(cuerpo?.archivos) ? cuerpo.archivos : [];
+  const feed = cuerpo?.feed === true;
+  const maxArchivos = feed ? MAX_ARCHIVOS_FEED : MAX_ARCHIVOS_LOTE;
+  if (!/^[a-f0-9]{64}$/.test(String(cuerpo?.revision || ""))) return NextResponse.json({ error: "Falta la revisión de la vista previa. Volvé a leer los archivos." }, { status: 409 });
   if (!archivos.length) return NextResponse.json({ error: "No llegó ningún archivo." }, { status: 422 });
-  if (archivos.length > MAX_ARCHIVOS_LOTE) {
-    return NextResponse.json({ error: `Máximo ${MAX_ARCHIVOS_LOTE} archivos por lote.` }, { status: 422 });
+  if (archivos.length > maxArchivos) {
+    return NextResponse.json({ error: `Máximo ${maxArchivos} archivos por lote.` }, { status: 422 });
   }
+  if (Buffer.byteLength(JSON.stringify(cuerpo), "utf8") > MAX_LOTE_BYTES) return NextResponse.json({ error: "El lote supera 3 MB. Dividí la carpeta antes de continuar." }, { status: 413 });
 
   for (const archivo of archivos) {
     if (typeof archivo?.texto !== "string") {
@@ -65,13 +69,16 @@ export async function POST(request, { params }) {
       hubId: String(id || ""),
       archivos,
       destino,
+      feed,
+      revision: cuerpo.revision,
       actor: session.email || session.sub || "admin",
     });
-    if (resultado.error) return NextResponse.json({ error: resultado.error }, { status: resultado.motivo === "destino" ? 422 : 404 });
+    if (resultado.error) return NextResponse.json({ error: resultado.error }, { status: resultado.motivo === "revision" ? 409 : resultado.motivo === "destino" ? 422 : 404 });
     if (resultado.writesPerformed) revalidarHub(resultado.hub?.slug);
     return NextResponse.json({ ok: true, ...resultado });
   } catch (error) {
-    console.error("ingesta de hub · confirm falló:", error);
+    if (error?.code === "P2034") return NextResponse.json({ error: "El hub cambió durante la confirmación. Volvé a revisar los archivos." }, { status: 409 });
+    console.error("ingesta de hub · confirm falló", { code: error?.code || "unknown" });
     return NextResponse.json({ error: "No se pudo aplicar el lote." }, { status: 500 });
   }
 }

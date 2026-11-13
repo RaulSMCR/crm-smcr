@@ -8,7 +8,7 @@ import { publishProfessionalHubModules } from "@/actions/professional-hub-action
 // archivos y esta pantalla deja soltar veinte, el rechazo llega después de leer
 // todo. `hub-markdown` es puro, así que viaja al navegador sin arrastrar Prisma
 // ni node:crypto (eso vive en `hub-ingest`, que esta pantalla no importa).
-import { EXTENSIONES, MAX_ARCHIVOS_LOTE, MAX_ARCHIVO_BYTES } from "@/lib/hub-markdown";
+import { EXTENSIONES, MAX_ARCHIVOS_LOTE, MAX_ARCHIVOS_FEED, MAX_ARCHIVO_BYTES, MAX_LOTE_BYTES } from "@/lib/hub-markdown";
 
 /**
  * Ingesta de documentos `.md` en un hub profesional.
@@ -42,6 +42,8 @@ import { EXTENSIONES, MAX_ARCHIVOS_LOTE, MAX_ARCHIVO_BYTES } from "@/lib/hub-mar
 export default function HubMarkdownIngest({ hubId, hubSlug, modulos = [], destino = null, compacto = false }) {
   const router = useRouter();
   const inputRef = useRef(null);
+  const carpetaRef = useRef(null);
+  const [feedUsado, setFeedUsado] = useState(false);
   const [arrastrando, setArrastrando] = useState(false);
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState(null);
@@ -69,22 +71,28 @@ export default function HubMarkdownIngest({ hubId, hubSlug, modulos = [], destin
     setAvisoPublicacion(null);
     setDestinoUsado(null);
     if (inputRef.current) inputRef.current.value = "";
+    if (carpetaRef.current) carpetaRef.current.value = "";
   }
 
-  async function leerArchivos(listaCruda) {
-    const lista = Array.from(listaCruda || []);
-    if (!lista.length) return;
+  async function leerArchivos(listaCruda, feed = false) {
+    const lista = Array.from(listaCruda || []).filter((archivo) => !feed || /\.md$/i.test(archivo.name));
+    if (inputRef.current) inputRef.current.value = "";
+    if (carpetaRef.current) carpetaRef.current.value = "";
+    if (!lista.length) {
+      if (feed) setError("La carpeta seleccionada no contiene archivos .md.");
+      return;
+    }
 
     setError(null);
     setResultado(null);
     setAvisoPublicacion(null);
 
-    const tope = unSoloArchivo ? 1 : MAX_ARCHIVOS_LOTE;
+    const tope = unSoloArchivo ? 1 : feed ? MAX_ARCHIVOS_FEED : MAX_ARCHIVOS_LOTE;
     if (lista.length > tope) {
       setError(
         unSoloArchivo
           ? `Con un módulo elegido se importa un archivo por vez. Llegaron ${lista.length}.`
-          : `Máximo ${MAX_ARCHIVOS_LOTE} archivos por lote. Llegaron ${lista.length}.`,
+          : `Máximo ${tope} archivos por lote. Llegaron ${lista.length}.`,
       );
       return;
     }
@@ -105,12 +113,17 @@ export default function HubMarkdownIngest({ hubId, hubSlug, modulos = [], destin
     const destinoDelLote = destinoEfectivo;
     try {
       const leidos = await Promise.all(
-        lista.map(async (archivo) => ({ nombre: archivo.name, texto: await archivo.text() })),
+        lista.map(async (archivo) => ({ nombre: feed ? archivo.webkitRelativePath || archivo.name : archivo.name, texto: await archivo.text() })),
       );
+      const carga = JSON.stringify({ archivos: leidos, destino: destinoDelLote, feed });
+      if (new TextEncoder().encode(carga).length > MAX_LOTE_BYTES - 16000) {
+        setError("El lote supera el tamaño permitido (3 MB incluyendo el informe de confirmación). Dividí la carpeta antes de continuar.");
+        return;
+      }
       const respuesta = await fetch(`/api/admin/hubs/${hubId}/ingesta/preview`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ archivos: leidos, destino: destinoDelLote }),
+        body: carga,
       });
       const datos = await respuesta.json();
       if (!respuesta.ok) {
@@ -120,23 +133,23 @@ export default function HubMarkdownIngest({ hubId, hubSlug, modulos = [], destin
       }
       // El texto se guarda para el confirm: el servidor no lo conserva entre
       // las dos llamadas, así que el navegador lo vuelve a mandar con su hash.
-      setArchivos(leidos.map((archivo) => ({ ...archivo, sha256: datos.lote.find((fila) => fila.archivo === archivo.nombre)?.sha256 })));
+      setArchivos(leidos.map((archivo, index) => ({ ...archivo, sha256: datos.lote[index]?.sha256 })));
       setInforme(datos);
       setDestinoUsado(destinoDelLote);
+      setFeedUsado(feed);
     } catch (errorLectura) {
-      console.error("ingesta de hub · lectura falló:", errorLectura);
+      console.error("ingesta de hub · lectura falló", { name: errorLectura?.name });
       setError("No se pudieron leer los archivos.");
     } finally {
       setOcupado(false);
       if (inputRef.current) inputRef.current.value = "";
+      if (carpetaRef.current) carpetaRef.current.value = "";
     }
   }
 
   async function aplicar() {
     if (!informe) return;
-    const escribibles = new Set(informe.lote.filter((fila) => fila.escribible).map((fila) => fila.archivo));
-    const carga = archivos.filter((archivo) => escribibles.has(archivo.nombre));
-    if (!carga.length) return;
+    if (!informe.lote.some((fila) => fila.escribible)) return;
 
     setOcupado(true);
     setError(null);
@@ -144,7 +157,7 @@ export default function HubMarkdownIngest({ hubId, hubSlug, modulos = [], destin
       const respuesta = await fetch(`/api/admin/hubs/${hubId}/ingesta/confirm`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ archivos: carga, destino: destinoUsado }),
+        body: JSON.stringify({ archivos, destino: destinoUsado, feed: feedUsado, revision: informe.revision }),
       });
       const datos = await respuesta.json();
       if (!respuesta.ok) {
@@ -156,7 +169,7 @@ export default function HubMarkdownIngest({ hubId, hubSlug, modulos = [], destin
       setArchivos([]);
       router.refresh();
     } catch (errorEscritura) {
-      console.error("ingesta de hub · confirm falló:", errorEscritura);
+      console.error("ingesta de hub · confirm falló", { name: errorEscritura?.name });
       setError("No se pudo aplicar el lote.");
     } finally {
       setOcupado(false);
@@ -251,6 +264,15 @@ export default function HubMarkdownIngest({ hubId, hubSlug, modulos = [], destin
             className="hidden"
             onChange={(event) => leerArchivos(event.target.files)}
           />
+          {!unSoloArchivo && !compacto ? (
+            <div className="mt-4">
+              <button type="button" disabled={ocupado} onClick={() => carpetaRef.current?.click()} className="rounded-lg border border-brand-300 px-4 py-2 text-sm font-semibold text-brand-800 disabled:opacity-60">
+                Leer feed desde una carpeta
+              </button>
+              <p className="mt-2 text-xs text-slate-600">Lee todos los .md de la carpeta y sus subcarpetas, con validación estricta. Hasta {MAX_ARCHIVOS_FEED} archivos y 3 MB por lote. Primero se muestran las diferencias.</p>
+              <input ref={carpetaRef} type="file" multiple webkitdirectory="" directory="" className="hidden" onChange={(event) => leerArchivos(event.target.files, true)} />
+            </div>
+          ) : null}
         </>
       )}
 
@@ -264,15 +286,14 @@ export default function HubMarkdownIngest({ hubId, hubSlug, modulos = [], destin
             Se escribieron {resultado.aplicados.length} {resultado.aplicados.length === 1 ? "pieza" : "piezas"}.
           </p>
           <ul className="space-y-2 text-sm">
-            {resultado.aplicados.map((fila) => (
-              <li key={fila.archivo} className="rounded border border-slate-200 bg-slate-50 p-3">
+            {resultado.lote.map((fila, index) => (
+              <li key={`${fila.archivo}-${index}`} className="rounded border border-slate-200 bg-slate-50 p-3">
                 <span className="font-mono text-xs text-slate-500">{fila.archivo}</span>
                 <p className="font-semibold text-slate-900">
-                  {fila.accion === "crear" ? "Creado" : "Actualizado"} · {fila.ruta}
-                  <span className={fila.publicado ? "ml-2 text-emerald-700" : "ml-2 text-amber-700"}>
-                    {fila.publicado ? "publicado" : "borrador"}
-                  </span>
+                  {fila.bloqueos.length ? "Bloqueado" : fila.accion === "sin_cambios" ? "Sin cambios" : fila.accion === "crear" ? "Creado" : "Actualizado"} · {fila.ruta}
+                  {!fila.bloqueos.length && fila.clase === "tema" ? <span className="ml-2 text-xs text-slate-600">{fila.publicadoActual || resultado.aplicados.find((a) => a.archivo === fila.archivo)?.publicado ? "publicado" : "borrador"}</span> : null}
                 </p>
+                {fila.bloqueos.map((motivo, i) => <p key={i} className="mt-1 text-xs text-red-800">{motivo}</p>)}
               </li>
             ))}
           </ul>
@@ -338,6 +359,7 @@ function Marco({ compacto, hubSlug, destinoFijo, children }) {
         Un archivo por tema, con el nombre del archivo como slug. <span className="font-mono">_hub.md</span> configura el hub.
         Se lee, se muestra qué cambiaría y recién entonces se escribe. Lo nuevo entra como borrador. Si el archivo no se llama
         como el módulo, elegí el destino acá abajo o usá la zona de subida del propio módulo.
+        El campo «publicado» se ignora: importar conserva el estado existente. La publicación y despublicación son manuales.
       </p>
       {children}
     </section>
@@ -352,7 +374,7 @@ function Informe({ informe, hubSlug, ocupado, onAplicar, onCancelar }) {
     <div className="mt-5 space-y-4">
       <div className="flex flex-wrap items-center gap-3 rounded border border-slate-200 bg-slate-50 p-3 text-sm text-slate-800">
         <span className="font-semibold">Nada se ha escrito todavía.</span>
-        <span>{resumen.crear} por crear · {resumen.actualizar} por actualizar · {resumen.bloqueados} bloqueados · {resumen.avisos} avisos</span>
+        <span>{resumen.crear} por crear · {resumen.actualizar} por actualizar · {resumen.sinCambios} sin cambios · {resumen.bloqueados} bloqueados · {resumen.avisos} avisos</span>
       </div>
 
       {informe.hub && !informe.hub.rutaExiste ? (
@@ -363,15 +385,15 @@ function Informe({ informe, hubSlug, ocupado, onAplicar, onCancelar }) {
       ) : null}
 
       <ul className="space-y-3">
-        {lote.map((fila) => (
+        {lote.map((fila, index) => (
           <li
-            key={fila.archivo}
-            className={`rounded-xl border p-4 ${fila.escribible ? "border-slate-200 bg-white" : "border-red-200 bg-red-50/40"}`}
+            key={`${fila.archivo}-${index}`}
+            className={`rounded-xl border p-4 ${!fila.bloqueos.length ? "border-slate-200 bg-white" : "border-red-200 bg-red-50/40"}`}
           >
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <span className="font-mono text-xs text-slate-500">{fila.archivo}</span>
-              <span className={`text-xs font-bold uppercase tracking-wide ${fila.escribible ? "text-slate-600" : "text-red-700"}`}>
-                {fila.escribible ? (fila.accion === "crear" ? "crear" : "actualizar") : "bloqueado"}
+              <span className={`text-xs font-bold uppercase tracking-wide ${!fila.bloqueos.length ? "text-slate-600" : "text-red-700"}`}>
+                {fila.bloqueos.length ? "bloqueado" : fila.accion === "sin_cambios" ? "sin cambios" : fila.accion === "crear" ? "crear" : "actualizar"}
               </span>
             </div>
             <p className="mt-1 font-semibold text-slate-900">

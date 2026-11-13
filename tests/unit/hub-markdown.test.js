@@ -360,3 +360,47 @@ describe("los archivos reales de content/hub-raul", () => {
     }
   });
 });
+
+const FEED_VALIDO = TEMA_MINIMO.replace(/meta: ".*"/, `meta: "${"Un espacio para entender lo que ocurre durante una crisis, escuchar sus efectos y empezar a trabajarlo en una consulta profesional.".padEnd(130, " ")}"`);
+
+describe("contrato estricto del feed", () => {
+  it("acepta el documento completo y los valores opcionales con comentarios YAML", () => {
+    const contenido = FEED_VALIDO.replace("orden: 3", 'orden: 3\ndestacada: true # solo una\ntipo: "personalizado" # tipo\nimagen_social: "/images/social.png"\nno_indexar: true');
+    const r = parseHubDocument(contenido, "tema.md", { feed: true });
+    expect(r.bloqueos).toEqual([]);
+    expect(r.modulo).toMatchObject({ type: "CUSTOM", isFeatured: true, noindex: true, ogImage: "/images/social.png" });
+  });
+
+  it.each([119, 156])("bloquea meta de %i caracteres", (largo) => {
+    const r = parseHubDocument(FEED_VALIDO.replace(/meta: ".*"/, `meta: "${"x".repeat(largo)}"`), "tema.md", { feed: true });
+    expect(r.bloqueos.join(" ")).toContain("120 y 155");
+  });
+  it.each([120, 155])("acepta meta de %i caracteres", (largo) => {
+    expect(parseHubDocument(FEED_VALIDO.replace(/meta: ".*"/, `meta: "${"x".repeat(largo)}"`), "tema.md", { feed: true }).bloqueos).toEqual([]);
+  });
+  it("bloquea título SEO largo", () => {
+    expect(parseHubDocument(FEED_VALIDO.replace(/titulo_seo: ".*"/, `titulo_seo: "${"x".repeat(61)}"`), "tema.md", { feed: true }).bloqueos.join(" ")).toContain("60 caracteres");
+  });
+  it("un marcador suelto o dentro de código no satisface los bloques obligatorios", () => {
+    const r = parseHubDocument(FEED_VALIDO.replace("<!-- bloque: riesgo -->", "```\n<!-- bloque: riesgo -->\n## Ejemplo\n```"), "tema.md", { feed: true });
+    expect(r.bloqueos.join(" ")).toContain("falta el bloque «riesgo»");
+  });
+  it("bloquea campos obligatorios ausentes", () => {
+    const r = parseHubDocument(FEED_VALIDO.replace(/tarjeta:.*\n/, ""), "tema.md", { feed: true });
+    expect(r.bloqueos.join(" ")).toContain("«tarjeta»");
+  });
+  it.each(["tipo: otro", "orden: 1.5", 'destacada: "true"', "imagen_social: javascript:alert(1)"])("bloquea opción inválida: %s", (campo) => {
+    const r = parseHubDocument(FEED_VALIDO.replace("orden: 3", `orden: 3\n${campo}`), "tema.md", { feed: true });
+    expect(r.bloqueos.length).toBeGreaterThan(0);
+  });
+  it.each(["$40", "40.000 colones", "7129-1909"])("bloquea literal: %s", (literal) => {
+    const r = parseHubDocument(FEED_VALIDO.replace("Prosa.", literal), "tema.md", { feed: true });
+    expect(r.bloqueos.join(" ")).toContain("precio o teléfono literal");
+  });
+  it("bloquea la frase prohibida en frontmatter y cuerpo, permitiendo el singular", () => {
+    for (const original of ["Prosa.", "Ataque de pánico"]) {
+      expect(parseHubDocument(FEED_VALIDO.replace(original, "Psicólogos en Costa Rica"), "tema.md").bloqueos.join(" ")).toContain("frase plural prohibida");
+    }
+    expect(parseHubDocument(FEED_VALIDO.replace("Prosa.", "Psicólogo en Costa Rica"), "tema.md", { feed: true }).bloqueos).toEqual([]);
+  });
+});

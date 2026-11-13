@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { leerLote } from "@/lib/hub-ingest";
-import { MAX_ARCHIVOS_LOTE, MAX_ARCHIVO_BYTES } from "@/lib/hub-markdown";
+import { MAX_ARCHIVOS_LOTE, MAX_ARCHIVOS_FEED, MAX_ARCHIVO_BYTES, MAX_LOTE_BYTES } from "@/lib/hub-markdown";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -30,10 +30,13 @@ export async function POST(request, { params }) {
   }
 
   const archivos = Array.isArray(cuerpo?.archivos) ? cuerpo.archivos : [];
+  const feed = cuerpo?.feed === true;
+  const maxArchivos = feed ? MAX_ARCHIVOS_FEED : MAX_ARCHIVOS_LOTE;
   if (!archivos.length) return NextResponse.json({ error: "No llegó ningún archivo." }, { status: 422 });
-  if (archivos.length > MAX_ARCHIVOS_LOTE) {
-    return NextResponse.json({ error: `Máximo ${MAX_ARCHIVOS_LOTE} archivos por lote.` }, { status: 422 });
+  if (archivos.length > maxArchivos) {
+    return NextResponse.json({ error: `Máximo ${maxArchivos} archivos por lote.` }, { status: 422 });
   }
+  if (Buffer.byteLength(JSON.stringify(cuerpo), "utf8") > MAX_LOTE_BYTES) return NextResponse.json({ error: "El lote supera 3 MB. Dividí la carpeta antes de continuar." }, { status: 413 });
   for (const archivo of archivos) {
     if (typeof archivo?.texto !== "string") {
       return NextResponse.json({ error: `«${archivo?.nombre || "sin nombre"}» llegó sin texto.` }, { status: 422 });
@@ -48,12 +51,12 @@ export async function POST(request, { params }) {
   const destino = typeof cuerpo?.destino === "string" && cuerpo.destino.trim() ? cuerpo.destino.trim() : null;
 
   try {
-    const informe = await leerLote({ hubId: String(id || ""), archivos, destino });
+    const informe = await leerLote({ hubId: String(id || ""), archivos, destino, feed });
     // Un destino inválido lo manda la pantalla, no el hub: 422, no 404.
     if (informe.error) return NextResponse.json({ error: informe.error }, { status: informe.motivo === "destino" ? 422 : 404 });
     return NextResponse.json({ ok: true, writesPerformed: false, confirmationRequired: true, destino, ...informe });
   } catch (error) {
-    console.error("ingesta de hub · preview falló:", error);
+    console.error("ingesta de hub · preview falló", { code: error?.code || "unknown" });
     return NextResponse.json({ error: "No se pudo leer el lote." }, { status: 500 });
   }
 }

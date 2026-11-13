@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
-import { RESERVED_TOPIC_SLUGS } from "@/lib/topic";
 import {
   MAX_ARCHIVOS_LOTE,
+  MAX_ARCHIVOS_FEED,
+  MAX_LOTE_BYTES,
   MAX_ARCHIVO_BYTES,
   SLUG_COPY_HUB,
   SLUG_TRATAMIENTO,
@@ -29,16 +30,14 @@ export { SLUG_COPY_HUB };
 /**
  * Rutas que son carpetas en `src/app/` y por lo tanto existen siempre.
  *
- * `RESERVED_TOPIC_SLUGS` cubre casi todas, pero no `ayuda-inmediata` —a la que
- * el contrato manda derivar el bloque de riesgo— ni los hubs con carpeta
- * propia. Sin esas tres, la validación de enlaces avisaría de rutas rotas que
- * no están rotas.
+ * Solo páginas reales: reservar un segmento como api u og no significa que
+ * exista una página pública en esa ruta.
  */
 const RUTAS_ESTATICAS = new Set([
-  ...RESERVED_TOPIC_SLUGS,
-  "ayuda-inmediata",
-  "raul-olmedo-evans",
-  "raul-olmedo",
+  "blog", "cambiar-password", "contacto", "cookies", "espera-aprobacion",
+  "faq", "ingresar", "mi", "panel", "profesionales", "privacidad", "recuperar",
+  "registro", "servicios", "terminos", "verificar-email", "ayuda-inmediata",
+  "raul-olmedo-evans", "raul-olmedo", "ayuda/seguros", "registro/usuario", "registro/profesional",
 ]);
 
 /**
@@ -66,9 +65,14 @@ function recortar(valor, max = 120) {
 }
 
 function iguales(a, b) {
-  if (Array.isArray(a) || Array.isArray(b)) return JSON.stringify(a || []) === JSON.stringify(b || []);
+  if (typeof a === "object" && a !== null || typeof b === "object" && b !== null) return estable(a ?? []) === estable(b ?? []);
   const normal = (valor) => (valor === null || valor === undefined ? "" : String(valor));
   return normal(a) === normal(b);
+}
+
+function estable(valor) {
+  return JSON.stringify(valor, (_, v) => v && typeof v === "object" && !Array.isArray(v) && !(v instanceof Date)
+    ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b))) : v);
 }
 
 const ETIQUETAS = {
@@ -83,6 +87,7 @@ const ETIQUETAS = {
   noindex: "no indexar",
   position: "orden",
   type: "tipo",
+  isFeatured: "destacada",
   tarjeta: "tarjeta",
   fecha: "fecha",
   actualizado: "actualizado",
@@ -111,9 +116,9 @@ export function diffModulo(existente, payload) {
   const diff = [];
   const antesMeta = existente?.metadata && typeof existente.metadata === "object" ? existente.metadata : {};
 
-  for (const campo of ["title", "summary", "metaTitle", "metaDescription", "focusKeyword", "ogImage", "noindex", "position", "type"]) {
+  for (const campo of ["title", "summary", "metaTitle", "metaDescription", "focusKeyword", "ogImage", "noindex", "position", "type", "isFeatured"]) {
     if (payload[campo] === undefined) continue;
-    if (iguales(existente?.[campo], payload[campo])) continue;
+    if (iguales(existente?.[campo] ?? (["noindex", "isFeatured"].includes(campo) ? false : null), payload[campo])) continue;
     diff.push({ campo: ETIQUETAS[campo] || campo, antes: recortar(existente?.[campo]), despues: recortar(payload[campo]) });
   }
 
@@ -152,32 +157,33 @@ export function diffModulo(existente, payload) {
  * `metaTitle` y `metaDescription` pero no palabra clave—, así que un tema de la
  * biblioteca no se puede comparar todavía. Es una omisión conocida, no un olvido.
  */
-async function buscarCanibalizacion(keywords, { hubId }) {
+async function buscarCanibalizacion(keywords, { hubId, db = prisma }) {
   const buscadas = [...new Set(keywords.filter(Boolean).map((item) => item.toLowerCase()))];
   if (!buscadas.length) return new Map();
 
   // Un OR de `equals` insensibles en lugar de `in`: Prisma no aplica
   // `mode: "insensitive"` dentro de `in`, así que con `in` una diferencia de
-  // mayúsculas dejaría pasar el conflicto. Son doce keywords como máximo.
+  // mayúsculas dejaría pasar el conflicto.
   const comoSea = buscadas.map((keyword) => ({ focusKeyword: { equals: keyword, mode: "insensitive" } }));
 
-  const [modulos, hubs, posts, servicios] = await Promise.all([
-    prisma.professionalHubModule.findMany({
+  const [modulos, hubs, posts, servicios, profesionales] = await Promise.all([
+    db.professionalHubModule.findMany({
       where: { OR: comoSea },
       select: { id: true, slug: true, focusKeyword: true, hubId: true, isPublished: true, hub: { select: { slug: true } } },
     }),
-    prisma.professionalHub.findMany({
+    db.professionalHub.findMany({
       where: { OR: comoSea },
       select: { id: true, slug: true, focusKeyword: true, status: true },
     }),
-    prisma.post.findMany({
+    db.post.findMany({
       where: { OR: comoSea, status: "PUBLISHED" },
       select: { slug: true, focusKeyword: true },
     }),
-    prisma.service.findMany({
+    db.service.findMany({
       where: { OR: comoSea, isActive: true },
       select: { slug: true, focusKeyword: true },
     }),
+    db.professionalProfile.findMany({ where: { OR: comoSea, isApproved: true, user: { is: { isActive: true } } }, select: { slug: true, focusKeyword: true } }),
   ]);
 
   const mapa = new Map();
@@ -199,6 +205,7 @@ async function buscarCanibalizacion(keywords, { hubId }) {
   }
   for (const post of posts) agregar(post.focusKeyword, `/blog/${post.slug}`, "artículo publicado");
   for (const servicio of servicios) agregar(servicio.focusKeyword, `/servicios/${servicio.slug}`, "servicio activo");
+  for (const p of profesionales) agregar(p.focusKeyword, `/profesionales/${p.slug}`, "perfil profesional");
 
   // Los conflictos dentro del propio hub se resuelven aparte, comparando contra
   // los módulos que ya están en la fila (ver `leerLote`), porque ahí sí hace
@@ -216,7 +223,7 @@ async function buscarCanibalizacion(keywords, { hubId }) {
  * con el mismo criterio de su página y de `getFeaturedSeries`: activa y con al
  * menos una entrega publicada y aprobada.
  */
-async function verificarRutas(rutas, { hubSlug, slugsDelHub }) {
+async function verificarRutas(rutas, { hubSlug, slugsDelHub, db = prisma }) {
   const pendientes = [...new Set(rutas.filter(Boolean))];
   if (!pendientes.length) return new Map();
 
@@ -224,32 +231,35 @@ async function verificarRutas(rutas, { hubSlug, slugsDelHub }) {
   const slugsSerie = [];
   const slugsServicio = [];
   const slugsRaiz = [];
+  const slugsProfesional = [];
   for (const ruta of pendientes) {
     const partes = ruta.replace(/[?#].*$/, "").split("/").filter(Boolean);
     if (partes.length === 2 && partes[0] === "blog") slugsBlog.push(partes[1]);
     else if (partes.length === 3 && partes[0] === "blog" && partes[1] === "serie") slugsSerie.push(partes[2]);
     else if (partes.length === 2 && partes[0] === "servicios") slugsServicio.push(partes[1]);
+    else if (partes.length === 2 && partes[0] === "profesionales") slugsProfesional.push(partes[1]);
     else if (partes.length === 1) slugsRaiz.push(partes[0]);
     else if (partes.length === 0) continue;
     else if (partes[0] === hubSlug) continue;
   }
 
-  const [posts, series, servicios, temas] = await Promise.all([
+  const [posts, series, servicios, temas, profesionales] = await Promise.all([
     slugsBlog.length
-      ? prisma.post.findMany({ where: { slug: { in: slugsBlog }, status: "PUBLISHED" }, select: { slug: true } })
+      ? db.post.findMany({ where: { slug: { in: slugsBlog }, status: "PUBLISHED" }, select: { slug: true } })
       : [],
     slugsSerie.length
-      ? prisma.series.findMany({
+      ? db.series.findMany({
           where: { slug: { in: slugsSerie }, isActive: true, posts: { some: { status: "PUBLISHED", seriesApproved: true } } },
           select: { slug: true },
         })
       : [],
     slugsServicio.length
-      ? prisma.service.findMany({ where: { slug: { in: slugsServicio }, isActive: true }, select: { slug: true } })
+      ? db.service.findMany({ where: { slug: { in: slugsServicio }, isActive: true }, select: { slug: true } })
       : [],
     slugsRaiz.length
-      ? prisma.topic.findMany({ where: { slug: { in: slugsRaiz }, status: "PUBLISHED", isActive: true }, select: { slug: true } })
+      ? db.topic.findMany({ where: { slug: { in: slugsRaiz }, status: "PUBLISHED", isActive: true }, select: { slug: true } })
       : [],
+    slugsProfesional.length ? db.professionalProfile.findMany({ where: { slug: { in: slugsProfesional }, isApproved: true, user: { is: { isActive: true } } }, select: { slug: true } }) : [],
   ]);
 
   const publicados = {
@@ -257,11 +267,13 @@ async function verificarRutas(rutas, { hubSlug, slugsDelHub }) {
     series: new Set(series.map((item) => item.slug)),
     servicios: new Set(servicios.map((item) => item.slug)),
     raiz: new Set(temas.map((item) => item.slug)),
+    profesionales: new Set(profesionales.map((item) => item.slug)),
   };
 
   const mapa = new Map();
   for (const ruta of pendientes) {
     const partes = ruta.replace(/[?#].*$/, "").split("/").filter(Boolean);
+    if (RUTAS_ESTATICAS.has(partes.join("/"))) { mapa.set(ruta, "ok"); continue; }
     if (!partes.length) {
       mapa.set(ruta, "ok");
       continue;
@@ -276,6 +288,10 @@ async function verificarRutas(rutas, { hubSlug, slugsDelHub }) {
     }
     if (partes.length === 2 && partes[0] === "servicios") {
       mapa.set(ruta, publicados.servicios.has(partes[1]) ? "ok" : "no existe activo");
+      continue;
+    }
+    if (partes.length === 2 && partes[0] === "profesionales") {
+      mapa.set(ruta, publicados.profesionales.has(partes[1]) ? "ok" : "no existe publicado");
       continue;
     }
     if (partes.length === 2 && partes[0] === hubSlug) {
@@ -321,8 +337,8 @@ function acotar(payload, avisos = []) {
  *   ya existe: crear se sigue haciendo por nombre de archivo, que es donde el
  *   slug queda dicho una sola vez y en un lugar.
  */
-export async function leerLote({ hubId, archivos, destino = null }) {
-  const hub = await prisma.professionalHub.findUnique({
+export async function leerLote({ hubId, archivos, destino = null, feed = false }, db = prisma) {
+  const hub = await db.professionalHub.findUnique({
     where: { id: String(hubId || "") },
     select: {
       id: true, slug: true, name: true, title: true, description: true, whatsapp: true,
@@ -336,11 +352,12 @@ export async function leerLote({ hubId, archivos, destino = null }) {
 
   const entrada = Array.isArray(archivos) ? archivos : [];
   if (!entrada.length) return { error: "No llegó ningún archivo." };
-  if (entrada.length > MAX_ARCHIVOS_LOTE) return { error: `Máximo ${MAX_ARCHIVOS_LOTE} archivos por lote.` };
+  const maxArchivos = feed ? MAX_ARCHIVOS_FEED : MAX_ARCHIVOS_LOTE;
+  if (entrada.length > maxArchivos) return { error: `Máximo ${maxArchivos} archivos por lote.` };
+  if (entrada.reduce((total, archivo) => total + Buffer.byteLength(String(archivo?.texto || ""), "utf8"), 0) > MAX_LOTE_BYTES) return { error: "El lote supera 3 MB. Dividí la carpeta antes de continuar." };
 
   const porSlug = new Map(hub.modules.map((modulo) => [modulo.slug, modulo]));
-  const slugsDelHub = new Set(hub.modules.map((modulo) => modulo.slug));
-  const posicionesTomadas = new Map(hub.modules.map((modulo) => [modulo.position, modulo.slug]));
+  const slugsDelHub = new Set(hub.modules.filter((m) => !feed || m.isPublished && m.isVisible).map((modulo) => modulo.slug));
   const siguientePosicion = hub.modules.reduce((max, modulo) => Math.max(max, modulo.position + 1), 0);
 
   // 0) El módulo elegido, si lo hay. Se valida contra la fila antes de parsear:
@@ -363,8 +380,9 @@ export async function leerLote({ hubId, archivos, destino = null }) {
   const filas = entrada.map((archivo, indice) => {
     const nombre = String(archivo?.nombre || `archivo-${indice + 1}.md`);
     const texto = String(archivo?.texto ?? "");
-    const parsed = parseHubDocument(texto, nombre, { slug: slugDestino });
+    const parsed = parseHubDocument(texto, nombre, { slug: slugDestino, feed });
     const bloqueos = [...parsed.bloqueos];
+    if (feed && !/\.md$/i.test(nombre)) bloqueos.push("el feed solo acepta archivos .md");
     if (Buffer.byteLength(texto, "utf8") > MAX_ARCHIVO_BYTES) bloqueos.push("el archivo pesa más de 2 MB");
     return { archivo: nombre, sha256: hashDocumento(texto), parsed, bloqueos, avisos: [...parsed.avisos] };
   });
@@ -385,11 +403,12 @@ export async function leerLote({ hubId, archivos, destino = null }) {
   }
 
   // 3) Canibalización y rutas, en una consulta por tipo para todo el lote.
-  const keywords = filas.map((fila) => fila.parsed.modulo?.focusKeyword).filter(Boolean);
+  if (feed) for (const fila of filas) if (fila.parsed.clase === "tema" && fila.parsed.slug) slugsDelHub.add(fila.parsed.slug);
+  const keywords = filas.map((fila) => fila.parsed.modulo?.focusKeyword || fila.parsed.hub?.focusKeyword).filter(Boolean);
   const rutas = filas.flatMap((fila) => [...(fila.parsed.enlaces || []), ...(fila.parsed.relacionados || []).map((item) => (item.startsWith("/") ? item : `/blog/${item}`))]);
   const [conflictos, estadoRutas] = await Promise.all([
-    buscarCanibalizacion(keywords, { hubId: hub.id }),
-    verificarRutas(rutas, { hubSlug: hub.slug, slugsDelHub }),
+    buscarCanibalizacion(keywords, { hubId: hub.id, db }),
+    verificarRutas(rutas, { hubSlug: hub.slug, slugsDelHub, db }),
   ]);
 
   // 4) Resolución por fila.
@@ -412,6 +431,10 @@ export async function leerLote({ hubId, archivos, destino = null }) {
         if (iguales(hub[campo], valor)) continue;
         diff.push({ campo: ETIQUETAS[campo] || campo, antes: recortar(Array.isArray(hub[campo]) ? hub[campo].join(", ") : hub[campo]), despues: recortar(Array.isArray(valor) ? valor.join(", ") : valor) });
       }
+      const copyAnterior = porSlug.get(SLUG_COPY_HUB)?.metadata?.copy || {};
+      for (const [campo, valor] of Object.entries(parsed.copy || {})) {
+        if (!iguales(copyAnterior[campo], valor)) diff.push({ campo: `copy.${campo}`, antes: recortar(estable(copyAnterior[campo])), despues: recortar(estable(valor)) });
+      }
       lote.push({
         archivo: fila.archivo,
         sha256: fila.sha256,
@@ -431,7 +454,10 @@ export async function leerLote({ hubId, archivos, destino = null }) {
     }
 
     const existente = parsed.slug ? porSlug.get(parsed.slug) : null;
-    const payload = acotar({ ...parsed.modulo }, avisos);
+    const payload = feed ? { ...parsed.modulo } : acotar({ ...parsed.modulo }, avisos);
+    if (feed) for (const [campo, max] of Object.entries(LIMITES_COLUMNA)) {
+      if (typeof payload[campo] === "string" && payload[campo].length > max) bloqueos.push(`«${ETIQUETAS[campo] || campo}» supera ${max} caracteres; no se recorta el contenido del feed`);
+    }
 
     // Cuerpo vacío: nada que crear, pero sí algo que corregir si la fila ya está.
     if (!parsed.body) {
@@ -442,39 +468,29 @@ export async function leerLote({ hubId, archivos, destino = null }) {
       }
     }
 
-    // Tipo: el archivo nunca declara uno —sale de la convención de slugs—, así
-    // que cuando la fila ya tiene otro, el que manda es el que eligió el
-    // administrador en el panel. Sin esto, soltar un `.md` sobre un módulo
-    // marcado a mano lo convertiría en tema sin que nadie lo pidiera.
-    if (existente && existente.type && payload.type !== existente.type) {
+    // Sin tipo explícito se conserva el que eligió el administrador.
+    if (existente && existente.type && !parsed.tipoExplicito && payload.type !== existente.type) {
       avisos.push(`el módulo está marcado como «${ETIQUETAS_TIPO[existente.type] || existente.type}» y se mantiene así`);
       payload.type = existente.type;
     }
 
-    // Orden: el del archivo si viene y está libre; si choca, el siguiente libre.
+    // Nunca se desplaza otra pieza para hacerle espacio al archivo.
     if (payload.position === null || payload.position === undefined) {
       payload.position = existente ? existente.position : posicionLibre++;
     } else {
-      const dueño = posicionesTomadas.get(payload.position);
-      if (dueño && dueño !== parsed.slug) {
-        avisos.push(`el orden ${payload.position} ya lo tiene «${dueño}»: se usa ${posicionLibre}`);
-        payload.position = posicionLibre++;
+      for (const dueño of hub.modules.filter((m) => m.position === payload.position && m.slug !== parsed.slug)) {
+        bloqueos.push(`el orden ${payload.position} de «${parsed.slug}» ya lo tiene «${dueño.title}» (/${hub.slug}/${dueño.slug})`);
       }
     }
-    posicionesTomadas.set(payload.position, parsed.slug);
 
-    // Publicación asimétrica: `publicado: false` se aplica, `publicado: true` no.
+    // Publicación manual: ningún valor del archivo cambia el estado existente.
     if (!existente) {
       payload.isPublished = false;
       payload.isVisible = true;
-      if (parsed.publicado) avisos.push("«publicado: true» no publica: el módulo entra como borrador y se publica aparte");
-    } else if (parsed.despublicar) {
-      payload.isPublished = false;
-      if (existente.isPublished) avisos.push("«publicado: false» despublica este módulo");
     } else {
       payload.isPublished = existente.isPublished;
-      if (parsed.publicado && !existente.isPublished) avisos.push("«publicado: true» no publica: queda en borrador y se publica aparte");
     }
+    if (parsed.publicado || parsed.despublicar) avisos.push("«publicado» se ignora: importar no publica ni despublica; el estado se cambia manualmente");
 
     // Metadata fusionada: lo que el archivo no dice, no se borra.
     const metaExistente = existente?.metadata && typeof existente.metadata === "object" ? existente.metadata : {};
@@ -486,6 +502,8 @@ export async function leerLote({ hubId, archivos, destino = null }) {
       for (const conflicto of conflictos.get(clave) || []) {
         bloqueos.push(`«${payload.focusKeyword}» ya la persigue ${conflicto.ruta} (${conflicto.detalle})`);
       }
+      const keywordPortada = filas.find((f) => f.parsed.clase === "hub")?.parsed.hub?.focusKeyword || hub.focusKeyword;
+      if (String(keywordPortada || "").toLowerCase() === clave) bloqueos.push(`«${payload.focusKeyword}» ya la persigue la portada /${hub.slug}`);
       for (const otro of hub.modules) {
         if (otro.slug === parsed.slug) continue;
         if (String(otro.focusKeyword || "").toLowerCase() !== clave) continue;
@@ -505,12 +523,12 @@ export async function leerLote({ hubId, archivos, destino = null }) {
     // Enlaces del cuerpo y artículos relacionados.
     const enlaces = (parsed.enlaces || []).map((ruta) => ({ ruta, estado: estadoRutas.get(ruta) || "no verificable" }));
     for (const enlace of enlaces) {
-      if (enlace.estado !== "ok") avisos.push(`el cuerpo enlaza ${enlace.ruta}: ${enlace.estado}`);
+      if (enlace.estado !== "ok") (feed ? bloqueos : avisos).push(`el cuerpo enlaza ${enlace.ruta}: ${enlace.estado}`);
     }
     for (const item of parsed.relacionados || []) {
       const ruta = item.startsWith("/") ? item : `/blog/${item}`;
       const estado = estadoRutas.get(ruta) || "no verificable";
-      if (estado !== "ok") avisos.push(`«articulos_relacionados» apunta a ${ruta}: ${estado}`);
+      if (estado !== "ok") (feed ? bloqueos : avisos).push(`«articulos_relacionados» apunta a ${ruta}: ${estado}`);
     }
 
     // Herramienta relacionada contra las funciones habilitadas del hub.
@@ -540,14 +558,61 @@ export async function leerLote({ hubId, archivos, destino = null }) {
     });
   }
 
+  // Conflictos de lote simétricos: ninguna fila gana por haber llegado primero.
+  for (const fila of lote) {
+    if (fila.clase !== "tema") continue;
+    for (const otra of lote) {
+      if (otra === fila || otra.clase !== "tema" || otra.slug === fila.slug) continue;
+      if (otra.payload.position === fila.payload.position) fila.bloqueos.push(`el orden ${fila.payload.position} de «${fila.slug}» también lo pide «${otra.slug}» (${otra.archivo})`);
+      if (fila.payload.isFeatured === true && otra.payload.isFeatured === true) fila.bloqueos.push(`«${fila.slug}» y «${otra.slug}» solicitan destacada: true; solo se permite una`);
+    }
+    if (fila.payload.isFeatured === true) {
+      for (const otra of hub.modules.filter((m) => m.isFeatured && m.slug !== fila.slug)) fila.bloqueos.push(`la pieza destacada ya es /${hub.slug}/${otra.slug}; cambiá el destaque manualmente antes de importar`);
+    }
+  }
+  for (const fila of lote.filter((f) => f.clase === "hub")) {
+    const clave = fila.payload.hub.focusKeyword;
+    if (!clave) continue;
+    for (const c of conflictos.get(clave.toLowerCase()) || []) fila.bloqueos.push(`«${clave}» ya la persigue ${c.ruta}`);
+    for (const m of hub.modules) if (String(m.focusKeyword || "").toLowerCase() === clave.toLowerCase()) fila.bloqueos.push(`«${clave}» ya la persigue /${hub.slug}/${m.slug}`);
+    for (const otra of lote.filter((f) => f.clase === "tema" && String(f.payload.focusKeyword || "").toLowerCase() === clave.toLowerCase())) fila.bloqueos.push(`«${clave}» también la persigue ${otra.ruta}`);
+  }
+  // Un enlace a otra entrada cuenta si esa entrada puede importarse. Propaga
+  // bloqueos transitivos, sin aceptar módulos ocultos o borradores ajenos al feed.
+  if (feed) {
+    let cambio = true;
+    while (cambio) {
+      cambio = false;
+      for (const fila of lote.filter((f) => f.clase === "tema" && !f.bloqueos.length)) {
+        const rutasFila = [...(fila.enlaces || []).map((e) => e.ruta), ...(fila.payload.metadata.articulos_relacionados || []).map((r) => r.startsWith("/") ? r : `/blog/${r}`)];
+        for (const ruta of rutasFila) {
+          const partes = ruta.replace(/[?#].*$/, "").split("/").filter(Boolean);
+          if (partes.length !== 2 || partes[0] !== hub.slug) continue;
+          const previo = porSlug.get(partes[1]);
+          if (previo?.isPublished && previo?.isVisible) continue;
+          const destinos = lote.filter((f) => f.clase === "tema" && f.slug === partes[1]);
+          if (destinos.length && destinos.every((d) => d.bloqueos.length)) {
+            fila.bloqueos.push(`el enlace ${ruta} depende de una pieza bloqueada del feed`);
+            cambio = true;
+          }
+        }
+      }
+    }
+  }
+  for (const fila of lote) {
+    fila.accion = fila.accion === "actualizar" && !fila.diff.length ? "sin_cambios" : fila.accion;
+    fila.escribible = !fila.bloqueos.length && fila.accion !== "sin_cambios";
+  }
   const resumen = {
     crear: lote.filter((fila) => fila.escribible && fila.accion === "crear").length,
     actualizar: lote.filter((fila) => fila.escribible && fila.accion === "actualizar").length,
-    bloqueados: lote.filter((fila) => !fila.escribible).length,
+    sinCambios: lote.filter((fila) => !fila.bloqueos.length && fila.accion === "sin_cambios").length,
+    bloqueados: lote.filter((fila) => fila.bloqueos.length).length,
     avisos: lote.reduce((total, fila) => total + fila.avisos.length, 0),
   };
 
   return {
+    revision: hashDocumento(estable({ hub, feed, destino: slugDestino })),
     hub: { id: hub.id, slug: hub.slug, name: hub.name, status: hub.status, rutaExiste: HUBS_CON_RUTA.has(hub.slug) },
     lote,
     resumen,
@@ -560,17 +625,18 @@ export async function leerLote({ hubId, archivos, destino = null }) {
  * guardado entre las dos llamadas ni posibilidad de que se aplique algo
  * distinto de lo que se mostró.
  */
-export async function aplicarLote({ hubId, archivos, destino = null, actor = "" }) {
-  const lectura = await leerLote({ hubId, archivos, destino });
-  if (lectura.error) return lectura;
+export async function aplicarLote({ hubId, archivos, destino = null, feed = false, revision = null, actor = "" }) {
+  return prisma.$transaction(async (tx) => {
+    const lectura = await leerLote({ hubId, archivos, destino, feed }, tx);
+    if (lectura.error) return lectura;
+    if (revision && revision !== lectura.revision) return { error: "El hub cambió después de la vista previa. Volvé a leer la carpeta o los archivos para revisar las diferencias.", motivo: "revision" };
 
-  const escribibles = lectura.lote.filter((fila) => fila.escribible);
-  if (!escribibles.length) return { ...lectura, aplicados: [], writesPerformed: false };
+    const escribibles = lectura.lote.filter((fila) => fila.escribible);
+    if (!escribibles.length) return { ...lectura, aplicados: [], writesPerformed: false };
 
-  const sello = { fecha: new Date().toISOString(), actor: String(actor || "") };
-  const aplicados = [];
+    const sello = { fecha: new Date().toISOString(), actor: String(actor || "") };
+    const aplicados = [];
 
-  await prisma.$transaction(async (tx) => {
     // El hub primero: si cambia su configuración, los módulos se escriben sobre
     // la fila ya actualizada.
     for (const fila of escribibles.filter((item) => item.clase === "hub")) {
@@ -579,8 +645,8 @@ export async function aplicarLote({ hubId, archivos, destino = null, actor = "" 
 
       const copy = fila.payload.copy || {};
       if (Object.keys(copy).length) {
-        const metadata = { copy, importacion: { archivo: fila.archivo, sha256: fila.sha256, ...sello } };
-        const existente = await tx.professionalHubModule.findFirst({ where: { hubId, slug: SLUG_COPY_HUB }, select: { id: true } });
+        const existente = await tx.professionalHubModule.findFirst({ where: { hubId, slug: SLUG_COPY_HUB }, select: { id: true, metadata: true } });
+        const metadata = { ...existente?.metadata, copy: { ...existente?.metadata?.copy, ...copy }, importacion: { archivo: fila.archivo, sha256: fila.sha256, ...sello } };
         if (existente) await tx.professionalHubModule.update({ where: { id: existente.id }, data: { metadata, title: "Copy del hub" } });
         else {
           await tx.professionalHubModule.create({
@@ -601,7 +667,6 @@ export async function aplicarLote({ hubId, archivos, destino = null, actor = "" 
       else await tx.professionalHubModule.create({ data: { ...data, hubId } });
       aplicados.push({ archivo: fila.archivo, clase: "tema", slug: fila.slug, ruta: fila.ruta, accion: fila.accion, publicado: data.isPublished === true });
     }
-  });
-
-  return { ...lectura, aplicados, writesPerformed: true };
+    return { ...lectura, aplicados, writesPerformed: true };
+  }, { isolationLevel: "Serializable", timeout: 15000 });
 }

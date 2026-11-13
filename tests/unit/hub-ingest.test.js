@@ -45,16 +45,20 @@ vi.mock("@/lib/prisma", () => ({
     post: { findMany: vi.fn(async () => base.posts) },
     series: { findMany: vi.fn(async () => base.series) },
     service: { findMany: vi.fn(async () => base.servicios) },
+    professionalProfile: { findMany: vi.fn(async () => []) },
     topic: { findMany: vi.fn(async () => base.temas) },
     $transaction: vi.fn(async (fn) => {
       const tx = {
         professionalHub: {
+          findUnique: async () => base.hub,
+          findMany: async () => base.hubs,
           update: async (args) => {
             base.escrituras.push({ tabla: "hub", op: "update", ...args });
             return {};
           },
         },
         professionalHubModule: {
+          findMany: async () => base.modulos,
           findFirst: async () => null,
           update: async (args) => {
             base.escrituras.push({ tabla: "modulo", op: "update", ...args });
@@ -65,6 +69,11 @@ vi.mock("@/lib/prisma", () => ({
             return {};
           },
         },
+        post: { findMany: async () => base.posts },
+        series: { findMany: async () => base.series },
+        service: { findMany: async () => base.servicios },
+        topic: { findMany: async () => base.temas },
+        professionalProfile: { findMany: async () => [] },
       };
       return fn(tx);
     }),
@@ -165,13 +174,13 @@ describe("leerLote · no escribe", () => {
     expect(base.escrituras).toEqual([]);
   });
 
-  it("publicado: false despublica un módulo que estaba publicado", async () => {
+  it("publicado: false conserva el estado publicado; se cambia manualmente", async () => {
     base.hub = hubFalso({ modules: [moduloFalso()] });
     const informe = await leerLote({ hubId: HUB_ID, archivos: [documento({ publicado: false })] });
     const fila = informe.lote[0];
     expect(fila.accion).toBe("actualizar");
-    expect(fila.payload.isPublished).toBe(false);
-    expect(fila.avisos.some((aviso) => aviso.includes("despublica"))).toBe(true);
+    expect(fila.payload.isPublished).toBe(true);
+    expect(fila.avisos.some((aviso) => aviso.includes("se ignora"))).toBe(true);
   });
 
   it("un módulo publicado que se actualiza sigue publicado", async () => {
@@ -208,12 +217,14 @@ describe("leerLote · no escribe", () => {
     expect(informe.lote[0].bloqueos.some((error) => error.includes("no existe"))).toBe(true);
   });
 
-  it("el orden que ya tiene otro módulo se reasigna y se dice a cuál", async () => {
+  it("un orden ocupado bloquea y nombra ambas piezas, sin reasignar", async () => {
     base.hub = hubFalso({ modules: [moduloFalso({ slug: "ataque-de-panico", position: 2 })] });
     const informe = await leerLote({ hubId: HUB_ID, archivos: [documento({ slug: "duelo", orden: 2 })] });
     const fila = informe.lote[0];
-    expect(fila.payload.position).not.toBe(2);
-    expect(fila.avisos.some((aviso) => aviso.includes("ataque-de-panico"))).toBe(true);
+    expect(fila.payload.position).toBe(2);
+    expect(fila.escribible).toBe(false);
+    expect(fila.bloqueos.join(" ")).toContain("ataque-de-panico");
+    expect(fila.bloqueos.join(" ")).toContain("duelo");
   });
 
   it("dos archivos con la misma búsqueda objetivo se bloquean los dos", async () => {
@@ -450,5 +461,108 @@ describe("aplicarLote · escribe", () => {
     expect(copy.data.isVisible).toBe(false);
     expect(copy.data.isPublished).toBe(false);
     expect(copy.data.metadata.copy.cierre.invitacion).toBe("Agendar");
+  });
+});
+
+function piezaFeed(slug, { orden = 4, cuerpo = "Texto.", extra = "", busqueda = slug } = {}) {
+  return documento({
+    slug, orden, busqueda,
+    extra: `herramienta_relacionada: ""\narticulos_relacionados: []\n${extra}`,
+    cuerpo: `${cuerpo}\n\n<!-- bloque: cuando-consultar -->\n## Cuándo consultar\n\nTexto.\n\n<!-- bloque: riesgo -->\n## Riesgo\n\n[Ayuda](/ayuda-inmediata).`,
+  });
+}
+
+function feedValido(slug, opciones) {
+  const archivo = piezaFeed(slug, opciones);
+  archivo.texto = archivo.texto.replace(/meta: ".*"/, `meta: "${"Una descripción clínica para acompañar una consulta y comprender sus efectos en la vida cotidiana. ".padEnd(130, "x")}"`);
+  return archivo;
+}
+
+describe("feed de carpeta", () => {
+  it("una pieza válida se puede aplicar y la segunda corrida no escribe ni cambia su sello", async () => {
+    const archivos = [feedValido("pieza")];
+    const preview = await leerLote({ hubId: HUB_ID, archivos, feed: true });
+    expect(preview.lote[0].bloqueos).toEqual([]);
+    await aplicarLote({ hubId: HUB_ID, archivos, feed: true, revision: preview.revision });
+    const data = base.escrituras[0].data;
+    base.hub.modules = [moduloFalso({ ...data, id: "nuevo" })];
+    base.escrituras = [];
+    const segunda = await aplicarLote({ hubId: HUB_ID, archivos, feed: true });
+    expect(segunda.lote[0].accion).toBe("sin_cambios");
+    expect(segunda.resumen.sinCambios).toBe(1);
+    expect(segunda.writesPerformed).toBe(false);
+    expect(base.escrituras).toEqual([]);
+    expect(base.hub.modules[0].metadata.importacion).toBe(data.metadata.importacion);
+  });
+
+  it("rechaza confirmar si cambió la base después del preview", async () => {
+    const archivos = [feedValido("pieza")];
+    const previo = await leerLote({ hubId: HUB_ID, archivos, feed: true });
+    base.hub.title = "Editado desde otra pestaña";
+    const resultado = await aplicarLote({ hubId: HUB_ID, archivos, feed: true, revision: previo.revision });
+    expect(resultado.motivo).toBe("revision");
+    expect(base.escrituras).toEqual([]);
+  });
+
+  it("bloquea ambas piezas cuando piden la misma posición", async () => {
+    const r = await leerLote({ hubId: HUB_ID, feed: true, archivos: [feedValido("una"), feedValido("otra")] });
+    expect(r.resumen.bloqueados).toBe(2);
+    expect(r.lote.every((f) => f.bloqueos.some((b) => b.includes("orden 4")))).toBe(true);
+  });
+
+  it("bloquea ambas destacadas y conserva la destacada existente", async () => {
+    base.hub.modules = [moduloFalso({ isFeatured: true })];
+    const r = await leerLote({ hubId: HUB_ID, feed: true, archivos: [feedValido("una", { extra: "destacada: true" }), feedValido("otra", { orden: 5, extra: "destacada: true" })] });
+    expect(r.resumen.bloqueados).toBe(2);
+    expect(r.lote[0].bloqueos.join(" ")).toContain("/raul-olmedo-evans/duelo");
+    expect(base.hub.modules[0].isFeatured).toBe(true);
+  });
+
+  it("valida enlaces entre piezas nuevas del mismo feed", async () => {
+    const r = await leerLote({ hubId: HUB_ID, feed: true, archivos: [feedValido("una", { cuerpo: "[Otra](/raul-olmedo-evans/otra)." }), feedValido("otra", { orden: 5 })] });
+    expect(r.resumen.bloqueados).toBe(0);
+  });
+
+  it("propaga bloqueos de destinos inválidos y no escribe ninguna pieza", async () => {
+    const archivos = [feedValido("una", { cuerpo: "[Otra](/raul-olmedo-evans/otra)." }), feedValido("otra", { orden: 5, extra: 'titulo_seo: "' + "x".repeat(61) + '"' })];
+    const r = await aplicarLote({ hubId: HUB_ID, feed: true, archivos });
+    expect(r.resumen.bloqueados).toBe(2);
+    expect(r.writesPerformed).toBe(false);
+    expect(base.escrituras).toEqual([]);
+  });
+
+  it("bloquea enlaces inexistentes y artículos relacionados inexistentes", async () => {
+    const r = await leerLote({ hubId: HUB_ID, feed: true, archivos: [feedValido("una", { cuerpo: "[Roto](/blog/no-existe).", extra: 'articulos_relacionados: ["tampoco-existe"]' })] });
+    expect(r.lote[0].bloqueos.join(" ")).toContain("/blog/no-existe");
+    expect(r.lote[0].bloqueos.join(" ")).toContain("/blog/tampoco-existe");
+  });
+
+  it("bloquea búsquedas que ya usa la portada del hub", async () => {
+    base.hub.focusKeyword = "consulta";
+    const r = await leerLote({ hubId: HUB_ID, feed: true, archivos: [feedValido("una", { busqueda: "CONSULTA" })] });
+    expect(r.lote[0].bloqueos.join(" ")).toContain("portada /raul-olmedo-evans");
+  });
+
+  it("las opciones omitidas conservan imagen, noindex, tipo y destaque del módulo", async () => {
+    base.hub.modules = [moduloFalso({ slug: "una", position: 4, type: "CUSTOM", isFeatured: true, ogImage: "/images/propia.png", noindex: true })];
+    const r = await leerLote({ hubId: HUB_ID, feed: true, archivos: [feedValido("una")] });
+    expect(r.lote[0].payload.type).toBe("CUSTOM");
+    expect(r.lote[0].diff.map((d) => d.campo)).not.toContain("imagen social");
+    expect(r.lote[0].diff.map((d) => d.campo)).not.toContain("no indexar");
+    expect(r.lote[0].diff.map((d) => d.campo)).not.toContain("destacada");
+  });
+
+  it("_hub.md sin diferencias de columnas ni copy no escribe", async () => {
+    base.hub.modules = [moduloFalso({ slug: "_hub", metadata: { copy: { hero: { deck: "Existente" } } } })];
+    const archivos = [{ nombre: "_hub.md", texto: "---\ntipo: hub\nhero:\n  deck: Existente\n---\n" }];
+    const r = await aplicarLote({ hubId: HUB_ID, feed: true, archivos });
+    expect(r.lote[0].accion).toBe("sin_cambios");
+    expect(r.writesPerformed).toBe(false);
+  });
+  it("bloquea un cuerpo que no cabe sin recortar ni escribir texto aprobado", async () => {
+    const r = await aplicarLote({ hubId: HUB_ID, feed: true, archivos: [feedValido("larga", { cuerpo: "x".repeat(50001) })] });
+    expect(r.lote[0].bloqueos.join(" ")).toContain("no se recorta");
+    expect(r.writesPerformed).toBe(false);
+    expect(base.escrituras).toEqual([]);
   });
 });

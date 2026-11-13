@@ -1,5 +1,117 @@
 # Ingesta de `.md` en el panel de hubs de personas
 
+## Contrato vigente — 13 de noviembre de 2026
+
+Esta sección reemplaza las reglas contradictorias de la descripción histórica
+que sigue. Fuente acordada del feed: **carpeta seleccionada desde el panel**.
+No se lee el repositorio ni una URL, no se descomprimen ZIP y no se instalan
+dependencias. El botón «Leer feed desde una carpeta» recorre los `.md` de la
+carpeta y sus subcarpetas. Ignora otros tipos de archivo. El nombre base decide
+el slug; las rutas relativas identifican cada archivo en el informe.
+
+### Flujo y límites
+
+- El feed reutiliza el parser, la vista previa y la confirmación de la ingesta.
+- Admite hasta 100 archivos, 2 MB por archivo y 3 MB de JSON por lote. La
+  interfaz reserva margen para los hashes de confirmación. Si se supera un
+  límite, rechaza el lote completo y pide dividir la carpeta; no omite archivos
+  silenciosamente.
+- El arrastre y la selección de archivos conservan su límite de 12 y sus
+  advertencias de compatibilidad. La validación estricta se activa con
+  `feed: true`, que se revalida en el servidor al confirmar.
+- Leer no escribe. Aplicar exige una confirmación explícita, los hashes de los
+  archivos y la revisión del hub que produjo la vista previa. Un cambio del hub
+  entre ambas operaciones devuelve 409 y exige revisar de nuevo.
+- Confirmar vuelve a validar dentro de una transacción serializable. No se
+  permite que dos confirmaciones concurrentes reasignen el mismo orden.
+- El informe distingue creado, actualizado, sin cambios y bloqueado, con los
+  motivos. Los bloqueados no se escriben. Los archivos sin cambios tampoco:
+  conservan `updatedAt` y el sello de importación, incluido `_hub.md`.
+- Nunca se borran módulos por ausencia de un archivo.
+
+### Publicación y orden — ambos importadores
+
+**La publicación es manual. `publicado` se ignora, tanto true como false.**
+Las piezas nuevas entran en borrador; las existentes conservan su publicación
+y visibilidad. Importar no publica ni despublica. Actualizar una pieza que ya
+está publicada cambia su contenido solo después de revisar y confirmar.
+
+El orden explícito del archivo se conserva. Una colisión con otro módulo
+bloquea la pieza y nombra ambos destinos; no se mueve ninguna otra fila.
+Dos archivos que piden la misma posición se bloquean ambos. Si un archivo del
+importador anterior omite el orden, conserva el existente o recibe el siguiente
+libre si es nuevo. El feed estricto exige `orden`.
+
+### Contrato de tema del feed
+
+Frontmatter obligatorio: `titulo`, `titulo_seo`, `meta`, `resumen`, `tarjeta`,
+`orden`, `fecha`, `actualizado`, `herramienta_relacionada`,
+`articulos_relacionados`, `busqueda_objetivo`, `publicado`.
+La herramienta puede ser una cadena vacía y los artículos una lista vacía.
+Fechas ISO válidas; orden entero no negativo.
+
+```yaml
+destacada: false
+imagen_social: ""
+no_indexar: false
+tipo: "tema" # tema | tratamiento | personalizado
+```
+
+Estas cuatro claves son opcionales. En una pieza nueva se usan los valores
+mostrados (imagen vacía genera la imagen social existente). En una actualización,
+omitirlas conserva los valores de la fila; `tipo` omitido conserva el tipo del
+editor. En creación, el slug histórico del tratamiento sigue dando TREATMENT.
+
+`destacada` usa `isFeatured`, `imagen_social` usa `ogImage`, `no_indexar` usa
+`noindex`, y `tipo` usa TOPIC, TREATMENT o CUSTOM. No se modifica el schema.
+Si dos archivos piden destaque, se bloquean ambos. Una destacada existente
+impide destacar otra por importación; el cambio se hace manualmente, sin
+desmarcar otra pieza a escondidas.
+
+`tarjeta` se guarda en metadata y se usa en la grilla. `resumen` sigue en la
+cabecera del tema. Si falta tarjeta en una pieza histórica, se usa el resumen.
+El editor permite modificar tarjeta, herramienta y artículos relacionados;
+fusiona metadata y conserva las otras claves importadas.
+
+### Validaciones bloqueantes del feed
+
+- Frontmatter obligatorio incompleto, fechas inválidas o tipos incorrectos.
+- Campos que superan la capacidad del importador (cuerpo: 50.000 caracteres).
+  El feed bloquea en vez de recortar el texto.
+- Título SEO vacío o mayor de 60 caracteres; meta fuera de 120–155.
+- H1 en el cuerpo, HTML ejecutable, bytes nulos, precios o teléfonos literales
+  y URLs absolutas al propio dominio. Los importes, duración y WhatsApp se
+  expresan con `{{precio_sesion}}`, `{{duracion_sesion}}`, `{{whatsapp}}` y se
+  resuelven al renderizar con los datos actuales del hub.
+- Falta de `cuando-consultar` o `riesgo`, asociados a un encabezado `##`.
+  Un comentario suelto o un ejemplo dentro de código no satisface la regla.
+- Búsqueda objetivo repetida con otra pieza, la portada del mismo hub, otro hub,
+  un artículo publicado, un servicio activo o un perfil público con esa palabra
+  clave. Topic no tiene columna focusKeyword y no puede compararse por keyword.
+- Enlaces internos o artículos relacionados inexistentes o no verificables.
+  Los destinos de otras piezas válidas del mismo feed se aceptan aunque todavía
+  sean borradores. Si ese destino está bloqueado y no existe publicado, se
+  bloquean también los archivos que dependen de él. Publicar las piezas sigue
+  siendo una acción posterior.
+- La frase plural prohibida en cualquier campo del documento (también en la
+  ingesta anterior). El singular está permitido.
+
+`_hub.md` / `tipo: hub` conserva el mapa de columnas y copy histórico. El copy
+se compara en la vista previa y se fusiona al confirmar, sin borrar claves
+omitidas. El archivo no cambia slug, perfil ni estado del hub.
+
+### Renderizado público
+
+Los tres marcadores `cuando-consultar`, `riesgo`, `aviso` delimitan cajas hasta
+el siguiente `##`. El título y la prosa salen del Markdown. Se conservan listas,
+enlaces y subsecciones; no se habilita HTML crudo. Riesgo usa la misma paleta
+neutral y no agrega botones de agenda dentro de la caja. Esto permite mostrar
+los marcadores ya guardados sin reimportar ni modificar módulos publicados.
+
+---
+
+## Descripción histórica anterior (referencia; prevalece el contrato vigente)
+
 Prefiguración de lo que hace **arrastrar un archivo** (o buscarlo con el
 explorador) en `/panel/admin/hubs/profesional/<id>`.
 

@@ -6,6 +6,7 @@ import SafeImage from "@/components/SafeImage";
 import { IMAGE_FALLBACKS } from "@/lib/images";
 import { quitarComentariosHtml } from "@/lib/markdown-comentarios";
 import { encabezadosConAncla } from "@/lib/markdown-encabezados";
+import { remarkBloquesHub } from "@/lib/hub-sections";
 
 const MarkdownImage = ({ src, alt }) => {
   if (!src) return null;
@@ -51,10 +52,10 @@ const MarkdownLink = ({ href, children }) => {
  * `idsEnEncabezados` les pone `id` a los `##` y `###`, para las páginas que
  * arman un índice con anclas (ver `src/lib/markdown-encabezados.js`).
  */
-export default function MarkdownRenderer({ content, idsEnEncabezados = false }) {
+export default function MarkdownRenderer({ content, idsEnEncabezados = false, bloquesHub = false }) {
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
+      remarkPlugins={[remarkGfm, ...(bloquesHub ? [remarkBloquesHub] : [])]}
       rehypePlugins={[rehypeHighlight]}
       components={{
         img: MarkdownImage,
@@ -62,7 +63,7 @@ export default function MarkdownRenderer({ content, idsEnEncabezados = false }) 
         ...(idsEnEncabezados ? encabezadosConAncla() : {}),
       }}
     >
-      {quitarComentariosHtml(content)}
+      {quitarComentariosHtml(content, { conservarBloques: bloquesHub })}
     </ReactMarkdown>
   );
 }

@@ -206,6 +206,7 @@ function mapManagedHub(row) {
     // base y moría ahí. Es el texto de presentación del hub y el fallback de su
     // meta descripción.
     descripcion: row.description || "",
+    tarjeta_vacia: hubData.tarjeta_vacia,
     seo: {
       metaTitle: row.metaTitle || "",
       metaDescription: row.metaDescription || "",
