@@ -102,6 +102,10 @@ fusiona metadata y conserva las otras claves importadas.
   sean borradores. Si ese destino está bloqueado y no existe publicado, se
   bloquean también los archivos que dependen de él. Publicar las piezas sigue
   siendo una acción posterior.
+- Los enlaces a módulos de otro hub profesional se comprueban contra su hub
+  activo y publicado y su módulo publicado y visible. La ruta histórica de
+  Raúl se resuelve al hub actual. Se distinguen los destinos no publicados de
+  las rutas que el validador no reconoce.
 - La frase plural prohibida en cualquier campo del documento (también en la
   ingesta anterior). El singular está permitido.
 

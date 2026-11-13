@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const estado = vi.hoisted(() => ({ hub: null, escrituras: [], articulos: [], portadas: [] }));
+const estado = vi.hoisted(() => ({ hub: null, escrituras: [], articulos: [], portadas: [], hubsProfesionales: [] }));
 vi.mock("@/lib/prisma", () => {
   const db = {
     topic: {
@@ -26,7 +26,7 @@ vi.mock("@/lib/prisma", () => {
       if (existente) Object.assign(existente, update);
       else estado.hub.posts.push(create);
     }) },
-    professionalHub: { findMany: vi.fn(async () => []) },
+    professionalHub: { findMany: vi.fn(async () => estado.hubsProfesionales) },
     professionalHubModule: { findMany: vi.fn(async () => []) },
     professionalProfile: { findMany: vi.fn(async () => []) },
     service: { findMany: vi.fn(async () => []) },
@@ -51,6 +51,7 @@ beforeEach(() => {
   estado.escrituras = [];
   estado.articulos = [];
   estado.portadas = [];
+  estado.hubsProfesionales = [];
 });
 
 describe("feed de hubs de contenido", () => {
@@ -125,6 +126,19 @@ describe("feed de hubs de contenido", () => {
     expect(correcto.resumen.bloqueados).toBe(0);
     const roto = await leer([archivo("una.md", "titulo: Una", "[Artículo](/blog/no-existe)")]);
     expect(roto.lote[0].bloqueos.join(" ")).toContain("/blog/no-existe");
+  });
+  it("permite cargar psicoanalista.md con enlaces publicados hacia otro hub", async () => {
+    const modulos = ["tratamiento-breve-15-sesiones", "terapia-para-la-ansiedad", "ataque-de-panico", "duelo", "conflictos-de-pareja", "estres-laboral-y-burnout"];
+    estado.hub.slug = "psicoanalisis";
+    estado.hubsProfesionales = [{ slug: "raul-olmedo-evans", status: "PUBLISHED", isActive: true, modules: modulos.map((slug) => ({ slug, isPublished: true, isVisible: true })) }];
+    const cuerpo = modulos.map((slug) => `[Consultar](/raul-olmedo-evans/${slug})`).join("\n\n");
+    const r = await leer([archivo("psicoanalista (1).md", "titulo: Psicoanalista en Costa Rica\norden: 9", cuerpo)]);
+    expect(r.resumen.bloqueados).toBe(0);
+    expect(r.lote[0].ruta).toBe("/psicoanalisis#psicoanalista-1");
+    expect(r.lote[0].avisos.join(" ")).toContain("copia descargada");
+    expect(r.lote[0].enlaces.every((enlace) => enlace.estado === "ok")).toBe(true);
+    expect(r.lote[0].diff.find((cambio) => cambio.campo === "tipo de sección").despues).toBe("Texto enriquecido");
+    expect(estado.escrituras).toEqual([]);
   });
   it("agrega artículos publicados y conserva los vínculos previos", async () => {
     estado.hub.posts = [{ postId: "previo", status: "APPROVED", role: "PRIMARY" }];

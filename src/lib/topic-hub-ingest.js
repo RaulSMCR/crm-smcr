@@ -2,12 +2,19 @@ import { prisma } from "@/lib/prisma";
 import { buscarCanibalizacion, estable, hashDocumento, iguales, verificarRutas } from "@/lib/hub-ingest";
 import { MAX_ARCHIVO_BYTES, MAX_ARCHIVOS_FEED, MAX_ARCHIVOS_LOTE, MAX_LOTE_BYTES } from "@/lib/hub-markdown";
 import { parseTopicHubDocument, topicSectionAnchor } from "@/lib/topic-hub-markdown";
+import { topicSectionLabel } from "@/lib/topic";
+
+function textoDiff(campo, valor) {
+  if (campo === "body") return `${String(valor || "").length} caracteres`;
+  if (campo === "type" && valor) return topicSectionLabel(valor);
+  return String(valor ?? "").slice(0, 180);
+}
 
 function diffCampos(antes, despues, campos) {
   return Object.entries(campos).filter(([campo]) => despues[campo] !== undefined && !iguales(antes?.[campo], despues[campo])).map(([campo, etiqueta]) => ({
     campo: etiqueta,
-    antes: campo === "body" ? `${String(antes?.[campo] || "").length} caracteres` : String(antes?.[campo] ?? "").slice(0, 180),
-    despues: campo === "body" ? `${String(despues[campo] || "").length} caracteres` : String(despues[campo] ?? "").slice(0, 180),
+    antes: textoDiff(campo, antes?.[campo]),
+    despues: textoDiff(campo, despues[campo]),
   }));
 }
 

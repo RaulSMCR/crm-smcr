@@ -240,6 +240,7 @@ export async function verificarRutas(rutas, { hubSlug, slugsDelHub, db = prisma 
   const slugsServicio = [];
   const slugsRaiz = [];
   const slugsProfesional = [];
+  const slugsHubProfesional = new Set();
   for (const ruta of pendientes) {
     const partes = ruta.replace(/[?#].*$/, "").split("/").filter(Boolean);
     if (partes.length === 2 && partes[0] === "blog") slugsBlog.push(partes[1]);
@@ -249,9 +250,10 @@ export async function verificarRutas(rutas, { hubSlug, slugsDelHub, db = prisma 
     else if (partes.length === 1) slugsRaiz.push(partes[0]);
     else if (partes.length === 0) continue;
     else if (partes[0] === hubSlug) continue;
+    else if (partes.length === 2) slugsHubProfesional.add(partes[0] === "raul-olmedo" ? "raul-olmedo-evans" : partes[0]);
   }
 
-  const [posts, series, servicios, temas, profesionales] = await Promise.all([
+  const [posts, series, servicios, temas, profesionales, hubsProfesionales] = await Promise.all([
     slugsBlog.length
       ? db.post.findMany({ where: { slug: { in: slugsBlog }, status: "PUBLISHED" }, select: { slug: true } })
       : [],
@@ -268,6 +270,10 @@ export async function verificarRutas(rutas, { hubSlug, slugsDelHub, db = prisma 
       ? db.topic.findMany({ where: { slug: { in: slugsRaiz }, status: "PUBLISHED", isActive: true }, select: { slug: true } })
       : [],
     slugsProfesional.length ? db.professionalProfile.findMany({ where: { slug: { in: slugsProfesional }, isApproved: true, user: { is: { isActive: true } } }, select: { slug: true } }) : [],
+    slugsHubProfesional.size ? db.professionalHub.findMany({
+      where: { slug: { in: [...slugsHubProfesional] } },
+      select: { slug: true, status: true, isActive: true, modules: { select: { slug: true, isPublished: true, isVisible: true } } },
+    }) : [],
   ]);
 
   const publicados = {
@@ -276,6 +282,7 @@ export async function verificarRutas(rutas, { hubSlug, slugsDelHub, db = prisma 
     servicios: new Set(servicios.map((item) => item.slug)),
     raiz: new Set(temas.map((item) => item.slug)),
     profesionales: new Set(profesionales.map((item) => item.slug)),
+    hubsProfesionales: new Map(hubsProfesionales.map((hub) => [hub.slug, hub])),
   };
 
   const mapa = new Map();
@@ -305,6 +312,19 @@ export async function verificarRutas(rutas, { hubSlug, slugsDelHub, db = prisma 
     if (partes.length === 2 && partes[0] === hubSlug) {
       mapa.set(ruta, slugsDelHub.has(partes[1]) ? "ok" : "no existe en este hub");
       continue;
+    }
+    if (partes.length === 2) {
+      const slugHub = partes[0] === "raul-olmedo" ? "raul-olmedo-evans" : partes[0];
+      const hubDestino = publicados.hubsProfesionales.get(slugHub);
+      if (HUBS_CON_RUTA.has(slugHub)) {
+        const modulo = hubDestino?.modules?.find((item) => item.slug === partes[1]);
+        let estado = "el hub de destino no existe publicado";
+        if (hubDestino && hubDestino.status === "PUBLISHED" && hubDestino.isActive) {
+          estado = modulo?.isPublished && modulo.isVisible ? "ok" : "el módulo de destino no existe publicado y visible";
+        }
+        mapa.set(ruta, estado);
+        continue;
+      }
     }
     if (partes.length === 1) {
       if (RUTAS_ESTATICAS.has(partes[0]) || publicados.raiz.has(partes[0])) mapa.set(ruta, "ok");

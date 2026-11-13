@@ -30,6 +30,7 @@ export function parseTopicHubDocument(source, nombre, { feed = false } = {}) {
   const slug = base === "hub" || fm.tipo === "hub" ? "_hub" : normalizeTopicSlug(base);
   const clase = slug === "_hub" ? "hub" : "seccion";
   const payload = {};
+  if (/\s*\(\d+\)$/.test(base)) avisos.push(`el nombre parece una copia descargada; usá el nombre original del archivo si querés el destino «${normalizeTopicSlug(base.replace(/\s*\(\d+\)$/, ""))}»`);
   if (!esNombreMarkdown(nombre) || feed && !/\.md$/i.test(nombre)) bloqueos.push("el archivo debe ser Markdown (.md para el feed)");
   if (!tieneFrontmatter) bloqueos.push("el archivo no trae frontmatter entre --- y ---");
   if (String(source).includes("\u0000")) bloqueos.push("el archivo contiene bytes nulos");
