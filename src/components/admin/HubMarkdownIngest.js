@@ -410,7 +410,13 @@ function Informe({ informe, hubSlug, ocupado, onAplicar, onCancelar }) {
             {fila.diff?.length ? (
               <table className="mt-3 w-full table-fixed text-xs">
                 <caption className="pb-2 text-left font-semibold text-slate-700">Cambios propuestos al confirmar</caption>
-                <thead><tr><th scope="col" className="w-32 text-left text-slate-600">Campo</th><th scope="col" className="w-1/2 text-left text-slate-600">Guardado actualmente</th><th scope="col" className="text-left text-slate-600">Contenido del archivo</th></tr></thead>
+                <thead>
+                  <tr>
+                    <th scope="col" className="w-32 text-left text-slate-600">Campo</th>
+                    <th scope="col" className="w-1/2 text-left text-slate-600">Guardado actualmente</th>
+                    <th scope="col" className="text-left text-slate-600">Contenido del archivo</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {fila.diff.map((cambio, indice) => (
                     <tr key={`${fila.archivo}-${cambio.campo}-${indice}`} className="border-t border-slate-100 align-top">
@@ -427,23 +433,23 @@ function Informe({ informe, hubSlug, ocupado, onAplicar, onCancelar }) {
 
             {fila.bloqueos?.length ? (
               <div className="mt-3 text-xs text-red-800">
-              <p className="font-semibold">Motivos que impiden cargar este archivo</p>
-              <ul className="mt-1 space-y-1">
-                {fila.bloqueos.map((bloqueo, indice) => (
-                  <li key={`${fila.archivo}-b-${indice}`}>· {bloqueo}</li>
-                ))}
-              </ul>
+                <p className="font-semibold">Motivos que impiden cargar este archivo</p>
+                <ul className="mt-1 space-y-1">
+                  {fila.bloqueos.map((bloqueo, indice) => (
+                    <li key={`${fila.archivo}-b-${indice}`}>· {bloqueo}</li>
+                  ))}
+                </ul>
               </div>
             ) : null}
 
             {fila.avisos?.length ? (
               <div className="mt-3 text-xs text-amber-800">
-              <p className="font-semibold">Información sobre la importación</p>
-              <ul className="mt-1 space-y-1">
-                {fila.avisos.map((aviso, indice) => (
-                  <li key={`${fila.archivo}-a-${indice}`}>· {aviso}</li>
-                ))}
-              </ul>
+                <p className="font-semibold">Información sobre la importación</p>
+                <ul className="mt-1 space-y-1">
+                  {fila.avisos.map((aviso, indice) => (
+                    <li key={`${fila.archivo}-a-${indice}`}>· {aviso}</li>
+                  ))}
+                </ul>
               </div>
             ) : null}
           </li>

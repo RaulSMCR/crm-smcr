@@ -197,6 +197,14 @@ Un destino repetido, un orden ocupado o dos secciones del mismo tipo de función
 única también bloquean. CUSTOM_RICH_TEXT admite varias secciones y las muestra
 individualmente en la página.
 
+La página pinta las secciones en el orden de su `orden` (columna «Posición»),
+el número más bajo primero; un empate se resuelve por el orden de referencia
+de los tipos. Los bloques que existen sin sección propia (preguntas, servicios,
+profesionales o artículos que vienen de sus relaciones) van después de las
+secciones. El cierre (CTA) siempre va último. Para publicar, una sección visible
+y con cuerpo tiene que ser de tipo EDITORIAL_INTRO: sin `tipo_seccion`, un
+archivo se importa como CUSTOM_RICH_TEXT y no cuenta como introducción.
+
 Las secciones nuevas necesitan título y las secciones de texto también cuerpo.
 El cuerpo admite hasta 30.000 caracteres. Otros campos editoriales, incluidos
 tarjeta y fechas, se conservan como metadatos de la sección. Su título SEO y su

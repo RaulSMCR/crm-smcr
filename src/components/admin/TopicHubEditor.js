@@ -149,7 +149,7 @@ function SectionsEditor({ topic }) {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <h2 className="text-xl font-bold text-slate-950">Secciones del hub</h2>
-      <p className="mt-1 text-sm text-slate-600">Cada tipo define la función del módulo. Además podés editar título, contenido Markdown seguro, orden y visibilidad; no se interpreta HTML ni código.</p>
+      <p className="mt-1 text-sm text-slate-600">Cada tipo define la función del módulo. Además podés editar título, contenido Markdown seguro, orden y visibilidad; no se interpreta HTML ni código. La «Posición» define el orden en la página: el número más bajo sale primero. Preguntas, servicios o profesionales que no tengan sección propia salen después de las secciones, y el cierre siempre va último.</p>
       <div className="mt-5 space-y-4">
         {topic.sections.filter((section) => section.config?.ingesta?.slug !== "_hub").map((section) => (
           <form key={`${section.id}:${section.updatedAt || ""}`} className="rounded-xl border border-slate-200 bg-slate-50 p-4" onSubmit={(event) => { event.preventDefault(); const data = Object.fromEntries(new FormData(event.currentTarget)); run(() => saveTopicSection(topic.id, { ...data, id: section.id, position: Number(data.position || 0), isVisible: data.isVisible === "on" })); }}>

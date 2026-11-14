@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import JsonLd from "@/components/JsonLd";
 import SafeImage from "@/components/SafeImage";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
@@ -5,11 +6,17 @@ import TopicHubTracker from "@/components/topic/TopicHubTracker";
 import TopicMedia from "@/components/topic/TopicMedia";
 import TopicTrackedLink from "@/components/topic/TopicTrackedLink";
 import { defaultOgImage } from "@/lib/seo";
-import { safeTopicMediaUrl, topicSectionLabel } from "@/lib/topic";
+import { ordenarBloquesHub, safeTopicMediaUrl, topicSectionLabel } from "@/lib/topic";
 import { grafo, nodoMigas, ref, ID_ORGANIZACION, ID_SITIO } from "@/lib/jsonld";
 import { siteUrl } from "@/lib/site-url";
 import { etiquetaDeRango } from "@/lib/service-pricing";
 import { topicCustomSections } from "@/lib/topic-hub-markdown";
+
+// Orden en que salen los bloques cuando no tienen «Posición» propia o empatan.
+const ORDEN_DE_REFERENCIA = [
+  "USER_SITUATIONS", "EDITORIAL_INTRO", "FEATURED_ARTICLES", "EXPLORE_TOPIC", "PERSPECTIVES",
+  "VIDEO", "PODCAST", "FAQ", "SERVICES", "PROFESSIONALS", "RELATED_TOPICS",
+];
 
 function section(topic, type) {
   return (topic.sections || []).find((item) => item.type === type && item.config?.ingesta?.slug !== "_hub") || null;
@@ -98,6 +105,151 @@ export default function TopicHubView({ topic, preview = false }) {
     faqSchema,
   );
 
+  // Cada bloque se ordena por la «Posición» de su sección (ver ordenarBloquesHub).
+  const bloques = [];
+  const agregar = (type, node) => bloques.push({ key: type, rank: ORDEN_DE_REFERENCIA.indexOf(type), position: section(topic, type)?.position, node });
+  if (shouldRender(topic, "USER_SITUATIONS", Boolean(section(topic, "USER_SITUATIONS")?.body))) agregar("USER_SITUATIONS", (
+    <section aria-labelledby="situaciones" className="rounded-2xl border border-accent-200 bg-accent-50 p-6 md:p-8">
+      <h2 id="situaciones" className="text-2xl font-semibold text-accent-950">{sectionHeading(topic, "USER_SITUATIONS", "Qué te puede estar pasando")}</h2>
+      <div className="mt-4"><MarkdownBlock body={section(topic, "USER_SITUATIONS")?.body} /></div>
+    </section>
+  ));
+
+  if (shouldRender(topic, "EDITORIAL_INTRO", Boolean(section(topic, "EDITORIAL_INTRO")?.body))) agregar("EDITORIAL_INTRO", (
+    <section aria-labelledby="introduccion" className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+      <h2 id="introduccion" className="text-2xl font-semibold text-slate-950">{sectionHeading(topic, "EDITORIAL_INTRO", "Introducción editorial")}</h2>
+      <div className="mt-4"><MarkdownBlock body={section(topic, "EDITORIAL_INTRO")?.body} /></div>
+    </section>
+  ));
+
+  if (shouldRender(topic, "FEATURED_ARTICLES", hasFeatured)) agregar("FEATURED_ARTICLES", (
+    <section aria-labelledby="destacados">
+      <h2 id="destacados" className="text-3xl font-semibold text-slate-950">{sectionHeading(topic, "FEATURED_ARTICLES", "Artículos destacados")}</h2>
+      {section(topic, "FEATURED_ARTICLES")?.config?.ingesta?.slug ? <div className="mt-4"><MarkdownBlock body={section(topic, "FEATURED_ARTICLES").body} /></div> : null}
+      <div className="mt-5 grid gap-4 md:grid-cols-2">{topic.featuredArticles.map((article) => <ArticleCard key={article.id} article={article} topic={topic} />)}</div>
+    </section>
+  ));
+
+  if (shouldRender(topic, "EXPLORE_TOPIC", hasExplore)) agregar("EXPLORE_TOPIC", (
+    <section aria-labelledby="explorar">
+      <h2 id="explorar" className="text-3xl font-semibold text-slate-950">{sectionHeading(topic, "EXPLORE_TOPIC", "Explorar este tema")}</h2>
+      {section(topic, "EXPLORE_TOPIC")?.config?.ingesta?.slug ? <div className="mt-4"><MarkdownBlock body={section(topic, "EXPLORE_TOPIC").body} /></div> : null}
+      <div className="mt-5 grid gap-4 md:grid-cols-2">{topic.exploreArticles.map((article) => <ArticleCard key={article.id} article={article} topic={topic} />)}</div>
+    </section>
+  ));
+
+  if (shouldRender(topic, "PERSPECTIVES", hasPerspectives)) agregar("PERSPECTIVES", (
+    <section aria-labelledby="perspectivas">
+      <h2 id="perspectivas" className="text-3xl font-semibold text-slate-950">{sectionHeading(topic, "PERSPECTIVES", "Perspectivas interdisciplinarias")}</h2>
+      {section(topic, "PERSPECTIVES")?.config?.ingesta?.slug ? <div className="mt-4"><MarkdownBlock body={section(topic, "PERSPECTIVES").body} /></div> : null}
+      <div className="mt-5 grid gap-4 md:grid-cols-2">
+        {topic.perspectives.map((perspective) => (
+          <article key={perspective.id} className="rounded-2xl border border-brand-200 bg-brand-50/60 p-6">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand-700">Desde {perspective.discipline.name}</p>
+            <h3 className="mt-2 text-xl font-semibold text-slate-950">{perspective.title}</h3>
+            <div className="mt-3 text-sm leading-7 text-slate-700"><MarkdownRenderer content={perspective.content} /></div>
+          </article>
+        ))}
+      </div>
+    </section>
+  ));
+
+  if (shouldRender(topic, "VIDEO", Boolean(validVideo))) agregar("VIDEO", (
+    <section aria-labelledby="video" className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 id="video" className="text-2xl font-semibold text-slate-950">{sectionHeading(topic, "VIDEO", "Video")}</h2>
+      {section(topic, "VIDEO")?.body ? <div className="mt-3"><MarkdownBlock body={section(topic, "VIDEO").body} /></div> : null}
+      <TopicMedia kind="video" url={validVideo} topicSlug={topic.slug} />
+    </section>
+  ));
+
+  if (shouldRender(topic, "PODCAST", Boolean(validPodcast))) agregar("PODCAST", (
+    <section aria-labelledby="podcast" className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 id="podcast" className="text-2xl font-semibold text-slate-950">{sectionHeading(topic, "PODCAST", "Podcast / audio")}</h2>
+      {section(topic, "PODCAST")?.body ? <div className="mt-3"><MarkdownBlock body={section(topic, "PODCAST").body} /></div> : null}
+      <TopicMedia kind="audio" url={validPodcast} topicSlug={topic.slug} />
+    </section>
+  ));
+
+  if (shouldRender(topic, "FAQ", hasFaqs)) agregar("FAQ", (
+    <section aria-labelledby="preguntas">
+      <h2 id="preguntas" className="text-3xl font-semibold text-slate-950">{sectionHeading(topic, "FAQ", "Preguntas frecuentes")}</h2>
+      {section(topic, "FAQ")?.config?.ingesta?.slug ? <div className="mt-4"><MarkdownBlock body={section(topic, "FAQ").body} /></div> : null}
+      <div className="mt-5 divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
+        {topic.faqs.map((faq) => <details key={faq.id} className="p-5"><summary className="cursor-pointer font-semibold text-slate-950">{faq.question}</summary><p className="mt-3 whitespace-pre-line leading-7 text-slate-700">{faq.answer}</p></details>)}
+      </div>
+    </section>
+  ));
+
+  if (shouldRender(topic, "SERVICES", hasServices)) agregar("SERVICES", (
+    <section id="servicios" aria-labelledby="servicios-titulo">
+      <h2 id="servicios-titulo" className="text-3xl font-semibold text-slate-950">{sectionHeading(topic, "SERVICES", "Servicios pertinentes")}</h2>
+      {section(topic, "SERVICES")?.config?.ingesta?.slug ? <div className="mt-4"><MarkdownBlock body={section(topic, "SERVICES").body} /></div> : null}
+      <div className="mt-5 grid gap-4 md:grid-cols-2">
+        {topic.services.map((service) => (
+          <TopicTrackedLink
+            key={service.id}
+            href={`/servicios/${service.slug}`}
+            eventName="click_topic_service"
+            eventParams={{ topic_slug: topic.slug, content_type: "service", service_id: service.id, source_page: `/${topic.slug}` }}
+            className="rounded-2xl border border-slate-200 bg-neutral-50 p-6 shadow-sm hover:border-brand-400"
+          >
+            <h3 className="text-xl font-semibold text-slate-950">{service.title}</h3>
+            {service.description ? <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600">{service.description}</p> : null}
+            <p className="mt-4 text-sm font-semibold text-emerald-800">{etiquetaDeRango(service.range)} · {service.durationMin} min</p>
+            <span className="mt-4 inline-block text-sm font-semibold text-brand-700">Conocer el servicio →</span>
+          </TopicTrackedLink>
+        ))}
+      </div>
+    </section>
+  ));
+
+  if (shouldRender(topic, "PROFESSIONALS", hasProfessionals)) agregar("PROFESSIONALS", (
+    <section id="profesionales" aria-labelledby="profesionales-titulo">
+      <h2 id="profesionales-titulo" className="text-3xl font-semibold text-slate-950">{sectionHeading(topic, "PROFESSIONALS", "Profesionales relacionados")}</h2>
+      {section(topic, "PROFESSIONALS")?.config?.ingesta?.slug ? <div className="mt-4"><MarkdownBlock body={section(topic, "PROFESSIONALS").body} /></div> : null}
+      <p className="mt-2 text-slate-600">Estos perfiles se muestran porque ofrecen servicios vinculados con este tema y tienen agenda disponible.</p>
+      <div className="mt-5 grid gap-4 md:grid-cols-2">
+        {topic.professionals.map((professional) => (
+          <TopicTrackedLink
+            key={professional.id}
+            href={`/profesionales/${professional.slug}`}
+            eventName="click_topic_professional"
+            eventParams={{ topic_slug: topic.slug, content_type: "professional", professional_id: professional.id, source_page: `/${topic.slug}` }}
+            className="flex gap-4 rounded-2xl border border-slate-200 bg-neutral-50 p-5 shadow-sm hover:border-brand-400"
+          >
+            <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-brand-100">
+              {professional.user.image ? <SafeImage src={professional.user.image} alt={professional.user.name} className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center text-xl font-bold text-brand-800">{professional.user.name?.charAt(0)}</div>}
+            </div>
+            <div className="min-w-0">
+              <h3 className="font-semibold text-slate-950">{professional.user.name}</h3>
+              <p className="mt-1 text-sm text-brand-700">{professional.specialty || "Profesional de salud"}</p>
+              {professional.bio ? <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">{professional.bio}</p> : null}
+              <span className="mt-3 inline-block text-sm font-semibold text-brand-700">Ver perfil y disponibilidad →</span>
+            </div>
+          </TopicTrackedLink>
+        ))}
+      </div>
+    </section>
+  ));
+
+  if (shouldRender(topic, "RELATED_TOPICS", hasRelated)) agregar("RELATED_TOPICS", (
+    <section aria-labelledby="relacionados" className="rounded-2xl border border-slate-200 bg-white p-6">
+      <h2 id="relacionados" className="text-2xl font-semibold text-slate-950">{sectionHeading(topic, "RELATED_TOPICS", "Temas relacionados")}</h2>
+      {section(topic, "RELATED_TOPICS")?.config?.ingesta?.slug ? <div className="mt-4"><MarkdownBlock body={section(topic, "RELATED_TOPICS").body} /></div> : null}
+      <div className="mt-4 flex flex-wrap gap-3">
+        {topic.relatedTopics.map((related) => <TopicTrackedLink key={related.id} href={`/${related.slug}`} eventName="click_topic_related" eventParams={{ topic_slug: topic.slug, target_topic_slug: related.slug, content_type: "related_topic", source_page: `/${topic.slug}` }} className="rounded-full border border-brand-300 px-4 py-2 text-sm font-semibold text-brand-800 hover:border-brand-700 hover:text-brand-900">{related.title || related.name}</TopicTrackedLink>)}
+      </div>
+    </section>
+  ));
+  for (const customSection of customSections) {
+    bloques.push({ key: customSection.id, rank: ORDEN_DE_REFERENCIA.length, position: customSection.position, node: (
+      <section aria-labelledby={customSection.config?.ingesta?.slug || "texto-adicional"} className="rounded-2xl border border-slate-200 bg-white p-6">
+        <h2 id={customSection.config?.ingesta?.slug || "texto-adicional"} className="text-2xl font-semibold text-slate-950">{customSection.title || sectionHeading(topic, "CUSTOM_RICH_TEXT", "Información adicional")}</h2>
+        <div className="mt-4"><MarkdownBlock body={customSection.body} /></div>
+      </section>
+    ) });
+  }
+
   return (
     <main className="min-h-screen bg-surface">
       {!preview ? <JsonLd data={pageSchema} /> : null}
@@ -133,146 +285,7 @@ export default function TopicHubView({ topic, preview = false }) {
         </header>
 
         <div className="mx-auto mt-10 max-w-5xl space-y-10">
-          {shouldRender(topic, "USER_SITUATIONS", Boolean(section(topic, "USER_SITUATIONS")?.body)) ? (
-            <section aria-labelledby="situaciones" className="rounded-2xl border border-accent-200 bg-accent-50 p-6 md:p-8">
-              <h2 id="situaciones" className="text-2xl font-semibold text-accent-950">{sectionHeading(topic, "USER_SITUATIONS", "Qué te puede estar pasando")}</h2>
-              <div className="mt-4"><MarkdownBlock body={section(topic, "USER_SITUATIONS")?.body} /></div>
-            </section>
-          ) : null}
-
-          {shouldRender(topic, "EDITORIAL_INTRO", Boolean(section(topic, "EDITORIAL_INTRO")?.body)) ? (
-            <section aria-labelledby="introduccion" className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
-              <h2 id="introduccion" className="text-2xl font-semibold text-slate-950">{sectionHeading(topic, "EDITORIAL_INTRO", "Introducción editorial")}</h2>
-              <div className="mt-4"><MarkdownBlock body={section(topic, "EDITORIAL_INTRO")?.body} /></div>
-            </section>
-          ) : null}
-
-          {shouldRender(topic, "FEATURED_ARTICLES", hasFeatured) ? (
-            <section aria-labelledby="destacados">
-              <h2 id="destacados" className="text-3xl font-semibold text-slate-950">{sectionHeading(topic, "FEATURED_ARTICLES", "Artículos destacados")}</h2>
-              {section(topic, "FEATURED_ARTICLES")?.config?.ingesta?.slug ? <div className="mt-4"><MarkdownBlock body={section(topic, "FEATURED_ARTICLES").body} /></div> : null}
-              <div className="mt-5 grid gap-4 md:grid-cols-2">{topic.featuredArticles.map((article) => <ArticleCard key={article.id} article={article} topic={topic} />)}</div>
-            </section>
-          ) : null}
-
-          {shouldRender(topic, "EXPLORE_TOPIC", hasExplore) ? (
-            <section aria-labelledby="explorar">
-              <h2 id="explorar" className="text-3xl font-semibold text-slate-950">{sectionHeading(topic, "EXPLORE_TOPIC", "Explorar este tema")}</h2>
-              {section(topic, "EXPLORE_TOPIC")?.config?.ingesta?.slug ? <div className="mt-4"><MarkdownBlock body={section(topic, "EXPLORE_TOPIC").body} /></div> : null}
-              <div className="mt-5 grid gap-4 md:grid-cols-2">{topic.exploreArticles.map((article) => <ArticleCard key={article.id} article={article} topic={topic} />)}</div>
-            </section>
-          ) : null}
-
-          {shouldRender(topic, "PERSPECTIVES", hasPerspectives) ? (
-            <section aria-labelledby="perspectivas">
-              <h2 id="perspectivas" className="text-3xl font-semibold text-slate-950">{sectionHeading(topic, "PERSPECTIVES", "Perspectivas interdisciplinarias")}</h2>
-              {section(topic, "PERSPECTIVES")?.config?.ingesta?.slug ? <div className="mt-4"><MarkdownBlock body={section(topic, "PERSPECTIVES").body} /></div> : null}
-              <div className="mt-5 grid gap-4 md:grid-cols-2">
-                {topic.perspectives.map((perspective) => (
-                  <article key={perspective.id} className="rounded-2xl border border-brand-200 bg-brand-50/60 p-6">
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand-700">Desde {perspective.discipline.name}</p>
-                    <h3 className="mt-2 text-xl font-semibold text-slate-950">{perspective.title}</h3>
-                    <div className="mt-3 text-sm leading-7 text-slate-700"><MarkdownRenderer content={perspective.content} /></div>
-                  </article>
-                ))}
-              </div>
-            </section>
-          ) : null}
-
-          {shouldRender(topic, "VIDEO", Boolean(validVideo)) ? (
-            <section aria-labelledby="video" className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 id="video" className="text-2xl font-semibold text-slate-950">{sectionHeading(topic, "VIDEO", "Video")}</h2>
-              {section(topic, "VIDEO")?.body ? <div className="mt-3"><MarkdownBlock body={section(topic, "VIDEO").body} /></div> : null}
-              <TopicMedia kind="video" url={validVideo} topicSlug={topic.slug} />
-            </section>
-          ) : null}
-
-          {shouldRender(topic, "PODCAST", Boolean(validPodcast)) ? (
-            <section aria-labelledby="podcast" className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 id="podcast" className="text-2xl font-semibold text-slate-950">{sectionHeading(topic, "PODCAST", "Podcast / audio")}</h2>
-              {section(topic, "PODCAST")?.body ? <div className="mt-3"><MarkdownBlock body={section(topic, "PODCAST").body} /></div> : null}
-              <TopicMedia kind="audio" url={validPodcast} topicSlug={topic.slug} />
-            </section>
-          ) : null}
-
-          {shouldRender(topic, "FAQ", hasFaqs) ? (
-            <section aria-labelledby="preguntas">
-              <h2 id="preguntas" className="text-3xl font-semibold text-slate-950">{sectionHeading(topic, "FAQ", "Preguntas frecuentes")}</h2>
-              {section(topic, "FAQ")?.config?.ingesta?.slug ? <div className="mt-4"><MarkdownBlock body={section(topic, "FAQ").body} /></div> : null}
-              <div className="mt-5 divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
-                {topic.faqs.map((faq) => <details key={faq.id} className="p-5"><summary className="cursor-pointer font-semibold text-slate-950">{faq.question}</summary><p className="mt-3 whitespace-pre-line leading-7 text-slate-700">{faq.answer}</p></details>)}
-              </div>
-            </section>
-          ) : null}
-
-          {shouldRender(topic, "SERVICES", hasServices) ? (
-            <section id="servicios" aria-labelledby="servicios-titulo">
-              <h2 id="servicios-titulo" className="text-3xl font-semibold text-slate-950">{sectionHeading(topic, "SERVICES", "Servicios pertinentes")}</h2>
-              {section(topic, "SERVICES")?.config?.ingesta?.slug ? <div className="mt-4"><MarkdownBlock body={section(topic, "SERVICES").body} /></div> : null}
-              <div className="mt-5 grid gap-4 md:grid-cols-2">
-                {topic.services.map((service) => (
-                  <TopicTrackedLink
-                    key={service.id}
-                    href={`/servicios/${service.slug}`}
-                    eventName="click_topic_service"
-                    eventParams={{ topic_slug: topic.slug, content_type: "service", service_id: service.id, source_page: `/${topic.slug}` }}
-                    className="rounded-2xl border border-slate-200 bg-neutral-50 p-6 shadow-sm hover:border-brand-400"
-                  >
-                    <h3 className="text-xl font-semibold text-slate-950">{service.title}</h3>
-                    {service.description ? <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600">{service.description}</p> : null}
-                    <p className="mt-4 text-sm font-semibold text-emerald-800">{etiquetaDeRango(service.range)} · {service.durationMin} min</p>
-                    <span className="mt-4 inline-block text-sm font-semibold text-brand-700">Conocer el servicio →</span>
-                  </TopicTrackedLink>
-                ))}
-              </div>
-            </section>
-          ) : null}
-
-          {shouldRender(topic, "PROFESSIONALS", hasProfessionals) ? (
-            <section id="profesionales" aria-labelledby="profesionales-titulo">
-              <h2 id="profesionales-titulo" className="text-3xl font-semibold text-slate-950">{sectionHeading(topic, "PROFESSIONALS", "Profesionales relacionados")}</h2>
-              {section(topic, "PROFESSIONALS")?.config?.ingesta?.slug ? <div className="mt-4"><MarkdownBlock body={section(topic, "PROFESSIONALS").body} /></div> : null}
-              <p className="mt-2 text-slate-600">Estos perfiles se muestran porque ofrecen servicios vinculados con este tema y tienen agenda disponible.</p>
-              <div className="mt-5 grid gap-4 md:grid-cols-2">
-                {topic.professionals.map((professional) => (
-                  <TopicTrackedLink
-                    key={professional.id}
-                    href={`/profesionales/${professional.slug}`}
-                    eventName="click_topic_professional"
-                    eventParams={{ topic_slug: topic.slug, content_type: "professional", professional_id: professional.id, source_page: `/${topic.slug}` }}
-                    className="flex gap-4 rounded-2xl border border-slate-200 bg-neutral-50 p-5 shadow-sm hover:border-brand-400"
-                  >
-                    <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-brand-100">
-                      {professional.user.image ? <SafeImage src={professional.user.image} alt={professional.user.name} className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center text-xl font-bold text-brand-800">{professional.user.name?.charAt(0)}</div>}
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="font-semibold text-slate-950">{professional.user.name}</h3>
-                      <p className="mt-1 text-sm text-brand-700">{professional.specialty || "Profesional de salud"}</p>
-                      {professional.bio ? <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">{professional.bio}</p> : null}
-                      <span className="mt-3 inline-block text-sm font-semibold text-brand-700">Ver perfil y disponibilidad →</span>
-                    </div>
-                  </TopicTrackedLink>
-                ))}
-              </div>
-            </section>
-          ) : null}
-
-          {shouldRender(topic, "RELATED_TOPICS", hasRelated) ? (
-            <section aria-labelledby="relacionados" className="rounded-2xl border border-slate-200 bg-white p-6">
-              <h2 id="relacionados" className="text-2xl font-semibold text-slate-950">{sectionHeading(topic, "RELATED_TOPICS", "Temas relacionados")}</h2>
-              {section(topic, "RELATED_TOPICS")?.config?.ingesta?.slug ? <div className="mt-4"><MarkdownBlock body={section(topic, "RELATED_TOPICS").body} /></div> : null}
-              <div className="mt-4 flex flex-wrap gap-3">
-                {topic.relatedTopics.map((related) => <TopicTrackedLink key={related.id} href={`/${related.slug}`} eventName="click_topic_related" eventParams={{ topic_slug: topic.slug, target_topic_slug: related.slug, content_type: "related_topic", source_page: `/${topic.slug}` }} className="rounded-full border border-brand-300 px-4 py-2 text-sm font-semibold text-brand-800 hover:border-brand-700 hover:text-brand-900">{related.title || related.name}</TopicTrackedLink>)}
-              </div>
-            </section>
-          ) : null}
-
-          {customSections.map((customSection) => (
-            <section key={customSection.id} aria-labelledby={customSection.config?.ingesta?.slug || "texto-adicional"} className="rounded-2xl border border-slate-200 bg-white p-6">
-              <h2 id={customSection.config?.ingesta?.slug || "texto-adicional"} className="text-2xl font-semibold text-slate-950">{customSection.title || sectionHeading(topic, "CUSTOM_RICH_TEXT", "Información adicional")}</h2>
-              <div className="mt-4"><MarkdownBlock body={customSection.body} /></div>
-            </section>
-          ))}
+          {ordenarBloquesHub(bloques).map((bloque) => <Fragment key={bloque.key}>{bloque.node}</Fragment>)}
 
           {shouldRender(topic, "CTA", true) ? (
             <section id="cierre" className="rounded-2xl bg-brand-900 p-7 text-white md:p-9">

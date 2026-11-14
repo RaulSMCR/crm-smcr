@@ -72,12 +72,37 @@ export function topicPublicationIssues(topic, data = {}) {
   const intro = (data.sections || []).find(
     (section) => section.type === "EDITORIAL_INTRO" && section.isVisible !== false && cleanTopicText(section.body),
   );
-  if (!intro) issues.push("Debe existir una sección visible de introducción editorial.");
+  if (!intro) {
+    const oculta = (data.sections || []).some((section) => section.type === "EDITORIAL_INTRO" && cleanTopicText(section.body));
+    issues.push(oculta
+      ? "La sección «Introducción editorial» está oculta: en «Secciones del hub» marcá «Visible» y guardala."
+      : "Ninguna sección es de tipo «Introducción editorial». En «Secciones del hub», cambiá el Tipo de la sección principal a «Introducción editorial» y guardala, o agregá tipo_seccion: \"EDITORIAL_INTRO\" al .md y volvé a importarlo.");
+  }
 
   const relatedCount = Number(data.postCount || 0) + Number(data.serviceCount || 0) + Number(data.perspectiveCount || 0);
-  if (relatedCount < 1) issues.push("Debe existir al menos un contenido relacionado aprobado.");
+  if (relatedCount < 1) issues.push("Falta contenido relacionado: en «Contenido relacionado» asigná al menos un artículo publicado, un servicio o una perspectiva.");
 
   return issues;
+}
+
+/**
+ * Orden de los bloques de la página de un hub.
+ *
+ * Los bloques que tienen una sección propia en el editor salen en el orden de
+ * su «Posición»; un empate lo resuelve el orden de referencia de los tipos.
+ * Los bloques que aparecen sin sección propia (preguntas, servicios o
+ * profesionales que existen por sus relaciones) van después, en el orden de
+ * referencia. El cierre no entra acá: siempre va último.
+ *
+ * @param {Array<{key: string, rank: number, position: number|null|undefined}>} bloques
+ */
+export function ordenarBloquesHub(bloques) {
+  const conPosicion = (b) => Number.isFinite(b.position);
+  return [...bloques].sort((a, b) => {
+    if (conPosicion(a) !== conPosicion(b)) return conPosicion(a) ? -1 : 1;
+    if (conPosicion(a) && a.position !== b.position) return a.position - b.position;
+    return a.rank - b.rank;
+  });
 }
 
 export function topicSectionLabel(type) {
