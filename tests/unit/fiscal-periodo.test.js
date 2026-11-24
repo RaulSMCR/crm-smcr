@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { filtroFechasCr, limitesMesCr, mesActualCr } from "@/lib/fiscal-periodo";
+import { calcularIvaDelPeriodo, filtroFechasCr, limitesMesCr, mesActualCr } from "@/lib/fiscal-periodo";
 
 // Fechas siempre explícitas en UTC: la prueba no puede depender del reloj ni
 // de la zona de la máquina, que es justo lo que escondía el error.
@@ -102,13 +102,18 @@ describe("lo que entra en la declaración", () => {
       if (where.invoiceType === "CUSTOMER_CREDIT_NOTE") return suma(-16538.46, -413461.54, -430000);
       return suma(0, 0, 0);
     });
+    m.groupBy.mockImplementation(async ({ where }) => {
+      if (where.invoice.invoiceType === "CUSTOMER_INVOICE") return [{ taxRate: 4, _sum: { lineSubtotal: 1033653.85, taxAmount: 41346.15 } }];
+      if (where.invoice.invoiceType === "CUSTOMER_CREDIT_NOTE") return [{ taxRate: 4, _sum: { lineSubtotal: -413461.54, taxAmount: -16538.46 } }];
+      return [];
+    });
     const { period } = await closeFiscalPeriod(form({ year: "2026", month: "11" }));
     expect(period.snapshot.baseVentas).toBeCloseTo(620192.31, 2);
     expect(period.ivaDebito).toBeCloseTo(24807.69, 2);
 
     m.findUnique.mockResolvedValue(period);
     const csv = await (await exportD104(new Request("http://x/api/admin/fiscal-export?year=2026&month=11"))).text();
-    expect(csv).toContain('"Ventas netas","620192.31","24807.69"');
+    expect(csv).toContain('"Total ventas a 4%","620192.31","24807.69"');
   });
 
   it("el export recalcula la base neta en un cierre que no la guardó", async () => {
@@ -129,5 +134,54 @@ describe("lo que entra en la declaración", () => {
     const r = await closeFiscalPeriod(form({ year: "2026", month: "10" }));
     expect(r.success).toBe(false);
     expect(m.upsert).not.toHaveBeenCalled();
+  });
+});
+
+const linea = (taxRate, lineSubtotal, taxAmount) => ({ taxRate, _sum: { lineSubtotal, taxAmount } });
+
+describe("crédito fiscal con tarifa reducida", () => {
+  it("reproduce la D-104 de septiembre de 2026 que presentó el contador", () => {
+    const d = calcularIvaDelPeriodo({ ventas: [linea(4, 451905, 18076)], compras: [linea(13, 30000, 3900)] });
+    expect(d.tarifaAplicada).toBe(4);
+    expect(d.ivaDebito).toBe(18076);
+    expect(d.ivaSoportado).toBe(3900);
+    expect(d.creditoFiscal).toBe(1200);
+    expect(d.gastoParaUtilidades).toBe(2700);
+    expect(d.impuestoDeterminado).toBe(16876);
+    expect(d.requiereRevision).toBe(false);
+  });
+
+  it("una compra al 4 % se acredita entera", () => {
+    const d = calcularIvaDelPeriodo({ ventas: [linea(4, 100000, 4000)], compras: [linea(4, 50000, 2000)] });
+    expect(d.creditoFiscal).toBe(2000);
+    expect(d.gastoParaUtilidades).toBe(0);
+  });
+
+  it("la nota de crédito de venta baja base e IVA de su tarifa", () => {
+    const d = calcularIvaDelPeriodo({ ventas: [linea(4, 1033653.85, 41346.15)], notasVentas: [linea(4, -413461.54, -16538.46)] });
+    expect(d.ventas).toEqual([{ tarifa: 4, base: 620192.31, iva: 24807.69 }]);
+  });
+
+  it("con ventas a dos tarifas usa la menor y pide revisión (prorrata)", () => {
+    const d = calcularIvaDelPeriodo({ ventas: [linea(4, 100000, 4000), linea(13, 10000, 1300)], compras: [linea(13, 30000, 3900)] });
+    expect(d.tarifaAplicada).toBe(4);
+    expect(d.creditoFiscal).toBe(1200);
+    expect(d.requiereRevision).toBe(true);
+  });
+
+  it("sin ventas en el mes no acredita nada y pide revisión", () => {
+    const d = calcularIvaDelPeriodo({ compras: [linea(13, 30000, 3900)] });
+    expect(d.creditoFiscal).toBe(0);
+    expect(d.requiereRevision).toBe(true);
+  });
+
+  it("el export trae los renglones del formulario", async () => {
+    const d104 = calcularIvaDelPeriodo({ ventas: [linea(4, 451905, 18076)], compras: [linea(13, 30000, 3900)] });
+    m.findUnique.mockResolvedValue({ withholdings: 0, ivaNeto: 16876, snapshot: { d104 } });
+    const csv = await (await exportD104(new Request("http://x/api/admin/fiscal-export?year=2026&month=9"))).text();
+    expect(csv).toContain('"Total ventas a 4%","451905.00","18076.00"');
+    expect(csv).toContain('"Crédito fiscal por compras al 13%","","1200.00"');
+    expect(csv).toContain('"Impuesto determinado","","16876.00"');
+    expect(csv).not.toContain("ATENCIÓN");
   });
 });

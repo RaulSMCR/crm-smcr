@@ -3,7 +3,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { COMPROBANTE_DE_VENTA_DECLARADO, filtroFechasCr } from "@/lib/fiscal-periodo";
+import { COMPROBANTE_DE_VENTA_DECLARADO, calcularIvaDelPeriodo, filtroFechasCr } from "@/lib/fiscal-periodo";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -85,7 +85,11 @@ export async function GET(request) {
       }
       return [...map.values()];
     };
-    const ivaNeto    = ivaCobrado - ivaPagado;
+    // El IVA soportado no se acredita entero: solo hasta la tarifa de las
+    // ventas (compra al 13 %, venta al 4 % → crédito del 4 %). Ver la D-104 de
+    // septiembre de 2026 y calcularIvaDelPeriodo.
+    const d104 = calcularIvaDelPeriodo({ ventas: salesByTaxRate, notasVentas: salesCreditsByTaxRate, compras: purchasesByTaxRate, notasCompras: purchaseCreditsByTaxRate });
+    const ivaNeto    = ivaCobrado - d104.creditoFiscal;
 
     return NextResponse.json({
       filters: { dateFrom: dateFrom || null, dateTo: dateTo || null },
@@ -116,6 +120,10 @@ export async function GET(request) {
       summary: {
         ivaCobrado,
         ivaPagado,
+        creditoFiscal: d104.creditoFiscal,
+        gastoParaUtilidades: d104.gastoParaUtilidades,
+        tarifaAplicada: d104.tarifaAplicada,
+        requiereRevision: d104.requiereRevision,
         ivaNeto,
         // Si ivaNeto > 0: hay IVA a pagar a Hacienda. Si < 0: hay crédito fiscal.
         position: ivaNeto >= 0 ? "payable" : "refundable",
