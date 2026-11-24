@@ -47,7 +47,7 @@ export async function GET(request) {
       }),
 
       prisma.invoice.aggregate({
-        where: { invoiceType: "CUSTOMER_CREDIT_NOTE", status: { in: incomeStatuses }, ...dateFilter },
+        where: { invoiceType: "CUSTOMER_CREDIT_NOTE", feStatus: "ACCEPTED", status: { in: incomeStatuses }, ...dateFilter },
         _sum: { subtotal: true, taxAmount: true, total: true, amountPaid: true }, _count: { _all: true },
       }),
 
@@ -82,12 +82,16 @@ export async function GET(request) {
 
       prisma.invoice.groupBy({
         by: ["professionalId"],
-        where: { invoiceType: "CUSTOMER_CREDIT_NOTE", status: { in: incomeStatuses }, professionalId: { not: null }, ...dateFilter },
+        where: { invoiceType: "CUSTOMER_CREDIT_NOTE", feStatus: "ACCEPTED", status: { in: incomeStatuses }, professionalId: { not: null }, ...dateFilter },
         _sum: { total: true, amountPaid: true }, _count: { _all: true },
       }),
     ]);
 
     const n = (v) => Number(v || 0);
+    // Las notas de crédito del CRM se guardan en negativo (las de proveedor
+    // pueden venir en positivo del XML): se restan por su valor absoluto. Antes
+    // se restaba el negativo y la nota SUMABA ingreso e IVA (23-nov-2026, 0100).
+    const nc = (v) => Math.abs(Number(v || 0));
 
     // Para el desglose por profesional, buscar nombres
     const professionalIds = [...incomeProfessional, ...incomeCreditsProfessional].map((r) => r.professionalId).filter(Boolean);
@@ -99,8 +103,8 @@ export async function GET(request) {
       : [];
     const profMap = new Map(professionals.map((p) => [p.id, p.user?.name || "Sin nombre"]));
 
-    const income   = n(incomeAgg._sum?.subtotal) - n(incomeCreditsAgg._sum?.subtotal);
-    const expenses = n(expenseAgg._sum?.subtotal) - n(expenseCreditsAgg._sum?.subtotal);
+    const income   = n(incomeAgg._sum?.subtotal) - nc(incomeCreditsAgg._sum?.subtotal);
+    const expenses = n(expenseAgg._sum?.subtotal) - nc(expenseCreditsAgg._sum?.subtotal);
     const grossProfit  = income - expenses;
     const netIncome    = grossProfit; // Sin más deducciones por ahora
 
@@ -114,9 +118,9 @@ export async function GET(request) {
       income: {
         invoicesCount: incomeAgg._count?._all || 0,
         subtotal:      income,
-        taxAmount:     n(incomeAgg._sum?.taxAmount) - n(incomeCreditsAgg._sum?.taxAmount),
-        totalWithTax:  n(incomeAgg._sum?.total) - n(incomeCreditsAgg._sum?.total),
-        collected:     n(incomeAgg._sum?.amountPaid) - n(incomeCreditsAgg._sum?.amountPaid),
+        taxAmount:     n(incomeAgg._sum?.taxAmount) - nc(incomeCreditsAgg._sum?.taxAmount),
+        totalWithTax:  n(incomeAgg._sum?.total) - nc(incomeCreditsAgg._sum?.total),
+        collected:     n(incomeAgg._sum?.amountPaid) - nc(incomeCreditsAgg._sum?.amountPaid),
         creditNotes: { invoicesCount: incomeCreditsAgg._count?._all || 0, total: n(incomeCreditsAgg._sum?.total) },
         byProfessional: incomeProfessional.map((row) => {
           const credit = incomeCreditsProfessional.find((item) => item.professionalId === row.professionalId);
@@ -124,8 +128,8 @@ export async function GET(request) {
           professionalId: row.professionalId,
           professionalName: profMap.get(row.professionalId) || "Sin nombre",
           invoicesCount:  row._count?._all || 0,
-          collected:      n(row._sum?.amountPaid) - n(credit?._sum?.amountPaid),
-          total:          n(row._sum?.total) - n(credit?._sum?.total),
+          collected:      n(row._sum?.amountPaid) - nc(credit?._sum?.amountPaid),
+          total:          n(row._sum?.total) - nc(credit?._sum?.total),
         };
         }),
       },
@@ -133,9 +137,9 @@ export async function GET(request) {
       expenses: {
         invoicesCount: expenseAgg._count?._all || 0,
         subtotal:      expenses,
-        taxAmount:     n(expenseAgg._sum?.taxAmount) - n(expenseCreditsAgg._sum?.taxAmount),
-        totalWithTax:  n(expenseAgg._sum?.total) - n(expenseCreditsAgg._sum?.total),
-        paid:          n(expenseAgg._sum?.amountPaid) - n(expenseCreditsAgg._sum?.amountPaid),
+        taxAmount:     n(expenseAgg._sum?.taxAmount) - nc(expenseCreditsAgg._sum?.taxAmount),
+        totalWithTax:  n(expenseAgg._sum?.total) - nc(expenseCreditsAgg._sum?.total),
+        paid:          n(expenseAgg._sum?.amountPaid) - nc(expenseCreditsAgg._sum?.amountPaid),
         creditNotes: { invoicesCount: expenseCreditsAgg._count?._all || 0, total: n(expenseCreditsAgg._sum?.total) },
       },
 

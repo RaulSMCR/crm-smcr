@@ -34,7 +34,7 @@ export async function GET(request) {
         _count: { _all: true },
       }),
       prisma.invoice.aggregate({
-        where: { invoiceType: "CUSTOMER_CREDIT_NOTE", status: { not: "CANCELLED" }, ...dateFilter },
+        where: { invoiceType: "CUSTOMER_CREDIT_NOTE", feStatus: "ACCEPTED", status: { not: "CANCELLED" }, ...dateFilter },
         _sum: { subtotal: true, taxAmount: true, discountAmount: true, total: true, amountPaid: true }, _count: { _all: true },
       }),
       prisma.invoice.aggregate({
@@ -57,7 +57,7 @@ export async function GET(request) {
       }),
       prisma.invoiceLine.groupBy({
         by: ["taxRate"],
-        where: { invoice: { invoiceType: "CUSTOMER_CREDIT_NOTE", status: { not: "CANCELLED" }, ...dateFilter } },
+        where: { invoice: { invoiceType: "CUSTOMER_CREDIT_NOTE", feStatus: "ACCEPTED", status: { not: "CANCELLED" }, ...dateFilter } },
         _sum: { lineSubtotal: true, taxAmount: true },
       }),
       prisma.invoiceLine.groupBy({
@@ -73,15 +73,19 @@ export async function GET(request) {
     ]);
 
     const n = (v) => Number(v || 0);
+    // Las notas de crédito del CRM se guardan en negativo (las de proveedor
+    // pueden venir en positivo del XML): se restan por su valor absoluto. Antes
+    // se restaba el negativo y la nota SUMABA ingreso e IVA (23-nov-2026, 0100).
+    const nc = (v) => Math.abs(Number(v || 0));
 
-    const ivaCobrado = n(salesAgg._sum?.taxAmount) - n(salesCreditsAgg._sum?.taxAmount);
-    const ivaPagado  = n(purchasesAgg._sum?.taxAmount) - n(purchaseCreditsAgg._sum?.taxAmount);
+    const ivaCobrado = n(salesAgg._sum?.taxAmount) - nc(salesCreditsAgg._sum?.taxAmount);
+    const ivaPagado  = n(purchasesAgg._sum?.taxAmount) - nc(purchaseCreditsAgg._sum?.taxAmount);
     const netRows = (invoices, credits) => {
       const map = new Map();
       for (const row of invoices) map.set(Number(row.taxRate), { taxRate: Number(row.taxRate), baseAmount: n(row._sum?.lineSubtotal), taxAmount: n(row._sum?.taxAmount) });
       for (const row of credits) {
         const key = Number(row.taxRate); const current = map.get(key) || { taxRate: key, baseAmount: 0, taxAmount: 0 };
-        current.baseAmount -= n(row._sum?.lineSubtotal); current.taxAmount -= n(row._sum?.taxAmount); map.set(key, current);
+        current.baseAmount -= nc(row._sum?.lineSubtotal); current.taxAmount -= nc(row._sum?.taxAmount); map.set(key, current);
       }
       return [...map.values()];
     };
@@ -92,22 +96,22 @@ export async function GET(request) {
 
       sales: {
         invoicesCount:  salesAgg._count?._all || 0,
-        subtotal:       n(salesAgg._sum?.subtotal) - n(salesCreditsAgg._sum?.subtotal),
-        discountAmount: n(salesAgg._sum?.discountAmount) - n(salesCreditsAgg._sum?.discountAmount),
+        subtotal:       n(salesAgg._sum?.subtotal) - nc(salesCreditsAgg._sum?.subtotal),
+        discountAmount: n(salesAgg._sum?.discountAmount) - nc(salesCreditsAgg._sum?.discountAmount),
         taxAmount:      ivaCobrado,
-        total:          n(salesAgg._sum?.total) - n(salesCreditsAgg._sum?.total),
-        amountPaid:     n(salesAgg._sum?.amountPaid) - n(salesCreditsAgg._sum?.amountPaid),
+        total:          n(salesAgg._sum?.total) - nc(salesCreditsAgg._sum?.total),
+        amountPaid:     n(salesAgg._sum?.amountPaid) - nc(salesCreditsAgg._sum?.amountPaid),
         byTaxRate: netRows(salesByTaxRate, salesCreditsByTaxRate),
         creditNotes: { invoicesCount: salesCreditsAgg._count?._all || 0, subtotal: n(salesCreditsAgg._sum?.subtotal), taxAmount: n(salesCreditsAgg._sum?.taxAmount), total: n(salesCreditsAgg._sum?.total) },
       },
 
       purchases: {
         invoicesCount:  purchasesAgg._count?._all || 0,
-        subtotal:       n(purchasesAgg._sum?.subtotal) - n(purchaseCreditsAgg._sum?.subtotal),
-        discountAmount: n(purchasesAgg._sum?.discountAmount) - n(purchaseCreditsAgg._sum?.discountAmount),
+        subtotal:       n(purchasesAgg._sum?.subtotal) - nc(purchaseCreditsAgg._sum?.subtotal),
+        discountAmount: n(purchasesAgg._sum?.discountAmount) - nc(purchaseCreditsAgg._sum?.discountAmount),
         taxAmount:      ivaPagado,
-        total:          n(purchasesAgg._sum?.total) - n(purchaseCreditsAgg._sum?.total),
-        amountPaid:     n(purchasesAgg._sum?.amountPaid) - n(purchaseCreditsAgg._sum?.amountPaid),
+        total:          n(purchasesAgg._sum?.total) - nc(purchaseCreditsAgg._sum?.total),
+        amountPaid:     n(purchasesAgg._sum?.amountPaid) - nc(purchaseCreditsAgg._sum?.amountPaid),
         byTaxRate: netRows(purchasesByTaxRate, purchaseCreditsByTaxRate),
         creditNotes: { invoicesCount: purchaseCreditsAgg._count?._all || 0, subtotal: n(purchaseCreditsAgg._sum?.subtotal), taxAmount: n(purchaseCreditsAgg._sum?.taxAmount), total: n(purchaseCreditsAgg._sum?.total) },
         purchasesPendingAcceptance: { invoicesCount: purchasesPendingAgg._count?._all || 0, taxAmount: n(purchasesPendingAgg._sum?.taxAmount), total: n(purchasesPendingAgg._sum?.total) },

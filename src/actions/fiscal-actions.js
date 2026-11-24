@@ -23,13 +23,15 @@ export async function closeFiscalPeriod(formData) {
   const { start, end } = bounds(year, month);
   const [sales, salesCredits, purchases, purchaseCredits] = await Promise.all([
     prisma.invoice.aggregate({ where: { invoiceType: "CUSTOMER_INVOICE", invoiceDate: { gte: start, lt: end }, feStatus: "ACCEPTED" }, _sum: { taxAmount: true, subtotal: true, total: true } }),
-    prisma.invoice.aggregate({ where: { invoiceType: "CUSTOMER_CREDIT_NOTE", invoiceDate: { gte: start, lt: end } }, _sum: { taxAmount: true, subtotal: true, total: true } }),
+    prisma.invoice.aggregate({ where: { invoiceType: "CUSTOMER_CREDIT_NOTE", invoiceDate: { gte: start, lt: end }, feStatus: "ACCEPTED", status: { not: "CANCELLED" } }, _sum: { taxAmount: true, subtotal: true, total: true } }),
     prisma.invoice.aggregate({ where: { invoiceType: "SUPPLIER_INVOICE", invoiceDate: { gte: start, lt: end }, acceptanceStatus: "ACCEPTED" }, _sum: { taxAmount: true, subtotal: true, total: true } }),
     prisma.invoice.aggregate({ where: { invoiceType: "SUPPLIER_CREDIT_NOTE", invoiceDate: { gte: start, lt: end }, acceptanceStatus: "ACCEPTED" }, _sum: { taxAmount: true, subtotal: true, total: true } }),
   ]);
   const value = (x) => Number(x || 0);
-  const ivaDebito = value(sales._sum.taxAmount) - value(salesCredits._sum.taxAmount);
-  const ivaCredito = value(purchases._sum.taxAmount) - value(purchaseCredits._sum.taxAmount);
+  // Solo notas aceptadas y no canceladas, restadas por su valor absoluto: se
+  // guardan en negativo, y restar el negativo SUMABA IVA en vez de bajarlo.
+  const ivaDebito = value(sales._sum.taxAmount) - Math.abs(value(salesCredits._sum.taxAmount));
+  const ivaCredito = value(purchases._sum.taxAmount) - Math.abs(value(purchaseCredits._sum.taxAmount));
   const ivaNeto = ivaDebito - ivaCredito - Number(withholdings || 0);
   const snapshot = { year: Number(year), month: Number(month), sales, salesCredits, purchases, purchaseCredits, ivaDebito, ivaCredito, ivaNeto };
   const period = await prisma.fiscalPeriod.upsert({

@@ -129,9 +129,12 @@ export async function POST(request, { params }) {
           taxAmount,
           discountAmount: 0,
           total,
-          amountPaid: 0,
-          balance: total,
-          status: "OPEN",
+          // La nota no se cobra: queda aplicada sobre la factura que anula. Antes
+          // quedaba OPEN con saldo negativo y el listado ofrecía «Registrar pago».
+          // Si Hacienda la rechaza se cancela; los reportes solo cuentan aceptadas.
+          amountPaid: total,
+          balance: 0,
+          status: "PAID",
           originInvoiceId: origin.id,
           originDocument: origin.invoiceNumber,
           notes: noteText || `Nota de crédito generada desde ${origin.invoiceNumber}`,
