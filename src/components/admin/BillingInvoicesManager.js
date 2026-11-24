@@ -223,8 +223,8 @@ export default function BillingInvoicesManager({
     });
   }
 
-  function handleCancel(id) {
-    if (!window.confirm("¿Cancelar esta factura?")) return;
+  function handleCancel(id, esNotaCredito = false) {
+    if (!window.confirm(esNotaCredito ? "¿Cancelar esta nota de crédito?" : "¿Cancelar esta factura?")) return;
 
     setToast(null);
     startTransition(async () => {
@@ -585,9 +585,10 @@ export default function BillingInvoicesManager({
                         Registrar pago
                       </button>
                     )}
-                    {(row.status === "DRAFT" || row.status === "OPEN") && (
+                    {/* Lo que Hacienda aceptó no se cancela acá: se corrige con nota de crédito. */}
+                    {(row.status === "DRAFT" || row.status === "OPEN") && row.feStatus !== "ACCEPTED" && (
                       <button
-                        onClick={() => handleCancel(row.id)}
+                        onClick={() => handleCancel(row.id, String(row.invoiceType || "").includes("CREDIT_NOTE"))}
                         disabled={isPending}
                         className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
                       >
