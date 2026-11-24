@@ -9,7 +9,7 @@ vi.mock("@/lib/prisma", () => ({ prisma: {
   insuranceClaim: { findUnique: m.claim, update: m.update },
 } }));
 vi.mock("@/lib/storage", async (original) => ({ ...await original(), uploadPrivate: m.upload }));
-vi.mock("@/lib/insurance-mail", () => ({ sendSignedClaimToPatient: m.mail }));
+vi.mock("@/lib/insurance-mail", async (original) => ({ ...await original(), sendSignedClaimToPatient: m.mail }));
 vi.mock("@/lib/palig-pdf", () => ({ facturaPaligPdf: m.factura }));
 vi.mock("@/lib/fe/config", () => ({ FE_EMISOR: { nombre: "SMCR" } }));
 vi.mock("@/lib/palig-auth", () => ({ requirePaligOperator: m.operador }));
@@ -42,7 +42,9 @@ describe("subir el formulario firmado", () => {
     expect(await res.json()).toEqual({ ok: true, emailSent: true, facturaAdjunta: true });
     const envio = m.mail.mock.calls[0][0];
     expect(envio.patientEmail).toBe("javier@example.com");
-    expect(envio.formulario).toMatchObject({ filename: "Formulario-reclamo-firmado.pdf" });
+    // El adjunto dice de qué factura es: dos correos seguidos ya no se confunden.
+    expect(envio.formulario.filename).toMatch(/^Formulario-reclamo-.*factura-0205\.pdf$/);
+    expect(envio.numeroFactura).toBe("0205");
     expect(Buffer.from(envio.formulario.content).toString()).toContain("firmado");
     expect(envio.factura).toMatchObject({ filename: "Factura-0205.pdf" });
     expect(m.update).toHaveBeenLastCalledWith({ where: { id: "c1" }, data: { emailSentAt: expect.any(Date) } });

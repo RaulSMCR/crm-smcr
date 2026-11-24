@@ -13,6 +13,39 @@ export function fechaCostaRica(value) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Costa_Rica", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
 }
 
+/** Mediana de los montos ya cobrados a un paciente; null si no hay ninguno. */
+export function montoHabitual(montos) {
+  const validos = (montos || []).map(Number).filter((n) => n > 0).sort((a, b) => a - b);
+  if (!validos.length) return null;
+  const medio = Math.floor(validos.length / 2);
+  return validos.length % 2 ? validos[medio] : (validos[medio - 1] + validos[medio]) / 2;
+}
+
+/** Sin pagos anteriores, desde este monto se pide revisarlo: ninguna sesión cuesta tanto. */
+export const MONTO_INUSUAL_SIN_HISTORIAL = 100_000;
+
+const colones = (n) => `₡${Number(n).toLocaleString("es-CR")}`;
+
+/**
+ * Aviso cuando el monto se aparta de lo que paga ese paciente (más de la mitad
+ * por encima o por debajo) o, sin historial, cuando pasa de lo que cuesta una
+ * sesión. El 23-nov-2026 el OCR leyó «₡30,000.00» como 430 000 y la factura
+ * 0221 salió así: la casilla de confirmación no lo frenó. Con aviso, el pago
+ * solo se registra si se marca aparte que el monto se revisó.
+ *
+ * @returns {string|null}
+ */
+export function avisoDeMontoPalig(monto, habitual) {
+  const n = Number(monto);
+  if (!(n > 0)) return null;
+  if (habitual > 0) {
+    if (Math.abs(n - habitual) / habitual <= 0.5) return null;
+    return `Los pagos anteriores de este paciente fueron de ${colones(habitual)} y este es de ${colones(n)}. Compárelo con el comprobante antes de facturar.`;
+  }
+  if (n < MONTO_INUSUAL_SIN_HISTORIAL) return null;
+  return `${colones(n)} es más de lo que cuesta una sesión. Compárelo con el comprobante antes de facturar.`;
+}
+
 /**
  * ¿Se puede registrar este pago PALIG?
  *

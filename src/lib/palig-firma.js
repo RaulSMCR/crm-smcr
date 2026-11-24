@@ -1,6 +1,6 @@
 import { desplazarFirmaPalig, facturaPaligPdf, firmarPalig, moverFechaPalig, PaligError, posicionFirmaPalig, tipoDePlantillaPalig } from "@/lib/palig-pdf";
 import { descargarDelTramite, descargarFirma, descargarPlantillaPalig, guardarPalig, nombreDePlantilla, versionesDeFirma } from "@/lib/palig-storage";
-import { sendSignedClaimToPatient } from "@/lib/insurance-mail";
+import { nombreFormularioReclamo, sendSignedClaimToPatient } from "@/lib/insurance-mail";
 import { FE_EMISOR } from "@/lib/fe/config";
 
 // Firma desde el panel (pedido de Raúl, 27-oct-2026 hora CR): un botón estampa
@@ -116,7 +116,7 @@ export async function moverFirmaTramitePalig(db, claim, { dx = 0, dy = 0, patien
 }
 
 /** Manda al paciente el formulario firmado desde el panel, con la factura si ya está aceptada. */
-export async function enviarFirmadoPalig(db, claim, { patient }) {
+export async function enviarFirmadoPalig(db, claim, { patient, nota = null }) {
   exigirAbierto(claim);
   const ruta = rutaFirmado(claim);
   if (!ruta) throw new PaligError("Primero firme el formulario.", 409);
@@ -129,8 +129,8 @@ export async function enviarFirmadoPalig(db, claim, { patient }) {
   try { factura = { filename: `Factura-${claim.invoice.invoiceNumber}.pdf`, content: await facturaPaligPdf(claim.invoice, FE_EMISOR) }; } catch { factura = null; }
   const emailSent = await sendSignedClaimToPatient({
     patientEmail: patient.email, patientName: patient.name,
-    formulario: { filename: "Formulario-reclamo-firmado.pdf", content: formulario },
-    factura,
+    formulario: { filename: nombreFormularioReclamo({ fechaAtencion: fechaDeServicio(claim), numeroFactura: claim.invoice?.invoiceNumber }), content: formulario },
+    factura, fechaAtencion: fechaDeServicio(claim), numeroFactura: claim.invoice?.invoiceNumber, nota,
   });
   if (emailSent) await db.insuranceClaim.update({ where: { id: claim.id }, data: { emailSentAt: new Date() } });
   return { emailSent, facturaAdjunta: Boolean(factura) };

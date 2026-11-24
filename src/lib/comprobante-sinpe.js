@@ -32,11 +32,13 @@ const MONEDA = /(₡|¢|\bCRC\b|\bcolones\b)/i;
 const plausible = (n, token) => n && n >= 100 && n < 10_000_000 && !/^\d{8}$/.test(token) && !/^(19|20)\d{2}$/.test(token);
 
 /**
- * El modelo en español no conoce el símbolo ₡ y lo suele leer como un «2»
- * pegado a la cifra: «₡40.000,00» sale «240.000,00». Si la línea no trae ningún
- * otro indicio de moneda y el monto empieza con 2, es improbable para una
- * sesión (₡100 000 o más) y sin ese 2 sigue siendo un monto bien escrito, se
- * toma el de sin el 2 y el otro queda como alternativa para elegirlo a mano.
+ * El modelo en español no conoce el símbolo ₡ y lo lee como una cifra pegada
+ * al monto: «₡40.000,00» salió «240.000,00» y, en un comprobante de BAC,
+ * «₡30,000.00» salió «430,000.00» (factura 0221, 23-nov-2026 hora CR). No es
+ * siempre la misma cifra, así que se trata cualquiera. Si la línea no trae
+ * ningún otro indicio de moneda, el monto es improbable para una sesión
+ * (₡100 000 o más) y sin su primera cifra sigue siendo un monto bien escrito,
+ * se toma el de sin esa cifra y el otro queda como alternativa a mano.
  */
 function montoEn(linea, { exigirMoneda = false } = {}) {
   const conMoneda = MONEDA.test(linea);
@@ -46,11 +48,11 @@ function montoEn(linea, { exigirMoneda = false } = {}) {
     const n = normalizarMonto(token);
     if (!plausible(n, token)) continue;
     const previo = linea[m.index - 1];
-    const sinDos = token.slice(1);
-    if (!conMoneda && n >= 100_000 && token.startsWith("2") && (!previo || /[\s:]/.test(previo))
-        && /^\d{1,3}([.,\s]\d{3})+([.,]\d{1,2})?$/.test(sinDos)) {
-      const corregido = normalizarMonto(sinDos);
-      if (plausible(corregido, sinDos)) return { monto: corregido, alternativo: n };
+    const sinSimbolo = token.slice(1);
+    if (!conMoneda && n >= 100_000 && (!previo || /[\s:]/.test(previo))
+        && /^[1-9]\d{0,2}([.,\s]\d{3})+([.,]\d{1,2})?$/.test(sinSimbolo)) {
+      const corregido = normalizarMonto(sinSimbolo);
+      if (plausible(corregido, sinSimbolo)) return { monto: corregido, alternativo: n };
     }
     return { monto: n, alternativo: null };
   }

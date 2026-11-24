@@ -21,7 +21,7 @@ export async function POST(request) {
       ? await generarFormularioDeFacturaPalig(prisma, { patientId: fd.get("patientId"), invoiceId, proof: fd.get("proof") })
       : await generarPagoPalig(prisma, {
           patientId: fd.get("patientId"), appointmentId: fd.get("appointmentId") || null,
-          monto: Number(fd.get("monto")), confirmado: fd.get("confirmado") === "true",
+          monto: Number(fd.get("monto")), confirmado: fd.get("confirmado") === "true", montoRevisado: fd.get("montoRevisado") === "true",
           proof: fd.get("proof"), userId: auth.userId, referencia: fd.get("referencia"),
         });
     // Una factura que ya estaba aceptada no se vuelve a mandar a Hacienda.

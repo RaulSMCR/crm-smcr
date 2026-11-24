@@ -10,6 +10,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import VisorPdf from "@/components/palig/VisorPdf";
+import { avisoDeMontoPalig } from "@/lib/palig-policy";
 
 const inputClass = "mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900";
 const buttonClass = "rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50";
@@ -225,6 +226,7 @@ export default function PaligPilot({ sessions, patients, invoices = [], recent, 
   const [sessionId, setSessionId] = useState("");
   const [amount, setAmount] = useState("");
   const [confirmed, setConfirmed] = useState(false);
+  const [montoRevisado, setMontoRevisado] = useState(false);
   const [proof, setProof] = useState(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -241,10 +243,11 @@ export default function PaligPilot({ sessions, patients, invoices = [], recent, 
   const payerInvoices = invoices.filter((i) => i.patientId === payerId);
   const factura = payerInvoices.find((i) => i.id === invoiceId);
   const patient = patients.find((p) => p.id === patientId);
+  const avisoMonto = payer && !factura ? avisoDeMontoPalig(amount, payer.montoHabitual) : null;
 
   async function generate(e) {
     e.preventDefault();
-    if (busy || !proof || !confirmed || !payer?.templateReady) return;
+    if (busy || !proof || !confirmed || !payer?.templateReady || (avisoMonto && !montoRevisado)) return;
     setBusy(true); setMessage(""); setResult(null);
     const fd = new FormData();
     fd.set("patientId", payerId); fd.set("confirmado", "true"); fd.set("proof", proof);
@@ -252,6 +255,7 @@ export default function PaligPilot({ sessions, patients, invoices = [], recent, 
       fd.set("invoiceId", factura.id);
     } else {
       fd.set("monto", amount);
+      if (avisoMonto && montoRevisado) fd.set("montoRevisado", "true");
       if (sessionId) fd.set("appointmentId", sessionId);
     }
     try {
@@ -259,7 +263,7 @@ export default function PaligPilot({ sessions, patients, invoices = [], recent, 
       const json = await response.json();
       if (!response.ok) throw new Error(json.message || "No se pudo completar la operación.");
       setResult({ ...json, patientName: payer.name });
-      setConfirmed(false); setProof(null); setPayerId(""); setInvoiceId(""); setSessionId(""); setAmount("");
+      setConfirmed(false); setProof(null); setPayerId(""); setInvoiceId(""); setSessionId(""); setAmount(""); setMontoRevisado(false);
       if (proofInput.current) proofInput.current.value = "";
       router.refresh();
     } catch (error) { setMessage(error.message || "Se perdió la conexión. Actualice para comprobar si los documentos ya se generaron."); }
@@ -345,15 +349,20 @@ export default function PaligPilot({ sessions, patients, invoices = [], recent, 
         {payer && !factura && (
           <>
             <label className="block text-sm font-medium">Sesión que queda pagada (opcional)
-              <select value={sessionId} onChange={(e) => { const s = payerSessions.find((item) => item.id === e.target.value); setSessionId(e.target.value); if (s) setAmount(String(s.amount)); }} className={inputClass}>
+              <select value={sessionId} onChange={(e) => { const s = payerSessions.find((item) => item.id === e.target.value); setSessionId(e.target.value); if (s) setAmount(String(s.amount)); setMontoRevisado(false); }} className={inputClass}>
                 <option value="">Ninguna: solo registrar el pago</option>
                 {payerSessions.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
               </select>
               <span className="mt-1 block text-xs text-slate-500">La factura y el formulario salen igual con la fecha de hoy. Elegir una sesión solo la marca como pagada en la agenda.</span>
             </label>
             <label className="block text-sm font-medium">Monto recibido, IVA incluido (CRC)
-              <input type="number" required min="0.01" max="99999999.99" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className={inputClass} />
+              <input type="number" required min="0.01" max="99999999.99" step="0.01" value={amount} onChange={(e) => { setAmount(e.target.value); setMontoRevisado(false); }} className={inputClass} />
             </label>
+            {avisoMonto && <div role="alert" className="space-y-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+              <p className="font-semibold">{avisoMonto}</p>
+              <label className="flex items-start gap-2"><input type="checkbox" checked={montoRevisado} onChange={(e) => setMontoRevisado(e.target.checked)} className="mt-1" />
+                Revisé el comprobante: el monto de ₡{Number(amount).toLocaleString("es-CR")} es correcto.</label>
+            </div>}
           </>
         )}
         <label className="block text-sm font-medium">Comprobante de pago SINPE Móvil
@@ -365,7 +374,7 @@ export default function PaligPilot({ sessions, patients, invoices = [], recent, 
             ? "Confirmo que este comprobante corresponde al pago de la factura elegida."
             : "Confirmo que recibí hoy este monto por SINPE Móvil. La factura y la fecha de atención del formulario quedan con la fecha de hoy."}
         </label>
-        <button type="submit" className={buttonClass} disabled={!payer?.templateReady || !proof || !confirmed || busy || (!factura && !(Number(amount) > 0))}>
+        <button type="submit" className={buttonClass} disabled={!payer?.templateReady || !proof || !confirmed || busy || (!factura && !(Number(amount) > 0)) || (avisoMonto && !montoRevisado)}>
           {busy ? "Procesando…" : factura ? "Generar el formulario" : "Emitir factura y generar el formulario"}
         </button>
       </fieldset>

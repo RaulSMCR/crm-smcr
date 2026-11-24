@@ -20,7 +20,7 @@ beforeEach(() => {
     user: { findUnique: vi.fn().mockResolvedValue(paciente) },
     appointment: { findUnique: vi.fn().mockResolvedValue(cita), findFirst: vi.fn().mockResolvedValue({ serviceId: "svc1" }) },
     serviceAssignment: { findFirst: vi.fn().mockResolvedValue({ serviceId: "svc-asig" }) },
-    insuranceClaim: { findUnique: vi.fn().mockResolvedValue(null), findFirst: vi.fn().mockResolvedValue(null) },
+    insuranceClaim: { findUnique: vi.fn().mockResolvedValue(null), findFirst: vi.fn().mockResolvedValue(null), findMany: vi.fn().mockResolvedValue([]) },
   };
   db.insuranceClaim.findUnique.mockImplementation(async ({ where }) => (where.id ? claim : null));
   mocks.read.mockResolvedValue({ bytes: Buffer.from("proof"), mime: "image/png", extension: "png" });
@@ -41,6 +41,23 @@ describe("pago PALIG por comprobante", () => {
     expect(mocks.fill.mock.calls[0][1]).toEqual({ date: AHORA, final: true });
     expect(data.palig).toMatchObject({ patientName: "Prueba", sourceTemplateUrl: paciente.insuranceTemplateUrl, pagoConfirmado: true });
     expect(data.palig.paymentProofUrl).toContain(`${data.palig.claimId}/palig/proof.png`);
+  });
+
+  // 23-nov-2026: el OCR leyó «₡30,000.00» como 430 000 y la factura 0221 salió
+  // así. Un monto que se aparta de lo que paga el paciente pide revisión aparte.
+  it("no factura un monto fuera de lo habitual sin que se marque revisado", async () => {
+    db.insuranceClaim.findMany.mockResolvedValue([30000, 30000, 30000].map((total) => ({ patientId: "u1", invoice: { total } })));
+    await expect(generarPagoPalig(db, { ...params, monto: 430000 })).rejects.toThrow(/fueron de ₡30.000 y este es de ₡430.000/);
+    expect(mocks.save).not.toHaveBeenCalled();
+    expect(mocks.register).not.toHaveBeenCalled();
+    await generarPagoPalig(db, { ...params, monto: 430000, montoRevisado: true });
+    expect(mocks.register.mock.calls[0][1].monto).toBe(430000);
+  });
+
+  it("el monto habitual no pide revisión", async () => {
+    db.insuranceClaim.findMany.mockResolvedValue([{ patientId: "u1", invoice: { total: 40000 } }]);
+    await generarPagoPalig(db, params);
+    expect(mocks.register).toHaveBeenCalled();
   });
 
   it("con sesión de otro día: la deja pagada y la factura sigue siendo de hoy", async () => {

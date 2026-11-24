@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requirePaligOperator } from "@/lib/palig-auth";
 import { esPalig, fechaCostaRica, PALIG_PROFESSIONAL_SLUG } from "@/lib/palig-policy";
-import { PALIG_CLAIM_SELECT, resumenPalig } from "@/lib/palig-service";
+import { montosHabitualesPalig, PALIG_CLAIM_SELECT, resumenPalig } from "@/lib/palig-service";
 import CobroMovil from "@/components/palig/CobroMovil";
 
 export const dynamic = "force-dynamic";
@@ -41,6 +41,7 @@ export default async function CobroPage() {
     select: { ...PALIG_CLAIM_SELECT, patient: { select: { name: true } } },
     orderBy: { createdAt: "desc" }, take: 20,
   });
+  const habituales = await montosHabitualesPalig(prisma, profile?.id, patients.map((p) => p.id));
   return <>
     {/* Sin el header y el footer del sitio, como la PWA de /mi. */}
     <style dangerouslySetInnerHTML={{ __html: "body > header,body > footer{display:none!important}" }} />
@@ -50,7 +51,10 @@ export default async function CobroPage() {
       // no se entiende por qué faltan. Esos se marcan y no se pueden facturar acá.
       patients={patients
         .filter((p) => esPalig(p.insuranceName))
-        .map((p) => ({ id: p.id, name: p.name, templateReady: Boolean(p.insuranceTemplateUrl && profile && p.insuranceTemplateProId === profile.id) }))}
+        .map((p) => ({
+          id: p.id, name: p.name, montoHabitual: habituales.get(p.id) ?? null,
+          templateReady: Boolean(p.insuranceTemplateUrl && profile && p.insuranceTemplateProId === profile.id),
+        }))}
       pendientes={pendientes.map((c) => ({ ...resumenPalig(c), date: c.invoice.invoiceDate.toISOString(), patientId: c.patientId, patientName: c.patient.name }))}
     />
   </>;

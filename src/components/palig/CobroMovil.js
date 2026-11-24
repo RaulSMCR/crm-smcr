@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { leerComprobanteSinpe, sugerirPaciente } from "@/lib/comprobante-sinpe";
+import { avisoDeMontoPalig } from "@/lib/palig-policy";
 import { Documents } from "@/components/palig/PaligPilot";
 
 const TESSERACT_URL = "https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/tesseract.min.js";
@@ -74,6 +75,8 @@ export default function CobroMovil({ patients, pendientes = [], today }) {
   const [referencia, setReferencia] = useState("");
   const [fechaLeida, setFechaLeida] = useState(null);
   const [montoAlternativo, setMontoAlternativo] = useState(null);
+  // Casilla aparte cuando el monto no cuadra con lo que paga el paciente.
+  const [montoRevisado, setMontoRevisado] = useState(false);
   const [aviso, setAviso] = useState(null);
   const [confirmado, setConfirmado] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -86,7 +89,7 @@ export default function CobroMovil({ patients, pendientes = [], today }) {
 
   async function procesar(original) {
     setError(""); setAviso(null); setResult(null); setConfirmado(false);
-    setMonto(""); setReferencia(""); setFechaLeida(null); setMontoAlternativo(null);
+    setMonto(""); setReferencia(""); setFechaLeida(null); setMontoAlternativo(null); setMontoRevisado(false);
     let file;
     try { file = await prepararArchivo(original); } catch (e) { setError(e.message); return; }
     setArchivo(file);
@@ -147,7 +150,7 @@ export default function CobroMovil({ patients, pendientes = [], today }) {
 
   function reiniciar() {
     setPatientId(""); setArchivo(null); setVista(""); setMonto(""); setReferencia("");
-    setFechaLeida(null); setMontoAlternativo(null); setAviso(null); setConfirmado(false); setError(""); setResult(null);
+    setFechaLeida(null); setMontoAlternativo(null); setMontoRevisado(false); setAviso(null); setConfirmado(false); setError(""); setResult(null);
     if (input.current) input.current.value = "";
     // Si el trámite recién emitido no se envió, aparece en «Firmar y enviar».
     router.refresh();
@@ -155,11 +158,12 @@ export default function CobroMovil({ patients, pendientes = [], today }) {
 
   async function emitir(e) {
     e.preventDefault();
-    if (busy || !patientId || !patients.find((p) => p.id === patientId)?.templateReady || !archivo || !confirmado || !(Number(monto) > 0)) return;
+    if (busy || !patientId || !patients.find((p) => p.id === patientId)?.templateReady || !archivo || !confirmado || !(Number(monto) > 0) || (avisoMonto && !montoRevisado)) return;
     setBusy(true); setError("");
     const fd = new FormData();
     fd.set("patientId", patientId); fd.set("monto", monto); fd.set("confirmado", "true");
     fd.set("proof", archivo);
+    if (avisoMonto && montoRevisado) fd.set("montoRevisado", "true");
     if (referencia.trim()) fd.set("referencia", referencia.trim());
     try {
       const res = await fetch("/api/palig", { method: "POST", body: fd });
@@ -174,6 +178,7 @@ export default function CobroMovil({ patients, pendientes = [], today }) {
   const otroDia = fechaLeida && fechaLeida !== today;
   const paciente = patients.find((p) => p.id === patientId);
   const sinPlantilla = paciente && !paciente.templateReady;
+  const avisoMonto = paciente ? avisoDeMontoPalig(monto, paciente.montoHabitual) : null;
   const listaPendientes = pendientes.filter((c) => c.id !== result?.id);
   const pendienteDelPaciente = paciente && listaPendientes.some((c) => c.patientId === paciente.id);
 
@@ -222,12 +227,19 @@ export default function CobroMovil({ patients, pendientes = [], today }) {
 
         <label className="block text-sm font-medium text-slate-800">Monto recibido, IVA incluido (₡)
           <input required inputMode="decimal" type="number" min="0.01" max="99999999.99" step="0.01"
-            value={monto} onChange={(e) => { setMonto(e.target.value); setMontoAlternativo(null); }} className={inputClass} />
+            value={monto} onChange={(e) => { setMonto(e.target.value); setMontoAlternativo(null); setMontoRevisado(false); }} className={inputClass} />
         </label>
         {montoAlternativo && <div className="space-y-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
           <p>El símbolo ₡ a veces se lee como un 2. Se tomó ₡{Number(monto).toLocaleString("es-CR")}; si el comprobante dice ₡{montoAlternativo.toLocaleString("es-CR")}, cámbielo.</p>
-          <button type="button" onClick={() => { setMonto(String(montoAlternativo)); setMontoAlternativo(null); }}
+          <button type="button" onClick={() => { setMonto(String(montoAlternativo)); setMontoAlternativo(null); setMontoRevisado(false); }}
             className="rounded-lg border border-amber-300 bg-white px-3 py-2 font-semibold">Usar ₡{montoAlternativo.toLocaleString("es-CR")}</button>
+        </div>}
+        {avisoMonto && <div role="alert" className="space-y-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+          <p className="font-semibold">{avisoMonto}</p>
+          <label className="flex items-start gap-3">
+            <input type="checkbox" checked={montoRevisado} onChange={(e) => setMontoRevisado(e.target.checked)} className="mt-0.5 h-5 w-5" />
+            Revisé el comprobante: el monto de ₡{Number(monto).toLocaleString("es-CR")} es correcto.
+          </label>
         </div>}
         <label className="block text-sm font-medium text-slate-800">Referencia del comprobante (opcional)
           <input type="text" inputMode="numeric" maxLength={40} value={referencia} onChange={(e) => setReferencia(e.target.value)} className={inputClass} />
@@ -242,7 +254,7 @@ export default function CobroMovil({ patients, pendientes = [], today }) {
           Confirmo que recibí hoy este monto por SINPE Móvil. La factura y el formulario quedan con la fecha de hoy.
         </label>
         <button type="submit" className={buttonClass}
-          disabled={busy || Boolean(leyendo) || !patientId || sinPlantilla || !archivo || !confirmado || !(Number(monto) > 0)}>
+          disabled={busy || Boolean(leyendo) || !patientId || sinPlantilla || !archivo || !confirmado || !(Number(monto) > 0) || (avisoMonto && !montoRevisado)}>
           {busy ? "Emitiendo…" : "Emitir factura y formulario"}
         </button>
       </fieldset>

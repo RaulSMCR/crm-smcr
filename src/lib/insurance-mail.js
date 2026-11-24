@@ -194,6 +194,35 @@ export async function sendInsuranceProSignAlert({
 }
 
 // ── 5. Paciente: formulario firmado enviado ──────────────────────────────────
+
+/** «2026-11-23» → «23/11/2026», en hora de Costa Rica. */
+function fechaAtencionCR(fecha) {
+  const d = fecha ? new Date(fecha) : null;
+  if (!d || !Number.isFinite(d.getTime())) return null;
+  const iso = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Costa_Rica", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+  return iso.split("-").reverse().join("/");
+}
+
+/**
+ * Nombre del adjunto del formulario. Lleva la fecha de atención y la factura:
+ * el 23-nov-2026 a un paciente le llegaron dos correos seguidos (el formulario
+ * del 16 que había quedado pendiente y el del 23) con el mismo asunto y el
+ * mismo adjunto «Formulario-reclamo-firmado.pdf», y no había cómo saber cuál
+ * era cuál sin abrirlos.
+ */
+export function nombreFormularioReclamo({ fechaAtencion, numeroFactura, extension = "pdf" } = {}) {
+  const fecha = fechaAtencionCR(fechaAtencion);
+  const partes = ["Formulario-reclamo", fecha && fecha.split("/").reverse().join("-"), numeroFactura && `factura-${numeroFactura}`];
+  return `${partes.filter(Boolean).join("-")}.${extension}`;
+}
+
+/** Asunto del correo: dice de qué atención es y con qué factura. */
+export function asuntoFormularioReclamo({ fechaAtencion, numeroFactura } = {}) {
+  const fecha = fechaAtencionCR(fechaAtencion);
+  const detalle = [fecha && `atención del ${fecha}`, numeroFactura && `factura ${numeroFactura}`].filter(Boolean).join(", ");
+  return `Formulario de reclamo${detalle ? ` (${detalle})` : ""} — Salud Mental Costa Rica`;
+}
+
 /**
  * Le manda al paciente el formulario firmado como ADJUNTO —antes era un enlace
  * que solo abría con sesión iniciada en el sitio— y, si Hacienda ya la aceptó,
@@ -204,15 +233,21 @@ export async function sendInsuranceProSignAlert({
  *
  * @param {{filename: string, content: Buffer}} datos.formulario
  * @param {{filename: string, content: Buffer}|null} [datos.factura]
+ * @param {Date|string} [datos.fechaAtencion]  La del formulario: va en el asunto y en el cuerpo.
+ * @param {string} [datos.numeroFactura]
+ * @param {string} [datos.nota]  Aclaración en texto plano al principio (p. ej. al reenviar corregido).
  */
-export async function sendSignedClaimToPatient({ patientEmail, patientName, formulario, factura = null }) {
+export async function sendSignedClaimToPatient({ patientEmail, patientName, formulario, factura = null, fechaAtencion = null, numeroFactura = null, nota = null }) {
   if (!patientEmail || !process.env.RESEND_API_KEY || !formulario?.content) return false;
+  const fecha = fechaAtencionCR(fechaAtencion);
+  const deQue = [fecha && `la atención del <strong>${fecha}</strong>`, numeroFactura && `factura <strong>${escaparHtml(numeroFactura)}</strong>`].filter(Boolean).join(", ");
 
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#0f172a;">
       <h2 style="color:#1e40af;">Su formulario de reclamo de seguro médico</h2>
-      <p>Estimado/a <strong>${patientName}</strong>,</p>
-      <p>Adjunto encontrará su formulario de reclamo debidamente completado y firmado por el profesional tratante.</p>
+      <p>Estimado/a <strong>${escaparHtml(patientName)}</strong>,</p>
+      ${nota ? `<p style="background:#fef3c7;border-left:4px solid #d97706;padding:10px 12px;">${escaparHtml(nota)}</p>` : ""}
+      <p>Adjunto encontrará su formulario de reclamo${deQue ? ` de ${deQue}` : ""}, debidamente completado y firmado por el profesional tratante.</p>
       ${factura
         ? "<p>También adjuntamos la factura electrónica correspondiente, aceptada por el Ministerio de Hacienda.</p>"
         : "<p>La factura electrónica le llega en un correo aparte en cuanto el Ministerio de Hacienda la acepta.</p>"}
@@ -236,7 +271,7 @@ export async function sendSignedClaimToPatient({ patientEmail, patientName, form
       // Copia a la casilla de la empresa: queda constancia de qué se entregó
       // (pedido de Raúl, 28-oct-2026 hora CR).
       ...(patientEmail !== CONTACT_EMAIL ? { bcc: [CONTACT_EMAIL] } : {}),
-      subject: "Su formulario de reclamo de seguro médico — Salud Mental Costa Rica",
+      subject: asuntoFormularioReclamo({ fechaAtencion, numeroFactura }),
       html,
       attachments,
     });

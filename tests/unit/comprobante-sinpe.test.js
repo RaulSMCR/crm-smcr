@@ -46,6 +46,17 @@ describe("leerComprobanteSinpe", () => {
     expect(leerComprobanteSinpe(texto)).toEqual({ monto: 40000, montoAlternativo: 240000, fecha: "2026-10-28", referencia: "2026102815183012345678" });
   });
 
+  // Comprobante de BAC del 23-nov-2026: «₡30,000.00» salió «430,000.00» y se
+  // facturó así (0221). El símbolo no siempre se lee como 2.
+  it("el ₡ leído como 4 (BAC): toma el monto sin el 4 y deja el otro como alternativa", () => {
+    const texto = "Notificación de transferencia SINPE Móvil\nReferencia\n2026112310283002788255736\nFecha 23 noviembre 2026\nHora 8:51 PM\nMonto 430,000.00\nDetalle (Sin detalle)";
+    expect(leerComprobanteSinpe(texto)).toMatchObject({ monto: 30000, montoAlternativo: 430000, fecha: "2026-11-23" });
+  });
+
+  it("no inventa un monto cuando sin la primera cifra quedaría con cero adelante", () => {
+    expect(leerComprobanteSinpe("Monto\n100.000,00")).toMatchObject({ monto: 100000, montoAlternativo: null });
+  });
+
   it("un monto que empieza con 2 y es plausible no se toca", () => {
     expect(leerComprobanteSinpe("Monto\n25.000,00")).toMatchObject({ monto: 25000, montoAlternativo: null });
   });

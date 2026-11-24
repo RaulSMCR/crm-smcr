@@ -5,7 +5,7 @@ import { PDFDocument, PDFName, PDFRawStream, decodePDFRawStream } from "pdf-lib"
 const storage = vi.hoisted(() => ({ list: vi.fn(), download: vi.fn(), upload: vi.fn() }));
 const mail = vi.hoisted(() => ({ send: vi.fn() }));
 vi.mock("@/lib/supabase-admin", () => ({ getSupabaseAdmin: () => ({ storage: { from: () => storage } }) }));
-vi.mock("@/lib/insurance-mail", () => ({ sendSignedClaimToPatient: mail.send }));
+vi.mock("@/lib/insurance-mail", async (original) => ({ ...await original(), sendSignedClaimToPatient: mail.send }));
 
 import { completarPalig, firmarPalig, moverFechaPalig, muestraFechaPalig, posicionFirmaPalig, POSICION_FIRMA_ESCANEO, prepararPlantillaPalig, validarPlantillaPalig } from "@/lib/palig-pdf";
 import { enviarFirmadoPalig, firmarTramitePalig, moverFirmaTramitePalig, rutaFirmado, siguienteVersion } from "@/lib/palig-firma";
@@ -128,7 +128,7 @@ describe("firmar y enviar el trámite", () => {
     const result = await enviarFirmadoPalig(db, firmado, { patient: { name: "Paciente", email: "p@example.com" } });
     expect(result).toEqual({ emailSent: true, facturaAdjunta: false });
     expect(db.insuranceClaim.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ signedFormUrl: rutaFirmado(firmado), status: "COMPLETED" }) }));
-    expect(mail.send).toHaveBeenCalledWith(expect.objectContaining({ patientEmail: "p@example.com", formulario: expect.objectContaining({ filename: "Formulario-reclamo-firmado.pdf" }) }));
+    expect(mail.send).toHaveBeenCalledWith(expect.objectContaining({ patientEmail: "p@example.com", formulario: expect.objectContaining({ filename: expect.stringMatching(/^Formulario-reclamo-.*\.pdf$/) }) }));
     expect(db.insuranceClaim.update).toHaveBeenLastCalledWith({ where: { id: "c1" }, data: { emailSentAt: expect.any(Date) } });
   });
 

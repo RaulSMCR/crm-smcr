@@ -3,7 +3,7 @@
 import { NextResponse } from "next/server";
 import { getSession, isPreviewSession, PREVIEW_BLOCKED_MESSAGE } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { sendSignedClaimToPatient } from "@/lib/insurance-mail";
+import { nombreFormularioReclamo, sendSignedClaimToPatient } from "@/lib/insurance-mail";
 import { uploadPrivate, validateFileSignature } from "@/lib/storage";
 import { facturaPaligPdf } from "@/lib/palig-pdf";
 import { FE_EMISOR } from "@/lib/fe/config";
@@ -103,8 +103,13 @@ export async function POST(request) {
     const emailSent = await sendSignedClaimToPatient({
       patientEmail: claim.patient.email,
       patientName: claim.patient.name,
-      formulario: { filename: `Formulario-reclamo-firmado.${extension}`, content: buffer },
+      formulario: {
+        filename: nombreFormularioReclamo({ fechaAtencion: claim.paymentDate || claim.invoice?.invoiceDate, numeroFactura: claim.invoice?.invoiceNumber, extension }),
+        content: buffer,
+      },
       factura,
+      fechaAtencion: claim.paymentDate || claim.invoice?.invoiceDate,
+      numeroFactura: claim.invoice?.invoiceNumber,
     });
     // Se anota solo si el correo salió de verdad: antes se anotaba siempre.
     if (emailSent) {

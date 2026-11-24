@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { registrarPagoManual } from "@/lib/pagos-manuales";
-import { PALIG_PROFESSIONAL_SLUG, esPalig, fechaCostaRica, validarPagoPalig } from "@/lib/palig-policy";
+import { PALIG_PROFESSIONAL_SLUG, avisoDeMontoPalig, esPalig, fechaCostaRica, montoHabitual, validarPagoPalig } from "@/lib/palig-policy";
 import { completarPalig, validarPlantillaPalig, PaligError } from "@/lib/palig-pdf";
 import { descargarPlantillaPalig, guardarPalig, leerArchivoPalig } from "@/lib/palig-storage";
 
@@ -68,6 +68,33 @@ async function prepararDocumentos(patient, proof, fechaDeAtencion) {
 }
 
 /**
+ * Lo que suele pagar cada paciente: la mediana de sus últimos cinco cobros PALIG
+ * pagados. Quedan fuera las facturas anuladas con nota de crédito, para que un
+ * monto mal facturado (la 0221) no pase a ser el «habitual».
+ *
+ * @returns {Promise<Map<string, number>>} patientId → monto
+ */
+export async function montosHabitualesPalig(db, professionalId, patientIds) {
+  const ids = [...new Set((patientIds || []).filter(Boolean))];
+  if (!professionalId || !ids.length) return new Map();
+  const claims = await db.insuranceClaim.findMany({
+    where: {
+      professionalId, patientId: { in: ids },
+      invoice: { status: "PAID", invoiceType: "CUSTOMER_INVOICE", creditNotes: { none: {} } },
+    },
+    select: { patientId: true, invoice: { select: { total: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+  const porPaciente = new Map();
+  for (const c of claims) {
+    const lista = porPaciente.get(c.patientId) || [];
+    if (lista.length < 5) lista.push(Number(c.invoice.total));
+    porPaciente.set(c.patientId, lista);
+  }
+  return new Map([...porPaciente].map(([id, montos]) => [id, montoHabitual(montos)]).filter(([, m]) => m));
+}
+
+/**
  * Formulario PALIG para un pago que YA se facturó (por ejemplo, desde pagos
  * manuales antes de tener la plantilla). No emite otra factura: crea el trámite
  * sobre la existente y la «fecha de atención» es la fecha de pago de esa factura.
@@ -128,7 +155,7 @@ export async function generarFormularioDeFacturaPalig(db, { patientId, invoiceId
  * registrar el ingreso: una caída de Storage nunca deja un pago emitido sin su
  * formulario. No se sobrescriben archivos.
  */
-export async function generarPagoPalig(db, { patientId, appointmentId = null, monto, confirmado, proof, userId, referencia = null }) {
+export async function generarPagoPalig(db, { patientId, appointmentId = null, monto, confirmado, proof, userId, referencia = null, montoRevisado = false }) {
   if (typeof patientId !== "string" || !patientId.trim() || patientId.length > 100) throw new PaligError("Seleccione el paciente.");
   if (appointmentId !== null && (typeof appointmentId !== "string" || appointmentId.length > 100)) throw new PaligError("La sesión elegida no es válida.");
   if (!Number.isFinite(monto) || monto <= 0 || monto > 99999999.99 || Math.abs(monto * 100 - Math.round(monto * 100)) > 0.0001) throw new PaligError("Indique el monto recibido con un máximo de dos decimales.");
@@ -169,6 +196,11 @@ export async function generarPagoPalig(db, { patientId, appointmentId = null, mo
 
   const valid = validarPagoPalig({ patient, professionalId: professional.id, cita, monto, confirmado, ahora: fechaPago });
   if (!valid.ok) throw new PaligError(valid.message, valid.status);
+
+  // Un monto fuera de lo habitual se factura solo si se revisó aparte.
+  const habitual = (await montosHabitualesPalig(db, professional.id, [patientId])).get(patientId) ?? null;
+  const avisoMonto = avisoDeMontoPalig(monto, habitual);
+  if (avisoMonto && montoRevisado !== true) throw new PaligError(`${avisoMonto} Si es correcto, marque que lo revisó.`, 409);
 
   const serviceId = cita ? null : await servicioParaFacturar(db, patientId, professional.id);
   if (!cita && !serviceId) throw new PaligError("Raúl no tiene un servicio con CABYS para facturar este pago.", 409);

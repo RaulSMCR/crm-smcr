@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { esPalig, fechaCostaRica, validarPagoPalig } from "@/lib/palig-policy";
+import { avisoDeMontoPalig, montoHabitual, esPalig, fechaCostaRica, validarPagoPalig } from "@/lib/palig-policy";
 
 const patient = { id: "u1", insuranceName: "PALIG", insuranceTemplateUrl: "insurance-templates/u1/palig.pdf", insuranceTemplateProId: "pro1" };
 const cita = {
@@ -47,5 +47,23 @@ describe("piloto PALIG por comprobante", () => {
 
   it("lee el día en Costa Rica aunque en UTC ya sea el siguiente", () => {
     expect(fechaCostaRica("2026-10-22T03:00:00Z")).toBe("2026-10-21");
+  });
+});
+
+describe("aviso de monto fuera de lo habitual", () => {
+  it("la mediana resiste un monto mal facturado entre los anteriores", () => {
+    expect(montoHabitual([30000, 430000, 30000])).toBe(30000);
+    expect(montoHabitual([])).toBeNull();
+  });
+
+  it("avisa cuando el monto se aparta más de la mitad del habitual", () => {
+    expect(avisoDeMontoPalig(430000, 30000)).toMatch(/Compárelo con el comprobante/);
+    expect(avisoDeMontoPalig(3000, 30000)).toMatch(/Compárelo/);
+    expect(avisoDeMontoPalig(40000, 30000)).toBeNull();
+  });
+
+  it("sin historial avisa solo desde lo que no cuesta ninguna sesión", () => {
+    expect(avisoDeMontoPalig(99999, null)).toBeNull();
+    expect(avisoDeMontoPalig(430000, null)).toMatch(/más de lo que cuesta una sesión/);
   });
 });

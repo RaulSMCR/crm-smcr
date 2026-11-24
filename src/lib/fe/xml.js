@@ -197,6 +197,26 @@ export function ivaTarifaCodigo(rate) {
   return "07"; // Variable
 }
 
+/**
+ * Lo que la nota de crédito dice de la factura que anula. En la 4.4 `Numero`
+ * es la CLAVE de 50 dígitos (no el consecutivo corto «0221»), y
+ * `FechaEmisionIR` es obligatoria. Sin alguna de las dos el comprobante es
+ * inválido, y se corta antes de firmar para no gastar un consecutivo.
+ */
+function referenciaDeNotaCredito(invoice) {
+  const origen = invoice.originInvoice;
+  const clave = String(origen?.feClave || "");
+  if (!/^\d{50}$/.test(clave)) {
+    throw new Error(
+      `La nota de crédito ${invoice.invoiceNumber} no encuentra la clave de Hacienda de la factura que anula ` +
+        `(${invoice.originDocument || "sin número"}). Solo se anula una factura aceptada.`
+    );
+  }
+  if (!origen.invoiceDate) throw new Error(`La factura ${invoice.originDocument} no tiene fecha de emisión.`);
+  const razon = String(invoice.notes || "").replace(/\s+/g, " ").trim() || "Anulación de comprobante electrónico";
+  return { clave, fecha: feCrDate(new Date(origen.invoiceDate)), razon: razon.substring(0, 180) };
+}
+
 // ─── Generador principal ─────────────────────────────────────────────────────
 
 /**
@@ -215,6 +235,15 @@ export function generateFeXml(invoice, lines) {
   const feClave    = buildFeClave(feNumber, invoice.invoiceDate);
   const ns         = NS_MAP[tipoDoc];
   const rootEl     = ROOT_ELEMENT_MAP[tipoDoc];
+
+  // La nota de crédito se guarda con importes negativos (así resta en los
+  // reportes), pero en el XML de Hacienda todo importe es >= 0: el esquema 4.4
+  // pone minInclusive 0 en DecimalDineroType. Que resta lo dice el tipo de
+  // documento. En una factura no se toca el signo: un negativo ahí es un error
+  // que tiene que verse, no corregirse en silencio.
+  const esNotaCredito = tipoDoc === TIPO_DOC_MAP.CUSTOMER_CREDIT_NOTE;
+  const importe = (valor) => (esNotaCredito ? Math.abs(Number(valor || 0)) : Number(valor || 0));
+  const referencia = esNotaCredito ? referenciaDeNotaCredito(invoice) : null;
 
   const invoiceDate = invoice.invoiceDate instanceof Date
     ? invoice.invoiceDate
@@ -370,14 +399,14 @@ export function generateFeXml(invoice, lines) {
     lineEl.ele("CodigoCABYS").txt(cabys);
 
     const qty     = round2(line.quantity || 1);
-    const uprice  = round2(line.unitPrice || 0);
+    const uprice  = round2(importe(line.unitPrice));
     const discPct = round2(line.discountPercent || 0);
     const taxRate = round2(line.taxRate || 0);
 
     const montoTotal   = round2(qty * uprice);
     const descMonto    = discPct > 0 ? round2(montoTotal * discPct / 100) : 0;
     const subtotalLine = round2(montoTotal - descMonto);
-    const taxMonto     = round2(line.taxAmount || 0);
+    const taxMonto     = round2(importe(line.taxAmount));
     const totalLinea   = round2(subtotalLine + taxMonto);
 
     // Unidad de medida: default "Sp" (servicios profesionales)
@@ -443,27 +472,9 @@ export function generateFeXml(invoice, lines) {
     lineEl.ele("MontoTotalLinea").txt(fmt5(totalLinea));
   });
 
-  // ─── InformacionReferencia (solo para notas de crédito) ──────────────────
-  if (
-    (invoice.invoiceType === "CUSTOMER_CREDIT_NOTE" ||
-      invoice.invoiceType === "SUPPLIER_CREDIT_NOTE") &&
-    invoice.originDocument
-  ) {
-    const refEl = root.ele("InformacionReferencia");
-    refEl.ele("TipoDoc").txt("01"); // 01=Factura Electrónica original
-    refEl.ele("Numero").txt(String(invoice.originDocument));
-    if (invoice.originInvoice?.invoiceDate) {
-      refEl.ele("FechaEmision").txt(feCrDate(invoice.originInvoice.invoiceDate));
-    }
-    refEl.ele("Codigo").txt("01"); // 01=Anula comprobante referenciado
-    refEl.ele("Razon").txt(
-      (invoice.notes || "Anulación de comprobante electrónico").substring(0, 180)
-    );
-  }
-
   // ─── Resumen Factura ─────────────────────────────────────────────────────
-  const discountAmount = round2(invoice.discountAmount || totalDescuentos);
-  const total          = round2(invoice.total || 0);
+  const discountAmount = round2(importe(invoice.discountAmount) || totalDescuentos);
+  const total          = round2(importe(invoice.total));
   const ventaNeta      = round2(totalVenta - discountAmount);
 
   const resumenEl = root.ele("ResumenFactura");
@@ -500,6 +511,17 @@ export function generateFeXml(invoice, lines) {
   medioEl.ele("TotalMedioPago").txt(fmt2(total));
 
   resumenEl.ele("TotalComprobante").txt(fmt2(total));
+
+  // ─── InformacionReferencia (obligatoria en la nota de crédito) ───────────
+  // Va DESPUÉS de ResumenFactura: es el orden de la secuencia del esquema 4.4.
+  if (referencia) {
+    const refEl = root.ele("InformacionReferencia");
+    refEl.ele("TipoDocIR").txt("01"); // 01 = factura electrónica
+    refEl.ele("Numero").txt(referencia.clave);
+    refEl.ele("FechaEmisionIR").txt(referencia.fecha);
+    refEl.ele("Codigo").txt("01"); // 01 = anula el documento de referencia
+    refEl.ele("Razon").txt(referencia.razon);
+  }
 
   const xml = root.end({ prettyPrint: false, headless: true });
 

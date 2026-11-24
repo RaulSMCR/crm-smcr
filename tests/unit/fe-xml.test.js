@@ -300,24 +300,57 @@ describe("generateFeXml — resumen y notas de crédito", () => {
     expect(textOf(xml, "TotalComprobante")).toBe("52000.00");
   });
 
-  it("referencia el comprobante anulado en una nota de crédito", () => {
-    const invoice = {
-      ...baseInvoice,
-      invoiceType: "CUSTOMER_CREDIT_NOTE",
-      originDocument: "00100001010000000011",
-      originInvoice: { invoiceDate: new Date("2026-07-01T15:00:00Z") }, // 09:00 en CR
-      notes: "Cita cancelada por el profesional.",
-    };
-    const { xml } = generateFeXml(invoice, baseLines);
+  // La nota se guarda en negativo (resta en los reportes) y referencia la
+  // factura por su clave. Antes salía con TipoDoc/FechaEmision (nombres de la
+  // 4.3), el consecutivo corto en Numero, importes negativos y la referencia
+  // antes del resumen: cuatro motivos de rechazo contra el esquema 4.4.
+  const CLAVE_ORIGEN = "50623112600310188566100100001010000000221127661999";
+  const notaDeCredito = {
+    ...baseInvoice,
+    invoiceNumber: "0001",
+    invoiceType: "CUSTOMER_CREDIT_NOTE",
+    originDocument: "0221",
+    originInvoice: { invoiceDate: new Date("2026-07-01T15:00:00Z"), feClave: CLAVE_ORIGEN }, // 09:00 en CR
+    notes: "Monto mal leído del comprobante.",
+    subtotal: -50000, taxAmount: -2000, total: -52000,
+  };
+  const lineasNegativas = [{ ...baseLines[0], unitPrice: -50000, taxAmount: -2000 }];
+
+  it("referencia la factura anulada con los campos de la 4.4", () => {
+    const { xml } = generateFeXml(notaDeCredito, lineasNegativas);
     expect(xml).toContain("<NotaCreditoElectronica");
-    expect(xml).toContain("<InformacionReferencia>");
-    expect(textOf(xml, "Numero")).toBeTruthy();
-    expect(xml).toContain("<Razon>Cita cancelada por el profesional.</Razon>");
+    const ref = xml.match(/<InformacionReferencia>(.*)<\/InformacionReferencia>/)?.[1];
+    expect(ref).toBeTruthy();
+    expect(textOf(ref, "TipoDocIR")).toBe("01");
+    expect(textOf(ref, "Numero")).toBe(CLAVE_ORIGEN);
+    expect(textOf(ref, "FechaEmisionIR")).toBe("2026-07-01T09:00:00-06:00");
+    expect(textOf(ref, "Codigo")).toBe("01");
+    expect(textOf(ref, "Razon")).toBe("Monto mal leído del comprobante.");
+    expect(ref).not.toContain("<TipoDoc>");
   });
 
-  it("omite la referencia cuando la nota no trae documento de origen", () => {
-    const { xml } = generateFeXml({ ...baseInvoice, invoiceType: "CUSTOMER_CREDIT_NOTE" }, baseLines);
-    expect(xml).not.toContain("<InformacionReferencia>");
+  it("pone la referencia después del resumen, como manda la secuencia del esquema", () => {
+    const { xml } = generateFeXml(notaDeCredito, lineasNegativas);
+    expect(xml.indexOf("<InformacionReferencia>")).toBeGreaterThan(xml.indexOf("</ResumenFactura>"));
+  });
+
+  it("emite los importes en positivo aunque la nota se guarde en negativo", () => {
+    const { xml } = generateFeXml(notaDeCredito, lineasNegativas);
+    expect(xml).not.toMatch(/>-\d/);
+    expect(textOf(xml, "PrecioUnitario")).toBe("50000.00000");
+    expect(textOf(xml, "TotalImpuesto")).toBe("2000.00");
+    expect(textOf(xml, "TotalComprobante")).toBe("52000.00");
+  });
+
+  it("no arma una nota de crédito sin la clave de la factura que anula", () => {
+    expect(() => generateFeXml({ ...notaDeCredito, originInvoice: { invoiceDate: new Date() } }, lineasNegativas))
+      .toThrow(/clave de Hacienda/);
+    expect(() => generateFeXml({ ...baseInvoice, invoiceType: "CUSTOMER_CREDIT_NOTE" }, baseLines)).toThrow(/clave de Hacienda/);
+  });
+
+  it("en una factura no corrige el signo: un negativo ahí tiene que verse", () => {
+    const { xml } = generateFeXml({ ...baseInvoice, total: -52000 }, lineasNegativas);
+    expect(textOf(xml, "TotalComprobante")).toBe("-52000.00");
   });
 });
 

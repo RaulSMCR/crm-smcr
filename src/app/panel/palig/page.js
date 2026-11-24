@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requirePaligOperator } from "@/lib/palig-auth";
 import { esPalig, fechaCostaRica, PALIG_PROFESSIONAL_SLUG } from "@/lib/palig-policy";
-import { PALIG_CLAIM_SELECT, resumenPalig } from "@/lib/palig-service";
+import { montosHabitualesPalig, PALIG_CLAIM_SELECT, resumenPalig } from "@/lib/palig-service";
 import PaligPilot from "@/components/palig/PaligPilot";
 
 export const dynamic = "force-dynamic";
@@ -55,6 +55,7 @@ export default async function PaligPage() {
     if (!["P2021", "P2022"].includes(error?.code)) throw error;
     return <div className="mx-auto max-w-3xl p-8"><h1 className="text-2xl font-bold">Piloto PALIG</h1><p className="mt-4">El piloto está pendiente de activación. La configuración debe completarse antes de registrar pagos aquí.</p></div>;
   }
+  const habituales = await montosHabitualesPalig(prisma, profile?.id, patients.map((p) => p.id));
   return <div className="mx-auto max-w-4xl space-y-6 p-6 md:p-8">
     <header><Link className="text-sm text-blue-700 underline" href={auth.isAdmin ? "/panel/admin/contabilidad" : "/panel/profesional"}>Volver al panel</Link><Link className="ml-4 text-sm text-blue-700 underline" href="/panel/palig/cobro">Versión para el celular</Link><h1 className="mt-3 text-3xl font-bold">Pagos y seguros · Raúl Olmedo</h1><p className="mt-2 text-slate-600">Piloto PALIG. 1) Guarde la plantilla de cada paciente. 2) Con cada comprobante SINPE, el sistema emite la factura y el formulario con la fecha del pago. 3) Fírmelo con el botón «Firmar», revíselo y envíelo (o descárguelo, fírmelo a mano y súbalo): le llega al paciente por correo con la factura.</p></header>
     <PaligPilot today={today}
@@ -67,6 +68,7 @@ export default async function PaligPage() {
         templateReady: Boolean(p.insuranceTemplateUrl && profile && p.insuranceTemplateProId === profile.id),
         // El nombre del archivo marca la escaneada (ver la ruta de plantillas).
         templateEscaneada: String(p.insuranceTemplateUrl || "").includes("/palig-escaneada-"),
+        montoHabitual: habituales.get(p.id) ?? null,
       }))}
       invoices={invoices.map((i) => ({
         id: i.id, patientId: i.contactId, amount: Number(i.total),

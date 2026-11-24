@@ -114,6 +114,9 @@ export async function POST(request, { params }) {
           professionalId: origin.professionalId,
           contactName: origin.contactName,
           contactIdNumber: origin.contactIdNumber,
+          // El receptor de la nota es el de la factura, con el mismo tipo de
+          // identificación: deducirlo del largo confunde jurídica con NITE.
+          contactIdType: origin.contactIdType,
           invoiceDate: now,
           dueDate: now,
           paymentDate: null,

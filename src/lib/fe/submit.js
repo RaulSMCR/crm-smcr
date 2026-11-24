@@ -357,7 +357,7 @@ export async function submitInvoiceToFe(invoiceId) {
       total: true,
       notes: true,
       originDocument: true,
-      originInvoice: { select: { invoiceDate: true } },
+      originInvoice: { select: { invoiceDate: true, feClave: true } },
       contact: { select: { email: true, name: true, identification: true, billingEmail: true } },
       lines: {
         orderBy: { sortOrder: "asc" },
