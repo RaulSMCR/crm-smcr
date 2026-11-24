@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/actions/auth-actions";
 import { prisma } from "@/lib/prisma";
 import { closeFiscalPeriod, fileFiscalPeriod } from "@/actions/fiscal-actions";
+import { mesActualCr } from "@/lib/fiscal-periodo";
 
 export const dynamic = "force-dynamic";
 
@@ -12,9 +13,11 @@ export default async function FiscalClosingPage({ searchParams }) {
   const sp = await searchParams;
   const session = await getSession();
   if (!session || session.role !== "ADMIN") redirect("/ingresar");
-  const now = new Date();
-  const year = Number(sp?.year || now.getFullYear());
-  const month = Number(sp?.month || now.getMonth() + 1);
+  // Mes de Costa Rica: con el reloj UTC del servidor, el último día del mes
+  // después de las 18:00 la página ya abría en el mes siguiente.
+  const now = mesActualCr();
+  const year = Number(sp?.year || now.year);
+  const month = Number(sp?.month || now.month);
   const period = await prisma.fiscalPeriod.findUnique({ where: { year_month: { year, month } } });
   const label = `${year}-${String(month).padStart(2, "0")}`;
   return (

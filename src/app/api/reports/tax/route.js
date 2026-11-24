@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { COMPROBANTE_DE_VENTA_DECLARADO, filtroFechasCr } from "@/lib/fiscal-periodo";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -17,24 +18,19 @@ export async function GET(request) {
     const dateFrom = searchParams.get("dateFrom");
     const dateTo   = searchParams.get("dateTo");
 
-    const dateFilter =
-      dateFrom || dateTo
-        ? {
-            invoiceDate: {
-              ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
-              ...(dateTo   ? { lte: new Date(dateTo)   } : {}),
-            },
-          }
-        : {};
+    // Días en hora de Costa Rica, dateTo inclusivo. Ver src/lib/fiscal-periodo.js.
+    let dateFilter;
+    try { dateFilter = filtroFechasCr(dateFrom, dateTo); }
+    catch { return NextResponse.json({ message: "Fechas inválidas: usá AAAA-MM-DD." }, { status: 400 }); }
 
     const [salesAgg, salesCreditsAgg, purchasesAgg, purchaseCreditsAgg, purchasesPendingAgg, salesByTaxRate, salesCreditsByTaxRate, purchasesByTaxRate, purchaseCreditsByTaxRate] = await Promise.all([
       prisma.invoice.aggregate({
-        where: { invoiceType: "CUSTOMER_INVOICE", status: { not: "CANCELLED" }, ...dateFilter },
+        where: { invoiceType: "CUSTOMER_INVOICE", ...COMPROBANTE_DE_VENTA_DECLARADO, ...dateFilter },
         _sum:   { subtotal: true, taxAmount: true, discountAmount: true, total: true, amountPaid: true },
         _count: { _all: true },
       }),
       prisma.invoice.aggregate({
-        where: { invoiceType: "CUSTOMER_CREDIT_NOTE", feStatus: "ACCEPTED", status: { not: "CANCELLED" }, ...dateFilter },
+        where: { invoiceType: "CUSTOMER_CREDIT_NOTE", ...COMPROBANTE_DE_VENTA_DECLARADO, ...dateFilter },
         _sum: { subtotal: true, taxAmount: true, discountAmount: true, total: true, amountPaid: true }, _count: { _all: true },
       }),
       prisma.invoice.aggregate({
@@ -52,12 +48,12 @@ export async function GET(request) {
       }),
       prisma.invoiceLine.groupBy({
         by: ["taxRate"],
-        where: { invoice: { invoiceType: "CUSTOMER_INVOICE", status: { not: "CANCELLED" }, ...dateFilter } },
+        where: { invoice: { invoiceType: "CUSTOMER_INVOICE", ...COMPROBANTE_DE_VENTA_DECLARADO, ...dateFilter } },
         _sum: { lineSubtotal: true, taxAmount: true },
       }),
       prisma.invoiceLine.groupBy({
         by: ["taxRate"],
-        where: { invoice: { invoiceType: "CUSTOMER_CREDIT_NOTE", feStatus: "ACCEPTED", status: { not: "CANCELLED" }, ...dateFilter } },
+        where: { invoice: { invoiceType: "CUSTOMER_CREDIT_NOTE", ...COMPROBANTE_DE_VENTA_DECLARADO, ...dateFilter } },
         _sum: { lineSubtotal: true, taxAmount: true },
       }),
       prisma.invoiceLine.groupBy({

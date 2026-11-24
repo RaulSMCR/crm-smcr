@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { filtroFechasCr } from "@/lib/fiscal-periodo";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -24,15 +25,10 @@ export async function GET(request) {
     const incomeStatuses  = basis === "cash" ? ["PAID"] : ["PAID", "OPEN"];
     const expenseStatuses = basis === "cash" ? ["PAID"] : ["PAID", "OPEN"];
 
-    const dateFilter =
-      dateFrom || dateTo
-        ? {
-            invoiceDate: {
-              ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
-              ...(dateTo   ? { lte: new Date(dateTo)   } : {}),
-            },
-          }
-        : {};
+    // Días en hora de Costa Rica, dateTo inclusivo. Ver src/lib/fiscal-periodo.js.
+    let dateFilter;
+    try { dateFilter = filtroFechasCr(dateFrom, dateTo); }
+    catch { return NextResponse.json({ message: "Fechas inválidas: usá AAAA-MM-DD." }, { status: 400 }); }
 
     const [incomeAgg, incomeCreditsAgg, expenseAgg, expenseCreditsAgg, incomeProfessional, incomeCreditsProfessional] = await Promise.all([
       // Ingresos: facturas de cliente
@@ -40,6 +36,8 @@ export async function GET(request) {
         where: {
           invoiceType: "CUSTOMER_INVOICE",
           status: { in: incomeStatuses },
+          // Rechazada por Hacienda: no es ingreso declarado (la 0204).
+          feStatus: { not: "REJECTED" },
           ...dateFilter,
         },
         _sum:   { subtotal: true, taxAmount: true, total: true, amountPaid: true },
@@ -73,6 +71,7 @@ export async function GET(request) {
         where: {
           invoiceType: "CUSTOMER_INVOICE",
           status: { in: incomeStatuses },
+          feStatus: { not: "REJECTED" },
           professionalId: { not: null },
           ...dateFilter,
         },
